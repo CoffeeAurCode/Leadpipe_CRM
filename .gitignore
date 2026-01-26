@@ -38,3 +38,8 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+
+# Development Documentation (Internal)
+DEVELOPMENT_ANALYSIS.md
+LEARNING_GUIDE_SESSION_*.md
+
