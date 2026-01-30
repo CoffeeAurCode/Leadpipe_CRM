@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from app.routes import complaints
+from app.routes import voice
 
 app = FastAPI(title="AI Complaint System")
 
 app.include_router(complaints.router)
+app.include_router(voice.router)
 
 
 @app.get("/")

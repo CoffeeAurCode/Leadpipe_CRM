@@ -4,6 +4,7 @@ from typing import Optional
 
 
 class ComplaintBase(BaseModel):
+    flat_number: Optional[str] = None
     category: str
     priority: str
     description: str
@@ -12,10 +13,11 @@ class ComplaintBase(BaseModel):
 
 
 class ComplaintCreate(ComplaintBase):
-    tenant_id: int
+    tenant_id: Optional[int] = None
 
 
 class ComplaintUpdate(BaseModel):
+    flat_number: Optional[str] = None
     category: Optional[str] = None
     priority: Optional[str] = None
     description: Optional[str] = None
@@ -26,7 +28,7 @@ class ComplaintUpdate(BaseModel):
 
 class ComplaintResponse(ComplaintBase):
     id: int
-    tenant_id: int
+    tenant_id: Optional[int] = None
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)

@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, TIMESTAMP, CheckConstraint
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
-Base = declarative_base()
+from app.db.base import Base
 
 
 class User(Base):
@@ -54,7 +53,8 @@ class Complaint(Base):
     __tablename__ = "complaints"
     
     id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"))
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True)
+    flat_number = Column(String(20), nullable=True)
     category = Column(String(50), nullable=False)
     priority = Column(String(20), nullable=False)
     description = Column(Text, nullable=False)
@@ -73,11 +73,15 @@ class CallLog(Base):
     __tablename__ = "call_logs"
     
     id = Column(Integer, primary_key=True)
-    phone_number = Column(String(20), nullable=False)
-    transcript = Column(Text, nullable=False)
-    complaint_id = Column(Integer, ForeignKey("complaints.id", ondelete="CASCADE"))
+    call_id = Column(String(100), unique=True, nullable=True)
+    phone_number = Column(String(20), nullable=True)
+    transcript = Column(Text, nullable=True)
+    raw_event_type = Column(String(50), nullable=True)
+    complaint_status = Column(String(20), nullable=True)  # "created" | "incomplete" | "failed"
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    complaint_id = Column(Integer, ForeignKey("complaints.id", ondelete="CASCADE"), nullable=True)
     
     complaint = relationship("Complaint", back_populates="call_log")
     
     def __repr__(self):
-        return f"<CallLog(id={self.id}, phone={self.phone_number})>"
+        return f"<CallLog(id={self.id}, phone={self.phone_number}, status={self.complaint_status})>"

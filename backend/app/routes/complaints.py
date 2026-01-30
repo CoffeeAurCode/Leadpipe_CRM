@@ -8,7 +8,7 @@ from app.schemas.complaint import ComplaintCreate, ComplaintUpdate, ComplaintRes
 router = APIRouter(prefix="/complaints", tags=["Complaints"])
 
 
-@router.post("/", response_model=ComplaintResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ComplaintResponse, status_code=status.HTTP_201_CREATED)
 async def create_complaint(
     complaint_data: ComplaintCreate,
     db: AsyncSession = Depends(get_db)
@@ -20,7 +20,7 @@ async def create_complaint(
     return complaint
 
 
-@router.get("/", response_model=list[ComplaintResponse])
+@router.get("", response_model=list[ComplaintResponse])
 async def get_all_complaints(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Complaint).order_by(Complaint.created_at.desc())
