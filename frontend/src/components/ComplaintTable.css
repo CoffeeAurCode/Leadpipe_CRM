@@ -1,0 +1,149 @@
+.table-container {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+}
+
+.complaint-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+.complaint-table thead tr {
+    background: #9CA3AF;
+    color: #1F2937;
+}
+
+.complaint-table th {
+    padding: 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 16px;
+    font-family: 'Brush Script MT', cursive;
+    letter-spacing: 0.3px;
+    background: #9CA3AF;
+}
+
+.complaint-table th:first-child {
+    border-radius: 12px 0 0 12px;
+    padding-left: 24px;
+}
+
+.complaint-table th:last-child {
+    border-radius: 0 12px 12px 0;
+    padding-right: 24px;
+}
+
+.complaint-table tbody tr {
+    transition: all 0.2s ease;
+    border-radius: 12px;
+}
+
+.complaint-table tbody tr:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.complaint-table td {
+    padding: 20px 16px;
+    font-size: 14px;
+    color: #1F2937;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.complaint-table td:first-child {
+    border-left: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 12px 0 0 12px;
+    padding-left: 24px;
+}
+
+.complaint-table td:last-child {
+    border-right: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 0 12px 12px 0;
+    padding-right: 24px;
+}
+
+/* Priority-based row colors */
+.priority-high {
+    background: linear-gradient(135deg, #FCA5A5 0%, #EF4444 100%) !important;
+    color: white !important;
+}
+
+.priority-high td {
+    color: white !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.priority-medium {
+    background: linear-gradient(135deg, #FDE047 0%, #FACC15 100%) !important;
+    color: #1F2937 !important;
+}
+
+.priority-medium td {
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.priority-low {
+    background: linear-gradient(135deg, #93C5FD 0%, #60A5FA 100%) !important;
+    color: #1F2937 !important;
+}
+
+.priority-low td {
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.cell-number {
+    font-weight: 600;
+    width: 80px;
+}
+
+.cell-flat {
+    width: 120px;
+    font-weight: 500;
+}
+
+.cell-phone {
+    width: 150px;
+    font-family: 'Courier New', monospace;
+}
+
+.cell-description {
+    max-width: 400px;
+    line-height: 1.5;
+}
+
+.cell-status {
+    width: 180px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #9CA3AF;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+/* Custom scrollbar */
+.table-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: #F3F4F6;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: #9CA3AF;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: #6B7280;
+}

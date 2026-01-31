@@ -1,0 +1,76 @@
+.dashboard {
+    flex: 1;
+    padding: 40px;
+    background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+    min-height: 100vh;
+}
+
+.dashboard-header {
+    margin-bottom: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dashboard-title {
+    font-size: 48px;
+    font-weight: 400;
+    color: #374151;
+    font-family: 'Brush Script MT', cursive;
+    margin: 0;
+    letter-spacing: 1px;
+}
+
+.auto-refresh-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #6B7280;
+    background: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #10B981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+.loading-state,
+.error-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.loading-state {
+    color: #6B7280;
+    font-size: 18px;
+}
+
+.error-state {
+    color: #EF4444;
+    font-size: 18px;
+    font-weight: 500;
+}
