@@ -18,7 +18,7 @@ class Settings:
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     APP_NAME: str = os.getenv("APP_NAME", "Tenant Management System")
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
-    ALLOWED_ORIGINS: list[str] = os.getenv("ALLOWED_ORIGINS", "").split(",")
+    ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "")
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "8000"))
 
