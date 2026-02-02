@@ -7,6 +7,11 @@ load_dotenv()
 class Settings:
     #Application configuration settings loaded from environment variables.
     
+    # Supabase Configuration
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
+    
+    # Legacy DATABASE_URL (kept for backward compatibility if needed)
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")

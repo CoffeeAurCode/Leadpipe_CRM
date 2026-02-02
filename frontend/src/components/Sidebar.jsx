@@ -1,47 +1,52 @@
-import React from 'react';
-import './Sidebar.css';
+import { Home, Calendar, Settings } from 'lucide-react';
+import { cn } from '@/lib';
 
-const Sidebar = () => {
+function Sidebar({ currentView, onNavigate }) {
+    const navItems = [
+        { id: 'dashboard', icon: Home, label: 'Dashboard' },
+        { id: 'calendar', icon: Calendar, label: 'Calendar' },
+        { id: 'settings', icon: Settings, label: 'Settings' },
+    ];
+
     return (
-        <div className="sidebar">
-            <div className="sidebar-header">
-                <h1 className="brand">M-TENANT</h1>
+        <aside className="w-20 lg:w-64 bg-card border-r border-border flex flex-col">
+            {/* Logo */}
+            <div className="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-border">
+                <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                    <span className="hidden lg:inline">Dashboard</span>
+                    <span className="lg:hidden">D</span>
+                </h1>
             </div>
 
-            <nav className="sidebar-nav">
-                <div className="nav-item">
-                    <span className="nav-icon">👤</span>
-                    <span className="nav-text">Profile</span>
-                </div>
+            {/* Nav */}
+            <nav className="flex-1 py-6 px-3 lg:px-4">
+                <ul className="space-y-2">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentView === item.id;
 
-                <div className="nav-item active">
-                    <span className="nav-icon">📊</span>
-                    <span className="nav-text">Dashboard</span>
-                </div>
-
-                <div className="nav-item">
-                    <span className="nav-icon">🚪</span>
-                    <span className="nav-text">Logout</span>
-                </div>
+                        return (
+                            <li key={item.id}>
+                                <button
+                                    onClick={() => onNavigate(item.id)}
+                                    className={cn(
+                                        "w-full flex items-center gap-3 px-3 lg:px-4 py-3 rounded-lg transition-all duration-200",
+                                        isActive
+                                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                                            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                    )}
+                                >
+                                    <Icon className="w-5 h-5 flex-shrink-0" />
+                                    <span className="hidden lg:inline font-medium">{item.label}</span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
             </nav>
-
-            <div className="sidebar-footer">
-                <div className="service-badge">
-                    <div className="service-icon">
-                        <div className="service-text">24/7</div>
-                        <div className="service-subtext">SERVICE</div>
-                    </div>
-                </div>
-                <div className="service-illustration">
-                    <div className="person-working">
-                        <div className="person-head"></div>
-                        <div className="person-body"></div>
-                        <div className="laptop"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </aside>
     );
-};
+}
 
 export default Sidebar;
+

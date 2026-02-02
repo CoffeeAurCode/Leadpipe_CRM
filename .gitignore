@@ -2,6 +2,9 @@
 .env
 .env.local
 
+# Design tasks directory
+leadpipe-design-tasks/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,17 +1,15 @@
 from fastapi import APIRouter, Request, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from supabase import Client
 import json
 import httpx
 
 from app.db.session import get_db
-from app.db.models import CallLog
 from app.ai.validator import validate_complaint
 
 router = APIRouter()
 
 @router.post("/voice/webhook")
-async def voice_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+async def voice_webhook(request: Request, db: Client = Depends(get_db)):
     """
     Vapi webhook handler with proper event-type filtering.
     
@@ -200,19 +198,17 @@ async def voice_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 print(f"  missing_fields: {missing}")
         
         # ========== STEP 7: IDEMPOTENCY CHECK ==========
-        result = await db.execute(
-            select(CallLog).where(CallLog.call_id == call_id)
-        )
-        existing_log = result.scalars().first()
+        response = db.table("call_logs").select("*").eq("call_id", call_id).execute()
+        existing_log = response.data[0] if response.data else None
         
         skip_complaint = False
         
         if existing_log:
             print(f"[IDEMPOTENCY]")
-            print(f"  CallLog exists: ID={existing_log.id}")
+            print(f"  CallLog exists: ID={existing_log['id']}")
             
-            if existing_log.complaint_id:
-                print(f"  Complaint already linked: ID={existing_log.complaint_id}")
+            if existing_log.get('complaint_id'):
+                print(f"  Complaint already linked: ID={existing_log['complaint_id']}")
                 skip_complaint = True
             else:
                 print(f"  No complaint yet (retry allowed)")
@@ -234,31 +230,35 @@ async def voice_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         
         # ========== STEP 9: PERSIST CALLLOG (ALWAYS) ==========
         call_log = None
+        call_log_id = None
         
         try:
             if existing_log:
                 call_log = existing_log
+                call_log_id = existing_log['id']
                 print(f"[CALLLOG]")
-                print(f"  Reusing existing: ID={call_log.id}")
+                print(f"  Reusing existing: ID={call_log_id}")
             else:
-                call_log = CallLog(
-                    call_id=call_id,
-                    phone_number=phone_number,
-                    transcript=transcript,
-                    raw_event_type=message_type,
-                    complaint_status=status,
-                    complaint_id=None
-                )
-                db.add(call_log)
-                await db.flush()
+                response = db.table("call_logs").insert({
+                    "call_id": call_id,
+                    "phone_number": phone_number,
+                    "transcript": transcript,
+                    "raw_event_type": message_type,
+                    "complaint_status": status,
+                    "complaint_id": None
+                }).execute()
                 
-                print(f"[CALLLOG CREATED]")
-                print(f"  ID: {call_log.id}")
-                print(f"  status: {status}")
+                if response.data:
+                    call_log = response.data[0]
+                    call_log_id = call_log['id']
+                    print(f"[CALLLOG CREATED]")
+                    print(f"  ID: {call_log_id}")
+                    print(f"  status: {status}")
+                else:
+                    raise Exception("Failed to create call log")
         
         except Exception as e:
-            print(f"✗ ERROR: CallLog creation failed: {e}")
-            await db.rollback()
+            print(f"[X] ERROR: CallLog creation failed: {e}")
             # Still return 200 to prevent Vapi failure
             return {"status": "error", "message": "calllog_failed"}
         
@@ -304,31 +304,42 @@ async def voice_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     data = response.json()
                     complaint_id = data.get("id")
                     
-                    call_log.complaint_id = complaint_id
-                    call_log.complaint_status = "created"
+                    # Update call log with complaint linkage
+                    db.table("call_logs").update({
+                        "complaint_id": complaint_id,
+                        "complaint_status": "created"
+                    }).eq("id", call_log_id).execute()
+                    
+                    call_log['complaint_id'] = complaint_id
+                    call_log['complaint_status'] = "created"
                     
                     complaint_created = True
-                    print(f"  ✓ Complaint created: ID={complaint_id}")
+                    print(f"  [OK] Complaint created: ID={complaint_id}")
                 else:
-                    print(f"  ✗ API returned {response.status_code}")
-                    call_log.complaint_status = "failed"
+                    print(f"  [X] API returned {response.status_code}")
+                    db.table("call_logs").update({
+                        "complaint_status": "failed"
+                    }).eq("id", call_log_id).execute()
+                    call_log['complaint_status'] = "failed"
             
             except Exception as e:
-                print(f"  ✗ Error: {e}")
-                call_log.complaint_status = "failed"
+                print(f"  [X] Error: {e}")
+                db.table("call_logs").update({
+                    "complaint_status": "failed"
+                }).eq("id", call_log_id).execute()
+                call_log['complaint_status'] = "failed"
         
         elif skip_complaint and existing_log:
-            complaint_id = existing_log.complaint_id
+            complaint_id = existing_log.get('complaint_id')
             print(f"[COMPLAINT]")
             print(f"  Using existing: ID={complaint_id}")
         
-        # ========== STEP 11: COMMIT ==========
-        await db.commit()
+        # ========== STEP 11: NO COMMIT NEEDED (Supabase auto-commits) ==========
         
         print(f"[FINAL STATE]")
-        print(f"  CallLog: {call_log.id}")
+        print(f"  CallLog: {call_log_id}")
         print(f"  Complaint: {complaint_id or 'None'}")
-        print(f"  Status: {call_log.complaint_status}")
+        print(f"  Status: {call_log.get('complaint_status')}")
         print("=" * 80)
         
         # Always return 200 for valid final events
@@ -336,13 +347,13 @@ async def voice_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         return {
             "status": "processed",
             "call_id": call_id,
-            "call_log_id": call_log.id,
+            "call_log_id": call_log_id,
             "complaint_created": complaint_created,
             "complaint_id": complaint_id
         }
     
     except Exception as e:
-        print(f"✗ UNHANDLED ERROR: {e}")
+        print(f"[X] UNHANDLED ERROR: {e}")
         import traceback
         traceback.print_exc()
         

@@ -1,15 +1,81 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import Sidebar from './components/Sidebar';
-import Dashboard from './components/Dashboard';
-import './App.css';
+import TopBar from './components/TopBar';
+import BentoDashboard from './components/BentoDashboard';
+import { fetchComplaints } from './services/apiService';
+import { cn } from '@/lib';
 
 function App() {
+    const [complaints, setComplaints] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Fetch complaints on mount
+    useEffect(() => {
+        loadComplaints();
+
+        // Auto-refresh every 30 seconds
+        const interval = setInterval(loadComplaints, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    async function loadComplaints() {
+        try {
+            setLoading(true);
+            const data = await fetchComplaints();
+            setComplaints(data);
+            setError(null);
+        } catch (err) {
+            setError('Failed to load complaints. Please check if the backend is running.');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // Handle complaint update from child components
+    const handleComplaintUpdate = (updatedComplaint) => {
+        setComplaints(prev =>
+            prev.map(c => c.id === updatedComplaint.id ? updatedComplaint : c)
+        );
+    };
+
     return (
-        <div className="app-container">
-            <Sidebar />
-            <Dashboard />
+        <div className="flex h-screen bg-background overflow-hidden">
+            <Sidebar currentView="dashboard" onNavigate={() => { }} />
+
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <TopBar onRefresh={loadComplaints} />
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="flex-1 overflow-y-auto p-6"
+                >
+                    {error && (
+                        <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500 text-red-500">
+                            <p>{error}</p>
+                        </div>
+                    )}
+
+                    {loading && complaints.length === 0 ? (
+                        <div className="flex items-center justify-center h-full">
+                            <p className="text-muted-foreground">Loading complaints...</p>
+                        </div>
+                    ) : (
+                        <BentoDashboard
+                            complaints={complaints}
+                            onComplaintUpdate={handleComplaintUpdate}
+                        />
+                    )}
+                </motion.div>
+            </div>
         </div>
     );
 }
 
 export default App;
+
+

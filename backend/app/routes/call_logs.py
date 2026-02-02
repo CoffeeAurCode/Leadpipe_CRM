@@ -1,33 +1,54 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+"""
+Call logs API routes using Supabase client.
+Handles retrieval of voice call logs.
+"""
+from fastapi import APIRouter, Depends, HTTPException, status
+from supabase import Client
 from app.db.session import get_db
-from app.db.models import CallLog
-from typing import List
-from pydantic import BaseModel
-from datetime import datetime
 
-router = APIRouter(prefix="/call_logs", tags=["CallLogs"])
+router = APIRouter(prefix="/call_logs", tags=["Call Logs"])
 
 
-class CallLogResponse(BaseModel):
-    id: int
-    call_id: str | None
-    phone_number: str | None
-    transcript: str | None
-    raw_event_type: str | None
-    complaint_status: str | None
-    created_at: datetime
-    complaint_id: int | None
-    
-    class Config:
-        from_attributes = True
+@router.get("")
+async def get_all_call_logs(db: Client = Depends(get_db)):
+    """Get all call logs ordered by created_at (newest first)."""
+    try:
+        response = db.table("call_logs")\
+            .select("*")\
+            .order("created_at", desc=True)\
+            .execute()
+        
+        return response.data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching call logs: {str(e)}"
+        )
 
 
-@router.get("", response_model=List[CallLogResponse])
-async def get_all_call_logs(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(CallLog).order_by(CallLog.created_at.desc())
-    )
-    call_logs = result.scalars().all()
-    return call_logs
+@router.get("/{call_log_id}")
+async def get_call_log_by_id(
+    call_log_id: int,
+    db: Client = Depends(get_db)
+):
+    """Get a specific call log by ID."""
+    try:
+        response = db.table("call_logs")\
+            .select("*")\
+            .eq("id", call_log_id)\
+            .execute()
+        
+        if not response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Call log with id {call_log_id} not found"
+            )
+        
+        return response.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching call log: {str(e)}"
+        )
