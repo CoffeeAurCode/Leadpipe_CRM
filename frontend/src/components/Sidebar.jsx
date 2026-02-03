@@ -1,5 +1,6 @@
 import { Home, Calendar, Settings } from 'lucide-react';
 import { cn } from '@/lib';
+import Logo from './icon.svg';
 
 function Sidebar({ currentView, onNavigate }) {
     const navItems = [
@@ -11,11 +12,9 @@ function Sidebar({ currentView, onNavigate }) {
     return (
         <aside className="w-20 lg:w-64 bg-card border-r border-border flex flex-col">
             {/* Logo */}
-            <div className="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-border">
-                <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                    <span className="hidden lg:inline">Dashboard</span>
-                    <span className="lg:hidden">D</span>
-                </h1>
+            <div className="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-border gap-3">
+                <img src={Logo} alt="LeadPipe Logo" className="w-10 h-10 flex-shrink-0" />
+                <span className="hidden lg:inline text-xl font-bold text-foreground">LeadPipe</span>
             </div>
 
             {/* Nav */}
