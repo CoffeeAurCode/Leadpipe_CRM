@@ -14,6 +14,8 @@ allowed_origins = settings.ALLOWED_ORIGINS.split(",") if settings.ALLOWED_ORIGIN
     "https://starlit-baklava-5b31c0.netlify.app"  # Netlify production URL
 ]
 
+print(f"🔧 CORS Allowed Origins: {allowed_origins}")  # Debug log
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
