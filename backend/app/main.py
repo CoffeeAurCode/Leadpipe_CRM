@@ -1,8 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import complaints
-from app.routes import voice
-from app.routes import call_logs
+from app.routes import complaints, voice, call_logs, flats, appointments
 from app.config import settings
 
 app = FastAPI(title="AI Complaint System")
@@ -27,6 +25,8 @@ app.add_middleware(
 app.include_router(complaints.router)
 app.include_router(voice.router)
 app.include_router(call_logs.router)
+app.include_router(flats.router)
+app.include_router(appointments.router)
 
 
 @app.get("/")

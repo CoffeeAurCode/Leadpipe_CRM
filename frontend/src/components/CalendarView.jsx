@@ -15,11 +15,14 @@ export default function CalendarView({ complaints }) {
         return eachDayOfInterval({ start, end });
     }, [currentDate]);
 
-    // Get complaints for a specific date
+    // Get complaints for a specific date BY APPOINTMENT DATE (when manager will visit)
     const getComplaintsForDate = (date) => {
         return complaints.filter(complaint => {
-            const complaintDate = parseISO(complaint.created_at);
-            return isSameDay(complaintDate, date);
+            // If complaint has appointment_date, use that; otherwise use created_at
+            const relevantDate = complaint.appointment_date
+                ? parseISO(complaint.appointment_date)
+                : parseISO(complaint.created_at);
+            return isSameDay(relevantDate, date);
         });
     };
 
@@ -48,7 +51,7 @@ export default function CalendarView({ complaints }) {
                 animate={{ opacity: 1, y: 0 }}
             >
                 <h2 className="calendar-title">
-                    {format(currentDate, 'MMMM yyyy')}
+                    {format(currentDate, 'MMMM yyyy')} - Scheduled Visits
                 </h2>
                 <div className="calendar-nav">
                     <button
@@ -100,7 +103,7 @@ export default function CalendarView({ complaints }) {
                             >
                                 <div className="day-number">{format(day, 'd')}</div>
                                 {hasComplaints && (
-                                    <div className="complaint-indicator">
+                                    <div className="appointment-indicator">
                                         <span className="indicator-dot"></span>
                                         <span className="indicator-count">{dayComplaints.length}</span>
                                     </div>
@@ -123,18 +126,28 @@ export default function CalendarView({ complaints }) {
                         </h3>
 
                         {selectedDateComplaints.length === 0 ? (
-                            <p className="no-complaints">No complaints for this date</p>
+                            <p className="no-appointments">No scheduled visits for this date</p>
                         ) : (
-                            <div className="complaints-list">
+                            <div className="appointments-list">
                                 {selectedDateComplaints.map(complaint => (
-                                    <div key={complaint.id} className="complaint-item">
-                                        <div className="complaint-header-mini">
+                                    <div key={complaint.id} className="appointment-item">
+                                        <div className="appointment-header-mini">
                                             <span className="complaint-id-mini">#{complaint.id}</span>
                                             <span className={`priority-dot priority-${complaint.priority}`}></span>
                                         </div>
-                                        <div className="complaint-flat">Flat: {complaint.flat_number || 'N/A'}</div>
-                                        <div className="complaint-category-mini">{complaint.category}</div>
-                                        <div className="complaint-desc-mini">{complaint.description.substring(0, 80)}...</div>
+                                        <div className="appointment-flat">Flat: {complaint.flat_number || 'N/A'}</div>
+                                        <div className="appointment-category">{complaint.category}</div>
+                                        <div className="appointment-notes">{complaint.description.substring(0, 100)}{complaint.description.length > 100 ? '...' : ''}</div>
+                                        <div className="appointment-status">
+                                            <span className={`status-badge status-${complaint.status}`}>
+                                                {complaint.status}
+                                            </span>
+                                        </div>
+                                        {complaint.appointment_date && (
+                                            <div className="appointment-time">
+                                                Visit time: {format(parseISO(complaint.appointment_date), 'h:mm a')}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

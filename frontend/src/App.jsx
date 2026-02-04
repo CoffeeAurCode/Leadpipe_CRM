@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import BentoDashboard from './components/BentoDashboard';
+import CalendarView from './components/CalendarView';
 import { fetchComplaints } from './services/apiService';
 import { cn } from '@/lib';
 
@@ -10,6 +11,7 @@ function App() {
     const [complaints, setComplaints] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [currentView, setCurrentView] = useState('dashboard');
 
     // Fetch complaints on mount
     useEffect(() => {
@@ -41,14 +43,20 @@ function App() {
         );
     };
 
+    // Handle navigation
+    const handleNavigate = (view) => {
+        setCurrentView(view);
+    };
+
     return (
         <div className="flex h-screen bg-background overflow-hidden">
-            <Sidebar currentView="dashboard" onNavigate={() => { }} />
+            <Sidebar currentView={currentView} onNavigate={handleNavigate} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <TopBar onRefresh={loadComplaints} />
 
                 <motion.div
+                    key={currentView}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
@@ -65,10 +73,22 @@ function App() {
                             <p className="text-muted-foreground">Loading complaints...</p>
                         </div>
                     ) : (
-                        <BentoDashboard
-                            complaints={complaints}
-                            onComplaintUpdate={handleComplaintUpdate}
-                        />
+                        <>
+                            {currentView === 'dashboard' && (
+                                <BentoDashboard
+                                    complaints={complaints}
+                                    onComplaintUpdate={handleComplaintUpdate}
+                                />
+                            )}
+                            {currentView === 'calendar' && (
+                                <CalendarView complaints={complaints} />
+                            )}
+                            {currentView === 'settings' && (
+                                <div className="flex items-center justify-center h-full">
+                                    <p className="text-muted-foreground">Settings coming soon...</p>
+                                </div>
+                            )}
+                        </>
                     )}
                 </motion.div>
             </div>

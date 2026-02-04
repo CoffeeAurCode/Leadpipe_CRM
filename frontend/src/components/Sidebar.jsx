@@ -5,7 +5,6 @@ import Logo from './icon.svg';
 function Sidebar({ currentView, onNavigate }) {
     const navItems = [
         { id: 'dashboard', icon: Home, label: 'Dashboard' },
-        { id: 'calendar', icon: Calendar, label: 'Calendar' },
         { id: 'settings', icon: Settings, label: 'Settings' },
     ];
 

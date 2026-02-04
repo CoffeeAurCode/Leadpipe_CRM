@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO, isFuture } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib';
 
@@ -10,12 +10,17 @@ function CompactCalendar({ complaints, onDateClick }) {
     const monthEnd = endOfMonth(currentDate);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
+    // Group complaints by appointment_date (when manager will visit)
     const complaintsByDate = useMemo(() => {
         const map = {};
         complaints.forEach(complaint => {
-            const date = format(new Date(complaint.created_at), 'yyyy-MM-dd');
-            if (!map[date]) map[date] = [];
-            map[date].push(complaint);
+            // Use appointment_date if available, otherwise created_at
+            const relevantDate = complaint.appointment_date
+                ? parseISO(complaint.appointment_date)
+                : parseISO(complaint.created_at);
+            const dateKey = format(relevantDate, 'yyyy-MM-dd');
+            if (!map[dateKey]) map[dateKey] = [];
+            map[dateKey].push(complaint);
         });
         return map;
     }, [complaints]);
@@ -54,6 +59,14 @@ function CompactCalendar({ complaints, onDateClick }) {
                 </div>
             </div>
 
+            {/* Legend */}
+            <div className="flex items-center gap-3 mb-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-primary/20"></div>
+                    <span>Scheduled visits</span>
+                </div>
+            </div>
+
             {/* Calendar Grid */}
             <div className="grid grid-cols-7 gap-1">
                 {/* Weekday headers */}
@@ -69,27 +82,32 @@ function CompactCalendar({ complaints, onDateClick }) {
                     const complaintsOnDate = complaintsByDate[dateKey] || [];
                     const hasComplaints = complaintsOnDate.length > 0;
                     const today = isToday(day);
+                    const futureDate = isFuture(day) || isToday(day);
 
                     return (
                         <button
                             key={dateKey}
-                            onClick={() => hasComplaints && onDateClick(day, complaintsOnDate)}
-                            disabled={!hasComplaints}
+                            onClick={() => onDateClick(day, complaintsOnDate)}
                             className={cn(
                                 "aspect-square p-1 rounded-lg text-sm transition-all duration-200",
                                 today && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                                 hasComplaints
-                                    ? "bg-primary/10 text-foreground hover:bg-primary hover:text-primary-foreground cursor-pointer"
-                                    : "text-muted-foreground cursor-default",
+                                    ? "bg-primary/10 text-foreground hover:bg-primary hover:text-primary-foreground cursor-pointer font-semibold"
+                                    : futureDate
+                                        ? "text-foreground hover:bg-secondary cursor-pointer"
+                                        : "text-muted-foreground hover:bg-secondary/50 cursor-pointer",
                                 !isSameMonth(day, currentDate) && "opacity-30"
                             )}
                         >
                             <div className="flex flex-col items-center justify-center h-full">
                                 <span>{format(day, 'd')}</span>
                                 {hasComplaints && (
-                                    <span className="text-[10px] font-bold text-primary mt-0.5">
-                                        {complaintsOnDate.length}
-                                    </span>
+                                    <div className="flex items-center gap-0.5 mt-0.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                        <span className="text-[10px] font-bold text-primary">
+                                            {complaintsOnDate.length}
+                                        </span>
+                                    </div>
                                 )}
                             </div>
                         </button>

@@ -295,7 +295,7 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
                 # For Day-3 MVP, this is acceptable
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
-                        "http://localhost:8000/complaints",
+                        "https://tenant-management-mvp.onrender.com/complaints",
                         json=complaint_payload,
                         timeout=10.0
                     )
