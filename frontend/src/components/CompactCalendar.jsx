@@ -1,29 +1,63 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO, isFuture } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib';
+import { api } from '../services/api';
 
 function CompactCalendar({ complaints, onDateClick }) {
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [appointments, setAppointments] = useState([]);
+    const [loading, setLoading] = useState(false);
 
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-    // Group complaints by appointment_date (when manager will visit)
-    const complaintsByDate = useMemo(() => {
+    // Fetch appointments when month changes
+    useEffect(() => {
+        fetchAppointments();
+    }, [currentDate]);
+
+    const fetchAppointments = async () => {
+        setLoading(true);
+        try {
+            const data = await api.fetchAppointments({
+                start_date: monthStart.toISOString(),
+                end_date: monthEnd.toISOString()
+            });
+            setAppointments(data || []);
+        } catch (error) {
+            console.error('Failed to fetch appointments:', error);
+            setAppointments([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Merge complaints (by appointment_date) and standalone appointments
+    const itemsByDate = useMemo(() => {
         const map = {};
+
+        // Add complaints with appointment dates
         complaints.forEach(complaint => {
-            // Use appointment_date if available, otherwise created_at
             const relevantDate = complaint.appointment_date
                 ? parseISO(complaint.appointment_date)
                 : parseISO(complaint.created_at);
             const dateKey = format(relevantDate, 'yyyy-MM-dd');
             if (!map[dateKey]) map[dateKey] = [];
-            map[dateKey].push(complaint);
+            map[dateKey].push({ ...complaint, type: 'complaint' });
         });
+
+        // Add standalone appointments
+        appointments.forEach(appointment => {
+            const appointmentDate = parseISO(appointment.appointment_date);
+            const dateKey = format(appointmentDate, 'yyyy-MM-dd');
+            if (!map[dateKey]) map[dateKey] = [];
+            map[dateKey].push({ ...appointment, type: 'appointment' });
+        });
+
         return map;
-    }, [complaints]);
+    }, [complaints, appointments]);
 
     const previousMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
@@ -79,19 +113,19 @@ function CompactCalendar({ complaints, onDateClick }) {
                 {/* Calendar days */}
                 {daysInMonth.map((day) => {
                     const dateKey = format(day, 'yyyy-MM-dd');
-                    const complaintsOnDate = complaintsByDate[dateKey] || [];
-                    const hasComplaints = complaintsOnDate.length > 0;
+                    const itemsOnDate = itemsByDate[dateKey] || [];
+                    const hasItems = itemsOnDate.length > 0;
                     const today = isToday(day);
                     const futureDate = isFuture(day) || isToday(day);
 
                     return (
                         <button
                             key={dateKey}
-                            onClick={() => onDateClick(day, complaintsOnDate)}
+                            onClick={() => onDateClick(day, itemsOnDate)}
                             className={cn(
                                 "aspect-square p-1 rounded-lg text-sm transition-all duration-200",
                                 today && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                                hasComplaints
+                                hasItems
                                     ? "bg-primary/10 text-foreground hover:bg-primary hover:text-primary-foreground cursor-pointer font-semibold"
                                     : futureDate
                                         ? "text-foreground hover:bg-secondary cursor-pointer"
@@ -101,11 +135,11 @@ function CompactCalendar({ complaints, onDateClick }) {
                         >
                             <div className="flex flex-col items-center justify-center h-full">
                                 <span>{format(day, 'd')}</span>
-                                {hasComplaints && (
+                                {hasItems && (
                                     <div className="flex items-center gap-0.5 mt-0.5">
                                         <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
                                         <span className="text-[10px] font-bold text-primary">
-                                            {complaintsOnDate.length}
+                                            {itemsOnDate.length}
                                         </span>
                                     </div>
                                 )}

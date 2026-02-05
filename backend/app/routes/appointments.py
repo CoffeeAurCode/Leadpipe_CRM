@@ -8,7 +8,8 @@ from app.db.session import get_db
 from app.schemas.appointment import (
     AppointmentCreate,
     AppointmentUpdate,
-    AppointmentResponse
+    AppointmentResponse,
+    AppointmentStatus
 )
 from datetime import datetime
 from typing import Optional
@@ -35,8 +36,11 @@ async def create_appointment(
                 detail=f"Flat {appointment_data.flat_number} not found"
             )
         
+        # Use mode='json' to serialize datetime and enum to strings
+        insert_data = appointment_data.model_dump(mode='json')
+        
         # Create appointment
-        response = db.table("appointments").insert(appointment_data.model_dump()).execute()
+        response = db.table("appointments").insert(insert_data).execute()
         
         if response.data:
             return response.data[0]
