@@ -17,7 +17,36 @@ async def create_complaint(
 ):
     """Create a new complaint."""
     try:
-        response = db.table("complaints").insert(complaint_data.model_dump()).execute()
+        complaint_dict = complaint_data.model_dump(mode='json')
+        
+        # Handle UUID-based flat reference (preferred over flat_number)
+        if complaint_data.flat_uuid:
+            # Verify flat exists
+            flat_check = db.table("flats").select("uuid").eq("uuid", str(complaint_data.flat_uuid)).execute()
+            if not flat_check.data:
+                raise HTTPException(status_code=404, detail="Flat not found")
+        
+        # Backward compatibility: Convert flat_number to flat_uuid if provided
+        elif complaint_data.flat_number:
+            flat = db.table("flats").select("uuid").eq("flat_number", complaint_data.flat_number).execute()
+            if flat.data:
+                complaint_dict['flat_uuid'] = str(flat.data[0]['uuid'])
+            # Keep flat_number for legacy compatibility
+        
+        # Auto-assign tenant_uuid based on who lives in the flat
+        if complaint_dict.get('flat_uuid') and not complaint_dict.get('tenant_uuid'):
+            # Find the tenant living in this flat
+            tenant = db.table("tenants").select("uuid").eq("flat_uuid", complaint_dict['flat_uuid']).execute()
+            if tenant.data and len(tenant.data) > 0:
+                complaint_dict['tenant_uuid'] = str(tenant.data[0]['uuid'])
+        
+        # Convert tenant_id to tenant_uuid if provided (backward compatibility)
+        if complaint_data.tenant_id and not complaint_dict.get('tenant_uuid'):
+            tenant = db.table("tenants").select("uuid").eq("id", complaint_data.tenant_id).execute()
+            if tenant.data:
+                complaint_dict['tenant_uuid'] = str(tenant.data[0]['uuid'])
+        
+        response = db.table("complaints").insert(complaint_dict).execute()
         
         if response.data:
             return response.data[0]
@@ -26,6 +55,8 @@ async def create_complaint(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create complaint"
             )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

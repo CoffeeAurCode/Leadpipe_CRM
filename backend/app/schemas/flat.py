@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 
 class FlatBase(BaseModel):
@@ -27,6 +28,7 @@ class FlatUpdate(BaseModel):
 class FlatResponse(FlatBase):
     """Schema for flat responses"""
     id: int
+    uuid: UUID  # NEW: UUID for external references
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)

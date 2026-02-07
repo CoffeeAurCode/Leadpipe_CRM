@@ -153,5 +153,99 @@ export const api = {
             console.error('Error cancelling appointment:', error);
             throw error;
         }
+    },
+
+    // ========== TENANTS ENDPOINTS ==========
+
+    async fetchTenants() {
+        try {
+            const response = await fetch(`${BASE_URL}/tenants`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching tenants:', error);
+            throw error;
+        }
+    },
+
+    async getTenantByUuid(tenantUuid) {
+        try {
+            const response = await fetch(`${BASE_URL}/tenants/${tenantUuid}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching tenant:', error);
+            throw error;
+        }
+    },
+
+    async getTenantByPhone(phone) {
+        try {
+            const response = await fetch(`${BASE_URL}/tenants/by-phone/${phone}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching tenant by phone:', error);
+            throw error;
+        }
+    },
+
+    async createTenant(tenantData) {
+        try {
+            const response = await fetch(`${BASE_URL}/tenants`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(tenantData),
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error creating tenant:', error);
+            throw error;
+        }
+    },
+
+    async updateTenant(tenantUuid, updateData) {
+        try {
+            const response = await fetch(`${BASE_URL}/tenants/${tenantUuid}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updateData),
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating tenant:', error);
+            throw error;
+        }
+    },
+
+    async deleteTenant(tenantUuid) {
+        try {
+            const response = await fetch(`${BASE_URL}/tenants/${tenantUuid}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error deleting tenant:', error);
+            throw error;
+        }
     }
 };
