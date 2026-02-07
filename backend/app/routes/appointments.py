@@ -130,7 +130,8 @@ async def update_appointment(
     """Update an appointment's details."""
     try:
         # Prepare update data (exclude unset fields)
-        update_data = appointment_data.model_dump(exclude_unset=True)
+        # Use mode='json' to serialize datetime and enum to strings
+        update_data = appointment_data.model_dump(exclude_unset=True, mode='json')
         
         if not update_data:
             raise HTTPException(

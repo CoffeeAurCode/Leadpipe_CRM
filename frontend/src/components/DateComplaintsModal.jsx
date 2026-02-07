@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Calendar, Plus, Clock } from 'lucide-react';
-import { format, parseISO, isFuture, isToday } from 'date-fns';
+import { X, Calendar, Plus, Clock, Edit2, Save, X as CloseIcon, Trash2 } from 'lucide-react';
+import { format, parseISO, isFuture, isToday, setHours, setMinutes, setSeconds } from 'date-fns';
 import PriorityBadge from './PriorityBadge';
 import { cn } from '@/lib';
 import { api } from '../services/api';
@@ -9,6 +9,7 @@ import { api } from '../services/api';
 function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
     const canSchedule = isFuture(date) || isToday(date);
     const [showForm, setShowForm] = useState(false);
+    const [editingAppointment, setEditingAppointment] = useState(null);
     const [formData, setFormData] = useState({
         flat_number: '',
         time: '10:00',
@@ -44,15 +45,15 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                 return;
             }
 
-            // Combine date and time
-            const appointmentDateTime = new Date(date);
-            const [hours, minutes] = formData.time.split(':');
-            appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0);
+            // Build ISO datetime string directly to avoid timezone issues
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const timeStr = formData.time; // Already in HH:mm format
+            const isoDateTime = `${dateStr}T${timeStr}:00`; // e.g., "2026-02-10T14:30:00"
 
             // Create appointment
             await api.createAppointment({
                 flat_number: formData.flat_number,
-                appointment_date: appointmentDateTime.toISOString(),
+                appointment_date: isoDateTime,
                 notes: formData.notes || null,
                 status: 'scheduled'
             });
@@ -68,6 +69,75 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleEdit = (appointment) => {
+        // Parse the appointment date and extract components in UTC to preserve exact time
+        const appointmentDate = parseISO(appointment.appointment_date);
+        const appointmentTime = format(appointmentDate, 'HH:mm');
+
+        setEditingAppointment({
+            id: appointment.id,
+            time: appointmentTime,
+            notes: appointment.notes || '',
+            // Store the original date for reference
+            originalDate: appointment.appointment_date
+        });
+    };
+
+    const handleSaveEdit = async (appointmentId) => {
+        setLoading(true);
+        setError('');
+
+        try {
+            // Build ISO datetime string directly to avoid timezone issues
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const timeStr = editingAppointment.time; // Already in HH:mm format
+            const isoDateTime = `${dateStr}T${timeStr}:00`; // e.g., "2026-02-10T14:30:00"
+
+            // Update appointment
+            await api.updateAppointment(appointmentId, {
+                appointment_date: isoDateTime,
+                notes: editingAppointment.notes || null
+            });
+
+            // Reset and refresh
+            setEditingAppointment(null);
+            window.location.reload();
+        } catch (err) {
+            setError(err.message || 'Failed to update appointment');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (appointmentId) => {
+        // Confirmation dialog for delete
+        const confirmed = window.confirm(
+            'Delete this appointment?\n\n' +
+            'This will permanently remove the appointment from the schedule.'
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        try {
+            await api.cancelAppointment(appointmentId);
+            window.location.reload();
+        } catch (err) {
+            setError(err.message || 'Failed to delete appointment');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingAppointment(null);
+        setError('');
     };
 
     return (
@@ -115,7 +185,89 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                     ) : (
                         allItems.map((item, index) => {
                             const isComplaint = item.type === 'complaint';
+                            const isEditing = editingAppointment?.id === item.id;
+                            const canEdit = !isComplaint && canSchedule;
 
+                            // Edit mode for this appointment  
+                            if (isEditing) {
+                                return (
+                                    <div
+                                        key={`${item.type}-${item.id}-${index}`}
+                                        className="bg-primary/5 rounded-lg border border-primary/20 p-4"
+                                    >
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h4 className="text-sm font-semibold text-foreground">Edit Appointment</h4>
+                                            <button
+                                                onClick={handleCancelEdit}
+                                                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-xs font-medium text-foreground mb-1.5">
+                                                    Flat Number
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={item.flat_number}
+                                                    disabled
+                                                    className="w-full px-3 py-2 rounded-lg border border-border bg-secondary/50 text-muted-foreground text-sm cursor-not-allowed"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-medium text-foreground mb-1.5">
+                                                    Time *
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={editingAppointment.time}
+                                                    onChange={(e) => setEditingAppointment(prev => ({ ...prev, time: e.target.value }))}
+                                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-medium text-foreground mb-1.5">
+                                                    Notes
+                                                </label>
+                                                <textarea
+                                                    value={editingAppointment.notes}
+                                                    onChange={(e) => setEditingAppointment(prev => ({ ...prev, notes: e.target.value }))}
+                                                    placeholder="Add any notes..."
+                                                    rows="2"
+                                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                                                />
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleSaveEdit(item.id)}
+                                                    disabled={loading}
+                                                    className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-medium"
+                                                >
+                                                    <Save className="w-4 h-4" />
+                                                    {loading ? 'Saving...' : 'Save Changes'}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleDelete(item.id)}
+                                                    disabled={loading}
+                                                    className="px-4 py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-medium"
+                                                    title="Delete appointment"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Normal display mode
                             return (
                                 <button
                                     key={`${item.type}-${item.id}-${index}`}
@@ -126,13 +278,27 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                                         }
                                     }}
                                     className={cn(
-                                        "w-full text-left p-4 rounded-lg border border-border bg-secondary",
+                                        "w-full text-left p-4 rounded-lg border border-border bg-secondary relative",
                                         isComplaint && "hover:border-primary hover:bg-card transition-all duration-200 group cursor-pointer",
                                         !isComplaint && "cursor-default"
                                     )}
                                 >
+                                    {/* Edit button for appointments */}
+                                    {canEdit && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(item);
+                                            }}
+                                            className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                                            title="Edit appointment"
+                                        >
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
+                                    )}
+
                                     <div className="flex items-start justify-between gap-2 mb-2">
-                                        <div className="flex-1">
+                                        <div className="flex-1 pr-8">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-xs font-medium text-muted-foreground">
                                                     Flat {item.flat_number || 'N/A'}
