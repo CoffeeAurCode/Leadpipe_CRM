@@ -5,19 +5,14 @@ from app.config import settings
 
 app = FastAPI(title="AI Complaint System")
 
-# Get allowed origins from environment variable, fallback to localhost for development
-allowed_origins = settings.ALLOWED_ORIGINS.split(",") if settings.ALLOWED_ORIGINS else [
-    "http://localhost:5173", 
-    "http://localhost:3000",
-    "https://starlit-baklava-5b31c0.netlify.app"  # Netlify production URL
-]
-
-print(f"🔧 CORS Allowed Origins: {allowed_origins}")  # Debug log
+# CORS Configuration - HARDCODED FOR VAPI
+# Bypassing environment variable to ensure it works
+# This allows requests from Vapi, ngrok, and all external tools
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_origins=["*"],  # HARDCODED - Allow ALL origins
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
