@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { X, MapPin, Calendar, User } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import PriorityBadge from './PriorityBadge';
 import StatusDropdown from './StatusDropdown';
 import { cn } from '@/lib';
@@ -62,7 +62,7 @@ function ComplaintModal({ complaint, onClose, onUpdate }) {
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Created</p>
                                 <p className="text-foreground">
-                                    {format(new Date(complaint.created_at), 'MMM d, yyyy h:mm a')}
+                                    {format(parseISO(complaint.created_at), 'MMM d, yyyy h:mm a')}
                                 </p>
                             </div>
                         </div>

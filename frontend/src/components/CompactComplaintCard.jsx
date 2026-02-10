@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import PriorityBadge from './PriorityBadge';
 import StatusDropdown from './StatusDropdown';
 import { MapPin } from 'lucide-react';
@@ -30,7 +30,7 @@ function CompactComplaintCard({ complaint, onClick, onUpdate }) {
 
             <div className="flex items-center justify-between gap-2 mt-3">
                 <span className="text-xs text-muted-foreground">
-                    {format(new Date(complaint.created_at), 'MMM d, yyyy')}
+                    {format(parseISO(complaint.created_at), 'MMM d, yyyy')}
                 </span>
                 <StatusDropdown
                     currentStatus={complaint.status}

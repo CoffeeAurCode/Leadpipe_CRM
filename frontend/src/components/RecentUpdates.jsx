@@ -1,5 +1,5 @@
 import { Clock } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import PriorityBadge from './PriorityBadge';
 
 function RecentUpdates({ complaints, onComplaintClick }) {
@@ -24,7 +24,7 @@ function RecentUpdates({ complaints, onComplaintClick }) {
                             <PriorityBadge priority={complaint.priority} />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            {format(new Date(complaint.created_at), 'MMM d, h:mm a')}
+                            {format(parseISO(complaint.created_at), 'MMM d, h:mm a')}
                         </p>
                     </button>
                 ))}
