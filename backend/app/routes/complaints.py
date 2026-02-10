@@ -66,14 +66,35 @@ async def create_complaint(
 
 @router.get("", response_model=list[ComplaintResponse])
 async def get_all_complaints(db: Client = Depends(get_db)):
-    """Get all complaints ordered by created_at (newest first)."""
+    """Get all complaints with appointment data (if exists) ordered by created_at (newest first)."""
     try:
+        # Join with appointments using explicit foreign key relationship
+        # Use UUID-based relationship: fk_appointments_complaint_uuid
         response = db.table("complaints")\
-            .select("*")\
+            .select("*, appointments!fk_appointments_complaint_uuid(*)")\
             .order("created_at", desc=True)\
             .execute()
         
-        return response.data
+        # Flatten the response to include appointment fields at root level
+        complaints = []
+        for complaint in response.data:
+            complaint_data = {**complaint}
+            
+            # Extract appointment data if exists (LEFT JOIN so might be None/empty list)
+            appointments = complaint.get('appointments', [])
+            if appointments and len(appointments) > 0:
+                appt = appointments[0]  # Get first appointment
+                complaint_data['appointment_date'] = appt.get('appointment_date')  # Column is appointment_date, not scheduled_at
+                complaint_data['appointment_status'] = appt.get('status')
+            else:
+                complaint_data['appointment_date'] = None
+                complaint_data['appointment_status'] = None
+            
+            # Remove nested appointments array (already flattened)
+            complaint_data.pop('appointments', None)
+            complaints.append(complaint_data)
+        
+        return complaints
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

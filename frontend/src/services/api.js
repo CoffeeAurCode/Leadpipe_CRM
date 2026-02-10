@@ -247,5 +247,40 @@ export const api = {
             console.error('Error deleting tenant:', error);
             throw error;
         }
+    },
+
+    // ========== APPOINTMENTS ENDPOINTS ==========
+    async updateAppointment(id, data) {
+        try {
+            const response = await fetch(`${BASE_URL}/appointments/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error updating appointment:', error);
+            throw error;
+        }
+    },
+
+    async deleteAppointment(id) {
+        try {
+            const response = await fetch(`${BASE_URL}/appointments/${id}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error deleting appointment:', error);
+            throw error;
+        }
     }
 };

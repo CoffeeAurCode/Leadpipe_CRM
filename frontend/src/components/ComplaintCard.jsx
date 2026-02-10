@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
+import { CalendarIcon } from '@heroicons/react/24/outline';
 import PriorityBadge from './PriorityBadge';
 import StatusDropdown from './StatusDropdown';
 import { formatDate } from '../services/apiService';
+import { format, parseISO } from 'date-fns';
 import './ComplaintCard.css';
 
-export default function ComplaintCard({ complaint, onUpdate }) {
+export default function ComplaintCard({ complaint, onUpdate, onViewDetails }) {
     const truncateText = (text, maxLength = 120) => {
         if (!text) return '';
         return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
@@ -12,11 +14,12 @@ export default function ComplaintCard({ complaint, onUpdate }) {
 
     return (
         <motion.div
-            className="complaint-card"
+            className="complaint-card clickable"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ scale: 1.02 }}
             transition={{ duration: 0.3 }}
+            onClick={() => onViewDetails && onViewDetails(complaint)}
         >
             {/* Header */}
             <div className="card-header">
@@ -37,6 +40,14 @@ export default function ComplaintCard({ complaint, onUpdate }) {
                 <p className="description">
                     {truncateText(complaint.description)}
                 </p>
+
+                {/* Appointment Badge */}
+                {complaint.appointment_date && (
+                    <div className="appointment-badge">
+                        <CalendarIcon className="appointment-icon" />
+                        <span>{format(parseISO(complaint.appointment_date), 'MMM d, h:mm a')}</span>
+                    </div>
+                )}
             </div>
 
             {/* Footer */}

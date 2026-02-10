@@ -74,7 +74,10 @@ async def get_appointments(
     - flat_number: Filter by specific flat
     """
     try:
-        query = db.table("appointments").select("*")
+        # Join with complaints table using explicit FK name
+        # Must specify FK because appointments has 2 relationships to complaints
+        query = db.table("appointments")\
+            .select("*, complaints!fk_appointments_complaint_uuid(category, description, priority)")
         
         # Apply filters
         if start_date:
@@ -85,11 +88,35 @@ async def get_appointments(
             query = query.eq("flat_number", flat_number)
         
         response = query.order("appointment_date").execute()
-        return response.data
+        
+        # Flatten response to include complaint fields at root level
+        appointments = []
+        for apt in response.data:
+            apt_data = {**apt}
+            
+            # Extract complaint data if exists (LEFT JOIN returns dict or None)
+            complaints_data = apt.get('complaints')
+            
+            if complaints_data and isinstance(complaints_data, dict):
+                # Single complaint object
+                apt_data['complaint_category'] = complaints_data.get('category')
+                apt_data['complaint_description'] = complaints_data.get('description')
+                apt_data['complaint_priority'] = complaints_data.get('priority')
+            else:
+                apt_data['complaint_category'] = None
+                apt_data['complaint_description'] = None
+                apt_data['complaint_priority'] = None
+            
+            # Remove nested complaints array
+            apt_data.pop('complaints', None)
+            appointments.append(apt_data)
+        
+        return appointments
     except Exception as e:
+        print(f"[ERROR] Appointments fetch failed: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching appointments: {str(e)}"
+            detail=f"Error fetching appointments: {type(e).__name__} - {str(e)}"
         )
 
 

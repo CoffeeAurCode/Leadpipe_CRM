@@ -5,11 +5,13 @@ import { format, parseISO, isFuture, isToday, setHours, setMinutes, setSeconds }
 import PriorityBadge from './PriorityBadge';
 import { cn } from '@/lib';
 import { api } from '../services/api';
+import AppointmentDetailModal from './AppointmentDetailModal';
 
 function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
     const canSchedule = isFuture(date) || isToday(date);
     const [showForm, setShowForm] = useState(false);
     const [editingAppointment, setEditingAppointment] = useState(null);
+    const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [formData, setFormData] = useState({
         flat_number: '',
         time: '10:00',
@@ -19,10 +21,9 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
     const [error, setError] = useState('');
     const [flatError, setFlatError] = useState('');
 
-    // Separate complaints and appointments (complaints is now array of both)
-    const actualComplaints = complaints.filter(item => item.type === 'complaint');
-    const standaloneAppointments = complaints.filter(item => item.type === 'appointment');
-    const allItems = [...actualComplaints, ...standaloneAppointments];
+    // All items are complaints (they may or may not have appointments)
+    // Filter out any that don't have required fields
+    const allItems = complaints.filter(item => item && item.id);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -184,15 +185,16 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                         </div>
                     ) : (
                         allItems.map((item, index) => {
-                            const isComplaint = item.type === 'complaint';
+                            // All items are complaints, they may have appointments attached
+                            const hasAppointment = item.appointment_date != null;
                             const isEditing = editingAppointment?.id === item.id;
-                            const canEdit = !isComplaint && canSchedule;
+                            const canEdit = false; // We don't support direct appointment editing here
 
                             // Edit mode for this appointment  
                             if (isEditing) {
                                 return (
                                     <div
-                                        key={`${item.type}-${item.id}-${index}`}
+                                        key={`complaint-${item.id}-${index}`}
                                         className="bg-primary/5 rounded-lg border border-primary/20 p-4"
                                     >
                                         <div className="flex items-center justify-between mb-3">
@@ -270,17 +272,22 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                             // Normal display mode
                             return (
                                 <button
-                                    key={`${item.type}-${item.id}-${index}`}
+                                    key={`complaint-${item.id}-${index}`}
                                     onClick={() => {
-                                        if (isComplaint) {
+                                        // Appointments from appointments table have 'uuid' and typically no 'category'
+                                        // Complaints from complaints table have 'category'
+                                        const isAppointment = item.uuid != null && item.category == null;
+
+                                        if (isAppointment) {
+                                            setSelectedAppointment(item);
+                                        } else {
                                             onClose();
                                             onComplaintClick(item);
                                         }
                                     }}
                                     className={cn(
                                         "w-full text-left p-4 rounded-lg border border-border bg-secondary relative",
-                                        isComplaint && "hover:border-primary hover:bg-card transition-all duration-200 group cursor-pointer",
-                                        !isComplaint && "cursor-default"
+                                        "hover:border-primary hover:bg-card transition-all duration-200 group cursor-pointer"
                                     )}
                                 >
                                     {/* Edit button for appointments */}
@@ -303,39 +310,33 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                                                 <span className="text-xs font-medium text-muted-foreground">
                                                     Flat {item.flat_number || 'N/A'}
                                                 </span>
-                                                {isComplaint && (
-                                                    <>
-                                                        <span className="text-xs text-muted-foreground">•</span>
-                                                        <span className="text-xs font-medium text-primary capitalize">
-                                                            {item.category}
-                                                        </span>
-                                                    </>
-                                                )}
-                                                {!isComplaint && (
-                                                    <>
-                                                        <span className="text-xs text-muted-foreground">•</span>
-                                                        <span className="text-xs font-medium text-blue-500">
-                                                            Appointment
-                                                        </span>
-                                                    </>
-                                                )}
+                                                <span className="text-xs text-muted-foreground">•</span>
+                                                <span className="text-xs font-medium text-primary capitalize">
+                                                    {item.category || item.complaint_category || 'Visit'}
+                                                </span>
                                             </div>
                                             <h4 className={cn(
                                                 "text-sm font-semibold text-foreground",
-                                                isComplaint && "group-hover:text-primary transition-colors"
+                                                "group-hover:text-primary transition-colors"
                                             )}>
-                                                {isComplaint
+                                                {item.description
                                                     ? `${item.description?.substring(0, 60)}${item.description?.length > 60 ? '...' : ''}`
-                                                    : item.notes || 'Scheduled visit'
+                                                    : item.complaint_description
+                                                        ? `Fix ${item.complaint_category} issue`
+                                                        : item.notes || 'Scheduled Visit'
                                                 }
                                             </h4>
                                         </div>
-                                        {isComplaint && <PriorityBadge priority={item.priority} />}
+                                        {item.priority && <PriorityBadge priority={item.priority} />}
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
-                                        <Clock className="w-3.5 h-3.5" />
-                                        <span>{format(parseISO(item.appointment_date), 'h:mm a')}</span>
-                                    </div>
+
+                                    {/* Show appointment time if exists */}
+                                    {hasAppointment && (
+                                        <div className="flex items-center gap-1.5 text-xs text-blue-500 font-medium mt-2">
+                                            <Calendar className="w-3.5 h-3.5" />
+                                            <span>Scheduled: {format(parseISO(item.appointment_date), 'MMM d, h:mm a')}</span>
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-2 mt-2">
                                         <span className={cn(
                                             "text-xs px-2 py-0.5 rounded-full capitalize",
@@ -460,6 +461,21 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                     </div>
                 )}
             </motion.div>
+
+            {/* Appointment Detail Modal */}
+            <AppointmentDetailModal
+                appointment={selectedAppointment}
+                isOpen={selectedAppointment != null}
+                onClose={() => setSelectedAppointment(null)}
+                onUpdate={async (id, data) => {
+                    await api.updateAppointment(id, data);
+                    window.location.reload(); // Refresh to show changes
+                }}
+                onDelete={async (id) => {
+                    await api.deleteAppointment(id);
+                    window.location.reload(); // Refresh to show changes
+                }}
+            />
         </div>
     );
 }

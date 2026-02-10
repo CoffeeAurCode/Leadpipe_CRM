@@ -1,0 +1,92 @@
+.complaint-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.complaint-card.clickable {
+    cursor: pointer;
+}
+
+.complaint-card.clickable:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.card-id {
+    font-weight: 700;
+    color: #6366f1;
+    font-size: 14px;
+}
+
+.card-body {
+    margin-bottom: 16px;
+}
+
+.card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.flat-number {
+    font-weight: 600;
+    color: #374151;
+}
+
+.separator {
+    color: #9ca3af;
+}
+
+.category {
+    color: #6b7280;
+    text-transform: capitalize;
+}
+
+.description {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #4b5563;
+    margin: 0;
+}
+
+.appointment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #4f46e5;
+    font-weight: 600;
+}
+
+.appointment-icon {
+    width: 14px;
+    height: 14px;
+}
+
+.card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.timestamp {
+    font-size: 12px;
+    color: #9ca3af;
+}

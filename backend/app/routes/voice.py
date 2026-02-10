@@ -182,7 +182,7 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
             print(f"[COMPLAINT DATA]")
             print(f"  flat_number: {complaint_data.get('flat_number')}")
             print(f"  category: {complaint_data.get('category')}")
-            print(f"  priority: {complaint_data.get('priority')}")
+            print(f"  appointment_datetime: {complaint_data.get('appointment_datetime')}")
         
         # ========== STEP 6: VALIDATE COMPLAINT DATA ==========
         is_valid = False
@@ -283,12 +283,15 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
                 complaint_payload = {
                     "flat_number": complaint_data.get("flat_number"),
                     "category": complaint_data.get("category"),
-                    "priority": complaint_data.get("priority"),
+                    "priority": "medium",  # Default priority for voice complaints
                     "description": description,
                     "status": "pending",
                     "source": "voice",
                     "tenant_id": None
                 }
+                
+                # Store appointment datetime for later use
+                appointment_datetime = complaint_data.get("appointment_datetime")
                 
                 # TODO: Future improvement - call service function directly instead of HTTP
                 # This HTTP approach will break with gunicorn/multiple workers/Docker
@@ -296,6 +299,7 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
                         "https://tenant-management-mvp.onrender.com/complaints",
+                        # "http://localhost:8000/complaints",  # Use localhost for local dev
                         json=complaint_payload,
                         timeout=10.0
                     )
@@ -303,6 +307,34 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
                 if response.status_code == 201:
                     data = response.json()
                     complaint_id = data.get("id")
+                    complaint_uuid = data.get("uuid")  # UUID for foreign key
+                    
+                    # Create appointment if datetime provided
+                    appointment_id = None
+                    if appointment_datetime and complaint_uuid:
+                        try:
+                            # Get flat_uuid for appointment
+                            flat_no = complaint_data.get("flat_number")
+                            flat_response = db.table("flats").select("uuid").eq("flat_number", flat_no.strip().upper()).execute()
+                            
+                            if flat_response.data:
+                                flat_uuid = flat_response.data[0]['uuid']
+                                
+                                appointment_payload = {
+                                    "flat_number": flat_no.strip().upper(),  # Required field
+                                    "complaint_uuid": complaint_uuid,
+                                    "flat_uuid": flat_uuid,
+                                    "appointment_date": appointment_datetime,
+                                    "status": "scheduled"
+                                }
+                                
+                                appointment_response = db.table("appointments").insert(appointment_payload).execute()
+                                if appointment_response.data:
+                                    appointment_id = appointment_response.data[0]['id']
+                                    print(f"  [OK] Appointment created: ID={appointment_id} at {appointment_datetime}")
+                        except Exception as e:
+                            print(f"  [!] Appointment creation failed: {e}")
+                            # Don't fail the whole flow if appointment fails
                     
                     # Update call log with complaint linkage
                     db.table("call_logs").update({

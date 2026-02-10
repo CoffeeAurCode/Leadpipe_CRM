@@ -1,12 +1,37 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, isToday, parseISO } from 'date-fns';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { api } from '../services/api';
 import './CalendarView.css';
 
 export default function CalendarView({ complaints }) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
+    const [appointments, setAppointments] = useState([]);
+
+    // Fetch appointments for current month
+    useEffect(() => {
+        const fetchAppointments = async () => {
+            try {
+                const start = startOfMonth(currentDate);
+                const end = endOfMonth(currentDate);
+                const startDate = format(start, 'yyyy-MM-dd');
+                const endDate = format(end, 'yyyy-MM-dd');
+
+                const response = await fetch(
+                    `http://localhost:8000/appointments?start_date=${startDate}&end_date=${endDate}`
+                );
+                const data = await response.json();
+                setAppointments(data);
+            } catch (error) {
+                console.error('Error fetching appointments:', error);
+                setAppointments([]);
+            }
+        };
+
+        fetchAppointments();
+    }, [currentDate]);
 
     // Get month days
     const monthDays = useMemo(() => {
@@ -15,22 +40,32 @@ export default function CalendarView({ complaints }) {
         return eachDayOfInterval({ start, end });
     }, [currentDate]);
 
-    // Get complaints for a specific date BY APPOINTMENT DATE (when manager will visit)
-    const getComplaintsForDate = (date) => {
-        return complaints.filter(complaint => {
-            // If complaint has appointment_date, use that; otherwise use created_at
+    // Get complaints AND appointments for a specific date
+    const getItemsForDate = (date) => {
+        // Get complaints with appointments
+        const complaintsForDate = complaints.filter(complaint => {
             const relevantDate = complaint.appointment_date
                 ? parseISO(complaint.appointment_date)
                 : parseISO(complaint.created_at);
             return isSameDay(relevantDate, date);
         });
+
+        // Get standalone appointments (not linked to complaints shown above)
+        const appointmentsForDate = appointments.filter(apt => {
+            if (!apt.appointment_date) return false;
+            const aptDate = parseISO(apt.appointment_date);
+            return isSameDay(aptDate, date);
+        });
+
+        // Merge: complaints first, then standalone appointments
+        return [...complaintsForDate, ...appointmentsForDate];
     };
 
-    // Get selected date complaints
-    const selectedDateComplaints = useMemo(() => {
+    // Get selected date items (complaints + appointments)
+    const selectedDateItems = useMemo(() => {
         if (!selectedDate) return [];
-        return getComplaintsForDate(selectedDate);
-    }, [selectedDate, complaints]);
+        return getItemsForDate(selectedDate);
+    }, [selectedDate, complaints, appointments]);
 
     // Navigate months
     const goToPreviousMonth = () => {
@@ -88,8 +123,8 @@ export default function CalendarView({ complaints }) {
 
                     {/* Month days */}
                     {monthDays.map(day => {
-                        const dayComplaints = getComplaintsForDate(day);
-                        const hasComplaints = dayComplaints.length > 0;
+                        const dayItems = getItemsForDate(day);
+                        const hasItems = dayItems.length > 0;
                         const isSelected = selectedDate && isSameDay(day, selectedDate);
                         const isTodayDate = isToday(day);
 
@@ -102,10 +137,10 @@ export default function CalendarView({ complaints }) {
                                 whileTap={{ scale: 0.95 }}
                             >
                                 <div className="day-number">{format(day, 'd')}</div>
-                                {hasComplaints && (
+                                {hasItems && (
                                     <div className="appointment-indicator">
                                         <span className="indicator-dot"></span>
-                                        <span className="indicator-count">{dayComplaints.length}</span>
+                                        <span className="indicator-count">{dayItems.length}</span>
                                     </div>
                                 )}
                             </motion.div>
@@ -125,27 +160,29 @@ export default function CalendarView({ complaints }) {
                             {format(selectedDate, 'MMMM d, yyyy')}
                         </h3>
 
-                        {selectedDateComplaints.length === 0 ? (
+                        {selectedDateItems.length === 0 ? (
                             <p className="no-appointments">No scheduled visits for this date</p>
                         ) : (
                             <div className="appointments-list">
-                                {selectedDateComplaints.map(complaint => (
-                                    <div key={complaint.id} className="appointment-item">
+                                {selectedDateItems.map(item => (
+                                    <div key={item.id} className="appointment-item">
                                         <div className="appointment-header-mini">
-                                            <span className="complaint-id-mini">#{complaint.id}</span>
-                                            <span className={`priority-dot priority-${complaint.priority}`}></span>
+                                            <span className="complaint-id-mini">#{item.id}</span>
+                                            {item.priority && <span className={`priority-dot priority-${item.priority}`}></span>}
                                         </div>
-                                        <div className="appointment-flat">Flat: {complaint.flat_number || 'N/A'}</div>
-                                        <div className="appointment-category">{complaint.category}</div>
-                                        <div className="appointment-notes">{complaint.description.substring(0, 100)}{complaint.description.length > 100 ? '...' : ''}</div>
+                                        <div className="appointment-flat">Flat: {item.flat_number || 'N/A'}</div>
+                                        <div className="appointment-category">{item.category || item.complaint_category || 'Visit'}</div>
+                                        <div className="appointment-notes">
+                                            {(item.description || item.complaint_description || item.notes || 'Scheduled visit').substring(0, 100)}{(item.description || item.complaint_description || item.notes || '').length > 100 ? '...' : ''}
+                                        </div>
                                         <div className="appointment-status">
-                                            <span className={`status-badge status-${complaint.status}`}>
-                                                {complaint.status}
+                                            <span className={`status-badge status-${item.status}`}>
+                                                {item.status}
                                             </span>
                                         </div>
-                                        {complaint.appointment_date && (
+                                        {item.appointment_date && (
                                             <div className="appointment-time">
-                                                Visit time: {format(parseISO(complaint.appointment_date), 'h:mm a')}
+                                                Visit time: {format(parseISO(item.appointment_date), 'h:mm a')}
                                             </div>
                                         )}
                                     </div>

@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ComplaintCard from './ComplaintCard';
+import ComplaintDetailModal from './ComplaintDetailModal';
 import './ComplaintsOverview.css';
 
 export default function ComplaintsOverview({ complaints, loading, onComplaintUpdate }) {
     const [selectedStatus, setSelectedStatus] = useState('all');
     const [selectedPriority, setSelectedPriority] = useState('all');
+    const [selectedComplaint, setSelectedComplaint] = useState(null);
 
     // Calculate statistics
     const stats = useMemo(() => {
@@ -127,10 +129,18 @@ export default function ComplaintsOverview({ complaints, loading, onComplaintUpd
                             key={complaint.id}
                             complaint={complaint}
                             onUpdate={onComplaintUpdate}
+                            onViewDetails={setSelectedComplaint}
                         />
                     ))}
                 </motion.div>
             )}
+
+            {/* Detail Modal */}
+            <ComplaintDetailModal
+                complaint={selectedComplaint}
+                isOpen={selectedComplaint !== null}
+                onClose={() => setSelectedComplaint(null)}
+            />
         </div>
     );
 }
