@@ -472,7 +472,7 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                     window.location.reload(); // Refresh to show changes
                 }}
                 onDelete={async (id) => {
-                    await api.deleteAppointment(id);
+                    await api.cancelAppointment(id);
                     window.location.reload(); // Refresh to show changes
                 }}
             />
