@@ -1,5 +1,6 @@
 // Use environment variable for API URL, fallback to localhost for development
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { format } from 'date-fns';
 
 /**
  * API Service for Tenant Management Backend
@@ -103,14 +104,25 @@ export function getPriorityDisplay(priority) {
     return priorityMap[priority] || priority;
 }
 
-// Helper: Format date
+// Helper: Format date with manual IST conversion
 export function formatDate(dateString) {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    }).format(date);
+    console.log('formatDate called with:', dateString);
+    if (!dateString) return 'N/A';
+
+    try {
+        // Ensure the string has 'Z' suffix to explicitly mark it as UTC
+        const utcString = dateString.endsWith('Z') ? dateString : dateString + 'Z';
+
+        // Parse as UTC
+        const utcDate = new Date(utcString);
+
+        // Manually add IST offset: +5 hours 30 minutes (330 minutes = 19800000 milliseconds)
+        const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+
+        // Format the IST time
+        return format(istDate, 'MMM d, yyyy h:mm a');
+    } catch (error) {
+        console.error('Error formatting date:', error);
+        return dateString;
+    }
 }

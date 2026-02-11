@@ -16,6 +16,7 @@
         "autoprefixer": "^10.4.24",
         "clsx": "^2.1.1",
         "date-fns": "^3.0.0",
+        "date-fns-tz": "^3.2.0",
         "framer-motion": "^11.0.0",
         "lucide-react": "^0.563.0",
         "postcss": "^8.5.6",

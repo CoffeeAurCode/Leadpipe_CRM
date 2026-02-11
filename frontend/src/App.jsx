@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import BentoDashboard from './components/BentoDashboard';
 import CalendarView from './components/CalendarView';
-import { fetchComplaints } from './services/apiService';
+import { fetchComplaints, updateComplaint } from './services/apiService';
 import { cn } from '@/lib';
 
 function App() {
@@ -37,10 +37,42 @@ function App() {
     }
 
     // Handle complaint update from child components
-    const handleComplaintUpdate = (updatedComplaint) => {
-        setComplaints(prev =>
-            prev.map(c => c.id === updatedComplaint.id ? updatedComplaint : c)
-        );
+    const handleComplaintUpdate = async (updatedComplaint) => {
+        try {
+            // Extract only the fields that have changed
+            // For status updates, we only need to send the status field
+            const updates = {};
+
+            // Find the original complaint to compare
+            const original = complaints.find(c => c.id === updatedComplaint.id);
+
+            if (!original) {
+                console.error('Original complaint not found');
+                return;
+            }
+
+            // Determine which fields changed
+            if (updatedComplaint.status !== original.status) {
+                updates.status = updatedComplaint.status;
+            }
+
+            // If no changes, skip API call
+            if (Object.keys(updates).length === 0) {
+                return;
+            }
+
+            // Call the backend API to persist changes
+            const serverUpdatedComplaint = await updateComplaint(updatedComplaint.id, updates);
+
+            // Only update local state after successful API response
+            setComplaints(prev =>
+                prev.map(c => c.id === serverUpdatedComplaint.id ? serverUpdatedComplaint : c)
+            );
+        } catch (error) {
+            console.error('Failed to update complaint:', error);
+            // Optionally show user-friendly error message
+            alert('Failed to update complaint. Please try again.');
+        }
     };
 
     // Handle navigation
