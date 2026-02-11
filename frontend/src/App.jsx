@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import BentoDashboard from './components/BentoDashboard';
 import CalendarView from './components/CalendarView';
+import PropertiesPage from './components/PropertiesPage';
 import { fetchComplaints, updateComplaint } from './services/apiService';
 import { cn } from '@/lib';
 
@@ -114,6 +115,9 @@ function App() {
                             )}
                             {currentView === 'calendar' && (
                                 <CalendarView complaints={complaints} />
+                            )}
+                            {currentView === 'properties' && (
+                                <PropertiesPage />
                             )}
                             {currentView === 'settings' && (
                                 <div className="flex items-center justify-center h-full">

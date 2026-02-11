@@ -126,3 +126,19 @@ export function formatDate(dateString) {
         return dateString;
     }
 }
+
+// Fetch all properties
+export async function fetchProperties() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/properties`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error fetching properties:', error);
+        throw error;
+    }
+}
+

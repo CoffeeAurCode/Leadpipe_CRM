@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import complaints, voice, call_logs, flats, appointments, tenants
+from app.routes import complaints, voice, call_logs, flats, appointments, tenants, properties
 from app.config import settings
 
 app = FastAPI(title="AI Complaint System")
@@ -23,6 +23,7 @@ app.include_router(call_logs.router)
 app.include_router(flats.router)
 app.include_router(appointments.router)
 app.include_router(tenants.router)  # NEW: Tenant management routes
+app.include_router(properties.router)  # NEW: Properties listing routes
 
 
 @app.get("/")
