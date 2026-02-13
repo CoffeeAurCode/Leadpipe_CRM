@@ -135,30 +135,57 @@ def _extract_flat_number(text: str) -> str | None:
     """
     Extract flat/unit number using regex patterns.
     
-    Supports formats:
-    - A-101, B-204
-    - A 101, B 204
-    - Flat 302, Unit 12B
-    - 302, 12B (standalone numbers)
+    PATTERN PRIORITY (CRITICAL):
+    Alphanumeric patterns MUST be evaluated BEFORE pure digit patterns.
+    This prevents "A101" from being incorrectly parsed as "101".
+    
+    Supported formats (in priority order):
+    1. A-101, B-204 (letter + hyphen + digits)
+    2. flat A101, unit B204 (keyword + alphanumeric)
+    3. A101, B204 (letter + digits, no hyphen)
+    4. A 101, B 204 (letter + space + digits)
+    5. 101A, 204B (digits + letter suffix)
+    6. 101, 204 (pure digits - LAST RESORT ONLY)
     
     Returns first match found, or None if no match.
     """
+    # PRIORITY ORDER: Alphanumeric patterns FIRST, pure digits LAST
     patterns = [
+        # Priority 1: Letter + optional hyphen/space + digits (A-101, A101, A 101)
         r'\b([A-Z]-?\s?\d{1,4}[A-Z]?)\b',
+        
+        # Priority 2: Keyword prefix (flat A101, unit B204)
         r'\b(flat|unit)\s+([A-Z0-9-]+)\b',
+        
+        # Priority 3: Digits + letter suffix (101A, 204B)
         r'\b(\d{1,4}[A-Z])\b',
+        
+        # Priority 4: Letter + space + digits (A 101)
         r'\b([A-Z]\s?\d{1,4})\b',
+        
+        # Priority 5: PURE DIGITS ONLY - LAST RESORT
+        # This pattern deliberately placed LAST to avoid stripping prefixes
         r'^\s*(\d{2,4})\s*$'
     ]
     
-    for pattern in patterns:
+    # Defensive logging for debugging flat extraction
+    print(f"[EXTRACTOR] Input text: '{text}'")
+    
+    for idx, pattern in enumerate(patterns, 1):
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
+            # Extract the matched value based on pattern structure
             if 'flat' in pattern or 'unit' in pattern:
-                return match.group(2).strip()
+                extracted = match.group(2).strip()
             else:
-                return match.group(1).strip()
+                extracted = match.group(1).strip()
+            
+            # Log which pattern matched (helps identify if pure digit is incorrectly matching)
+            print(f"[EXTRACTOR] Pattern {idx} matched: {pattern[:30]}... → '{extracted}'")
+            
+            return extracted
     
+    print(f"[EXTRACTOR] No pattern matched")
     return None
 
 

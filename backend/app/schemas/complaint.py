@@ -6,7 +6,7 @@ from uuid import UUID
 
 class ComplaintBase(BaseModel):
     category: str
-    priority: str
+    appointment_datetime: str
     description: str
     status: str
     source: str = "AI_AGENT"
@@ -26,7 +26,7 @@ class ComplaintCreate(ComplaintBase):
 class ComplaintUpdate(BaseModel):
     """Update complaint fields"""
     category: Optional[str] = None
-    priority: Optional[str] = None
+    appointment_datetime: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
     
