@@ -6,6 +6,7 @@ import PriorityBadge from './PriorityBadge';
 import { cn } from '@/lib';
 import { api } from '../services/api';
 import AppointmentDetailModal from './AppointmentDetailModal';
+import { STATUS } from '../constants/status';
 
 function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
     const canSchedule = isFuture(date) || isToday(date);
@@ -340,9 +341,9 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                                     <div className="flex items-center gap-2 mt-2">
                                         <span className={cn(
                                             "text-xs px-2 py-0.5 rounded-full capitalize",
-                                            item.status === 'pending' && "bg-yellow-500/10 text-yellow-500",
-                                            item.status === 'in-progress' && "bg-blue-500/10 text-blue-500",
-                                            item.status === 'resolved' && "bg-green-500/10 text-green-500",
+                                            item.status === STATUS.PENDING && "bg-yellow-500/10 text-yellow-500",
+                                            item.status === STATUS.IN_PROGRESS && "bg-blue-500/10 text-blue-500",
+                                            item.status === STATUS.RESOLVED && "bg-green-500/10 text-green-500",
                                             item.status === 'cancelled' && "bg-red-500/10 text-red-500",
                                             item.status === 'scheduled' && "bg-blue-500/10 text-blue-500",
                                             item.status === 'completed' && "bg-green-500/10 text-green-500",

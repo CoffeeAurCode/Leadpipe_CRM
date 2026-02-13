@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ComplaintCard from './ComplaintCard';
 import ComplaintDetailModal from './ComplaintDetailModal';
+import { STATUS } from '../constants/status';
 import './ComplaintsOverview.css';
 
 export default function ComplaintsOverview({ complaints, loading, onComplaintUpdate }) {
@@ -13,9 +14,9 @@ export default function ComplaintsOverview({ complaints, loading, onComplaintUpd
     const stats = useMemo(() => {
         return {
             total: complaints.length,
-            pending: complaints.filter(c => c.status === 'pending').length,
-            inProgress: complaints.filter(c => c.status === 'in-progress').length,
-            resolved: complaints.filter(c => c.status === 'resolved').length,
+            pending: complaints.filter(c => c.status === STATUS.PENDING).length,
+            inProgress: complaints.filter(c => c.status === STATUS.IN_PROGRESS).length,
+            resolved: complaints.filter(c => c.status === STATUS.RESOLVED).length,
         };
     }, [complaints]);
 
@@ -81,10 +82,9 @@ export default function ComplaintsOverview({ complaints, loading, onComplaintUpd
                         onChange={(e) => setSelectedStatus(e.target.value)}
                     >
                         <option value="all">All</option>
-                        <option value="pending">Pending</option>
-                        <option value="in-progress">In Progress</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="closed">Closed</option>
+                        <option value={STATUS.PENDING}>Pending</option>
+                        <option value={STATUS.IN_PROGRESS}>In Progress</option>
+                        <option value={STATUS.RESOLVED}>Resolved</option>
                     </select>
                 </div>
 

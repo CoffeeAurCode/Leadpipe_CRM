@@ -60,7 +60,12 @@ class Complaint(Base):
     description = Column(Text, nullable=False)
     status = Column(String(20), nullable=False)
     source = Column(String(20), nullable=False, server_default="AI_AGENT")
+    appointment_date = Column(TIMESTAMP, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'in-progress', 'resolved')", name='complaints_status_check'),
+    )
     
     tenant = relationship("Tenant", back_populates="complaints")
     call_log = relationship("CallLog", back_populates="complaint", uselist=False)

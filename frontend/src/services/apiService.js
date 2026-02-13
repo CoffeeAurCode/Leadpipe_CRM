@@ -84,14 +84,10 @@ export async function createComplaint(complaintData) {
 }
 
 // Helper: Map status to display text
+import { STATUS, STATUS_CONFIG } from '../constants/status';
+
 export function getStatusDisplay(status) {
-    const statusMap = {
-        'pending': 'Pending',
-        'in-progress': 'In Progress',
-        'resolved': 'Resolved',
-        'closed': 'Closed'
-    };
-    return statusMap[status] || status;
+    return STATUS_CONFIG[status]?.label || status;
 }
 
 // Helper: Map priority to display

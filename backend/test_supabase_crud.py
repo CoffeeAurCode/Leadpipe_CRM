@@ -138,10 +138,10 @@ def test_update_operations(supabase: Client, test_ids: list):
     
     try:
         complaint_id = test_ids[0]
-        print(f"\n--> Updating complaint ID {complaint_id} status to 'in_progress'...")
+        print(f"\n--> Updating complaint ID {complaint_id} status to 'in-progress'...")
         
         response = supabase.table("complaints")\
-            .update({"status": "in_progress"})\
+            .update({"status": "in-progress"})\
             .eq("id", complaint_id)\
             .execute()
         

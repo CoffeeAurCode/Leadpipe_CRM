@@ -1,13 +1,13 @@
 import { Filter } from 'lucide-react';
 import { cn } from '@/lib';
+import { STATUS } from '../constants/status';
 
 function QuickFilters({ filters, onFilterChange }) {
     const statusOptions = [
         { value: 'all', label: 'All Status' },
-        { value: 'pending', label: 'Pending' },
-        { value: 'in_progress', label: 'In Progress' },
-        { value: 'in-progress', label: 'In Progress' },
-        { value: 'resolved', label: 'Resolved' },
+        { value: STATUS.PENDING, label: 'Pending' },
+        { value: STATUS.IN_PROGRESS, label: 'In Progress' },
+        { value: STATUS.RESOLVED, label: 'Resolved' },
     ];
 
     const priorityOptions = [
@@ -29,7 +29,7 @@ function QuickFilters({ filters, onFilterChange }) {
                 <div>
                     <label className="text-sm font-medium text-muted-foreground mb-2 block">Status</label>
                     <div className="grid grid-cols-2 gap-2">
-                        {statusOptions.filter((opt, idx, self) => self.findIndex(o => o.label === opt.label) === idx).map(option => (
+                        {statusOptions.map(option => (
                             <button
                                 key={option.value}
                                 onClick={() => onFilterChange({ ...filters, status: option.value })}

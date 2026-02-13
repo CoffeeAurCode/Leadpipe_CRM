@@ -1,12 +1,13 @@
 import { TrendingUp, Clock, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { STATUS } from '../constants/status';
 
 function CompactStatsGrid({ complaints }) {
     const stats = {
         total: complaints.length,
-        pending: complaints.filter(c => c.status === 'pending').length,
-        inProgress: complaints.filter(c => c.status === 'in_progress' || c.status === 'in-progress').length,
-        resolved: complaints.filter(c => c.status === 'resolved').length,
+        pending: complaints.filter(c => c.status === STATUS.PENDING).length,
+        inProgress: complaints.filter(c => c.status === STATUS.IN_PROGRESS).length,
+        resolved: complaints.filter(c => c.status === STATUS.RESOLVED).length,
     };
 
     const statCards = [

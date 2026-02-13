@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -6,10 +6,30 @@ from uuid import UUID
 
 class ComplaintBase(BaseModel):
     category: str
-    appointment_datetime: str
+    appointment_date: Optional[str] = None
     description: str
     status: str
     source: str = "AI_AGENT"
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v):
+        """Enforce canonical status values only.
+        
+        Allowed values: 'pending', 'in-progress', 'resolved'
+        
+        Raises:
+            ValueError: If status is not one of the allowed values
+        """
+        from app.core.constants import ALLOWED_STATUSES
+        
+        if v not in ALLOWED_STATUSES:
+            raise ValueError(
+                f"Invalid status '{v}'. "
+                f"Allowed values: {', '.join(ALLOWED_STATUSES)}"
+            )
+        return v
+
 
 
 class ComplaintCreate(ComplaintBase):
@@ -26,7 +46,7 @@ class ComplaintCreate(ComplaintBase):
 class ComplaintUpdate(BaseModel):
     """Update complaint fields"""
     category: Optional[str] = None
-    appointment_datetime: Optional[str] = None
+    appointment_date: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
     
