@@ -36,6 +36,7 @@ function PropertiesPage() {
 
     const handleCloseModal = () => {
         setSelectedFlatUuid(null);
+        loadProperties(); // Refresh properties list when closing modal
     };
 
     // Container animation
@@ -120,7 +121,7 @@ function PropertiesPage() {
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
                     {properties.map((property) => (
-                        <motion.div key={property.id} variants={itemVariants}>
+                        <motion.div key={property.uuid} variants={itemVariants}>
                             <PropertyCard property={property} onClick={handlePropertyClick} />
                         </motion.div>
                     ))}

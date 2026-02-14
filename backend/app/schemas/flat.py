@@ -25,12 +25,25 @@ class FlatUpdate(BaseModel):
     occupied: Optional[bool] = None
 
 
+class TenantResponse(BaseModel):
+    """Schema for tenant in flat response"""
+    id: int
+    uuid: UUID
+    name: str
+    phone: str
+    created_at: Optional[datetime] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 class FlatResponse(FlatBase):
     """Schema for flat responses"""
     id: int
     uuid: UUID  # NEW: UUID for external references
     created_at: datetime
     image_url: Optional[str] = None  # Added image_url field
+    tenant_uuid: Optional[UUID] = None  # FK to tenant
+    tenant: Optional[TenantResponse] = None  # Nested tenant details
     
     model_config = ConfigDict(from_attributes=True)
 

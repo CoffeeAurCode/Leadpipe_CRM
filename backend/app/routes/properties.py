@@ -23,7 +23,6 @@ class PropertyResponse(BaseModel):
     bathrooms: int
     image_url: str
     flat_number: str
-    address: str
     floor_number: int
     occupied: bool
     created_at: datetime
@@ -76,7 +75,6 @@ async def get_all_properties(db: Client = Depends(get_db)):
                 "bathrooms": bathrooms,
                 "image_url": image_url,
                 "flat_number": flat.get("flat_number", "N/A"),
-                "address": flat.get("address", "Building"),
                 "floor_number": flat.get("floor_number", 0),
                 "occupied": flat.get("tenant_uuid") is not None,  # Fix: Derive strictly from tenant presence
                 "created_at": flat["created_at"]

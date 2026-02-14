@@ -1,13 +1,15 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home } from 'lucide-react';
+import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home, Edit } from 'lucide-react';
 import { cn } from '@/lib';
 import { useEffect, useState } from 'react';
 import { fetchFlatDetails } from '../services/apiService';
+import { FlatEditModal } from './FlatEditModal';
 
 function FlatDetailModal({ flatUuid, onClose }) {
     const [flatDetails, setFlatDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     useEffect(() => {
         loadFlatDetails();
@@ -33,6 +35,10 @@ function FlatDetailModal({ flatUuid, onClose }) {
         }
     };
 
+    const handleEditSuccess = () => {
+        loadFlatDetails(); // Reload details after edit
+    };
+
     return (
         <AnimatePresence>
             <motion.div
@@ -53,19 +59,32 @@ function FlatDetailModal({ flatUuid, onClose }) {
                     )}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* Close Button */}
-                    <button
-                        onClick={onClose}
-                        className={cn(
-                            "absolute top-4 right-4 z-10",
-                            "p-2 rounded-lg",
-                            "bg-secondary hover:bg-primary/20",
-                            "text-muted-foreground hover:text-primary",
-                            "transition-colors"
-                        )}
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+                    {/* Header Actions */}
+                    <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                        <button
+                            onClick={() => setIsEditModalOpen(true)}
+                            className={cn(
+                                "p-2 rounded-lg",
+                                "bg-primary/10 hover:bg-primary/20",
+                                "text-primary hover:text-primary/80",
+                                "transition-colors"
+                            )}
+                            title="Edit Flat"
+                        >
+                            <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className={cn(
+                                "p-2 rounded-lg",
+                                "bg-secondary hover:bg-primary/20",
+                                "text-muted-foreground hover:text-primary",
+                                "transition-colors"
+                            )}
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
 
                     {loading ? (
                         <div className="flex items-center justify-center p-12">
@@ -80,7 +99,7 @@ function FlatDetailModal({ flatUuid, onClose }) {
                     ) : flatDetails ? (
                         <div className="p-6 space-y-6">
                             {/* Header */}
-                            <div className="flex items-start gap-4">
+                            <div className="flex items-start gap-4 pr-20">
                                 <div className="p-3 rounded-lg bg-primary/10">
                                     <Home className="w-8 h-8 text-primary" />
                                 </div>
@@ -94,7 +113,7 @@ function FlatDetailModal({ flatUuid, onClose }) {
                                     </div>
                                 </div>
                                 {/* Occupancy Badge */}
-                                <div>
+                                <div className="mt-2">
                                     {flatDetails.occupied ? (
                                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 text-sm font-medium border border-red-500/20">
                                             <XCircle className="w-4 h-4" />
@@ -188,6 +207,14 @@ function FlatDetailModal({ flatUuid, onClose }) {
                     ) : null}
                 </motion.div>
             </motion.div>
+
+            {/* Edit Modal */}
+            <FlatEditModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                flat={flatDetails}
+                onUpdate={handleEditSuccess}
+            />
         </AnimatePresence>
     );
 }

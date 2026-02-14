@@ -153,4 +153,29 @@ export async function fetchFlatDetails(flatUuid) {
     }
 }
 
+// Update flat details and tenant (PATCH)
+export async function updateFlat(flatUuid, updateData) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/flats/${flatUuid}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updateData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error(`Error updating flat ${flatUuid}:`, error);
+        throw error;
+    }
+}
+
+
 
