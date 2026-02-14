@@ -78,7 +78,7 @@ async def get_all_properties(db: Client = Depends(get_db)):
                 "flat_number": flat.get("flat_number", "N/A"),
                 "address": flat.get("address", "Building"),
                 "floor_number": flat.get("floor_number", 0),
-                "occupied": flat.get("occupied", True),
+                "occupied": flat.get("tenant_uuid") is not None,  # Fix: Derive strictly from tenant presence
                 "created_at": flat["created_at"]
             })
         
