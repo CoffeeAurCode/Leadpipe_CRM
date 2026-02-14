@@ -3,7 +3,7 @@ def validate_complaint(data: dict) -> dict:
     This function only checks existence and non-emptiness of:
     - flat_number
     - category
-    - appointment_datetime (for scheduling manager visit)
+    - appointment_date (for scheduling manager visit)
     
     Args:
         data: Complaint dictionary extracted from transcript
@@ -16,7 +16,7 @@ def validate_complaint(data: dict) -> dict:
             "data": dict  # original data untouched
         }
     """
-    required_fields = ["flat_number", "category", "appointment_datetime"]
+    required_fields = ["flat_number", "category", "appointment_date"]
     missing_fields = []
     
     for field in required_fields:

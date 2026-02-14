@@ -12,7 +12,7 @@ Use this configuration in your Vapi dashboard:
     "description": "Submit a complaint after collecting flat number, category, description, and preferred appointment date/time from the caller",
     "parameters": {
       "type": "object",
-      "required": ["flat_number", "category", "description", "appointment_datetime"],
+      "required": ["flat_number", "category", "description", "appointment_date"],
       "properties": {
         "flat_number": {
           "type": "string",
@@ -27,7 +27,7 @@ Use this configuration in your Vapi dashboard:
           "type": "string",
           "description": "Detailed description of the issue"
         },
-        "appointment_datetime": {
+        "appointment_date": {
           "type": "string",
           "description": "ISO 8601 datetime for when the manager should visit (e.g., '2026-02-10T15:00:00' for Feb 10 at 3 PM)"
         }
@@ -55,7 +55,7 @@ Use this configuration in your Vapi dashboard:
   "flat_number": "101",
   "category": "plumbing",
   "description": "Sink leaking",
-  "appointment_datetime": "2026-02-10T15:00:00"  ← Added
+  "appointment_date": "2026-02-10T15:00:00"  ← Added
 }
 ```
 
@@ -71,12 +71,12 @@ CONVERSATION FLOW:
 4. Listen and identify category (plumbing, electrical, maintenance, cleaning, pest control, or other)
 5. Ask: "Can you describe the issue in detail?"
 6. Ask: "When would you like the manager to visit? Please provide a date and time."
-7. [Extract appointment_datetime from their response - convert to ISO format]
+7. [Extract appointment_date from their response - convert to ISO format]
 8. [Call submit_complaint tool with all 4 required fields]
 9. Confirm: "Your complaint has been filed successfully! The manager will visit on {date} at {time}."
 
 IMPORTANT RULES:
-- Always collect ALL 4 pieces of information: flat_number, category, description, appointment_datetime
+- Always collect ALL 4 pieces of information: flat_number, category, description, appointment_date
 - Convert dates to ISO 8601 format (YYYY-MM-DDTHH:MM:SS)
 - For "tomorrow at 3pm" → Calculate exact date → "2026-02-09T15:00:00"
 - Confirm each detail back to the user before submitting
@@ -95,20 +95,20 @@ Vapi: "I understand, that's a plumbing issue. Can you describe it in more detail
 User: "Water is dripping from under the sink constantly"
 Vapi: "When would you like the manager to visit?"
 User: "Tomorrow afternoon at 2 PM"
-Vapi: [Calls submit_complaint with appointment_datetime="2026-02-09T14:00:00"]
+Vapi: [Calls submit_complaint with appointment_date="2026-02-09T14:00:00"]
 Vapi: "Your complaint has been filed! The manager will visit tomorrow at 2 PM."
 ```
 
 ### Expected Database Results
 After the call:
 - ✅ Complaint created with description, category, flat_uuid, tenant_uuid
-- ✅ Appointment created with scheduled_at, complaint_uuid, flat_uuid
+- ✅ Appointment created with appointment_date, complaint_uuid, flat_uuid
 - ✅ Call log created with transcript
 
 ## Webhook Behavior
 
 The webhook now:
-1. ✅ Receives `appointment_datetime` instead of `priority`
+1. ✅ Receives `appointment_date` instead of `priority`
 2. ✅ Sets default priority to "medium" for all voice complaints
 3. ✅ Creates complaint first (gets complaint_uuid back)
 4. ✅ Creates appointment using complaint_uuid + flat_uuid

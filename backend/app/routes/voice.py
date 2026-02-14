@@ -182,7 +182,7 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
             print(f"[COMPLAINT DATA]")
             print(f"  flat_number: {complaint_data.get('flat_number')}")
             print(f"  category: {complaint_data.get('category')}")
-            print(f"  appointment_datetime: {complaint_data.get('appointment_datetime')}")
+            print(f"  appointment_date: {complaint_data.get('appointment_date')}")
         
         # ========== STEP 6: VALIDATE COMPLAINT DATA ==========
         is_valid = False
@@ -290,8 +290,8 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
                     "tenant_id": None
                 }
                 
-                # Store appointment datetime for later use
-                appointment_datetime = complaint_data.get("appointment_datetime")
+                # Store appointment date for later use
+                appointment_date = complaint_data.get("appointment_date")
                 
                 # TODO: Future improvement - call service function directly instead of HTTP
                 # This HTTP approach will break with gunicorn/multiple workers/Docker
@@ -311,7 +311,7 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
                     
                     # Create appointment if datetime provided
                     appointment_id = None
-                    if appointment_datetime and complaint_uuid:
+                    if appointment_date and complaint_uuid:
                         try:
                             # Get flat_uuid for appointment
                             flat_no = complaint_data.get("flat_number")
@@ -324,14 +324,14 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
                                     "flat_number": flat_no.strip().upper(),  # Required field
                                     "complaint_uuid": complaint_uuid,
                                     "flat_uuid": flat_uuid,
-                                    "appointment_date": appointment_datetime,
+                                    "appointment_date": appointment_date,
                                     "status": "scheduled"
                                 }
                                 
                                 appointment_response = db.table("appointments").insert(appointment_payload).execute()
                                 if appointment_response.data:
                                     appointment_id = appointment_response.data[0]['id']
-                                    print(f"  [OK] Appointment created: ID={appointment_id} at {appointment_datetime}")
+                                    print(f"  [OK] Appointment created: ID={appointment_id} at {appointment_date}")
                         except Exception as e:
                             print(f"  [!] Appointment creation failed: {e}")
                             # Don't fail the whole flow if appointment fails
