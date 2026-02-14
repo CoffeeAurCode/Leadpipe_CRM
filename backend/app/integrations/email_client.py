@@ -45,7 +45,7 @@ class EmailClient:
             logger.error("SendGrid client not initialized. Check SENDGRID_API_KEY.")
             return False
         
-        recipient = to_email or self.manager_email
+        recipient = self.manager_email
         if not recipient:
             logger.error("No recipient email specified and MANAGER_EMAIL not set.")
             return False
