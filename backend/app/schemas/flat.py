@@ -30,6 +30,7 @@ class FlatResponse(FlatBase):
     id: int
     uuid: UUID  # NEW: UUID for external references
     created_at: datetime
+    image_url: Optional[str] = None  # Added image_url field
     
     model_config = ConfigDict(from_attributes=True)
 

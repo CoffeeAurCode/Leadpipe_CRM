@@ -14,9 +14,10 @@ function PropertyCard({ property, onClick }) {
             {/* Property Image */}
             <div className="relative h-48 overflow-hidden">
                 <img
-                    src={property.image_url}
+                    src={property.image_url || "/placeholder.jpg"}
                     alt={property.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    onError={(e) => { e.target.src = "/placeholder.jpg"; }}
                 />
                 {/* Occupancy Badge */}
                 <div className="absolute top-3 right-3">

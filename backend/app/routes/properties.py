@@ -45,16 +45,6 @@ async def get_all_properties(db: Client = Depends(get_db)):
         
         # Map flats to properties format
         properties = []
-        image_urls = [
-            "/assets/adam-winger-A4U4dEuN-hw-unsplash.jpg",
-            "/assets/adam-winger-PCDlE94JjcI-unsplash.jpg",
-            "/assets/douglas-sheppard-9rYfG8sWRVo-unsplash.jpg",
-            "/assets/leohoho-QL7KdXdcfWA-unsplash.jpg",
-            "/assets/outsite-co-R-LK3sqLiBw-unsplash.jpg",
-            "/assets/pixasquare-4ojhpgKpS68-unsplash.jpg",
-            "/assets/rowan-heuvel-bjej8BY1JYQ-unsplash.jpg",
-            "/assets/samuel-ryde-dn37EiGIpq4-unsplash.jpg"
-        ]
         
         for index, flat in enumerate(response.data):
             # Compute derived fields
@@ -68,8 +58,14 @@ async def get_all_properties(db: Client = Depends(get_db)):
             floor_text = f"Floor {flat.get('floor_number', 0)}"
             address_text = f"{flat.get('address', 'Building')}, {floor_text}"
             
-            # Cycle through images
-            image_url = image_urls[index % len(image_urls)]
+            # Use image_url from database or fallback to placeholder
+            # Check if image_url exists and is not empty
+            db_image_url = flat.get('image_url')
+            if db_image_url and len(str(db_image_url).strip()) > 0:
+                image_url = db_image_url
+            else:
+                # Fallback placeholder if no image in DB
+                image_url = "https://images.unsplash.com/photo-1560448204-e02f11c3d0af?q=80&w=2574&auto=format&fit=crop"
             
             properties.append({
                 "id": flat["id"],
