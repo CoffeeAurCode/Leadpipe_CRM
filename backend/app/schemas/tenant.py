@@ -36,4 +36,4 @@ class TenantResponse(TenantBase):
 class TenantWithFlat(TenantResponse):
     """Extended response with flat details"""
     flat_number: Optional[str] = None  # Denormalized for convenience
-    building_name: Optional[str] = None
+    address: Optional[str] = None

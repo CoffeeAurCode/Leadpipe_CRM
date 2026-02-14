@@ -7,7 +7,8 @@ pydantic
 python-jose
 passlib[bcrypt]
 python-dotenv
-
+twilio>=8.0.0
+sendgrid>=6.0.0
 groq
 httpx
 psycopg2-binary

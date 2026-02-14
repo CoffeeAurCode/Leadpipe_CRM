@@ -30,7 +30,7 @@ def seed_flats():
             flat_number = f"A{floor}0{unit}"
             flats_data.append({
                 "flat_number": flat_number,
-                "building_name": "Building A",
+                "address": "Building A",
                 "floor_number": floor,
                 "bedrooms": 2 if unit == 1 else 3,
                 "occupied": True if floor <= 3 else False  # Lower floors are occupied
@@ -42,7 +42,7 @@ def seed_flats():
             flat_number = f"B{floor}0{unit}"
             flats_data.append({
                 "flat_number": flat_number,
-                "building_name": "Building B",
+                "address": "Building B",
                 "floor_number": floor,
                 "bedrooms": 1 if unit == 1 else 2,
                 "occupied": True
@@ -54,7 +54,7 @@ def seed_flats():
             flat_number = f"C{floor}0{unit}"
             flats_data.append({
                 "flat_number": flat_number,
-                "building_name": "Building C",
+                "address": "Building C",
                 "floor_number": floor,
                 "bedrooms": 3 if unit == 3 else 2,
                 "occupied": floor != 3  # Third floor is vacant
@@ -64,7 +64,7 @@ def seed_flats():
     for i in range(101, 106):
         flats_data.append({
             "flat_number": str(i),
-            "building_name": "Main Building",
+            "address": "Main Building",
             "floor_number": (i - 100),
             "bedrooms": 2,
             "occupied": True

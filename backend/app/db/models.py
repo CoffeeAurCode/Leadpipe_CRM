@@ -26,12 +26,12 @@ class Unit(Base):
     
     id = Column(Integer, primary_key=True)
     flat_number = Column(String(20), nullable=False)
-    building_name = Column(String(100), nullable=False)
+    address = Column(String(100), nullable=False)
     
     tenants = relationship("Tenant", back_populates="unit")
     
     def __repr__(self):
-        return f"<Unit(id={self.id}, flat={self.flat_number}, building={self.building_name})>"
+        return f"<Unit(id={self.id}, flat={self.flat_number}, address={self.address})>"
 
 
 class Tenant(Base):

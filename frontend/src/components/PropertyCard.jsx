@@ -1,7 +1,7 @@
 import { Bed, Bath, MapPin, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib';
 
-function PropertyCard({ property }) {
+function PropertyCard({ property, onClick }) {
     return (
         <div
             className={cn(
@@ -9,6 +9,7 @@ function PropertyCard({ property }) {
                 "hover:border-primary hover:shadow-lg hover:shadow-primary/10",
                 "transition-all duration-300 group cursor-pointer"
             )}
+            onClick={() => onClick?.(property)}
         >
             {/* Property Image */}
             <div className="relative h-48 overflow-hidden">

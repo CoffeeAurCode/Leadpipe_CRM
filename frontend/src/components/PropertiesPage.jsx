@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Building2 } from 'lucide-react';
 import PropertyCard from './PropertyCard';
+import FlatDetailModal from './FlatDetailModal';
 import { fetchProperties } from '../services/apiService';
 import { cn } from '@/lib';
 
@@ -9,6 +10,7 @@ function PropertiesPage() {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedFlatUuid, setSelectedFlatUuid] = useState(null);
 
     useEffect(() => {
         loadProperties();
@@ -27,6 +29,14 @@ function PropertiesPage() {
             setLoading(false);
         }
     }
+
+    const handlePropertyClick = (property) => {
+        setSelectedFlatUuid(property.uuid);
+    };
+
+    const handleCloseModal = () => {
+        setSelectedFlatUuid(null);
+    };
 
     // Container animation
     const containerVariants = {
@@ -111,10 +121,18 @@ function PropertiesPage() {
                 >
                     {properties.map((property) => (
                         <motion.div key={property.id} variants={itemVariants}>
-                            <PropertyCard property={property} />
+                            <PropertyCard property={property} onClick={handlePropertyClick} />
                         </motion.div>
                     ))}
                 </motion.div>
+            )}
+
+            {/* Flat Detail Modal */}
+            {selectedFlatUuid && (
+                <FlatDetailModal
+                    flatUuid={selectedFlatUuid}
+                    onClose={handleCloseModal}
+                />
             )}
         </div>
     );

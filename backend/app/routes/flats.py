@@ -57,7 +57,7 @@ async def get_all_flats(db: Client = Depends(get_db)):
     try:
         response = db.table("flats")\
             .select("*")\
-            .order("building_name")\
+            .order("address")\
             .order("flat_number")\
             .execute()
         
@@ -161,4 +161,56 @@ async def update_flat(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating flat: {str(e)}"
+        )
+
+
+
+@router.get("/{flat_uuid}/details")
+async def get_flat_details(
+    flat_uuid: str,
+    db: Client = Depends(get_db)
+):
+    """
+    Get detailed flat information including tenant data (if occupied).
+    Used by the properties page detail modal.
+    """
+    try:
+        # Fetch flat data
+        flat_response = db.table("flats")\
+            .select("*")\
+            .eq("uuid", flat_uuid)\
+            .execute()
+        
+        if not flat_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Flat not found"
+            )
+        
+        flat = flat_response.data[0]
+        
+        # Manually fetch tenant data using reverse lookup from tenants.flat_uuid
+        # This works because tenants table has flat_uuid FK column
+        tenant = None
+        tenant_response = db.table("tenants")\
+            .select("*")\
+            .eq("flat_uuid", flat_uuid)\
+            .execute()
+        
+        if tenant_response.data and len(tenant_response.data) > 0:
+            tenant = tenant_response.data[0]
+        
+        # Build response with flat and tenant info
+        result = {
+            **flat,
+            "tenant": tenant
+        }
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching flat details: {str(e)}"
         )

@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS units (
 CREATE TABLE IF NOT EXISTS flats (
     id SERIAL PRIMARY KEY,
     flat_number VARCHAR(20) NOT NULL UNIQUE,
-    building_name VARCHAR(100),
+    address VARCHAR(100),
     floor_number INTEGER,
     bedrooms INTEGER,
     occupied BOOLEAN DEFAULT TRUE,

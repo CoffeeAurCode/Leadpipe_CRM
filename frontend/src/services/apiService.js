@@ -138,3 +138,19 @@ export async function fetchProperties() {
     }
 }
 
+// Fetch detailed flat information including tenant data
+export async function fetchFlatDetails(flatUuid) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/flats/${flatUuid}/details`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error(`Error fetching flat details for ${flatUuid}:`, error);
+        throw error;
+    }
+}
+
+

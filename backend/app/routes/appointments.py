@@ -2,7 +2,7 @@
 Appointments API routes using Supabase client.
 Handles CRUD operations for appointments.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from supabase import Client
 from app.db.session import get_db
 from app.schemas.appointment import (
@@ -11,6 +11,7 @@ from app.schemas.appointment import (
     AppointmentResponse,
     AppointmentStatus
 )
+from app.services.notifications import notify_manager_appointment_scheduled
 from datetime import datetime
 from typing import Optional
 
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/appointments", tags=["Appointments"])
 @router.post("", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
 async def create_appointment(
     appointment_data: AppointmentCreate,
+    background_tasks: BackgroundTasks,
     db: Client = Depends(get_db)
 ):
     """Create a new appointment."""
@@ -43,7 +45,16 @@ async def create_appointment(
         response = db.table("appointments").insert(insert_data).execute()
         
         if response.data:
-            return response.data[0]
+            created_appointment = response.data[0]
+            
+            # Trigger background notification to manager
+            # This runs after the response is sent, non-blocking
+            background_tasks.add_task(
+                notify_manager_appointment_scheduled,
+                created_appointment
+            )
+            
+            return created_appointment
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -5,11 +5,11 @@ from uuid import UUID
 
 
 class FlatBase(BaseModel):
-    flat_number: str = Field(..., description="Unique flat/apartment number")
-    building_name: Optional[str] = Field(None, description="Building name or identifier")
-    floor_number: Optional[int] = Field(None, ge=0, description="Floor number (0 for ground floor)")
-    bedrooms: Optional[int] = Field(None, ge=0, le=10, description="Number of bedrooms")
-    occupied: bool = Field(True, description="Whether the flat is currently occupied")
+    flat_number: str = Field(..., description="Unique flat/unit identifier (e.g., '101', 'A-205')")
+    address: Optional[str] = Field(None, description="Building address or identifier")
+    floor_number: Optional[int] = Field(None, description="Floor number")
+    bedrooms: Optional[int] = Field(None, description="Number of bedrooms")
+    occupied: Optional[bool] = Field(True, description="Is the flat currently occupied?")
 
 
 class FlatCreate(FlatBase):
@@ -18,8 +18,8 @@ class FlatCreate(FlatBase):
 
 
 class FlatUpdate(BaseModel):
-    """Schema for updating flat details"""
-    building_name: Optional[str] = None
+    """Update flat information"""
+    address: Optional[str] = None
     floor_number: Optional[int] = Field(None, ge=0)
     bedrooms: Optional[int] = Field(None, ge=0, le=10)
     occupied: Optional[bool] = None

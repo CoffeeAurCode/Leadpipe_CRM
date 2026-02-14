@@ -23,7 +23,7 @@ class PropertyResponse(BaseModel):
     bathrooms: int
     image_url: str
     flat_number: str
-    building_name: str
+    address: str
     floor_number: int
     occupied: bool
     created_at: datetime
@@ -39,7 +39,7 @@ async def get_all_properties(db: Client = Depends(get_db)):
         # Fetch all flats from database
         response = db.table("flats")\
             .select("*")\
-            .order("building_name")\
+            .order("address")\
             .order("flat_number")\
             .execute()
         
@@ -62,11 +62,11 @@ async def get_all_properties(db: Client = Depends(get_db)):
             bathrooms = bedrooms + 1  # bathrooms = bedrooms + 1 as per requirement
             
             # Generate property name from flat number and building
-            property_name = f"{flat.get('building_name', 'Building')} - Unit {flat.get('flat_number', 'N/A')}"
+            property_name = f"{flat.get('address', 'Building')} - Unit {flat.get('flat_number', 'N/A')}"
             
             # Generate address from building and floor
             floor_text = f"Floor {flat.get('floor_number', 0)}"
-            address = f"{flat.get('building_name', 'Building')}, {floor_text}"
+            address_text = f"{flat.get('address', 'Building')}, {floor_text}"
             
             # Cycle through images
             image_url = image_urls[index % len(image_urls)]
@@ -75,12 +75,12 @@ async def get_all_properties(db: Client = Depends(get_db)):
                 "id": flat["id"],
                 "uuid": flat["uuid"],
                 "name": property_name,
-                "address": address,
+                "address": address_text,
                 "bedrooms": bedrooms,
                 "bathrooms": bathrooms,
                 "image_url": image_url,
                 "flat_number": flat.get("flat_number", "N/A"),
-                "building_name": flat.get("building_name", "Building"),
+                "address": flat.get("address", "Building"),
                 "floor_number": flat.get("floor_number", 0),
                 "occupied": flat.get("occupied", True),
                 "created_at": flat["created_at"]
