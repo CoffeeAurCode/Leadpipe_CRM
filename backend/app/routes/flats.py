@@ -2,7 +2,7 @@
 Flats API routes using Supabase client.
 Handles CRUD operations and verification for flats.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from supabase import Client
 from app.db.session import get_db
 from app.schemas.flat import (
@@ -17,6 +17,8 @@ from app.schemas.flat import (
     FlatVerifyResponse
 )
 from app.schemas.flat_update import FlatEditRequest
+from typing import Optional
+from uuid import uuid4
 
 router = APIRouter(prefix="/flats", tags=["Flats"])
 
@@ -152,26 +154,210 @@ async def get_flat_by_number(
 
 @router.post("", response_model=FlatResponse, status_code=status.HTTP_201_CREATED)
 async def create_flat(
-    flat_data: FlatCreate,
+    flat_number: str = Form(...),
+    address: Optional[str] = Form(None),
+    floor_number: Optional[int] = Form(None),
+    bedrooms: Optional[int] = Form(None),
+    tenant_name: Optional[str] = Form(None),
+    tenant_phone: Optional[str] = Form(None),
+    image: Optional[UploadFile] = File(None),
     db: Client = Depends(get_db)
 ):
-    """Create a new flat."""
+    """
+    Create a new flat with optional image upload and tenant assignment.
+    
+    - Uploads image to Supabase Storage "Property Pics" bucket if provided
+    - Creates flat record with generated UUID
+    - Optionally creates and links tenant if tenant details provided
+    - Returns flat with nested tenant details
+    - Handles cleanup on failures (deletes uploaded image if DB insert fails)
+    """
+    image_url = None
+    uploaded_filename = None
+    
     try:
-        response = db.table("flats").insert(flat_data.model_dump()).execute()
+        # ========== STEP 1: UPLOAD IMAGE IF PROVIDED ==========
+        if image:
+            # Validate file type
+            allowed_types = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
+            if image.content_type not in allowed_types:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}"
+                )
+            
+            # Read file contents
+            contents = await image.read()
+            
+            # Validate file size (10MB limit)
+            if len(contents) > 10 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File too large. Maximum size: 10MB"
+                )
+            
+            # Generate unique filename with UUID
+            file_ext = image.filename.split('.')[-1] if '.' in image.filename else 'jpg'
+            uploaded_filename = f"{uuid4()}.{file_ext}"
+            
+            # Upload to Supabase Storage
+            try:
+                upload_response = db.storage.from_("Property Pics").upload(
+                    uploaded_filename,
+                    contents,
+                    {"content-type": image.content_type}
+                )
+                
+                # Get public URL
+                image_url = db.storage.from_("Property Pics").get_public_url(uploaded_filename)
+                
+                print(f"[IMAGE UPLOAD] Successfully uploaded: {uploaded_filename}")
+                print(f"[IMAGE UPLOAD] Public URL: {image_url}")
+                
+            except Exception as upload_error:
+                print(f"[IMAGE UPLOAD ERROR] {str(upload_error)}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Image upload failed: {str(upload_error)}"
+                )
         
-        if response.data:
-            return response.data[0]
-        else:
+        # ========== STEP 2: VALIDATE AND NORMALIZE FLAT DATA ==========
+        flat_number_normalized = flat_number.strip().upper()
+        
+        # Validate required fields
+        if not flat_number_normalized:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="flat_number is required"
+            )
+        
+        # Validate numeric fields
+        if floor_number is not None and floor_number < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="floor_number must be >= 0"
+            )
+        
+        if bedrooms is not None and (bedrooms < 1 or bedrooms > 10):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="bedrooms must be between 1 and 10"
+            )
+        
+        # ========== STEP 3: CHECK FOR DUPLICATE FLAT_NUMBER ==========
+        existing_flat = db.table("flats").select("*").eq("flat_number", flat_number_normalized).execute()
+        
+        if existing_flat.data:
+            # Cleanup uploaded image
+            if uploaded_filename:
+                try:
+                    db.storage.from_("Property Pics").remove([uploaded_filename])
+                    print(f"[CLEANUP] Deleted uploaded image due to duplicate flat_number")
+                except:
+                    pass
+            
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Flat {flat_number_normalized} already exists"
+            )
+        
+        # ========== STEP 4: CREATE FLAT ==========
+        flat_payload = {
+            "flat_number": flat_number_normalized,
+            "address": address,
+            "floor_number": floor_number,
+            "bedrooms": bedrooms,
+            "image_url": image_url,
+            "tenant_uuid": None,  # Will be updated if tenant created
+            "occupied": False  # Default to vacant
+        }
+        
+        flat_response = db.table("flats").insert(flat_payload).execute()
+        
+        if not flat_response.data:
+            # Cleanup uploaded image
+            if uploaded_filename:
+                try:
+                    db.storage.from_("Property Pics").remove([uploaded_filename])
+                    print(f"[CLEANUP] Deleted uploaded image due to flat creation failure")
+                except:
+                    pass
+            
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create flat"
             )
+        
+        flat = flat_response.data[0]
+        flat_uuid = flat["uuid"]
+        
+        print(f"[FLAT CREATED] UUID: {flat_uuid}, Number: {flat_number_normalized}")
+        
+        # ========== STEP 5: CREATE TENANT IF PROVIDED ==========
+        tenant_info = None
+        
+        if tenant_name and tenant_phone:
+            # Validate tenant data
+            if not tenant_name.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="tenant_name cannot be empty"
+                )
+            
+            if not tenant_phone.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="tenant_phone cannot be empty"
+                )
+            
+            tenant_payload = {
+                "name": tenant_name.strip(),
+                "phone": tenant_phone.strip(),
+                "flat_uuid": flat_uuid
+            }
+            
+            try:
+                tenant_response = db.table("tenants").insert(tenant_payload).execute()
+                
+                if tenant_response.data:
+                    tenant_info = tenant_response.data[0]
+                    tenant_uuid = tenant_info["uuid"]
+                    
+                    # Link tenant to flat
+                    update_response = db.table("flats").update({
+                        "tenant_uuid": tenant_uuid,
+                        "occupied": True
+                    }).eq("uuid", flat_uuid).execute()
+                    
+                    flat["tenant_uuid"] = tenant_uuid
+                    flat["occupied"] = True
+                    
+                    print(f"[TENANT CREATED] UUID: {tenant_uuid}, Name: {tenant_name}")
+                    print(f"[TENANT LINKED] Flat {flat_number_normalized} now occupied")
+                    
+            except Exception as tenant_error:
+                print(f"[TENANT CREATION ERROR] {str(tenant_error)}")
+                # Note: We don't rollback flat creation here
+                # Instead, we log the error and continue
+                # The flat exists but without a tenant
+        
+        # ========== STEP 6: RETURN FLAT WITH TENANT DETAILS ==========
+        return {
+            **flat,
+            "tenant": tenant_info
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        if "duplicate key" in str(e).lower():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Flat {flat_data.flat_number} already exists"
-            )
+        # Cleanup uploaded image on unexpected error
+        if uploaded_filename:
+            try:
+                db.storage.from_("Property Pics").remove([uploaded_filename])
+                print(f"[CLEANUP] Deleted uploaded image due to error: {str(e)}")
+            except:
+                pass
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating flat: {str(e)}"
@@ -257,7 +443,7 @@ async def update_flat_details(
         # B. Handle Flat Updates
         flat_update_payload = {}
         if request.flat_details:
-             flat_update_payload = request.flat_details.model_dump(exclude_unset=True, exclude={'occupied'}) # exclude occupied as it's computed
+             flat_update_payload = request.flat_details.model_dump(exclude_unset=True, exclude={'occupied'})
         
         # Always update tenant_uuid connection
         if new_tenant_uuid != current_tenant_uuid:
@@ -272,17 +458,17 @@ async def update_flat_details(
             final_flat = current_flat
             
         # 4. Fetch details for response (including updated tenant info)
-        # We can reuse the get_flat_details logic or helper
         tenant_info = None
         if final_flat.get('tenant_uuid'):
              t_res = db.table("tenants").select("*").eq("uuid", final_flat.get('tenant_uuid')).execute()
              if t_res.data:
                  tenant_info = t_res.data[0]
         
-        return {
+        # Strict validation using response model
+        return FlatResponse.model_validate({
             **final_flat,
             "tenant": tenant_info
-        }
+        })
 
     except HTTPException:
         raise

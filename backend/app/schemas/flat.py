@@ -12,9 +12,13 @@ class FlatBase(BaseModel):
     occupied: Optional[bool] = Field(True, description="Is the flat currently occupied?")
 
 
-class FlatCreate(FlatBase):
+class FlatCreate(BaseModel):
     """Schema for creating a new flat"""
-    pass
+    flat_number: str = Field(..., description="Unique flat/unit identifier (e.g., '101', 'A-205')")
+    address: Optional[str] = Field(None, description="Building address or identifier")
+    floor_number: Optional[int] = Field(None, ge=0, description="Floor number")
+    bedrooms: Optional[int] = Field(None, ge=1, le=10, description="Number of bedrooms")
+    image_url: Optional[str] = Field(None, description="URL to property image in Supabase Storage")
 
 
 class FlatUpdate(BaseModel):

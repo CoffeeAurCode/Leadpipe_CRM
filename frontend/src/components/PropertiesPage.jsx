@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Building2 } from 'lucide-react';
+import { Building2, Plus } from 'lucide-react';
 import PropertyCard from './PropertyCard';
 import FlatDetailModal from './FlatDetailModal';
+import { AddPropertyModal } from './AddPropertyModal';
 import { fetchProperties } from '../services/apiService';
 import { cn } from '@/lib';
 
@@ -11,6 +12,7 @@ function PropertiesPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedFlatUuid, setSelectedFlatUuid] = useState(null);
+    const [showAddModal, setShowAddModal] = useState(false);
 
     useEffect(() => {
         loadProperties();
@@ -34,9 +36,33 @@ function PropertiesPage() {
         setSelectedFlatUuid(property.uuid);
     };
 
+    const handleFlatUpdate = (updatedFlat) => {
+        // Map FlatResponse to property structure expected by cards
+        const mappedProperty = {
+            id: updatedFlat.id,
+            uuid: updatedFlat.uuid,
+            name: `${updatedFlat.address || 'Building'} - Unit ${updatedFlat.flat_number}`,
+            address: `${updatedFlat.address || 'Building'}, Floor ${updatedFlat.floor_number ?? 0}`,
+            bedrooms: updatedFlat.bedrooms ?? 2,
+            bathrooms: (updatedFlat.bedrooms ?? 2) + 1,
+            image_url: updatedFlat.image_url || "https://images.unsplash.com/photo-1560448204-e02f11c3d0af?q=80&w=2574&auto=format&fit=crop",
+            flat_number: updatedFlat.flat_number,
+            floor_number: updatedFlat.floor_number ?? 0,
+            tenant_uuid: updatedFlat.tenant_uuid,
+            occupied: !!updatedFlat.tenant_uuid,
+            created_at: updatedFlat.created_at
+        };
+
+        setProperties(prev => prev.map(p => p.uuid === updatedFlat.uuid ? mappedProperty : p));
+    };
+
     const handleCloseModal = () => {
         setSelectedFlatUuid(null);
-        loadProperties(); // Refresh properties list when closing modal
+        // loadProperties(); // Removed to rely on in-place updates
+    };
+
+    const handleAddSuccess = () => {
+        loadProperties(); // Refresh properties list after adding new property
     };
 
     // Container animation
@@ -133,8 +159,30 @@ function PropertiesPage() {
                 <FlatDetailModal
                     flatUuid={selectedFlatUuid}
                     onClose={handleCloseModal}
+                    onFlatUpdate={handleFlatUpdate}
                 />
             )}
+
+            {/* Floating Add Property Button */}
+            <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowAddModal(true)}
+                className="fixed bottom-8 left-8 p-4 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-2xl transition-all z-50 flex items-center gap-2 group">
+                <Plus className="w-6 h-6" />
+                <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 whitespace-nowrap font-medium">
+                    Add Property
+                </span>
+            </motion.button>
+
+            {/* Add Property Modal */}
+            <AddPropertyModal
+                isOpen={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                onSuccess={handleAddSuccess}
+            />
         </div>
     );
 }

@@ -177,5 +177,24 @@ export async function updateFlat(flatUuid, updateData) {
     }
 }
 
+// Create a new property with optional image and tenant
+export async function createProperty(formData) {
+    try {
+        // FormData is sent as-is (multipart/form-data)
+        // Do NOT set Content-Type header - browser will set it with boundary
+        const response = await fetch(`${API_BASE_URL}/flats`, {
+            method: 'POST',
+            body: formData,
+        });
 
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+        }
 
+        return await response.json();
+    } catch (error) {
+        console.error('Error creating property:', error);
+        throw error;
+    }
+}

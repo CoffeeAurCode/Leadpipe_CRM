@@ -21,7 +21,7 @@ function PropertyCard({ property, onClick }) {
                 />
                 {/* Occupancy Badge */}
                 <div className="absolute top-3 right-3">
-                    {property.occupied ? (
+                    {!!property.tenant_uuid ? (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/90 text-white text-xs font-medium">
                             <XCircle className="w-3 h-3" />
                             <span>Occupied</span>

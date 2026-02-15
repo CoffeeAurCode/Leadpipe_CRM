@@ -46,7 +46,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
         setLoading(true);
         setError(null);
         try {
-            await updateFlat(flat.uuid, {
+            const updatedFlat = await updateFlat(flat.uuid, {
                 action: 'UPDATE_FLAT_ONLY',
                 flat_details: {
                     bedrooms: parseInt(flatData.bedrooms),
@@ -54,7 +54,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
                     address: flatData.address
                 }
             });
-            onUpdate(); // Refresh parent
+            onUpdate(updatedFlat); // Pass updated flat to parent
             onClose();
         } catch (err) {
             setError(err.message || 'Failed to update flat details');
@@ -67,11 +67,11 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
         setLoading(true);
         setError(null);
         try {
-            await updateFlat(flat.uuid, {
+            const updatedFlat = await updateFlat(flat.uuid, {
                 action: 'ADD_TENANT',
                 tenant_data: tenantData
             });
-            onUpdate();
+            onUpdate(updatedFlat);
             onClose();
         } catch (err) {
             setError(err.message || 'Failed to add tenant');
@@ -84,11 +84,11 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
         setLoading(true);
         setError(null);
         try {
-            await updateFlat(flat.uuid, {
+            const updatedFlat = await updateFlat(flat.uuid, {
                 action: 'UPDATE_TENANT',
                 tenant_data: tenantData
             });
-            onUpdate();
+            onUpdate(updatedFlat);
             onClose();
         } catch (err) {
             setError(err.message || 'Failed to update tenant');
@@ -103,10 +103,10 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
         setLoading(true);
         setError(null);
         try {
-            await updateFlat(flat.uuid, {
+            const updatedFlat = await updateFlat(flat.uuid, {
                 action: 'REMOVE_TENANT'
             });
-            onUpdate();
+            onUpdate(updatedFlat);
             onClose();
         } catch (err) {
             setError(err.message || 'Failed to remove tenant');

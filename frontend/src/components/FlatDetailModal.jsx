@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { fetchFlatDetails } from '../services/apiService';
 import { FlatEditModal } from './FlatEditModal';
 
-function FlatDetailModal({ flatUuid, onClose }) {
+function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
     const [flatDetails, setFlatDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -35,8 +35,13 @@ function FlatDetailModal({ flatUuid, onClose }) {
         }
     };
 
-    const handleEditSuccess = () => {
-        loadFlatDetails(); // Reload details after edit
+    const handleEditSuccess = (updatedFlat) => {
+        if (updatedFlat) {
+            setFlatDetails(updatedFlat); // Update local state immediately
+            onFlatUpdate?.(updatedFlat); // Update parent state
+        } else {
+            loadFlatDetails(); // Fallback if no data returned
+        }
     };
 
     return (
@@ -114,7 +119,7 @@ function FlatDetailModal({ flatUuid, onClose }) {
                                 </div>
                                 {/* Occupancy Badge */}
                                 <div className="mt-2">
-                                    {flatDetails.occupied ? (
+                                    {!!flatDetails.tenant_uuid ? (
                                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 text-sm font-medium border border-red-500/20">
                                             <XCircle className="w-4 h-4" />
                                             <span>Occupied</span>
