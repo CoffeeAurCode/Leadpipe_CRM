@@ -193,6 +193,18 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess }) {
                                     ))}
                                 </select>
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Bathrooms</label>
+                                <select
+                                    value={formData.bathrooms}
+                                    onChange={(e) => setFormData({ ...formData, bathrooms: e.target.value })}
+                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                                    <option value="">Select</option>
+                                    {[1, 2, 3, 4, 5].map(n => (
+                                        <option key={n} value={n}>{n} Bath{n !== 1 ? 's' : ''}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         {/* Image Upload */}

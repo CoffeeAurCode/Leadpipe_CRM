@@ -5,7 +5,7 @@ Maps flats data to properties format for the Properties page.
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
 from app.db.session import get_db
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
@@ -20,7 +20,7 @@ class PropertyResponse(BaseModel):
     name: str
     address: str
     bedrooms: int
-    bathrooms: int
+    bathrooms: Optional[int] = None
     image_url: str
     flat_number: str
     floor_number: int
@@ -49,7 +49,7 @@ async def get_all_properties(db: Client = Depends(get_db)):
         for index, flat in enumerate(response.data):
             # Compute derived fields
             bedrooms = flat.get('bedrooms') or 2
-            bathrooms = flat.get('bathrooms') or 1  # Default to 1 if not set
+            bathrooms = flat.get('bathrooms')  # None if not set — frontend shows 0
             
             # Generate property name from flat number and building
             property_name = f"{flat.get('address', 'Building')} - Unit {flat.get('flat_number', 'N/A')}"

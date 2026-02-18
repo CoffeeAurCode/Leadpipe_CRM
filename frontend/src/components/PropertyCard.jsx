@@ -59,8 +59,8 @@ function PropertyCard({ property, onClick, rent }) {
                     </div>
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <Bath className="w-4 h-4 text-primary" />
-                        <span className="font-medium text-foreground">{property.bathrooms}</span>
-                        <span>Bath{property.bathrooms !== 1 ? 's' : ''}</span>
+                        <span className="font-medium text-foreground">{property.bathrooms ?? 0}</span>
+                        <span>Bath{(property.bathrooms ?? 0) !== 1 ? 's' : ''}</span>
                     </div>
                 </div>
 

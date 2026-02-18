@@ -44,7 +44,7 @@ function PropertiesPage() {
             name: `${updatedFlat.address || 'Building'} - Unit ${updatedFlat.flat_number}`,
             address: `${updatedFlat.address || 'Building'}, Floor ${updatedFlat.floor_number ?? 0}`,
             bedrooms: updatedFlat.bedrooms ?? 2,
-            bathrooms: updatedFlat.bathrooms ?? 1,
+            bathrooms: updatedFlat.bathrooms ?? null,
             image_url: updatedFlat.image_url || "https://images.unsplash.com/photo-1560448204-e02f11c3d0af?q=80&w=2574&auto=format&fit=crop",
             flat_number: updatedFlat.flat_number,
             floor_number: updatedFlat.floor_number ?? 0,
