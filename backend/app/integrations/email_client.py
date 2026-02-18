@@ -17,8 +17,8 @@ class EmailClient:
     def __init__(self):
         """Initialize SendGrid client with environment variables."""
         self.api_key = os.getenv("SENDGRID_API_KEY")
-        self.from_email = os.getenv("SENDGRID_FROM_EMAIL", "noreply@tenantmanagement.com")
         self.manager_email = os.getenv("MANAGER_EMAIL")
+        self.from_email = os.getenv("SENDGRID_FROM_EMAIL", "noreply@tenantmanagement.com")
         
         if not self.api_key:
             logger.warning("SendGrid API key not configured. Email notifications will not be sent.")
@@ -45,14 +45,20 @@ class EmailClient:
             logger.error("SendGrid client not initialized. Check SENDGRID_API_KEY.")
             return False
         
-        recipient = self.manager_email
+        # Always read fresh from env so .env changes take effect without restart
+        recipient = to_email or os.getenv("MANAGER_EMAIL") or self.manager_email
         if not recipient:
             logger.error("No recipient email specified and MANAGER_EMAIL not set.")
             return False
         
+        # Also read from_email fresh in case it changed
+        from_email = os.getenv("SENDGRID_FROM_EMAIL") or self.from_email
+        
+        logger.info(f"Sending email FROM: {from_email} TO: {recipient}")
+        
         try:
             message = Mail(
-                from_email=Email(self.from_email),
+                from_email=Email(from_email),
                 to_emails=To(recipient),
                 subject=subject,
                 html_content=Content("text/html", html_content)

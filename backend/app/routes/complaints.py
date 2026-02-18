@@ -2,10 +2,11 @@
 Complaints API routes using Supabase client.
 Handles CRUD operations for tenant complaints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from supabase import Client
 from app.db.session import get_db
 from app.schemas.complaint import ComplaintCreate, ComplaintUpdate, ComplaintResponse
+from app.services.notifications import notify_manager_appointment_scheduled
 
 router = APIRouter(prefix="/complaints", tags=["Complaints"])
 
@@ -13,11 +14,15 @@ router = APIRouter(prefix="/complaints", tags=["Complaints"])
 @router.post("", response_model=ComplaintResponse, status_code=status.HTTP_201_CREATED)
 async def create_complaint(
     complaint_data: ComplaintCreate,
+    background_tasks: BackgroundTasks,
     db: Client = Depends(get_db)
 ):
     """Create a new complaint."""
     try:
         complaint_dict = complaint_data.model_dump(mode='json')
+
+        # appointment_date belongs to the appointments table, not complaints
+        appointment_date = complaint_dict.pop("appointment_date", None)
         
         # Handle UUID-based flat reference (preferred over flat_number)
         if complaint_data.flat_uuid:
@@ -49,7 +54,25 @@ async def create_complaint(
         response = db.table("complaints").insert(complaint_dict).execute()
         
         if response.data:
-            return response.data[0]
+            created_complaint = response.data[0]
+
+            # Insert appointment row if appointment_date was provided
+            if appointment_date:
+                appt_response = db.table("appointments").insert({
+                    "complaint_uuid": created_complaint["uuid"],
+                    "flat_number": created_complaint.get("flat_number"),
+                    "appointment_date": appointment_date,
+                    "status": "scheduled"
+                }).execute()
+
+                # Notify manager via SMS + Email (non-blocking background task)
+                if appt_response.data:
+                    background_tasks.add_task(
+                        notify_manager_appointment_scheduled,
+                        appt_response.data[0]
+                    )
+
+            return created_complaint
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -6,6 +6,7 @@ from uuid import UUID
 
 class ComplaintBase(BaseModel):
     category: str
+    priority: Optional[str] = "medium"
     appointment_date: Optional[str] = None
     description: str
     status: str
@@ -71,6 +72,9 @@ class ComplaintResponse(ComplaintBase):
     # DEPRECATED: Legacy fields (still returned for compatibility)
     tenant_id: Optional[int] = None
     flat_number: Optional[str] = None
+    
+    # Appointment fields (flattened from appointments join in GET)
+    appointment_status: Optional[str] = None
     
     created_at: datetime
     
