@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, BackgroundTasks
 from supabase import Client
 import json
 import httpx
 
 from app.db.session import get_db
 from app.ai.validator import validate_complaint
+from app.services.notifications import notify_manager_appointment_scheduled
 
 router = APIRouter()
 
 @router.post("/voice/webhook")
-async def voice_webhook(request: Request, db: Client = Depends(get_db)):
+async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db: Client = Depends(get_db)):
     """
     Vapi webhook handler with proper event-type filtering.
     
@@ -345,10 +346,29 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
                     call_log['complaint_id'] = complaint_id
                     call_log['complaint_status'] = "created"
                     
+                    # ========== AUTOMATION: NOTIFICATION TRIGGER ==========
+                    print(f"[AUTOMATION]")
+                    print(f"  call_id:            {call_id}")
+                    print(f"  Complaint Created:  Yes (ID={complaint_id})")
+                    print(f"  Appointment Created: {'Yes (ID=' + str(appointment_id) + ')' if appointment_id else 'No (no date provided)'}")
+                    if appointment_id and appointment_response.data:
+                        print(f"  Triggering Notification: Yes")
+                        background_tasks.add_task(
+                            notify_manager_appointment_scheduled,
+                            appointment_response.data[0]
+                        )
+                    else:
+                        print(f"  Triggering Notification: No (no appointment)")
+                    
                     complaint_created = True
                     print(f"  [OK] Complaint created: ID={complaint_id}")
+
                 else:
                     print(f"  [X] API returned {response.status_code}")
+                    print(f"[AUTOMATION]")
+                    print(f"  call_id:           {call_id}")
+                    print(f"  Complaint Created: No (API {response.status_code})")
+                    print(f"  Triggering Notification: No")
                     db.table("call_logs").update({
                         "complaint_status": "failed"
                     }).eq("id", call_log_id).execute()
@@ -356,6 +376,10 @@ async def voice_webhook(request: Request, db: Client = Depends(get_db)):
             
             except Exception as e:
                 print(f"  [X] Error: {e}")
+                print(f"[AUTOMATION]")
+                print(f"  call_id:           {call_id}")
+                print(f"  Complaint Created: No (exception)")
+                print(f"  Triggering Notification: No")
                 db.table("call_logs").update({
                     "complaint_status": "failed"
                 }).eq("id", call_log_id).execute()
