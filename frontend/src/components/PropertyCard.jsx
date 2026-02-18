@@ -1,4 +1,4 @@
-import { Bed, Bath, MapPin, CheckCircle2, XCircle, IndianRupee } from 'lucide-react';
+import { Bed, Bath, MapPin, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib';
 
 // rent prop is optional — passed in only when already fetched (e.g. from detail view)
@@ -64,24 +64,6 @@ function PropertyCard({ property, onClick, rent }) {
                     </div>
                 </div>
 
-                {/* Rent Info — shown only if rent prop provided */}
-                <div className="pt-2 border-t border-border flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-sm">
-                        <IndianRupee className="w-4 h-4 text-primary" />
-                        {rent ? (
-                            <span className="font-semibold text-foreground">
-                                {Number(rent.monthly_rent).toLocaleString('en-IN')}/mo
-                            </span>
-                        ) : (
-                            <span className="text-muted-foreground">Rent not set</span>
-                        )}
-                    </div>
-                    {rent && (
-                        <span className="text-xs text-muted-foreground">
-                            From: {new Date(rent.effective_from).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                        </span>
-                    )}
-                </div>
 
                 {/* Flat Number Badge */}
                 <div>
