@@ -158,6 +158,7 @@ async def create_flat(
     address: Optional[str] = Form(None),
     floor_number: Optional[int] = Form(None),
     bedrooms: Optional[int] = Form(None),
+    bathrooms: Optional[int] = Form(None),
     tenant_name: Optional[str] = Form(None),
     tenant_phone: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
@@ -243,6 +244,12 @@ async def create_flat(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="bedrooms must be between 1 and 10"
             )
+
+        if bathrooms is not None and (bathrooms < 0 or bathrooms > 10):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="bathrooms must be between 0 and 10"
+            )
         
         # ========== STEP 3: CHECK FOR DUPLICATE FLAT_NUMBER ==========
         existing_flat = db.table("flats").select("*").eq("flat_number", flat_number_normalized).execute()
@@ -267,6 +274,7 @@ async def create_flat(
             "address": address,
             "floor_number": floor_number,
             "bedrooms": bedrooms,
+            "bathrooms": bathrooms,
             "image_url": image_url,
             "tenant_uuid": None,  # Will be updated if tenant created
             "occupied": False  # Default to vacant

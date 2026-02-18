@@ -1,4 +1,4 @@
-import { Home, Calendar, Settings, Building2 } from 'lucide-react';
+import { Home, Calendar, Building2, Settings } from 'lucide-react';
 import { cn } from '@/lib';
 import Logo from './icon.svg';
 

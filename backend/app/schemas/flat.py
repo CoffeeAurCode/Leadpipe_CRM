@@ -9,6 +9,7 @@ class FlatBase(BaseModel):
     address: Optional[str] = Field(None, description="Building address or identifier")
     floor_number: Optional[int] = Field(None, description="Floor number")
     bedrooms: Optional[int] = Field(None, description="Number of bedrooms")
+    bathrooms: Optional[int] = Field(None, description="Number of bathrooms")
     occupied: Optional[bool] = Field(True, description="Is the flat currently occupied?")
 
 
@@ -18,6 +19,7 @@ class FlatCreate(BaseModel):
     address: Optional[str] = Field(None, description="Building address or identifier")
     floor_number: Optional[int] = Field(None, ge=0, description="Floor number")
     bedrooms: Optional[int] = Field(None, ge=1, le=10, description="Number of bedrooms")
+    bathrooms: Optional[int] = Field(None, ge=0, le=10, description="Number of bathrooms")
     image_url: Optional[str] = Field(None, description="URL to property image in Supabase Storage")
 
 
@@ -26,6 +28,7 @@ class FlatUpdate(BaseModel):
     address: Optional[str] = None
     floor_number: Optional[int] = Field(None, ge=0)
     bedrooms: Optional[int] = Field(None, ge=0, le=10)
+    bathrooms: Optional[int] = Field(None, ge=0, le=10)
     occupied: Optional[bool] = None
 
 

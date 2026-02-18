@@ -15,6 +15,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess }) {
         address: '',
         floor_number: '',
         bedrooms: '',
+        bathrooms: '',
         tenant_name: '',
         tenant_phone: '',
         image: null
@@ -26,6 +27,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess }) {
             address: '',
             floor_number: '',
             bedrooms: '',
+            bathrooms: '',
             tenant_name: '',
             tenant_phone: '',
             image: null
@@ -71,6 +73,10 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess }) {
 
             if (formData.bedrooms) {
                 formDataToSend.append('bedrooms', formData.bedrooms);
+            }
+
+            if (formData.bathrooms) {
+                formDataToSend.append('bathrooms', formData.bathrooms);
             }
 
             if (assignTenant) {

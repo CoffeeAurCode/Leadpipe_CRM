@@ -48,8 +48,8 @@ async def get_all_properties(db: Client = Depends(get_db)):
         
         for index, flat in enumerate(response.data):
             # Compute derived fields
-            bedrooms = flat.get('bedrooms') or 2  # Default to 2 if not set
-            bathrooms = bedrooms + 1  # bathrooms = bedrooms + 1 as per requirement
+            bedrooms = flat.get('bedrooms') or 2
+            bathrooms = flat.get('bathrooms') or 1  # Default to 1 if not set
             
             # Generate property name from flat number and building
             property_name = f"{flat.get('address', 'Building')} - Unit {flat.get('flat_number', 'N/A')}"

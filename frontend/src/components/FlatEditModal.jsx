@@ -12,6 +12,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
     // Form States
     const [flatData, setFlatData] = useState({
         bedrooms: '',
+        bathrooms: '',
         floor_number: '',
         address: ''
     });
@@ -26,6 +27,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
         if (flat && isOpen) {
             setFlatData({
                 bedrooms: flat.bedrooms || '',
+                bathrooms: flat.bathrooms || '',
                 floor_number: flat.floor_number || '',
                 address: flat.address || ''
             });
@@ -50,6 +52,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
                 action: 'UPDATE_FLAT_ONLY',
                 flat_details: {
                     bedrooms: parseInt(flatData.bedrooms),
+                    bathrooms: parseInt(flatData.bathrooms),
                     floor_number: parseInt(flatData.floor_number),
                     address: flatData.address
                 }
@@ -218,6 +221,22 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
                                         <option value="">Select</option>
                                         {[1, 2, 3, 4, 5].map(num => (
                                             <option key={num} value={String(num)}>{num} BHK</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="bathrooms" className="block text-sm font-medium text-foreground mb-2">
+                                        Bathrooms
+                                    </label>
+                                    <select
+                                        id="bathrooms"
+                                        value={String(flatData.bathrooms)}
+                                        onChange={(e) => setFlatData({ ...flatData, bathrooms: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                    >
+                                        <option value="">Select</option>
+                                        {[1, 2, 3, 4, 5].map(num => (
+                                            <option key={num} value={String(num)}>{num} Bath</option>
                                         ))}
                                     </select>
                                 </div>

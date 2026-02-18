@@ -5,6 +5,7 @@ import TopBar from './components/TopBar';
 import BentoDashboard from './components/BentoDashboard';
 import CalendarView from './components/CalendarView';
 import PropertiesPage from './components/PropertiesPage';
+import SettingsPage from './components/SettingsPage';
 import { fetchComplaints, updateComplaint } from './services/apiService';
 import { cn } from '@/lib';
 
@@ -120,9 +121,7 @@ function App() {
                                 <PropertiesPage />
                             )}
                             {currentView === 'settings' && (
-                                <div className="flex items-center justify-center h-full">
-                                    <p className="text-muted-foreground">Settings coming soon...</p>
-                                </div>
+                                <SettingsPage />
                             )}
                         </>
                     )}

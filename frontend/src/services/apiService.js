@@ -198,3 +198,76 @@ export async function createProperty(formData) {
         throw error;
     }
 }
+
+// ==================== SETTINGS API ====================
+
+/**
+ * Fetch feature settings for a property
+ * @param {string} propertyUuid - UUID of the property
+ * @returns {Promise<Object>} - Feature settings object
+ */
+export async function fetchPropertySettings(propertyUuid) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching property settings:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update feature settings for a property
+ * @param {string} propertyUuid - UUID of the property
+ * @param {Object} features - Object mapping feature keys to boolean values
+ * @returns {Promise<Object>} - Updated settings
+ */
+export async function updatePropertySettings(propertyUuid, features) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ features }),
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error updating property settings:', error);
+        throw error;
+    }
+}
+
+// ==================== RENT API ====================
+
+export async function fetchActiveRent(flatUuid) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/rents/${flatUuid}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        return data.rent; // null if not set
+    } catch (error) {
+        console.error('Error fetching rent:', error);
+        return null;
+    }
+}
+
+export async function setRent(flatUuid, monthlyRent, effectiveFrom) {
+    const response = await fetch(`${API_BASE_URL}/rents/set`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            flat_uuid: flatUuid,
+            monthly_rent: monthlyRent,
+            effective_from: effectiveFrom,
+        }),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}

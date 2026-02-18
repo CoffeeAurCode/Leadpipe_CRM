@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home, Edit } from 'lucide-react';
+import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home, Edit, IndianRupee } from 'lucide-react';
 import { cn } from '@/lib';
 import { useEffect, useState } from 'react';
-import { fetchFlatDetails } from '../services/apiService';
+import { fetchFlatDetails, fetchActiveRent, setRent as setRentAPI, fetchPropertySettings } from '../services/apiService';
 import { FlatEditModal } from './FlatEditModal';
 
 function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
@@ -10,10 +10,53 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [rent, setRent] = useState(null);
+    const [rentForm, setRentForm] = useState({ amount: '', effectiveFrom: new Date().toISOString().split('T')[0] });
+    const [rentSaving, setRentSaving] = useState(false);
+    const [showRentForm, setShowRentForm] = useState(false);
+    const [features, setFeatures] = useState({ rent_management: true, rent_due_date: true }); // default ON until loaded
 
     useEffect(() => {
         loadFlatDetails();
+        loadFeatureFlags();
     }, [flatUuid]);
+
+    async function loadFeatureFlags() {
+        try {
+            const data = await fetchPropertySettings(flatUuid);
+            if (data?.features) {
+                const f = data.features;
+                const rentEnabled = f.rent_management?.enabled ?? true;
+                setFeatures({ rent_management: rentEnabled, rent_due_date: f.rent_due_date?.enabled ?? true });
+                if (rentEnabled) loadRent();
+            } else {
+                loadRent(); // fallback: no flags found, show rent
+            }
+        } catch {
+            loadRent(); // fallback on error
+        }
+    }
+
+    async function loadRent() {
+        const data = await fetchActiveRent(flatUuid);
+        setRent(data);
+        if (data) setRentForm(prev => ({ ...prev, amount: data.monthly_rent }));
+    }
+
+    async function handleSetRent(e) {
+        e.preventDefault();
+        if (!rentForm.amount) return;
+        try {
+            setRentSaving(true);
+            await setRentAPI(flatUuid, parseFloat(rentForm.amount), rentForm.effectiveFrom);
+            await loadRent();
+            setShowRentForm(false);
+        } catch (err) {
+            console.error('Failed to set rent:', err);
+        } finally {
+            setRentSaving(false);
+        }
+    }
 
     async function loadFlatDetails() {
         try {
@@ -47,6 +90,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
     return (
         <AnimatePresence>
             <motion.div
+                key={`flat-modal-${flatUuid}`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -152,7 +196,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
                                         <span className="text-sm">Bathrooms</span>
                                     </div>
                                     <p className="text-2xl font-bold text-foreground">
-                                        {flatDetails.bedrooms ? flatDetails.bedrooms + 1 : 'N/A'}
+                                        {flatDetails.bathrooms || 'N/A'}
                                     </p>
                                 </div>
                             </div>
@@ -164,6 +208,100 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
                                     <p className="text-lg font-semibold text-foreground">
                                         Floor {flatDetails.floor_number}
                                     </p>
+                                </div>
+                            )}
+
+                            <div className="h-px bg-border" />
+
+                            {/* Rent Information — each flag is independent */}
+                            {(features.rent_management || features.rent_due_date) && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                                            <IndianRupee className="w-5 h-5 text-primary" />
+                                            Rent
+                                        </h3>
+                                        {(features.rent_management || features.rent_due_date) && (
+                                            <button
+                                                onClick={() => setShowRentForm(v => !v)}
+                                                className="text-sm text-primary hover:underline"
+                                            >
+                                                {showRentForm ? 'Cancel' : rent ? 'Update' : 'Set Rent'}
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {!showRentForm && (
+                                        rent ? (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {/* Rent amount — gated by rent_management */}
+                                                {features.rent_management && (
+                                                    <div className="p-4 rounded-lg bg-secondary/50 border border-border">
+                                                        <p className="text-sm text-muted-foreground mb-1">Monthly Rent</p>
+                                                        <p className="text-2xl font-bold text-foreground">
+                                                            ₹{Number(rent.monthly_rent).toLocaleString('en-IN')}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                {/* Due date — gated by rent_due_date */}
+                                                {features.rent_due_date && (
+                                                    <div className="p-4 rounded-lg bg-secondary/50 border border-border">
+                                                        <p className="text-sm text-muted-foreground mb-1">Effective From</p>
+                                                        <p className="text-lg font-semibold text-foreground">
+                                                            {new Date(rent.effective_from).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="p-4 rounded-lg bg-secondary/30 border border-dashed border-border text-center">
+                                                <p className="text-muted-foreground text-sm">No rent set for this unit</p>
+                                            </div>
+                                        )
+                                    )}
+
+                                    {showRentForm && (
+                                        <form onSubmit={handleSetRent} className="space-y-3">
+                                            <div className="p-4 rounded-lg bg-secondary/50 border border-border space-y-3">
+                                                {/* Amount field — only if rent_management enabled */}
+                                                {features.rent_management && (
+                                                    <div>
+                                                        <label className="text-sm text-muted-foreground block mb-1">Monthly Rent (₹)</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            required={features.rent_management}
+                                                            value={rentForm.amount}
+                                                            onChange={e => setRentForm(p => ({ ...p, amount: e.target.value }))}
+                                                            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                                            placeholder="e.g. 15000"
+                                                        />
+                                                    </div>
+                                                )}
+                                                {/* Date field — only if rent_due_date enabled */}
+                                                {features.rent_due_date && (
+                                                    <div>
+                                                        <label className="text-sm text-muted-foreground block mb-1">Effective From</label>
+                                                        <input
+                                                            type="date"
+                                                            required={features.rent_due_date}
+                                                            value={rentForm.effectiveFrom}
+                                                            onChange={e => setRentForm(p => ({ ...p, effectiveFrom: e.target.value }))}
+                                                            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <button
+                                                    type="submit"
+                                                    disabled={rentSaving}
+                                                    className="w-full py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
+                                                >
+                                                    {rentSaving ? 'Saving...' : 'Save Rent'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    )}
                                 </div>
                             )}
 
@@ -214,12 +352,15 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
             </motion.div>
 
             {/* Edit Modal */}
-            <FlatEditModal
-                isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                flat={flatDetails}
-                onUpdate={handleEditSuccess}
-            />
+            {isEditModalOpen && (
+                <FlatEditModal
+                    key="flat-edit-modal"
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    flat={flatDetails}
+                    onUpdate={handleEditSuccess}
+                />
+            )}
         </AnimatePresence>
     );
 }
