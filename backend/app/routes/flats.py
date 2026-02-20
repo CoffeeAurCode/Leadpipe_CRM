@@ -161,6 +161,7 @@ async def create_flat(
     bathrooms: Optional[int] = Form(None),
     tenant_name: Optional[str] = Form(None),
     tenant_phone: Optional[str] = Form(None),
+    building_id: Optional[str] = Form(None),  # NEW: auto-link to building
     image: Optional[UploadFile] = File(None),
     db: Client = Depends(get_db)
 ):
@@ -276,6 +277,7 @@ async def create_flat(
             "bedrooms": bedrooms,
             "bathrooms": bathrooms,
             "image_url": image_url,
+            "building_id": building_id if building_id else None,  # NEW: link to building
             "tenant_uuid": None,  # Will be updated if tenant created
             "occupied": False  # Default to vacant
         }

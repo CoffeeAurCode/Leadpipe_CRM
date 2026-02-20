@@ -157,9 +157,7 @@ async def get_building_units(building_id: str, db: Client = Depends(get_db)):
 async def create_building(request: BuildingCreate, db: Client = Depends(get_db)):
     """Create a new building."""
     try:
-        payload = request.model_dump(exclude_none=True)
-        if "property_type_id" in payload:
-            payload["property_type_id"] = str(payload["property_type_id"])
+        payload = {k: str(v) if isinstance(v, UUID) else v for k, v in request.model_dump(exclude_none=True).items()}
 
         response = db.table("buildings").insert(payload).execute()
         if not response.data:
@@ -180,9 +178,7 @@ async def create_building(request: BuildingCreate, db: Client = Depends(get_db))
 async def update_building(building_id: str, request: BuildingUpdate, db: Client = Depends(get_db)):
     """Update a building's details."""
     try:
-        payload = request.model_dump(exclude_none=True)
-        if "property_type_id" in payload:
-            payload["property_type_id"] = str(payload["property_type_id"])
+        payload = {k: str(v) if isinstance(v, UUID) else v for k, v in request.model_dump(exclude_none=True).items()}
 
         response = db.table("buildings").update(payload).eq("id", building_id).execute()
         if not response.data:

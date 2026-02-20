@@ -442,6 +442,7 @@ function PropertiesPage() {
                     isOpen={showAddUnit}
                     onClose={() => setShowAddUnit(false)}
                     onSuccess={handleUnitAdded}
+                    initialBuildingId={selectedBuilding?.id ?? null}
                 />
             </div>
         );
@@ -496,6 +497,7 @@ function PropertiesPage() {
                     isOpen={showAddBuilding}
                     onClose={() => setShowAddBuilding(false)}
                     onSuccess={handleBuildingAdded}
+                    initialPropertyId={selectedProperty?.id ?? null}
                 />
                 {selectedFlatUuid && (
                     <FlatDetailModal

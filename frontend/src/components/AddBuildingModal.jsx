@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Building2, Image } from 'lucide-react';
+import { X, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib';
 import { fetchPropertyTypes, createBuilding } from '../services/apiService';
+import ImageUploadField from './ImageUploadField';
 
 /**
  * AddBuildingModal
@@ -12,10 +13,12 @@ import { fetchPropertyTypes, createBuilding } from '../services/apiService';
  *  - isOpen: bool
  *  - onClose: () => void
  *  - onSuccess: (newBuilding) => void
+ *  - initialPropertyId: string | null  — when set, auto-links building to this property
  */
-function AddBuildingModal({ isOpen, onClose, onSuccess }) {
+function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null }) {
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [error, setError] = useState(null);
     const [form, setForm] = useState({
         name: '',
@@ -37,6 +40,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess }) {
     const reset = () => {
         setForm({ name: '', description: '', address: '', image_url: '', property_type_id: '' });
         setError(null);
+        setUploadingImage(false);
     };
 
     const handleClose = () => { reset(); onClose(); };
@@ -52,6 +56,8 @@ function AddBuildingModal({ isOpen, onClose, onSuccess }) {
             if (form.address) payload.address = form.address.trim();
             if (form.image_url) payload.image_url = form.image_url.trim();
             if (form.property_type_id) payload.property_type_id = form.property_type_id;
+            // 🔑 The critical FK: always link to the parent property when context is known
+            if (initialPropertyId) payload.property_id = initialPropertyId;
 
             const newBuilding = await createBuilding(payload);
             reset();
@@ -77,7 +83,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess }) {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
                 onClick={e => e.stopPropagation()}
-                className="bg-card border border-border rounded-xl max-w-lg w-full shadow-2xl overflow-hidden"
+                className="bg-card border border-border rounded-xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
@@ -90,95 +96,82 @@ function AddBuildingModal({ isOpen, onClose, onSuccess }) {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {/* Error */}
-                    {error && (
-                        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Name */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5">
-                            Building Name <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            required
-                            value={form.name}
-                            onChange={e => setForm({ ...form, name: e.target.value })}
-                            placeholder="e.g. Sunrise Tower A"
-                            className={inputClass}
-                        />
-                    </div>
-
-                    {/* Property Type */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5">Property Type</label>
-                        <select
-                            value={form.property_type_id}
-                            onChange={e => setForm({ ...form, property_type_id: e.target.value })}
-                            className={inputClass}
-                        >
-                            <option value="">Select type</option>
-                            {propertyTypes.map(pt => (
-                                <option key={pt.id} value={pt.id}>{pt.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5">Description</label>
-                        <textarea
-                            rows={2}
-                            value={form.description}
-                            onChange={e => setForm({ ...form, description: e.target.value })}
-                            placeholder="Brief description of the building..."
-                            className={cn(inputClass, 'resize-none')}
-                        />
-                    </div>
-
-                    {/* Address */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5">Address</label>
-                        <input
-                            type="text"
-                            value={form.address}
-                            onChange={e => setForm({ ...form, address: e.target.value })}
-                            placeholder="e.g. 42 Oak Street, Mumbai"
-                            className={inputClass}
-                        />
-                    </div>
-
-                    {/* Image URL */}
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
-                            <Image className="w-4 h-4 text-primary" />
-                            Cover Image URL
-                        </label>
-                        <input
-                            type="url"
-                            value={form.image_url}
-                            onChange={e => setForm({ ...form, image_url: e.target.value })}
-                            placeholder="https://..."
-                            className={inputClass}
-                        />
-                        {form.image_url && (
-                            <div className="mt-2 h-24 rounded-lg overflow-hidden border border-border">
-                                <img
-                                    src={form.image_url}
-                                    alt="Preview"
-                                    className="w-full h-full object-cover"
-                                    onError={e => { e.target.style.display = 'none'; }}
-                                />
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                    {/* Scrollable body */}
+                    <div className="overflow-y-auto flex-1 p-6 space-y-4">
+                        {/* Error */}
+                        {error && (
+                            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">
+                                {error}
                             </div>
                         )}
-                    </div>
 
-                    {/* Actions */}
-                    <div className="flex justify-end gap-3 pt-2 border-t border-border">
+                        {/* Name */}
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5">
+                                Building Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                value={form.name}
+                                onChange={e => setForm({ ...form, name: e.target.value })}
+                                placeholder="e.g. Sunrise Tower A"
+                                className={inputClass}
+                            />
+                        </div>
+
+                        {/* Property Type */}
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5">Property Type</label>
+                            <select
+                                value={form.property_type_id}
+                                onChange={e => setForm({ ...form, property_type_id: e.target.value })}
+                                className={inputClass}
+                            >
+                                <option value="">Select type</option>
+                                {propertyTypes.map(pt => (
+                                    <option key={pt.id} value={pt.id}>{pt.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5">Description</label>
+                            <textarea
+                                rows={2}
+                                value={form.description}
+                                onChange={e => setForm({ ...form, description: e.target.value })}
+                                placeholder="Brief description of the building..."
+                                className={cn(inputClass, 'resize-none')}
+                            />
+                        </div>
+
+                        {/* Address */}
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5">Address</label>
+                            <input
+                                type="text"
+                                value={form.address}
+                                onChange={e => setForm({ ...form, address: e.target.value })}
+                                placeholder="e.g. 42 Oak Street, Mumbai"
+                                className={inputClass}
+                            />
+                        </div>
+
+                        {/* Image Upload */}
+                        <ImageUploadField
+                            entityType="building"
+                            label="Cover Image"
+                            disabled={loading}
+                            onUploadStart={() => setUploadingImage(true)}
+                            onUploadComplete={(url) => { setUploadingImage(false); setForm(prev => ({ ...prev, image_url: url })); }}
+                        />
+                    </div>{/* end scrollable body */}
+
+                    {/* Sticky footer — always visible */}
+                    <div className="flex justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-shrink-0">
                         <button
                             type="button"
                             onClick={handleClose}
@@ -189,13 +182,18 @@ function AddBuildingModal({ isOpen, onClose, onSuccess }) {
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || uploadingImage}
                             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 text-sm flex items-center gap-2"
                         >
                             {loading ? (
                                 <>
                                     <div className="w-3.5 h-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                                     Creating...
+                                </>
+                            ) : uploadingImage ? (
+                                <>
+                                    <div className="w-3.5 h-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                                    Uploading image...
                                 </>
                             ) : (
                                 <>

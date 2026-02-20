@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Building2, MapPin, Tag, Image, AlignLeft } from 'lucide-react';
+import { X, Building2, MapPin, Tag } from 'lucide-react';
 import { cn } from '@/lib';
 import { createPropertyGroup, fetchPropertyTypes } from '../services/apiService';
+import ImageUploadField from './ImageUploadField';
 
 const ICON_MAP = {
     house: '🏠',
@@ -35,6 +36,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
     const [form, setForm] = useState({ name: '', description: '', address: '', image_url: '', property_type_id: '' });
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [error, setError] = useState('');
 
     // Load property types once
@@ -48,6 +50,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
     const reset = () => {
         setForm({ name: '', description: '', address: '', image_url: '', property_type_id: '' });
         setError('');
+        setUploadingImage(false);
     };
 
     const handleClose = () => { reset(); onClose(); };
@@ -98,7 +101,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.96, y: 12 }}
                         transition={{ duration: 0.2 }}
-                        className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
+                        className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -120,74 +123,75 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                         </div>
 
                         {/* Form */}
-                        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-                            {error && (
-                                <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-sm">
-                                    {error}
-                                </div>
-                            )}
+                        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                            {/* Scrollable body */}
+                            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+                                {error && (
+                                    <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-sm">
+                                        {error}
+                                    </div>
+                                )}
 
-                            <FieldGroup label="Property Name *" icon={Building2}>
-                                <input
-                                    name="name"
-                                    value={form.name}
-                                    onChange={handleChange}
-                                    placeholder="e.g. Sunrise Estate"
-                                    className={inputCls}
-                                    autoFocus
+                                <FieldGroup label="Property Name *" icon={Building2}>
+                                    <input
+                                        name="name"
+                                        value={form.name}
+                                        onChange={handleChange}
+                                        placeholder="e.g. Sunrise Estate"
+                                        className={inputCls}
+                                        autoFocus
+                                    />
+                                </FieldGroup>
+
+                                <FieldGroup label="Description">
+                                    <textarea
+                                        name="description"
+                                        value={form.description}
+                                        onChange={handleChange}
+                                        placeholder="Brief description (optional)"
+                                        rows={2}
+                                        className={cn(inputCls, 'resize-none')}
+                                    />
+                                </FieldGroup>
+
+                                <FieldGroup label="Address" icon={MapPin}>
+                                    <input
+                                        name="address"
+                                        value={form.address}
+                                        onChange={handleChange}
+                                        placeholder="e.g. 123 Main Street, Delhi"
+                                        className={inputCls}
+                                    />
+                                </FieldGroup>
+
+                                {/* Property Type */}
+                                <FieldGroup label="Property Type" icon={Tag}>
+                                    <select
+                                        name="property_type_id"
+                                        value={form.property_type_id}
+                                        onChange={handleChange}
+                                        className={cn(inputCls, 'cursor-pointer')}
+                                    >
+                                        <option value="">— Select type —</option>
+                                        {propertyTypes.map(pt => (
+                                            <option key={pt.id} value={pt.id}>
+                                                {ICON_MAP[pt.icon_type] || '🏢'} {pt.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </FieldGroup>
+
+                                <ImageUploadField
+                                    entityType="property"
+                                    label="Cover Image"
+                                    disabled={loading}
+                                    onUploadStart={() => setUploadingImage(true)}
+                                    onUploadComplete={(url) => { setUploadingImage(false); setForm(prev => ({ ...prev, image_url: url })); }}
                                 />
-                            </FieldGroup>
+                            </div>{/* end scrollable body */}
 
-                            <FieldGroup label="Description" icon={AlignLeft}>
-                                <textarea
-                                    name="description"
-                                    value={form.description}
-                                    onChange={handleChange}
-                                    placeholder="Brief description (optional)"
-                                    rows={2}
-                                    className={cn(inputCls, 'resize-none')}
-                                />
-                            </FieldGroup>
-
-                            <FieldGroup label="Address" icon={MapPin}>
-                                <input
-                                    name="address"
-                                    value={form.address}
-                                    onChange={handleChange}
-                                    placeholder="e.g. 123 Main Street, Delhi"
-                                    className={inputCls}
-                                />
-                            </FieldGroup>
-
-                            {/* Property Type */}
-                            <FieldGroup label="Property Type" icon={Tag}>
-                                <select
-                                    name="property_type_id"
-                                    value={form.property_type_id}
-                                    onChange={handleChange}
-                                    className={cn(inputCls, 'cursor-pointer')}
-                                >
-                                    <option value="">— Select type —</option>
-                                    {propertyTypes.map(pt => (
-                                        <option key={pt.id} value={pt.id}>
-                                            {ICON_MAP[pt.icon_type] || '🏢'} {pt.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </FieldGroup>
-
-                            <FieldGroup label="Cover Image URL" icon={Image}>
-                                <input
-                                    name="image_url"
-                                    value={form.image_url}
-                                    onChange={handleChange}
-                                    placeholder="https://... (optional)"
-                                    className={inputCls}
-                                />
-                            </FieldGroup>
-
-                            {/* Actions */}
-                            <div className="flex items-center justify-end gap-3 pt-2">
+                            {/* Sticky footer — always visible */}
+                            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-shrink-0">
                                 <button
                                     type="button"
                                     onClick={handleClose}
@@ -199,19 +203,19 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={loading || uploadingImage}
                                     className={cn(
                                         'flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all',
                                         'bg-primary text-primary-foreground hover:bg-primary/90',
-                                        loading && 'opacity-60 cursor-not-allowed'
+                                        (loading || uploadingImage) && 'opacity-60 cursor-not-allowed'
                                     )}
                                 >
-                                    {loading ? (
+                                    {loading || uploadingImage ? (
                                         <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
                                     ) : (
                                         <Building2 className="w-4 h-4" />
                                     )}
-                                    {loading ? 'Creating...' : 'Create Property'}
+                                    {loading ? 'Creating...' : uploadingImage ? 'Uploading image...' : 'Create Property'}
                                 </motion.button>
                             </div>
                         </form>

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib';
 import { createProperty } from '../services/apiService';
 
-export function AddPropertyModal({ isOpen, onClose, onSuccess }) {
+export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId = null }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
@@ -84,6 +84,11 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess }) {
                 formDataToSend.append('tenant_phone', formData.tenant_phone.trim());
             }
 
+            // 🔑 Critical FK: auto-link the unit to the parent building (from hierarchical context)
+            if (initialBuildingId) {
+                formDataToSend.append('building_id', initialBuildingId);
+            }
+
             if (formData.image) {
                 formDataToSend.append('image', formData.image);
             }
@@ -114,7 +119,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess }) {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-card border border-border rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+                className="bg-card border border-border rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
 
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
@@ -128,164 +133,168 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess }) {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                    {/* Error Alert */}
-                    {error && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="p-4 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">
-                            {error}
-                        </motion.div>
-                    )}
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                    {/* Scrollable body */}
+                    <div className="overflow-y-auto flex-1 p-6 space-y-6">
+                        {/* Error Alert */}
+                        {error && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="p-4 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">
+                                {error}
+                            </motion.div>
+                        )}
 
-                    {/* Flat Details */}
-                    <div className="space-y-4">
-                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                            <Home className="w-5 h-5 text-primary" />
-                            Property Details
-                        </h3>
+                        {/* Flat Details */}
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-lg flex items-center gap-2">
+                                <Home className="w-5 h-5 text-primary" />
+                                Property Details
+                            </h3>
 
-                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">
+                                        Flat Number <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.flat_number}
+                                        onChange={(e) => setFormData({ ...formData, flat_number: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        placeholder="A401"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Building Address</label>
+                                    <input
+                                        type="text"
+                                        value={formData.address}
+                                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        placeholder="Building A"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Floor Number</label>
+                                    <input
+                                        type="number"
+                                        value={formData.floor_number}
+                                        onChange={(e) => setFormData({ ...formData, floor_number: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        min="0"
+                                        placeholder="4"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Bedrooms</label>
+                                    <select
+                                        value={formData.bedrooms}
+                                        onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                                        <option value="">Select</option>
+                                        {[1, 2, 3, 4, 5].map(n => (
+                                            <option key={n} value={n}>{n} BHK</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Bathrooms</label>
+                                    <select
+                                        value={formData.bathrooms}
+                                        onChange={(e) => setFormData({ ...formData, bathrooms: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                                        <option value="">Select</option>
+                                        {[1, 2, 3, 4, 5].map(n => (
+                                            <option key={n} value={n}>{n} Bath{n !== 1 ? 's' : ''}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Image Upload */}
                             <div>
-                                <label className="block text-sm font-medium mb-2">
-                                    Flat Number <span className="text-red-500">*</span>
+                                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                                    <Upload className="w-4 h-4" />
+                                    Property Image (Optional)
                                 </label>
                                 <input
-                                    type="text"
-                                    required
-                                    value={formData.flat_number}
-                                    onChange={(e) => setFormData({ ...formData, flat_number: e.target.value })}
-                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                    placeholder="A401"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-primary-foreground file:cursor-pointer hover:file:bg-primary/90 transition-all"
                                 />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Building Address</label>
-                                <input
-                                    type="text"
-                                    value={formData.address}
-                                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                    placeholder="Building A"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Floor Number</label>
-                                <input
-                                    type="number"
-                                    value={formData.floor_number}
-                                    onChange={(e) => setFormData({ ...formData, floor_number: e.target.value })}
-                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                    min="0"
-                                    placeholder="4"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Bedrooms</label>
-                                <select
-                                    value={formData.bedrooms}
-                                    onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
-                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                    <option value="">Select</option>
-                                    {[1, 2, 3, 4, 5].map(n => (
-                                        <option key={n} value={n}>{n} BHK</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Bathrooms</label>
-                                <select
-                                    value={formData.bathrooms}
-                                    onChange={(e) => setFormData({ ...formData, bathrooms: e.target.value })}
-                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                    <option value="">Select</option>
-                                    {[1, 2, 3, 4, 5].map(n => (
-                                        <option key={n} value={n}>{n} Bath{n !== 1 ? 's' : ''}</option>
-                                    ))}
-                                </select>
+                                {imagePreview && (
+                                    <motion.img
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        src={imagePreview}
+                                        alt="Preview"
+                                        className="mt-3 h-40 w-full rounded-lg object-cover border border-border"
+                                    />
+                                )}
                             </div>
                         </div>
 
-                        {/* Image Upload */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                                <Upload className="w-4 h-4" />
-                                Property Image (Optional)
+                        {/* Tenant Section */}
+                        <div className="space-y-4 pt-4 border-t border-border">
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={assignTenant}
+                                    onChange={(e) => setAssignTenant(e.target.checked)}
+                                    className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary"
+                                />
+                                <UserPlus className="w-4 h-4 text-primary" />
+                                <span className="font-semibold group-hover:text-primary transition-colors">
+                                    Assign Tenant
+                                </span>
                             </label>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageChange}
-                                className="w-full px-3 py-2 rounded-lg border border-border bg-background file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-primary-foreground file:cursor-pointer hover:file:bg-primary/90 transition-all"
-                            />
-                            {imagePreview && (
-                                <motion.img
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    src={imagePreview}
-                                    alt="Preview"
-                                    className="mt-3 h-40 w-full rounded-lg object-cover border border-border"
-                                />
-                            )}
+
+                            <AnimatePresence>
+                                {assignTenant && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="grid grid-cols-2 gap-4 pl-6 overflow-hidden">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-2">
+                                                Tenant Name <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required={assignTenant}
+                                                value={formData.tenant_name}
+                                                onChange={(e) => setFormData({ ...formData, tenant_name: e.target.value })}
+                                                className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                                placeholder="John Doe"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-2">
+                                                Phone Number <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="tel"
+                                                required={assignTenant}
+                                                value={formData.tenant_phone}
+                                                onChange={(e) => setFormData({ ...formData, tenant_phone: e.target.value })}
+                                                className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                                placeholder="+1234567890"
+                                            />
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
-                    </div>
 
-                    {/* Tenant Section */}
-                    <div className="space-y-4 pt-4 border-t border-border">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                checked={assignTenant}
-                                onChange={(e) => setAssignTenant(e.target.checked)}
-                                className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary"
-                            />
-                            <UserPlus className="w-4 h-4 text-primary" />
-                            <span className="font-semibold group-hover:text-primary transition-colors">
-                                Assign Tenant
-                            </span>
-                        </label>
+                    </div>{/* end scrollable body */}
 
-                        <AnimatePresence>
-                            {assignTenant && (
-                                <motion.div
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    className="grid grid-cols-2 gap-4 pl-6 overflow-hidden">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">
-                                            Tenant Name <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            required={assignTenant}
-                                            value={formData.tenant_name}
-                                            onChange={(e) => setFormData({ ...formData, tenant_name: e.target.value })}
-                                            className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                            placeholder="John Doe"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">
-                                            Phone Number <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="tel"
-                                            required={assignTenant}
-                                            value={formData.tenant_phone}
-                                            onChange={(e) => setFormData({ ...formData, tenant_phone: e.target.value })}
-                                            className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                            placeholder="+1234567890"
-                                        />
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    {/* Sticky footer */}
+                    <div className="flex justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-shrink-0">
                         <button
                             type="button"
                             onClick={handleClose}
