@@ -271,3 +271,85 @@ export async function setRent(flatUuid, monthlyRent, effectiveFrom) {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
+
+// ── Property Types ────────────────────────────────────────────────────────────
+
+export async function fetchPropertyTypes() {
+    const response = await fetch(`${API_BASE_URL}/property-types`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+// ── Buildings ─────────────────────────────────────────────────────────────────
+
+/** Fetch all buildings (with unit counts aggregated server-side). */
+export async function fetchBuildings() {
+    const response = await fetch(`${API_BASE_URL}/buildings`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+/** Fetch all units (flats) belonging to a specific building. */
+export async function fetchBuildingUnits(buildingId) {
+    const response = await fetch(`${API_BASE_URL}/buildings/${buildingId}/units`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+/** Create a new building. */
+export async function createBuilding(payload) {
+    const response = await fetch(`${API_BASE_URL}/buildings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+/** Update a building's details. */
+export async function updateBuilding(buildingId, payload) {
+    const response = await fetch(`${API_BASE_URL}/buildings/${buildingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+// ── Property Groups ───────────────────────────────────────────────────────────
+
+/** Fetch all top-level property groups. */
+export async function fetchPropertyGroups() {
+    const response = await fetch(`${API_BASE_URL}/property-groups`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+/** Create a new property group. */
+export async function createPropertyGroup(payload) {
+    const response = await fetch(`${API_BASE_URL}/property-groups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+/** Fetch all buildings belonging to a specific property group. */
+export async function fetchPropertyBuildings(propertyId) {
+    const response = await fetch(`${API_BASE_URL}/property-groups/${propertyId}/buildings`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}

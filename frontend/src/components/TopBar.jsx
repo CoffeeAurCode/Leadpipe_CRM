@@ -1,19 +1,23 @@
 import { RefreshCw, Bell } from 'lucide-react';
 import { cn } from '@/lib';
+import ThemeToggle from './ThemeToggle';
 
 function TopBar({ onRefresh }) {
     return (
-        <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6">
+        <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 transition-colors duration-200">
             <div>
                 <h2 className="text-lg lg:text-xl font-semibold text-foreground">Welcome back!</h2>
                 <p className="text-xs lg:text-sm text-muted-foreground">Manage your tenant complaints efficiently</p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+                {/* Theme Toggle */}
+                <ThemeToggle />
+
                 {/* Notification Button */}
-                <button className="relative p-2 rounded-lg hover:bg-secondary transition-colors">
+                <button className="relative p-2 rounded-lg hover:bg-secondary transition-colors duration-200">
                     <Bell className="w-5 h-5 text-muted-foreground" />
-                    <span className="absolute top- right-1 w-2 h-2 bg-primary rounded-full"></span>
+                    <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
                 </button>
 
                 {/* Refresh Button */}

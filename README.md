@@ -1,271 +1,122 @@
 # Tenant Management MVP
 
-AI-powered complaint management system with voice call integration using Vapi.ai and FastAPI.
+An AI-powered tenant complaint management system featuring voice call integration via **Vapi.ai**, automated data extraction with **Groq (Llama 3.1)**, a modern **React dashboard**, and real-time manager notifications.
 
-## Tech Stack
+## 🚀 Core Features
 
-- **Framework**: FastAPI
-- **Language**: Python 3.10+
-- **ORM**: SQLAlchemy (async)
-- **Database**: PostgreSQL
-- **Authentication**: JWT (python-jose)
-- **Password Hashing**: passlib with bcrypt
-- **Voice AI**: Vapi.ai (STT + voice calls)
-- **AI Extraction**: Groq (Llama 3.1-8b-instant)
-- **Database Migrations**: Alembic
-- **HTTP Client**: httpx (async)
+### 🎙️ AI Voice Intake
+- **Voice Call Integration**: Powered by Vapi.ai for natural language conversation.
+- **Automated Extraction**: Uses Groq (Llama 3.1-8b) to extract flat numbers, categories, priorities, and descriptions from voice transcripts.
+- **Smart Scheduling**: AI can suggest and record maintenance appointment times.
+- **Idempotent Webhooks**: Robust handler for Vapi events (tool-calls, end-of-call) that prevents duplicate entries.
 
-## Project Structure
+### 📊 Manager Dashboard (LeadPipe UI)
+- **Bento Grid Layout**: Visually rich dashboard with quick stats and recent activity.
+- **Complaint Management**: View, filter, and update statuses (Pending, In-Progress, Resolved, Closed).
+- **Property View**: Track occupancy, unit details, and tenant associations.
+- **Real-time Updates**: Auto-refresh functionality to keep the data current.
 
+### 🔔 Smart Notifications
+- **Email Alerts**: Instant email notifications to managers via SendGrid when new complaints or appointments are booked.
+- **SMS Alerts**: (Ready for Twilio integration) to ensure urgent issues are handled immediately.
+- **Background Processing**: Notifications are handled asynchronously to keep the API responsive.
+
+### 🏗️ Property Management
+- **Unit Tracking**: Manage flats, floors, and occupancy status.
+- **Tenant Links**: Associate complaints directly with units and tenants.
+
+---
+
+## 🛠️ Tech Stack
+
+### Backend
+- **Framework**: FastAPI (Asynchronous)
+- **Database**: PostgreSQL (with Supabase/Direct SQL)
+- **ORM**: SQLAlchemy (Async)
+- **Migrations**: Alembic
+- **AI**: Groq (Llama 3.1), Vapi.ai (Voice)
+- **Notifications**: SendGrid (Email)
+
+### Frontend
+- **Framework**: React (Vite)
+- **Styling**: Tailwind CSS (Custom Design System)
+- **Icons**: Lucide React
+- **Animations**: Framer Motion / CSS Transitions
+
+---
+
+## 📂 Project Structure
+
+```text
+.
+├── backend/                # FastAPI Application
+│   ├── app/
+│   │   ├── ai/            # Extraction and validation logic
+│   │   ├── db/            # Models and DB session management
+│   │   ├── integrations/   # SendGrid, Twilio, external APIs
+│   │   ├── routes/        # API Endpoints (Complaints, Voice, Properties)
+│   │   ├── schemas/       # Pydantic models
+│   │   └── main.py        # Entry point
+│   ├── alembic/           # Migrations
+│   └── .env               # Secrets
+├── frontend/               # React Application
+│   ├── src/
+│   │   ├── components/    # UI Components (StatsCards, Lists, Modals)
+│   │   ├── layouts/       # Dashboard and App layouts
+│   │   ├── pages/         # Dashboard, Complaints, Properties
+│   │   └── services/      # API clients
+│   └── tailwind.config.js # Design tokens
+└── docs/                   # Guides and analysis reports
 ```
-backend/
-├── alembic/
-│   ├── versions/          # Database migration files
-│   └── env.py             # Alembic configuration
-├── app/
-│   ├── ai/
-│   │   ├── extractor.py   # AI complaint extraction (Groq)
-│   │   └── validator.py   # Complaint data validation
-│   ├── config.py          # Environment configuration
-│   ├── db/
-│   │   ├── base.py        # SQLAlchemy declarative base
-│   │   ├── models.py      # Database models (Complaint, CallLog, etc.)
-│   │   └── session.py     # Async database session
-│   ├── routes/
-│   │   ├── complaints.py  # Complaint CRUD endpoints
-│   │   └── voice.py       # Vapi webhook handler
-│   ├── schemas/
-│   │   └── complaint.py   # Pydantic validation schemas
-│   └── main.py            # FastAPI application
-├── alembic.ini            # Alembic configuration
-├── .env                   # Environment variables (not in git)
-├── .env.example           # Environment template
-└── requirement.txt        # Python dependencies
-```
 
-## Features
+---
 
-### Voice Complaint Intake
-- **Vapi.ai Integration**: Voice calls with speech-to-text
-- **Real-time Webhooks**: Event-driven architecture
-- **AI Extraction**: Automatic complaint field extraction using Groq
-- **Idempotent Processing**: Handles duplicate webhook events safely
-- **Call Audit Trail**: All calls logged in `call_logs` table
+## 🧭 Codebase Rundown (For Developers)
 
-### Complaint Management
-- Create, read, update complaints
-- Status tracking (pending, in-progress, resolved, closed)
-- Flat number-based filing (no tenant lookup required)
-- Source tracking (voice, web, manual)
+### 1. The Call Flow
+1. **User calls** the Vapi phone number.
+2. **Vapi** processes speech and hits the `/voice/webhook` endpoint.
+3. The **Webhook Handler** (`routes/voice.py`) filters for specific events.
+4. If a complaint is confirmed by the user, the AI extracts data via `ai/extractor.py`.
+5. A **Complaint** and **CallLog** are created in the database.
+6. A **Background Task** triggers the `EmailClient` to notify the manager.
 
-### Database
-- **PostgreSQL** with async SQLAlchemy
-- **Alembic migrations** for schema versioning
-- **Models**: User, Unit, Tenant, Complaint, CallLog
+### 2. Data Persistence
+- Core models are in `app/db/models.py`.
+- **CallLog**: Acts as an audit trail for every single interaction.
+- **Complaint**: The primary entity representing a tenant issue.
+- **Flat**: Represents a physical unit, used for the Properties view.
 
-## Setup
+### 3. Frontend Architecture
+- Uses a **Bento Grid** design system for the dashboard.
+- **Tailwind CSS** is used for all styling with a custom palette (Zinc/Slate base with primary action colors).
+- Data is fetched via hooks in `services/` and managed locally in components.
 
-### 1. Create Virtual Environment
+---
 
+## ⚙️ Setup & Installation
+
+### Backend
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # macOS/Linux
-```
-
-### 2. Install Dependencies
-
-```bash
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirement.txt
-```
-
-**Key Dependencies:**
-- `fastapi` - Web framework
-- `uvicorn` - ASGI server
-- `sqlalchemy[asyncio]` - Async ORM
-- `asyncpg` - PostgreSQL async driver
-- `psycopg2-binary` - PostgreSQL sync driver (for migrations)
-- `alembic` - Database migrations
-- `groq` - AI extraction (free Llama 3.1)
-- `httpx` - Async HTTP client
-- `python-jose[cryptography]` - JWT
-- `passlib[bcrypt]` - Password hashing
-
-### 3. Configure Environment
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-# Database
-DATABASE_URL=postgresql+asyncpg://username:password@localhost:5432/tenant_management_db
-
-# Security
-SECRET_KEY=your-secret-key-here
-
-# AI
-GROQ_API_KEY=your-groq-api-key  # Get from console.groq.com (free)
-```
-
-### 4. Run Database Migrations
-
-```bash
-# Create initial migration (if not exists)
-alembic revision --autogenerate -m "init migration"
-
-# Apply migrations
+cp .env.example .env       # Configure your keys
 alembic upgrade head
-
-# Check current version
-alembic current
-```
-
-## Running the Server
-
-### Development Server
-
-```bash
-cd backend
 uvicorn app.main:app --reload
 ```
 
-The server will start at `http://localhost:8000`
-
-### With ngrok (for Vapi webhook testing)
-
+### Frontend
 ```bash
-# Terminal 1: Start backend
-uvicorn app.main:app --reload
-
-# Terminal 2: Start ngrok tunnel
-ngrok http 8000
+cd frontend
+npm install
+npm run dev
 ```
 
-Copy the ngrok URL and configure it in your Vapi.ai dashboard as the webhook endpoint:
-```
-https://your-ngrok-url.ngrok.io/voice/webhook
-```
+---
 
-## API Endpoints
-
-### Complaints
-
-- **Create Complaint**: `POST /complaints`
-- **Get All Complaints**: `GET /complaints`
-- **Get Complaint by ID**: `GET /complaints/{id}`
-- **Update Complaint**: `PATCH /complaints/{id}`
-
-### Voice Webhook
-
-- **Vapi Webhook**: `POST /voice/webhook`
-  - Receives Vapi.ai webhook events
-  - Filters for final events (`tool-calls`, `end-of-call-report`)
-  - Extracts complaint data from user confirmation
-  - Creates CallLog (always) and Complaint (if confirmed)
-  - Returns 200 OK (prevents Vapi retry storms)
-
-### Health Check
-
-```bash
-curl http://localhost:8000/
-```
-
-Expected response:
-```json
-{"status": "Backend running"}
-```
-
-## Testing
-
-### Interactive API Documentation
-
-**Swagger UI:**
-```
-http://localhost:8000/docs
-```
-
-**ReDoc:**
-```
-http://localhost:8000/redoc
-```
-
-### Test Voice Webhook Locally
-
-1. Start server: `uvicorn app.main:app --reload`
-2. Start ngrok: `ngrok http 8000`
-3. Configure Vapi webhook URL: `https://your-url.ngrok.io/voice/webhook`
-4. Make a test call via Vapi
-5. Check logs for webhook events
-6. Verify database:
-   ```sql
-   SELECT * FROM call_logs ORDER BY created_at DESC LIMIT 5;
-   SELECT * FROM complaints ORDER BY created_at DESC LIMIT 5;
-   ```
-
-## Database Schema
-
-### CallLog Table
-Tracks all voice calls (audit trail):
-- `call_id` (unique) - Vapi call identifier
-- `phone_number` - Caller's phone
-- `transcript` - Full conversation transcript
-- `raw_event_type` - Vapi event type
-- `complaint_status` - Status: abandoned, incomplete, pending, created, failed
-- `complaint_id` - Foreign key to Complaint (nullable)
-- `created_at` - Auto-populated timestamp
-
-### Complaint Table
-Stores complaint records:
-- `flat_number` - Apartment/unit number
-- `category` - Complaint category
-- `priority` - low, medium, high
-- `description` - Detailed complaint text
-- `status` - pending, in-progress, resolved, closed
-- `source` - voice, web, manual
-- `tenant_id` - Foreign key (nullable)
-
-## Architecture Notes
-
-### Event-Driven Webhook Pattern
-
-The voice webhook uses an **event-stream model**:
-- Vapi sends 10-50 events per call
-- Only `tool-calls` and `end-of-call-report` are processed
-- All other events return `{"status": "ignored"}`
-- Always returns HTTP 200 (prevents Vapi failures)
-
-### Idempotency
-
-- Uses `call_id` as idempotency key
-- Checks for existing CallLog before creating
-- Prevents duplicate complaints on retry/multiple events
-- Safe to process same event multiple times
-
-### Error Handling Philosophy
-
-```
-Transport success (200 OK) ≠ Business success (complaint created)
-```
-
-- Errors are **logged**, not **thrown**
-- Database state is **source of truth**
-- Webhook always returns 200 to prevent retry storms
-- Failed operations saved with `status="failed"` for investigation
-
-## Development Guidelines
-
-- **Event filtering first**: Filter by `message.type` before extracting data
-- **Defensive extraction**: Use fallback chains for payload parsing
-- **Explicit logging**: Log every decision point and external call
-- **Idempotent operations**: All webhook handlers must be safe to retry
-- **CallLog-first**: Always create CallLog, even if complaint fails
-
-## Next Steps
-
-- [ ] Replace internal HTTP calls with direct service functions
-- [ ] Add comprehensive unit tests
-- [ ] Add integration tests for webhook flow
-- [ ] Implement monitoring and alerting
-- [ ] Add retry logic for Groq API failures
-- [ ] Production deployment (Docker + gunicorn)
-- [ ] Add tenant association async job
+## 🛡️ Architecture Philosophy
+- **Defensive Webhooks**: Always return `200 OK` to Vapi to prevent retry loops; log failures internally.
+- **Idempotency**: Use `call_id` to ensure one call never creates two complaints.
+- **UI/UX Priority**: The dashboard is designed to be "LeadPipe" aesthetic—premium, clean, and interactive.

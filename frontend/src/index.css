@@ -5,7 +5,36 @@
 @tailwind utilities;
 
 @layer base {
+
+    /* ─── Light Mode (Default) ─── */
     :root {
+        --background: 220 14% 96%;
+        /* #f1f3f7 — soft neutral page bg */
+        --foreground: 222 47% 11%;
+        /* #0f172a — near-black text */
+        --card: 0 0% 100%;
+        /* #ffffff — white card surface */
+        --card-foreground: 222 47% 11%;
+        --primary: 17 100% 55%;
+        /* brand orange */
+        --primary-foreground: 0 0% 100%;
+        --secondary: 220 13% 91%;
+        /* #e2e8f0 — subtle hover/secondary */
+        --secondary-foreground: 222 47% 11%;
+        --muted: 220 13% 91%;
+        --muted-foreground: 215 16% 47%;
+        /* #64748b — subdued labels */
+        --accent: 17 100% 55%;
+        --accent-foreground: 0 0% 100%;
+        --border: 214 32% 88%;
+        /* #dde4ef — light border */
+        --input: 214 32% 88%;
+        --ring: 17 100% 55%;
+        --radius: 0.75rem;
+    }
+
+    /* ─── Dark Mode (original palette) ─── */
+    .dark {
         --background: 0 0% 4%;
         --foreground: 0 0% 96%;
         --card: 0 0% 12%;
@@ -35,6 +64,8 @@
         font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        /* Smooth color transition when switching themes */
+        transition: background-color 200ms ease, color 200ms ease;
     }
 
     h1,

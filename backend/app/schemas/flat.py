@@ -46,12 +46,14 @@ class TenantResponse(BaseModel):
 class FlatResponse(FlatBase):
     """Schema for flat responses"""
     id: int
-    uuid: UUID  # NEW: UUID for external references
+    uuid: UUID
     created_at: datetime
-    image_url: Optional[str] = None  # Added image_url field
-    tenant_uuid: Optional[UUID] = None  # FK to tenant
-    tenant: Optional[TenantResponse] = None  # Nested tenant details
-    
+    image_url: Optional[str] = None
+    tenant_uuid: Optional[UUID] = None          # FK to tenant
+    tenant: Optional[TenantResponse] = None     # Nested tenant details
+    building_id: Optional[UUID] = None          # NEW: FK to buildings table (nullable)
+    property_type_id: Optional[UUID] = None     # NEW: FK to property_types (nullable)
+
     model_config = ConfigDict(from_attributes=True)
 
 
