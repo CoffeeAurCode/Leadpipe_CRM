@@ -39,22 +39,20 @@ async def vapi_view_appointments(
     Returns an empty list if the flat has no upcoming appointments.
     """
     try:
-        # 1. Validate flat exists
-        flat_check = db.table("flats").select("id").eq("flat_number", flat_number).execute()
+        # 1. Normalize flat_number and validate it exists
+        normalized_flat = flat_number.strip().upper()
+        flat_check = db.table("flats").select("id").ilike("flat_number", normalized_flat).execute()
         if not flat_check.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Flat '{flat_number}' not found",
             )
 
-        # 2. Fetch active appointments joined with associated complaint for category
-        now_iso = datetime.now(timezone.utc).isoformat()
+        # 2. Fetch ALL appointments for this flat (no date or status filter)
         apts_resp = (
             db.table("appointments")
             .select("id, uuid, flat_number, appointment_date, status, complaint_id")
-            .eq("flat_number", flat_number)
-            .neq("status", "completed")
-            .gte("appointment_date", now_iso)
+            .ilike("flat_number", normalized_flat)
             .order("appointment_date")
             .execute()
         )
