@@ -11,18 +11,19 @@ An AI-powered tenant complaint management system featuring voice call integratio
 - **Idempotent Webhooks**: Robust handler for Vapi events (tool-calls, end-of-call) that prevents duplicate entries.
 
 ### 📊 Manager Dashboard (LeadPipe UI)
-- **Bento Grid Layout**: Visually rich dashboard with quick stats and recent activity.
+- **Bento Grid Layout**: Visually rich dashboard with quick stats and recent activity, powered by Tailwind CSS.
 - **Complaint Management**: View, filter, and update statuses (Pending, In-Progress, Resolved, Closed).
-- **Property View**: Track occupancy, unit details, and tenant associations.
+- **Hierarchical Property View**: Navigate seamlessly from Properties down to individual Buildings and Units.
 - **Real-time Updates**: Auto-refresh functionality to keep the data current.
 
 ### 🔔 Smart Notifications
 - **Email Alerts**: Instant email notifications to managers via SendGrid when new complaints or appointments are booked.
-- **SMS Alerts**: (Ready for Twilio integration) to ensure urgent issues are handled immediately.
-- **Background Processing**: Notifications are handled asynchronously to keep the API responsive.
+- **SMS Alerts**: Real-time SMS notifications via Twilio to ensure urgent issues are handled immediately.
+- **Background Processing**: Notifications run asynchronously using FastAPI `BackgroundTasks` to keep the webhook responsive.
 
-### 🏗️ Property Management
-- **Unit Tracking**: Manage flats, floors, and occupancy status.
+### � Hierarchical Property Management
+- **Structure**: Manage **[Properties ➔ Buildings ➔ Units]** with strict relational integrity in the database.
+- **Unit Tracking**: Track occupancy, manage flats, and map tenant associations.
 - **Tenant Links**: Associate complaints directly with units and tenants.
 
 ---

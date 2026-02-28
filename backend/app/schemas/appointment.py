@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 from uuid import UUID
 
@@ -14,7 +14,7 @@ class AppointmentStatus(str, Enum):
 
 
 class AppointmentBase(BaseModel):
-    appointment_date: datetime = Field(..., description="Scheduled date and time for the appointment")
+    appointment_date: str = Field(..., description="Scheduled date and time for the appointment")
     status: AppointmentStatus = Field(AppointmentStatus.SCHEDULED, description="Current status of the appointment")
     notes: Optional[str] = Field(None, description="Additional notes or instructions")
 
@@ -32,7 +32,7 @@ class AppointmentCreate(AppointmentBase):
 
 class AppointmentUpdate(BaseModel):
     """Schema for updating an appointment"""
-    appointment_date: Optional[datetime] = None
+    appointment_date: Optional[str] = None
     status: Optional[AppointmentStatus] = None
     notes: Optional[str] = None
 
@@ -54,3 +54,42 @@ class AppointmentResponse(AppointmentBase):
     
     model_config = ConfigDict(from_attributes=True)
 
+
+# ---------------------------------------------------------------------------
+# VAPI-specific schemas for GET /appointments/view
+# ---------------------------------------------------------------------------
+
+class VapiAppointmentViewItem(BaseModel):
+    """A single active appointment returned to the VAPI tool."""
+    appointment_id: Optional[str] = Field(None, description="UUID of the appointment")
+    id: int = Field(..., description="Integer primary key of the appointment")
+    category: Optional[str] = Field(None, description="Complaint category")
+    appointment_date: str = Field(..., description="Scheduled date/time of the appointment")
+    status: str = Field(..., description="Current appointment status")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VapiAppointmentViewResponse(BaseModel):
+    """Response wrapper for GET /appointments/view."""
+    appointments: List[VapiAppointmentViewItem]
+
+
+# ---------------------------------------------------------------------------
+# VAPI-specific schemas for PATCH /appointments/update
+# ---------------------------------------------------------------------------
+
+class VapiAppointmentUpdateRequest(BaseModel):
+    """Request body for PATCH /appointments/update."""
+    flat_number: str = Field(..., description="Flat number the appointment belongs to")
+    appointment_id: Optional[str] = Field(None, description="UUID of the appointment (optional if id is provided)")
+    id: Optional[int] = Field(None, description="Integer primary key of the appointment (optional if appointment_id is provided)")
+    new_appointment_date: str = Field(..., description="New scheduled date/time in ISO 8601 format")
+
+
+class VapiAppointmentUpdateResponse(BaseModel):
+    """Response for PATCH /appointments/update."""
+    message: str
+    appointment_id: Optional[str] = None
+    id: int
+    new_appointment_date: str
