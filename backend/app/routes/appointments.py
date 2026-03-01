@@ -100,39 +100,36 @@ async def vapi_view_appointments(
 
 @router.patch("/update", response_model=VapiAppointmentUpdateResponse)
 async def vapi_update_appointment(
-    payload: VapiAppointmentUpdateRequest,
+    flat_number: str = Query(..., description="Flat number the appointment belongs to"),
+    id: int = Query(..., description="Primary key of the appointment"),
+    new_appointment_date: str = Query(..., description="New date/time in format YYYY-MM-DD HH:MM:SS"),
     db: Client = Depends(get_db),
 ):
     """
     VAPI tool — Reschedule an appointment.
 
-    Requires flat_number and at least one of (appointment_id, id) to identify
-    the appointment.  Refuses updates if the appointment is already completed.
+    Accepts flat_number, id, and new_appointment_date as URL query parameters.
+    Refuses updates if the appointment is already completed.
     """
     try:
-        # 1. Validate flat exists
-        flat_check = db.table("flats").select("id").eq("flat_number", payload.flat_number).execute()
+        # 1. Normalize flat_number and validate it exists
+        normalized_flat = flat_number.strip().upper()
+        flat_check = db.table("flats").select("id").ilike("flat_number", normalized_flat).execute()
         if not flat_check.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Flat '{payload.flat_number}' not found",
+                detail=f"Flat '{flat_number}' not found",
             )
 
-        # 2. Require at least one identifier
-        if payload.id is None and payload.appointment_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Provide at least one of 'id' (integer) or 'appointment_id' (UUID) to identify the appointment.",
-            )
-
-        # 3. Fetch the appointment — prefer integer id if provided
-        apt_query = db.table("appointments").select("*")
-        if payload.id is not None:
-            apt_query = apt_query.eq("id", payload.id)
-        else:
-            apt_query = apt_query.eq("uuid", payload.appointment_id)
-
-        apt_resp = apt_query.maybe_single().execute()
+        # 2. Fetch the appointment by id AND flat_number together
+        apt_resp = (
+            db.table("appointments")
+            .select("*")
+            .eq("id", id)
+            .ilike("flat_number", normalized_flat)
+            .maybe_single()
+            .execute()
+        )
 
         if not apt_resp.data:
             raise HTTPException(
@@ -142,25 +139,17 @@ async def vapi_update_appointment(
 
         apt = apt_resp.data
 
-        # 4. Check flat ownership
-        if apt.get("flat_number") != payload.flat_number:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Appointment does not belong to the specified flat",
-            )
-
-        # 5. Refuse if already completed
+        # 3. Refuse if already completed
         if apt.get("status") == "completed":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot reschedule a completed appointment",
             )
 
-        # 6. Update appointment_date
-        new_date_iso = payload.new_appointment_date.isoformat()
+        # 4. Update appointment_date exactly as provided (YYYY-MM-DD HH:MM:SS)
         update_resp = (
             db.table("appointments")
-            .update({"appointment_date": new_date_iso})
+            .update({"appointment_date": new_appointment_date})
             .eq("id", apt["id"])
             .execute()
         )
@@ -173,8 +162,6 @@ async def vapi_update_appointment(
 
         updated = update_resp.data[0]
         return VapiAppointmentUpdateResponse(
-            message="Appointment updated successfully",
-            appointment_id=updated.get("uuid"),
             id=updated["id"],
             new_appointment_date=updated["appointment_date"],
         )

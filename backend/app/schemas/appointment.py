@@ -82,14 +82,11 @@ class VapiAppointmentViewResponse(BaseModel):
 class VapiAppointmentUpdateRequest(BaseModel):
     """Request body for PATCH /appointments/update."""
     flat_number: str = Field(..., description="Flat number the appointment belongs to")
-    appointment_id: Optional[str] = Field(None, description="UUID of the appointment (optional if id is provided)")
-    id: Optional[int] = Field(None, description="Integer primary key of the appointment (optional if appointment_id is provided)")
-    new_appointment_date: str = Field(..., description="New scheduled date/time in ISO 8601 format")
+    id: int = Field(..., description="Primary key of the appointment")
+    new_appointment_date: str = Field(..., description="New scheduled date/time in format YYYY-MM-DD HH:MM:SS")
 
 
 class VapiAppointmentUpdateResponse(BaseModel):
     """Response for PATCH /appointments/update."""
-    message: str
-    appointment_id: Optional[str] = None
     id: int
     new_appointment_date: str
