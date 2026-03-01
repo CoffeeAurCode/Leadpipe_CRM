@@ -109,6 +109,8 @@ async def vapi_update_appointment(
     VAPI tool — Reschedule an appointment.
 
     Accepts flat_number, id, and new_appointment_date as URL query parameters.
+    new_appointment_date must be in format YYYY-MM-DDTHH:MM:SS (ISO, no timezone).
+    The 'T' separator is normalised to a space before writing to the database.
     Refuses updates if the appointment is already completed.
     """
     try:
@@ -146,10 +148,13 @@ async def vapi_update_appointment(
                 detail="Cannot reschedule a completed appointment",
             )
 
-        # 4. Update appointment_date exactly as provided (YYYY-MM-DD HH:MM:SS)
+        # 4. Normalise datetime: replace 'T' separator with space for DB format
+        normalized_date = new_appointment_date.replace("T", " ")
+
+        # 5. Update appointment_date
         update_resp = (
             db.table("appointments")
-            .update({"appointment_date": new_appointment_date})
+            .update({"appointment_date": normalized_date})
             .eq("id", apt["id"])
             .execute()
         )
