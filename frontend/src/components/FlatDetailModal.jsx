@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home, Edit, IndianRupee } from 'lucide-react';
 import { cn } from '@/lib';
 import { useEffect, useState } from 'react';
-import { fetchFlatDetails, fetchActiveRent, setRent as setRentAPI, fetchPropertySettings } from '../services/apiService';
+import { fetchFlatDetails, fetchActiveRent, setRent as setRentAPI, fetchUnitSettings } from '../services/apiService';
 import { FlatEditModal } from './FlatEditModal';
 
 function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
@@ -14,20 +14,37 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
     const [rentForm, setRentForm] = useState({ amount: '', effectiveFrom: new Date().toISOString().split('T')[0] });
     const [rentSaving, setRentSaving] = useState(false);
     const [showRentForm, setShowRentForm] = useState(false);
-    const [features, setFeatures] = useState({ rent_management: true, rent_due_date: true }); // default ON until loaded
+    const [features, setFeatures] = useState({
+        rent_management: true,
+        rent_due_date: false,
+        flat_details: true,
+        tenant_details: true,
+        tenant_documents: false,
+        voice_calls: false,
+        sms_reminders: false,
+        email_reminders: false
+    });
 
     useEffect(() => {
         loadFlatDetails();
-        loadFeatureFlags();
     }, [flatUuid]);
 
-    async function loadFeatureFlags() {
+    async function loadFeatureFlags(unitIntId) {
         try {
-            const data = await fetchPropertySettings(flatUuid);
+            const data = await fetchUnitSettings(unitIntId);
             if (data?.features) {
                 const f = data.features;
                 const rentEnabled = f.rent_management?.enabled ?? true;
-                setFeatures({ rent_management: rentEnabled, rent_due_date: f.rent_due_date?.enabled ?? true });
+                setFeatures({
+                    rent_management: rentEnabled,
+                    rent_due_date: f.rent_due_date?.enabled ?? false,
+                    flat_details: f.flat_details?.enabled ?? true,
+                    tenant_details: f.tenant_details?.enabled ?? true,
+                    tenant_documents: f.tenant_documents?.enabled ?? false,
+                    voice_calls: f.voice_calls?.enabled ?? false,
+                    sms_reminders: f.sms_reminders?.enabled ?? false,
+                    email_reminders: f.email_reminders?.enabled ?? false,
+                });
                 if (rentEnabled) loadRent();
             } else {
                 loadRent(); // fallback: no flags found, show rent
@@ -36,6 +53,8 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
             loadRent(); // fallback on error
         }
     }
+
+
 
     async function loadRent() {
         const data = await fetchActiveRent(flatUuid);
@@ -64,9 +83,16 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
             const data = await fetchFlatDetails(flatUuid);
             setFlatDetails(data);
             setError(null);
+            // Load feature flags using the integer unit id (data.id)
+            if (data?.id) {
+                await loadFeatureFlags(data.id);
+            } else {
+                loadRent(); // fallback if no integer id
+            }
         } catch (err) {
             console.error('Error loading flat details:', err);
             setError('Failed to load flat details');
+            loadRent(); // fallback
         } finally {
             setLoading(false);
         }
@@ -110,18 +136,20 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
                 >
                     {/* Header Actions */}
                     <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-                        <button
-                            onClick={() => setIsEditModalOpen(true)}
-                            className={cn(
-                                "p-2 rounded-lg",
-                                "bg-primary/10 hover:bg-primary/20",
-                                "text-primary hover:text-primary/80",
-                                "transition-colors"
-                            )}
-                            title="Edit Flat"
-                        >
-                            <Edit className="w-5 h-5" />
-                        </button>
+                        {(features.flat_details || features.tenant_details) && (
+                            <button
+                                onClick={() => setIsEditModalOpen(true)}
+                                className={cn(
+                                    "p-2 rounded-lg",
+                                    "bg-primary/10 hover:bg-primary/20",
+                                    "text-primary hover:text-primary/80",
+                                    "transition-colors"
+                                )}
+                                title="Edit Flat"
+                            >
+                                <Edit className="w-5 h-5" />
+                            </button>
+                        )}
                         <button
                             onClick={onClose}
                             className={cn(
@@ -307,45 +335,66 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
 
                             <div className="h-px bg-border" />
 
-                            {/* Tenant Information */}
-                            <div>
-                                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                                    <User className="w-5 h-5 text-primary" />
-                                    Tenant Information
-                                </h3>
+                            {/* Tenant Information — only if tenant_details is enabled */}
+                            {features.tenant_details && (
+                                <div>
+                                    <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                                        <User className="w-5 h-5 text-primary" />
+                                        Tenant Information
+                                    </h3>
 
-                                {flatDetails.tenant ? (
-                                    <div className="space-y-3">
-                                        <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                                            <p className="text-sm text-muted-foreground mb-1">Name</p>
-                                            <p className="text-lg font-medium text-foreground">
-                                                {flatDetails.tenant.name}
-                                            </p>
-                                        </div>
-                                        {flatDetails.tenant.phone && (
+                                    {flatDetails.tenant ? (
+                                        <div className="space-y-3">
                                             <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                                                    <Phone className="w-4 h-4" />
-                                                    <span>Contact</span>
-                                                </div>
+                                                <p className="text-sm text-muted-foreground mb-1">Name</p>
                                                 <p className="text-lg font-medium text-foreground">
-                                                    {flatDetails.tenant.phone}
+                                                    {flatDetails.tenant.name}
                                                 </p>
                                             </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="p-6 rounded-lg bg-secondary/30 border border-dashed border-border text-center">
-                                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted/50 mb-3">
-                                            <User className="w-6 h-6 text-muted-foreground" />
+                                            {flatDetails.tenant.phone && (
+                                                <div className="p-4 rounded-lg bg-secondary/50 border border-border">
+                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                                                        <Phone className="w-4 h-4" />
+                                                        <span>Contact</span>
+                                                    </div>
+                                                    <p className="text-lg font-medium text-foreground">
+                                                        {flatDetails.tenant.phone}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
-                                        <p className="text-muted-foreground font-medium">Currently Vacant</p>
-                                        <p className="text-sm text-muted-foreground/70 mt-1">
-                                            No tenant assigned to this unit
-                                        </p>
+                                    ) : (
+                                        <div className="p-6 rounded-lg bg-secondary/30 border border-dashed border-border text-center">
+                                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted/50 mb-3">
+                                                <User className="w-6 h-6 text-muted-foreground" />
+                                            </div>
+                                            <p className="text-muted-foreground font-medium">Currently Vacant</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Tenant Documents — only if tenant_documents is enabled */}
+                            {features.tenant_documents && flatDetails.tenant && (
+                                <>
+                                    <div className="h-px bg-border" />
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg>
+                                            Tenant Documents
+                                        </h3>
+                                        <div className="p-6 rounded-lg bg-secondary/30 border border-dashed border-border text-center">
+                                            <p className="text-muted-foreground font-medium">Document Storage</p>
+                                            <p className="text-sm text-muted-foreground/70 mt-1 mb-3">
+                                                Upload leases, IDs, and other important documents here.
+                                            </p>
+                                            <button className="px-4 py-2 border border-primary text-primary rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors">
+                                                Upload Document
+                                            </button>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
+                                </>
+                            )}
                         </div>
                     ) : null}
                 </motion.div>
@@ -359,6 +408,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
                     onClose={() => setIsEditModalOpen(false)}
                     flat={flatDetails}
                     onUpdate={handleEditSuccess}
+                    features={features}
                 />
             )}
         </AnimatePresence>

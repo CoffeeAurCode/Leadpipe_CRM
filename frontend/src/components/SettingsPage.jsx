@@ -2,35 +2,38 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Settings as SettingsIcon, Save, AlertTriangle, X,
-    Building2, Home, Hash, ArrowLeft, ChevronRight, Layers
+    Building2, Home, Hash, ArrowLeft, ChevronRight, Layers, Users
 } from 'lucide-react';
 import {
     fetchPropertyGroups,
     fetchPropertySettings,
+    fetchBuildingSettings,
+    fetchUnitSettings,
     updatePropertySettings,
+    updateBuildingSettings,
+    updateUnitSettings,
     fetchPropertyBuildings,
     fetchBuildingUnits,
+    fetchFlats,
 } from '../services/apiService';
 import { cn } from '@/lib';
 
 /**
- * SettingsPage — Hierarchical settings management.
+ * SettingsPage — Unit-centric hierarchical settings management.
  *
- * Navigation mirrors PropertiesPage:
- *   Level 0: Property Group cards (root)
- *   Level 1: Building cards (drilled into a property) + show property-scope settings
- *   Level 2: Unit cards (drilled into a building) + show building-scope settings
- *   Level 3: Unit selected → show unit-scope settings
+ * Navigation (drill-down, mirrors PropertiesPage):
+ *   Level 0: Property Group cards + 'Unassigned Units' pseudo-property
+ *   Level 1: Building cards + property-aggregate feature toggles + Standalone units
+ *   Level 2: Unit cards + building-aggregate feature toggles
+ *   Level 3: Unit selected → unit-specific feature toggles
  *
- * Settings are stored in/read from the property_features table.
+ * Save behaviour:
+ *   - At Level 1 (property scope): saves to ALL units in the property via bulk endpoint
+ *   - At Level 2 (building scope): saves to ALL units in the building via bulk endpoint
+ *   - At Level 3 (unit scope): saves directly to that unit
+ *
+ * The backend handles all cascading — the DB stores one row per unit per feature.
  */
-
-const SOURCE_BADGE = {
-    overridden: { label: 'Overridden', cls: 'bg-orange-500/20 text-orange-400 border border-orange-500/30' },
-    inherited: { label: 'Inherited', cls: 'bg-blue-500/10 text-blue-400 border border-blue-500/30' },
-    building: { label: 'From Building', cls: 'bg-purple-500/10 text-purple-400 border border-purple-500/30' },
-    default: { label: 'Default', cls: 'bg-gray-500/10 text-gray-400 border border-gray-500/30' },
-};
 
 const fadeSlide = {
     initial: { opacity: 0, y: 12 },
@@ -61,9 +64,31 @@ function Breadcrumb({ segments, onBack }) {
     );
 }
 
-function PropertyGroupCard({ property, onClick }) {
+function PropertyGroupCard({ property, onClick, isUnassigned = false }) {
     const cover = property.image_url ||
         'https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=2574&auto=format&fit=crop';
+
+    if (isUnassigned) {
+        return (
+            <motion.div
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => onClick(property)}
+                className="bg-card border border-dashed border-border rounded-xl overflow-hidden cursor-pointer group hover:border-primary hover:shadow-lg hover:shadow-primary/10 transition-colors duration-200 flex flex-col items-center justify-center p-8"
+            >
+                <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Hash className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                    Unassigned Units
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1 text-center">
+                    {property.unit_count} {property.unit_count === 1 ? 'unit' : 'units'} without property
+                </p>
+            </motion.div>
+        );
+    }
+
     return (
         <motion.div
             whileHover={{ y: -2 }}
@@ -92,18 +117,13 @@ function PropertyGroupCard({ property, onClick }) {
     );
 }
 
-function BuildingCard({ building, onClick, isSelected }) {
+function BuildingCard({ building, onClick }) {
     return (
         <motion.div
             whileHover={{ y: -1 }}
             transition={{ duration: 0.15 }}
             onClick={() => onClick(building)}
-            className={cn(
-                'bg-card border rounded-xl p-4 cursor-pointer group transition-all duration-200',
-                isSelected
-                    ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'
-                    : 'border-border hover:border-primary hover:shadow-md hover:shadow-primary/10'
-            )}
+            className="bg-card border border-border rounded-xl p-4 cursor-pointer group hover:border-primary hover:shadow-md hover:shadow-primary/10 transition-all duration-200"
         >
             <div className="flex items-start gap-3">
                 <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-secondary flex-shrink-0">
@@ -115,7 +135,6 @@ function BuildingCard({ building, onClick, isSelected }) {
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                         {building.unit_count ?? 0} units
-                        {building.property_type_name && <> · {building.property_type_name}</>}
                     </p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground mt-1 group-hover:text-primary transition-colors" />
@@ -124,19 +143,15 @@ function BuildingCard({ building, onClick, isSelected }) {
     );
 }
 
-function UnitCard({ unit, onClick, isSelected }) {
-    const isOccupied = !!unit.tenant_uuid;
+function UnitCard({ unit, onClick }) {
+    // Determine occupied status checking both fields
+    const isOccupied = !!unit.tenant_uuid || !!unit.tenant_id;
     return (
         <motion.div
             whileHover={{ y: -1 }}
             transition={{ duration: 0.15 }}
             onClick={() => onClick(unit)}
-            className={cn(
-                'bg-card border rounded-xl p-4 cursor-pointer group transition-all duration-200',
-                isSelected
-                    ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'
-                    : 'border-border hover:border-primary hover:shadow-md hover:shadow-primary/10'
-            )}
+            className="bg-card border border-border rounded-xl p-4 cursor-pointer group hover:border-primary hover:shadow-md hover:shadow-primary/10 transition-all duration-200"
         >
             <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
@@ -154,9 +169,7 @@ function UnitCard({ unit, onClick, isSelected }) {
                 </div>
                 <span className={cn(
                     'text-xs px-2 py-0.5 rounded-full font-medium',
-                    isOccupied
-                        ? 'bg-red-500/10 text-red-400'
-                        : 'bg-green-500/10 text-green-400'
+                    isOccupied ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'
                 )}>
                     {isOccupied ? 'Occupied' : 'Vacant'}
                 </span>
@@ -175,9 +188,9 @@ function EmptyState({ icon: Icon, title, subtitle }) {
     );
 }
 
-// ── Feature panel ──────────────────────────────────────────────────────────────
+// ── Feature toggles panel ──────────────────────────────────────────────────────
 
-function FeaturePanel({ settings, pendingChanges, onToggle }) {
+function FeaturePanel({ settings, pendingChanges, onToggle, scopeLabel, isBulk }) {
     if (!settings) {
         return (
             <div className="flex justify-center py-12">
@@ -195,6 +208,16 @@ function FeaturePanel({ settings, pendingChanges, onToggle }) {
 
     return (
         <div className="space-y-4">
+            {isBulk && (
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>
+                        <strong>Bulk {scopeLabel} Settings —</strong> Saving here will apply these changes to
+                        all units within this {scopeLabel.toLowerCase()}. Individual unit settings will be overwritten.
+                    </span>
+                </div>
+            )}
+
             {Object.entries(categories).map(([category, features]) => (
                 <motion.div
                     key={category}
@@ -211,31 +234,34 @@ function FeaturePanel({ settings, pendingChanges, onToggle }) {
                                 ? pendingChanges[feature.key]
                                 : feature.enabled;
                             const isDirty = pendingChanges.hasOwnProperty(feature.key);
-                            const badge = SOURCE_BADGE[feature.source] || SOURCE_BADGE.default;
 
                             return (
-                                <label
+                                <div
                                     key={feature.key}
+                                    onClick={() => onToggle(feature.key, currentValue)}
+                                    role="checkbox"
+                                    aria-checked={currentValue}
+                                    tabIndex={0}
+                                    onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && onToggle(feature.key, currentValue)}
                                     className={cn(
-                                        'flex items-start gap-4 p-4 rounded-lg cursor-pointer transition-colors border',
+                                        'flex items-start gap-4 p-4 rounded-lg cursor-pointer transition-colors border select-none',
                                         currentValue
                                             ? 'bg-primary/5 border-primary/20'
                                             : 'bg-background border-border hover:bg-secondary/40',
                                         isDirty && 'ring-1 ring-primary/40'
                                     )}
                                 >
+                                    {/* Display-only checkbox — toggle is handled by the parent div */}
                                     <input
                                         type="checkbox"
                                         checked={currentValue}
-                                        onChange={() => onToggle(feature.key, currentValue)}
-                                        className="mt-1 w-5 h-5 accent-primary rounded"
+                                        onChange={() => { }}
+                                        tabIndex={-1}
+                                        className="mt-1 w-5 h-5 accent-primary rounded pointer-events-none"
                                     />
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-medium text-foreground">{feature.display_name}</span>
-                                            <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', badge.cls)}>
-                                                {badge.label}
-                                            </span>
                                             {isDirty && (
                                                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                                                     Unsaved
@@ -244,9 +270,10 @@ function FeaturePanel({ settings, pendingChanges, onToggle }) {
                                         </div>
                                         <div className="text-sm text-muted-foreground mt-1">{feature.description}</div>
                                     </div>
-                                </label>
+                                </div>
                             );
                         })}
+
                     </div>
                 </motion.div>
             ))}
@@ -261,9 +288,11 @@ function SettingsPage() {
     const [propertyGroups, setPropertyGroups] = useState([]);
     const [propertyBuildings, setPropertyBuildings] = useState([]);
     const [buildingUnits, setBuildingUnits] = useState([]);
+    const [allFlats, setAllFlats] = useState([]);
+    const [orphanedUnits, setOrphanedUnits] = useState([]);
+    const [standaloneUnits, setStandaloneUnits] = useState([]);
 
-    // ── Navigation state (drill-down) ──────────────────────────────────────────
-    // null = not yet selected at that level
+    // ── Navigation (drill-down) ────────────────────────────────────────────────
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [selectedBuilding, setSelectedBuilding] = useState(null);
     const [selectedUnit, setSelectedUnit] = useState(null);
@@ -278,43 +307,68 @@ function SettingsPage() {
     const [loadingDrill, setLoadingDrill] = useState(false);
     const [loadingSettings, setLoadingSettings] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [saveResult, setSaveResult] = useState(null); // { units_updated, message }
     const [error, setError] = useState(null);
-    const [bulkModal, setBulkModal] = useState(null);
 
-    // ── Load property groups on mount ──────────────────────────────────────────
+    // ── Current scope label ────────────────────────────────────────────────────
+    const scopeLabel = selectedUnit ? 'Unit' : selectedBuilding ? 'Building' : 'Property';
+    const isBulk = !selectedUnit; // bulk if property or building scope
+
+    // ── Load property groups & all flats ───────────────────────────────────────
     useEffect(() => {
         (async () => {
             try {
                 setLoadingGroups(true);
-                const data = await fetchPropertyGroups();
-                setPropertyGroups(data);
+                const [groups, flats] = await Promise.all([
+                    fetchPropertyGroups(),
+                    fetchFlats()
+                ]);
+                setPropertyGroups(groups || []);
+                setAllFlats(flats || []);
+
+                // Find orphaned units (no property assigned) for the pseudo-property group
+                const orphans = (flats || []).filter(f => !f.property_id);
+                setOrphanedUnits(orphans);
             } catch {
-                setError('Failed to load properties');
+                setError('Failed to load properties or units');
             } finally {
                 setLoadingGroups(false);
             }
         })();
     }, []);
 
-    // ── Drill into a property → load its buildings ─────────────────────────────
+    // ── Drill into property ────────────────────────────────────────────────────
     const drillIntoProperty = useCallback(async (property) => {
         setSelectedProperty(property);
         setSelectedBuilding(null);
         setSelectedUnit(null);
         setPropertyBuildings([]);
         setBuildingUnits([]);
+        setStandaloneUnits([]);
         setSettings(null);
         setPendingChanges({});
         setHasChanges(false);
+        setSaveResult(null);
+
+        // Handle pseudo-property "Unassigned Units"
+        if (property.isUnassigned) {
+            setStandaloneUnits(orphanedUnits);
+            return;
+        }
+
         setLoadingDrill(true);
         try {
             const blds = await fetchPropertyBuildings(property.id);
             setPropertyBuildings(blds || []);
-        } catch { /* buildings optional */ }
-        finally { setLoadingDrill(false); }
-    }, []);
 
-    // ── Drill into a building → load its units ─────────────────────────────────
+            // Also find standalone units for this property (property attached, but no building)
+            const standalones = allFlats.filter(f => f.property_id === property.id && !f.building_id);
+            setStandaloneUnits(standalones);
+        } catch { /* ok if no buildings */ }
+        finally { setLoadingDrill(false); }
+    }, [allFlats, orphanedUnits]);
+
+    // ── Drill into building ────────────────────────────────────────────────────
     const drillIntoBuilding = useCallback(async (building) => {
         setSelectedBuilding(building);
         setSelectedUnit(null);
@@ -322,78 +376,75 @@ function SettingsPage() {
         setSettings(null);
         setPendingChanges({});
         setHasChanges(false);
+        setSaveResult(null);
         setLoadingDrill(true);
         try {
             const units = await fetchBuildingUnits(building.id);
             setBuildingUnits(units || []);
-        } catch { /* ignore */ }
+        } catch { /* ok */ }
         finally { setLoadingDrill(false); }
     }, []);
 
-    // ── Select a unit (leaf scope) ─────────────────────────────────────────────
+    // ── Select a unit ──────────────────────────────────────────────────────────
     const selectUnit = useCallback((unit) => {
         setSelectedUnit(unit);
         setSettings(null);
         setPendingChanges({});
         setHasChanges(false);
+        setSaveResult(null);
     }, []);
 
-    // ── Load settings whenever the effective scope changes ─────────────────────
+    // ── Load settings when scope changes ──────────────────────────────────────
     useEffect(() => {
         if (!selectedProperty) return;
         (async () => {
             try {
                 setLoadingSettings(true);
                 setError(null);
-                const scope = {
-                    building_id: selectedBuilding?.id ?? null,
-                    unit_id: selectedUnit?.id ?? null,
-                };
-                const data = await fetchPropertySettings(selectedProperty.id, scope);
-                setSettings(data.features);
+                let data;
+                if (selectedUnit) {
+                    data = await fetchUnitSettings(selectedUnit.id);
+                } else if (selectedBuilding) {
+                    data = await fetchBuildingSettings(selectedProperty.id, selectedBuilding.id);
+                } else {
+                    data = await fetchPropertySettings(selectedProperty.id);
+                }
+                setSettings(data?.features ?? null);
                 setPendingChanges({});
                 setHasChanges(false);
             } catch {
-                setError('Failed to load settings');
+                setError('Failed to load settings for this scope');
             } finally {
                 setLoadingSettings(false);
             }
         })();
     }, [selectedProperty, selectedBuilding, selectedUnit]);
 
-    // ── Toggle / Save ──────────────────────────────────────────────────────────
+    // ── Toggle ─────────────────────────────────────────────────────────────────
     function handleToggle(featureKey, currentValue) {
-        const newValue = !currentValue;
-        if (!selectedUnit && (selectedBuilding || selectedProperty)) {
-            const affectedUnits = selectedBuilding ? buildingUnits.length : 0;
-            setBulkModal({ featureKey, newValue, affectedUnits });
-        } else {
-            applyToggle(featureKey, newValue);
-        }
-    }
-
-    function applyToggle(featureKey, newValue) {
-        setPendingChanges(prev => ({ ...prev, [featureKey]: newValue }));
+        setPendingChanges(prev => ({ ...prev, [featureKey]: !currentValue }));
         setHasChanges(true);
-        setBulkModal(null);
     }
 
-    async function handleSave(replaceOverrides = false) {
+    // ── Save ───────────────────────────────────────────────────────────────────
+    async function handleSave() {
         try {
             setSaving(true);
-            const scope = {
-                building_id: selectedBuilding?.id ?? null,
-                unit_id: selectedUnit?.id ?? null,
-                replace_overrides: replaceOverrides,
-            };
-            await updatePropertySettings(selectedProperty.id, pendingChanges, scope);
-            // Reload settings after save
-            const data = await fetchPropertySettings(selectedProperty.id, scope);
-            setSettings(data.features);
+            setError(null);
+            let result;
+            if (selectedUnit) {
+                result = await updateUnitSettings(selectedUnit.id, pendingChanges);
+            } else if (selectedBuilding) {
+                result = await updateBuildingSettings(selectedProperty.id, selectedBuilding.id, pendingChanges);
+            } else {
+                result = await updatePropertySettings(selectedProperty.id, pendingChanges);
+            }
+            setSettings(result.features);
             setPendingChanges({});
             setHasChanges(false);
-        } catch {
-            setError('Failed to save settings');
+            setSaveResult(result);
+        } catch (e) {
+            setError(`Failed to save: ${e.message}`);
         } finally {
             setSaving(false);
         }
@@ -404,127 +455,32 @@ function SettingsPage() {
         setHasChanges(false);
     }
 
-    // ── Back navigation helpers ────────────────────────────────────────────────
-    const backFromUnit = () => {
-        setSelectedUnit(null);
-        setSettings(null);
-        setPendingChanges({});
-        setHasChanges(false);
-    };
+    // ── Back navigation ────────────────────────────────────────────────────────
+    const backFromUnit = () => { setSelectedUnit(null); setSettings(null); setPendingChanges({}); setHasChanges(false); setSaveResult(null); };
+    const backFromBuilding = () => { setSelectedBuilding(null); setSelectedUnit(null); setBuildingUnits([]); setSettings(null); setPendingChanges({}); setHasChanges(false); setSaveResult(null); };
+    const backFromProperty = () => { setSelectedProperty(null); setSelectedBuilding(null); setSelectedUnit(null); setPropertyBuildings([]); setBuildingUnits([]); setStandaloneUnits([]); setSettings(null); setPendingChanges({}); setHasChanges(false); setSaveResult(null); };
 
-    const backFromBuilding = () => {
-        setSelectedBuilding(null);
-        setSelectedUnit(null);
-        setBuildingUnits([]);
-        setSettings(null);
-        setPendingChanges({});
-        setHasChanges(false);
-    };
-
-    const backFromProperty = () => {
-        setSelectedProperty(null);
-        setSelectedBuilding(null);
-        setSelectedUnit(null);
-        setPropertyBuildings([]);
-        setBuildingUnits([]);
-        setSettings(null);
-        setPendingChanges({});
-        setHasChanges(false);
-    };
-
-    // ── Scope description ──────────────────────────────────────────────────────
-    const scopeHint = selectedUnit
-        ? '📦 Unit scope: changes apply only to this unit, overriding building and property settings.'
-        : selectedBuilding
-            ? '🏢 Building scope: changes apply to all units in this building (unless a unit overrides).'
-            : selectedProperty
-                ? '🏠 Property scope: these are the defaults for all buildings & units in this property.'
-                : null;
-
-    // ── Page header ────────────────────────────────────────────────────────────
-    const header = (
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between">
-            <div>
-                <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-                    <SettingsIcon className="w-8 h-8 text-primary" />
-                    Settings
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                    {selectedUnit
-                        ? `Managing settings for Unit ${selectedUnit.flat_number}`
-                        : selectedBuilding
-                            ? `Managing settings for ${selectedBuilding.name}`
-                            : selectedProperty
-                                ? `Managing settings for ${selectedProperty.name}`
-                                : 'Select a property to manage its feature settings'
-                    }
-                </p>
-            </div>
-        </motion.div>
-    );
-
-    // ── Loading initial property groups ────────────────────────────────────────
-    if (loadingGroups) {
-        return (
-            <div className="space-y-6">
-                {header}
-                <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-                </div>
-            </div>
-        );
-    }
-
-    // ── Level 0: No property selected — show property group cards ──────────────
-    if (!selectedProperty) {
-        return (
-            <div className="space-y-6">
-                {header}
-                {error && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>
-                )}
-                {propertyGroups.length === 0 ? (
-                    <EmptyState icon={Layers} title="No properties found"
-                        subtitle="Add a property from the Properties page first." />
-                ) : (
-                    <motion.div
-                        initial="hidden" animate="visible"
-                        variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }}
-                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
-                    >
-                        {propertyGroups.map(p => (
-                            <motion.div key={p.id} variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}>
-                                <PropertyGroupCard property={p} onClick={drillIntoProperty} />
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                )}
-            </div>
-        );
-    }
-
-    // ── Shared save bar ────────────────────────────────────────────────────────
+    // ── Shared UI pieces ───────────────────────────────────────────────────────
     const saveBar = (
         <AnimatePresence>
             {hasChanges && (
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-                    className="sticky bottom-6 flex items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border shadow-xl"
+                    className="sticky bottom-6 flex items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border shadow-xl z-10"
                 >
                     <span className="text-sm text-muted-foreground">
-                        {Object.keys(pendingChanges).length} unsaved change(s)
+                        {Object.keys(pendingChanges).length} unsaved change(s) · will affect {scopeLabel.toLowerCase()} scope
                     </span>
                     <div className="flex gap-3">
                         <button onClick={handleCancel} disabled={saving}
                             className="px-4 py-2 rounded-lg text-muted-foreground hover:bg-secondary transition-colors text-sm">
                             Cancel
                         </button>
-                        <button onClick={() => handleSave(false)} disabled={saving}
+                        <button onClick={handleSave} disabled={saving}
                             className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
                             {saving
                                 ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />Saving…</>
-                                : <><Save className="w-4 h-4" />Save Changes</>
+                                : <><Save className="w-4 h-4" />{isBulk ? 'Apply to All Units' : 'Save Changes'}</>
                             }
                         </button>
                     </div>
@@ -533,161 +489,225 @@ function SettingsPage() {
         </AnimatePresence>
     );
 
-    // ── Bulk edit modal ────────────────────────────────────────────────────────
-    const bulkConfirmModal = (
+    const saveResultBanner = saveResult && (
         <AnimatePresence>
-            {bulkModal && (
-                <>
-                    <motion.div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9000]"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        onClick={() => setBulkModal(null)} />
-                    <motion.div
-                        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9001] w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6"
-                        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                    >
-                        <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-orange-500/20">
-                                    <AlertTriangle className="w-5 h-5 text-orange-400" />
-                                </div>
-                                <h2 className="text-lg font-semibold text-foreground">Bulk Edit Warning</h2>
-                            </div>
-                            <button onClick={() => setBulkModal(null)} className="p-1 rounded text-muted-foreground hover:bg-secondary">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-4">
-                            You are about to <strong className="text-foreground">{bulkModal.newValue ? 'enable' : 'disable'}</strong>{' '}
-                            <strong className="text-foreground">{bulkModal.featureKey.replace(/_/g, ' ')}</strong>{' '}
-                            at the {selectedBuilding ? 'building' : 'property'} level.
-                            {bulkModal.affectedUnits > 0 && (
-                                <> This may affect up to <strong className="text-foreground">{bulkModal.affectedUnits} unit(s)</strong>.</>
-                            )}
-                        </p>
-                        <p className="text-xs text-muted-foreground mb-6">
-                            Do you want to also <strong>clear all existing unit-level overrides</strong> for this feature?
-                        </p>
-                        <div className="flex flex-col gap-2">
-                            <button onClick={() => applyToggle(bulkModal.featureKey, bulkModal.newValue)}
-                                className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-                                Apply at this level only (keep unit overrides)
-                            </button>
-                            <button onClick={() => { applyToggle(bulkModal.featureKey, bulkModal.newValue); handleSave(true); }}
-                                className="w-full px-4 py-2.5 rounded-lg border border-orange-500/30 text-orange-400 text-sm font-medium hover:bg-orange-500/10 transition-colors">
-                                Apply &amp; replace all unit overrides
-                            </button>
-                            <button onClick={() => setBulkModal(null)}
-                                className="w-full px-4 py-2.5 rounded-lg text-muted-foreground text-sm hover:bg-secondary transition-colors">
-                                Cancel
-                            </button>
-                        </div>
-                    </motion.div>
-                </>
-            )}
+            <motion.div
+                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm"
+            >
+                ✓ {saveResult.message}
+                {saveResult.units_updated !== undefined && (
+                    <span className="ml-1 font-medium">({saveResult.units_updated} units)</span>
+                )}
+                <button onClick={() => setSaveResult(null)} className="ml-auto">
+                    <X className="w-4 h-4" />
+                </button>
+            </motion.div>
         </AnimatePresence>
     );
 
-    // ── Level 3: Unit scope — show unit settings ───────────────────────────────
-    if (selectedUnit) {
+    const pageHeader = (
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between">
+            <div>
+                <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+                    <SettingsIcon className="w-8 h-8 text-primary" />
+                    Settings
+                </h1>
+                <p className="text-muted-foreground mt-1 text-sm">
+                    {selectedUnit
+                        ? `Unit ${selectedUnit.flat_number} — feature flags for this unit`
+                        : selectedBuilding
+                            ? `${selectedBuilding.name} — bulk settings for all units in this building`
+                            : selectedProperty
+                                ? selectedProperty.isUnassigned ? 'Unassigned Units — select a unit to configure' : `${selectedProperty.name} — bulk settings for all units in this property`
+                                : 'Select a property to manage feature settings'
+                    }
+                </p>
+            </div>
+        </motion.div>
+    );
+
+    const errorBanner = error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>
+    );
+
+    // ── Level 0: property picker ───────────────────────────────────────────────
+    if (loadingGroups) {
         return (
-            <div className="space-y-5">
-                <Breadcrumb
-                    segments={[selectedBuilding?.name || selectedProperty.name, `Unit ${selectedUnit.flat_number}`]}
-                    onBack={backFromUnit}
-                />
-                {header}
-                {scopeHint && <p className="text-sm text-muted-foreground px-1">{scopeHint}</p>}
-                {error && <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>}
-                <FeaturePanel settings={loadingSettings ? null : settings} pendingChanges={pendingChanges} onToggle={handleToggle} />
-                {saveBar}
-                {bulkConfirmModal}
+            <div className="space-y-6 flex-1 min-h-0 overflow-y-auto w-full p-8 pb-32">
+                <div className="max-w-[70rem] mx-auto space-y-6">
+                    {pageHeader}
+                    <div className="flex items-center justify-center h-64">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+                    </div>
+                </div>
             </div>
         );
     }
 
-    // ── Level 2: Building scope — show unit cards + settings for this building ──
+    if (!selectedProperty) {
+        return (
+            <div className="space-y-6 flex-1 min-h-0 overflow-y-auto w-full p-8 pb-32">
+                <div className="max-w-[70rem] mx-auto space-y-6">
+                    {pageHeader}
+                    {errorBanner}
+                    {propertyGroups.length === 0 && orphanedUnits.length === 0 ? (
+                        <EmptyState icon={Layers} title="No properties found"
+                            subtitle="Add a property from the Properties page first." />
+                    ) : (
+                        <motion.div
+                            initial="hidden" animate="visible"
+                            variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }}
+                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+                        >
+                            {propertyGroups.map(p => (
+                                <motion.div key={p.id} variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}>
+                                    <PropertyGroupCard property={p} onClick={drillIntoProperty} />
+                                </motion.div>
+                            ))}
+                            {orphanedUnits.length > 0 && (
+                                <motion.div variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}>
+                                    <PropertyGroupCard
+                                        property={{ name: 'Unassigned Units', unit_count: orphanedUnits.length, isUnassigned: true, id: 'unassigned' }}
+                                        onClick={drillIntoProperty}
+                                        isUnassigned={true}
+                                    />
+                                </motion.div>
+                            )}
+                        </motion.div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Level 3: Unit scope ────────────────────────────────────────────────────
+    if (selectedUnit) {
+        return (
+            <div className="space-y-5 flex-1 min-h-0 overflow-y-auto w-full p-8 pb-32">
+                <div className="max-w-[70rem] mx-auto space-y-5">
+                    <Breadcrumb segments={[selectedBuilding?.name || selectedProperty.name, `Unit ${selectedUnit.flat_number}`]} onBack={backFromUnit} />
+                    {pageHeader}
+                    {errorBanner}
+                    {saveResultBanner}
+                    <FeaturePanel
+                        settings={loadingSettings ? null : settings}
+                        pendingChanges={pendingChanges}
+                        onToggle={handleToggle}
+                        scopeLabel="Unit"
+                        isBulk={false}
+                    />
+                    {saveBar}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Level 2: Building scope ────────────────────────────────────────────────
     if (selectedBuilding) {
         return (
-            <div className="space-y-5">
-                <Breadcrumb
-                    segments={[selectedProperty.name, selectedBuilding.name]}
-                    onBack={backFromBuilding}
-                />
-                {header}
-                {scopeHint && <p className="text-sm text-muted-foreground px-1">{scopeHint}</p>}
-                {error && <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>}
+            <div className="space-y-5 flex-1 min-h-0 overflow-y-auto w-full p-8 pb-32">
+                <div className="max-w-[70rem] mx-auto space-y-5">
+                    <Breadcrumb segments={[selectedProperty.name, selectedBuilding.name]} onBack={backFromBuilding} />
+                    {pageHeader}
+                    {errorBanner}
+                    {saveResultBanner}
 
-                {/* Unit picker */}
+                    {loadingDrill ? (
+                        <div className="flex items-center justify-center h-28">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                        </div>
+                    ) : buildingUnits.length > 0 && (
+                        <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                                🏠 Drill into a specific Unit (optional — saves to that unit only)
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                {buildingUnits.map(u => (
+                                    <UnitCard key={u.id} unit={u} onClick={selectUnit} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-8">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                            🏢 Building-level Bulk Settings
+                        </p>
+                        <FeaturePanel
+                            settings={loadingSettings ? null : settings}
+                            pendingChanges={pendingChanges}
+                            onToggle={handleToggle}
+                            scopeLabel="Building"
+                            isBulk={true}
+                        />
+                    </div>
+                    {saveBar}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Level 1: Property scope ────────────────────────────────────────────────
+    return (
+        <div className="space-y-5 flex-1 min-h-0 overflow-y-auto w-full p-8 pb-32">
+            <div className="max-w-[70rem] mx-auto space-y-5">
+                <Breadcrumb segments={['Properties', selectedProperty.name]} onBack={backFromProperty} />
+                {pageHeader}
+                {errorBanner}
+                {saveResultBanner}
+
                 {loadingDrill ? (
                     <div className="flex items-center justify-center h-28">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                     </div>
-                ) : buildingUnits.length > 0 && (
-                    <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                            🏠 Drill into a specific Unit (optional)
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                            {buildingUnits.map(u => (
-                                <UnitCard key={u.id} unit={u} onClick={selectUnit} isSelected={false} />
-                            ))}
-                        </div>
-                    </div>
+                ) : (
+                    <>
+                        {propertyBuildings.length > 0 && (
+                            <div>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                                    🏢 Buildings (drill into a building's units or its bulk settings)
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {propertyBuildings.map(b => (
+                                        <BuildingCard key={b.id} building={b} onClick={drillIntoBuilding} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {standaloneUnits.length > 0 && (
+                            <div className={cn("mt-6", propertyBuildings.length === 0 ? "mt-0" : "")}>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                                    🏠 Standalone Units (manage specific unit)
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                    {standaloneUnits.map(u => (
+                                        <UnitCard key={u.id} unit={u} onClick={selectUnit} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
 
-                {/* Building-level feature settings */}
-                <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                        🏢 Building-level Settings
-                    </p>
-                    <FeaturePanel settings={loadingSettings ? null : settings} pendingChanges={pendingChanges} onToggle={handleToggle} />
-                </div>
-
-                {saveBar}
-                {bulkConfirmModal}
-            </div>
-        );
-    }
-
-    // ── Level 1: Property scope — show building cards + property-level settings ─
-    return (
-        <div className="space-y-5">
-            <Breadcrumb
-                segments={['Properties', selectedProperty.name]}
-                onBack={backFromProperty}
-            />
-            {header}
-            {scopeHint && <p className="text-sm text-muted-foreground px-1">{scopeHint}</p>}
-            {error && <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>}
-
-            {/* Building picker */}
-            {loadingDrill ? (
-                <div className="flex items-center justify-center h-28">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                </div>
-            ) : propertyBuildings.length > 0 && (
-                <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                        🏢 Drill into a specific Building (optional)
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {propertyBuildings.map(b => (
-                            <BuildingCard key={b.id} building={b} onClick={drillIntoBuilding} isSelected={false} />
-                        ))}
+                {!selectedProperty.isUnassigned && (
+                    <div className="mt-8">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                            🏘️ Property-level Bulk Settings
+                        </p>
+                        <FeaturePanel
+                            settings={loadingSettings ? null : settings}
+                            pendingChanges={pendingChanges}
+                            onToggle={handleToggle}
+                            scopeLabel="Property"
+                            isBulk={true}
+                        />
                     </div>
-                </div>
-            )}
-
-            {/* Property-level feature settings */}
-            <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                    🏠 Property-level Settings
-                </p>
-                <FeaturePanel settings={loadingSettings ? null : settings} pendingChanges={pendingChanges} onToggle={handleToggle} />
+                )}
+                {saveBar}
             </div>
-
-            {saveBar}
-            {bulkConfirmModal}
         </div>
     );
 }

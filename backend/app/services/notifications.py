@@ -82,18 +82,52 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
             except Exception as e:
                 logger.warning(f"Could not fetch complaint details: {e}")
         
-        # Fetch tenant details from flat if not already set
-        if tenant_name == 'N/A':
-            try:
-                # Get flat UUID
-                flat_response = db.table("flats")\
-                    .select("uuid")\
-                    .eq("flat_number", flat_number)\
-                    .execute()
+        # Fetch flat details and feature flags
+        flat_id = None
+        sms_enabled = False
+        email_enabled = False
+        
+        try:
+            # Get flat UUID and ID
+            flat_response = db.table("flats")\
+                .select("uuid, id")\
+                .eq("flat_number", flat_number)\
+                .execute()
+            
+            if flat_response.data and len(flat_response.data) > 0:
+                flat_uuid = flat_response.data[0].get('uuid')
+                flat_id = flat_response.data[0].get('id')
                 
-                if flat_response.data and len(flat_response.data) > 0:
-                    flat_uuid = flat_response.data[0].get('uuid')
-                    
+                # Fetch feature flags
+                from app.services.feature_service import FeatureService
+                from app.core.features import Feature
+                import asyncio
+                
+                # The notification is often called from background task, so run_until_complete isn't safe if loop is running
+                # However, since this is a background task running in an event loop, we should await it, BUT the function is sync.
+                # To be safe in a sync context called by FastAPI BackgroundTasks, we create a new event loop.
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        import nest_asyncio
+                        nest_asyncio.apply()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                
+                feature_service = FeatureService(db)
+                # Helper function to run the async check
+                async def get_flags():
+                    s = await feature_service.is_feature_enabled(flat_id, Feature.SMS_REMINDERS)
+                    e = await feature_service.is_feature_enabled(flat_id, Feature.EMAIL_REMINDERS)
+                    return s, e
+                
+                sms_enabled, email_enabled = loop.run_until_complete(get_flags())
+                
+                logger.info(f"Notification flags for flat {flat_number}: SMS={sms_enabled}, EMAIL={email_enabled}")
+
+                # Fetch tenant details from flat if not already set
+                if tenant_name == 'N/A':
                     # Get tenant using reverse lookup
                     tenant_response = db.table("tenants")\
                         .select("name")\
@@ -102,8 +136,8 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
                     
                     if tenant_response.data and len(tenant_response.data) > 0:
                         tenant_name = tenant_response.data[0].get('name', 'N/A')
-            except Exception as e:
-                logger.warning(f"Could not fetch tenant details: {e}")
+        except Exception as e:
+            logger.warning(f"Could not fetch tenant/feature details: {e}")
         
         # Format SMS message (keep it concise)
         sms_message = (
@@ -294,24 +328,30 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
 """
         
         # Send SMS notification
-        try:
-            twilio_client = get_twilio_client()
-            manager_phone = os.getenv("MANAGER_PHONE", "+919998064026")
-            sms_result = twilio_client.send_sms(to=manager_phone, message=sms_message)
-            if sms_result:
-                logger.info(f"SMS notification sent for appointment #{appointment_id}")
-        except Exception as e:
-            logger.error(f"SMS notification failed: {type(e).__name__} - {str(e)}")
+        if sms_enabled:
+            try:
+                twilio_client = get_twilio_client()
+                manager_phone = os.getenv("MANAGER_PHONE", "+919998064026")
+                sms_result = twilio_client.send_sms(to=manager_phone, message=sms_message)
+                if sms_result:
+                    logger.info(f"SMS notification sent for appointment #{appointment_id}")
+            except Exception as e:
+                logger.error(f"SMS notification failed: {type(e).__name__} - {str(e)}")
+        else:
+            logger.info(f"SMS notification skipped for flat {flat_number} (feature disabled)")
         
         # Send Email notification
-        try:
-            email_client = get_email_client()
-            email_subject = f"🔔 New Appointment: Flat {flat_number} - {formatted_date_short}"
-            email_success = email_client.send_email(subject=email_subject, html_content=email_html)
-            if email_success:
-                logger.info(f"Email notification sent for appointment #{appointment_id}")
-        except Exception as e:
-            logger.error(f"Email notification failed: {type(e).__name__} - {str(e)}")
+        if email_enabled:
+            try:
+                email_client = get_email_client()
+                email_subject = f"🔔 New Appointment: Flat {flat_number} - {formatted_date_short}"
+                email_success = email_client.send_email(subject=email_subject, html_content=email_html)
+                if email_success:
+                    logger.info(f"Email notification sent for appointment #{appointment_id}")
+            except Exception as e:
+                logger.error(f"Email notification failed: {type(e).__name__} - {str(e)}")
+        else:
+            logger.info(f"Email notification skipped for flat {flat_number} (feature disabled)")
         
         logger.info(f"Manager notification process completed for appointment #{appointment_id} (Flat {flat_number})")
     

@@ -1,252 +1,270 @@
 """
-Feature Permission Service
+Feature Permission Service (Unit-Centric)
 
-Handles feature flag lookups and management for properties.
-Provides centralized logic for checking if features are enabled.
-Supports hierarchical settings: Property -> Building -> Unit.
-- Property-level is the base default.
-- Building overrides the property default for all units in that building.
-- Unit overrides both property and building level settings.
+Handles feature flag lookups and management for individual units.
+The property_features table stores ONE ROW PER UNIT PER FEATURE.
+
+Bulk operations (property-level / building-level saves) are resolved here:
+  - The backend finds all child units and upserts their flags directly.
+  - No dynamic inheritance. The DB stores only the final boolean per unit.
+
+Hierarchy used ONLY for navigation/bulk writes, not for reads:
+  Property --> fetches all buildings --> fetches all units --> upserts each unit
+  Building --> fetches all units --> upserts each unit
+  Unit     --> upserts directly
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from supabase import Client
 from app.core.features import Feature, FEATURE_METADATA, get_default_state
 
 
 class FeatureService:
-    """Service for managing property feature flags with hierarchical scoping"""
+    """Service for managing unit-level feature flags."""
 
     def __init__(self, db: Client):
         self.db = db
 
     # ──────────────────────────────────────────────────────────────────────────
-    # INTERNAL: Generic fetch for any scope
+    # INTERNAL: Flat unit lookups
     # ──────────────────────────────────────────────────────────────────────────
 
-    # Whether the DB table has the building_id / unit_id columns yet.
-    # This is determined lazily on first call; set to False if they are missing.
-    _scoped_columns_available: bool = True
-
-    def _fetch_feature_rows(self, filters: dict) -> dict:
-        """Fetch rows from property_features matching all given filters.
-
-        Falls back gracefully if building_id / unit_id columns don't exist yet
-        (i.e. migration 006 hasn't been run). In that case, only property_uuid
-        and feature_key are used as filters.
-        """
-        # If we already know scoped columns are absent, skip them
-        if not FeatureService._scoped_columns_available:
-            filters = {k: v for k, v in filters.items()
-                       if k not in ("building_id", "unit_id")}
-
-        query = self.db.table("property_features").select("feature_key, enabled")
-        for col, val in filters.items():
-            if val is None:
-                query = query.is_(col, "null")
-            else:
-                query = query.eq(col, val)
-        try:
-            result = query.execute()
-            return {row["feature_key"]: row["enabled"] for row in (result.data or [])}
-        except Exception as exc:
-            err_msg = str(exc)
-            if "building_id" in err_msg or "unit_id" in err_msg:
-                # Columns don't exist yet — disable scoped lookups globally and retry
-                FeatureService._scoped_columns_available = False
-                print("[FeatureService] Scoped columns not found, falling back to "
-                      "property-only scope. Run migration 006 to enable hierarchy.")
-                # Retry without scoped columns
-                safe_filters = {k: v for k, v in filters.items()
-                                if k not in ("building_id", "unit_id")}
-                q2 = self.db.table("property_features").select("feature_key, enabled")
-                for col, val in safe_filters.items():
-                    if val is None:
-                        q2 = q2.is_(col, "null")
-                    else:
-                        q2 = q2.eq(col, val)
-                result2 = q2.execute()
-                return {row["feature_key"]: row["enabled"] for row in (result2.data or [])}
-            raise
-
-    def _resolve_features(self, property_uuid: str, building_id: Optional[int] = None, unit_id: Optional[int] = None) -> Dict[str, dict]:
-        """
-        Resolve the effective settings for a given scope by merging inheritance layers.
-        Order: Property defaults → Building override → Unit override.
-        If scoped columns (building_id, unit_id) don't exist yet, only property-level
-        settings are returned (graceful degradation).
-        """
-        # Layer 1: Property-level (always the baseline)
-        prop_features = self._fetch_feature_rows(
-            {"property_uuid": property_uuid, "building_id": None, "unit_id": None}
+    def _get_unit_features_raw(self, unit_id: int) -> Dict[str, bool]:
+        """Fetch all feature rows for one unit. Returns {feature_key: enabled}."""
+        result = (
+            self.db.table("property_features")
+            .select("feature_key, enabled")
+            .eq("unit_id", unit_id)
+            .execute()
         )
+        return {row["feature_key"]: row["enabled"] for row in (result.data or [])}
 
-        # Layer 2: Building-level (only if scoped columns exist)
-        bldg_features = {}
-        if building_id is not None and FeatureService._scoped_columns_available:
-            bldg_features = self._fetch_feature_rows(
-                {"property_uuid": property_uuid, "building_id": building_id, "unit_id": None}
-            )
-
-        # Layer 3: Unit-level (only if scoped columns exist)
-        unit_features = {}
-        if unit_id is not None and FeatureService._scoped_columns_available:
-            unit_features = self._fetch_feature_rows(
-                {"property_uuid": property_uuid, "building_id": building_id, "unit_id": unit_id}
-            )
-
-        # Build merged feature map with inheritance indicators
+    def _build_feature_map(self, raw: Dict[str, bool]) -> Dict[str, dict]:
+        """Build the full feature map (with metadata) from a raw {key: bool} dict."""
         feature_map = {}
         for feature in Feature:
             metadata = FEATURE_METADATA.get(feature, {})
             key = feature.value
-            default = get_default_state(feature)
-
-            prop_val = prop_features.get(key)         # None = not set
-            bldg_val = bldg_features.get(key)
-            unit_val = unit_features.get(key)
-
-            if unit_id is not None and unit_val is not None:
-                effective = unit_val
-                source = "overridden"
-            elif building_id is not None and bldg_val is not None:
-                effective = bldg_val
-                source = "building"  # unit is inheriting from building
-            elif prop_val is not None:
-                effective = prop_val
-                source = "inherited"  # from property
-            else:
-                effective = default
+            enabled = raw.get(key)
+            if enabled is None:
+                enabled = get_default_state(feature)
                 source = "default"
-
+            else:
+                source = "set"
             feature_map[key] = {
-                "enabled": effective,
-                "source": source,       # "overridden" | "inherited" | "building" | "default"
+                "enabled": enabled,
+                "source": source,
                 "category": metadata.get("category", "Other"),
                 "display_name": metadata.get("display_name", key),
-                "description": metadata.get("description", "")
+                "description": metadata.get("description", ""),
             }
-
         return feature_map
 
+    def _upsert_unit_features(self, unit_id: int, features: Dict[str, bool]) -> None:
+        """Upsert multiple feature flags for a single unit."""
+        rows = [
+            {"unit_id": unit_id, "feature_key": key, "enabled": val}
+            for key, val in features.items()
+        ]
+        if rows:
+            self.db.table("property_features") \
+                .upsert(rows, on_conflict="unit_id,feature_key") \
+                .execute()
+
     # ──────────────────────────────────────────────────────────────────────────
-    # Public: Get features (property / building / unit scoped)
+    # INTERNAL: Hierarchy helpers — used only for bulk writes
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def is_feature_enabled(self, property_uuid: str, feature: Feature) -> bool:
-        """Check if a feature is enabled for a specific property (fast path)."""
-        try:
-            result = self.db.table("property_features") \
-                .select("enabled") \
-                .eq("property_uuid", property_uuid) \
-                .eq("feature_key", feature.value) \
-                .is_("building_id", "null") \
-                .is_("unit_id", "null") \
+    def _get_units_for_building(self, building_id: str) -> List[int]:
+        """Return all flat IDs that belong to the given building."""
+        result = (
+            self.db.table("flats")
+            .select("id")
+            .eq("building_id", building_id)
+            .execute()
+        )
+        return [row["id"] for row in (result.data or [])]
+
+    def _get_units_for_property(self, property_uuid: str) -> List[int]:
+        """
+        Return all flat IDs that belong to the property.
+        Units are linked to a property through buildings (building_id → buildings.property_id).
+        """
+        unit_ids = set()
+
+        # Step 1: Get all building IDs for this property
+        bldg_result = (
+            self.db.table("buildings")
+            .select("id")
+            .eq("property_id", property_uuid)
+            .execute()
+        )
+        building_ids = [str(b["id"]) for b in (bldg_result.data or [])]
+
+        # Step 2: Get all flats in those buildings
+        if building_ids:
+            flats_result = (
+                self.db.table("flats")
+                .select("id")
+                .in_("building_id", building_ids)
                 .execute()
+            )
+            for row in (flats_result.data or []):
+                unit_ids.add(row["id"])
+
+        return list(unit_ids)
+
+
+
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Public: Get features
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def get_unit_features(self, unit_id: int) -> Dict[str, dict]:
+        """
+        Get all feature states for a specific unit.
+        Returns defaults for any feature not yet explicitly set.
+        """
+        try:
+            raw = self._get_unit_features_raw(unit_id)
+            return self._build_feature_map(raw)
+        except Exception as e:
+            print(f"[FeatureService] Error fetching features for unit {unit_id}: {e}")
+            return self._build_feature_map({})
+
+    async def get_building_features(self, building_id: str) -> Dict[str, dict]:
+        """
+        Get aggregate feature states for a building.
+        Returns the MAJORITY value per feature across all units in the building.
+        If a building has no units, returns system defaults.
+        """
+        try:
+            unit_ids = self._get_units_for_building(building_id)
+            if not unit_ids:
+                return self._build_feature_map({})
+
+            # Aggregate: for each feature, majority-vote enabled/disabled
+            counts: Dict[str, int] = {}
+            for uid in unit_ids:
+                raw = self._get_unit_features_raw(uid)
+                for key, val in raw.items():
+                    counts.setdefault(key, 0)
+                    if val:
+                        counts[key] += 1
+
+            # Build aggregate result (majority rule)
+            n = len(unit_ids)
+            agg_raw = {}
+            for feature in Feature:
+                key = feature.value
+                if key in counts:
+                    agg_raw[key] = counts[key] >= (n / 2)
+                else:
+                    agg_raw[key] = get_default_state(feature)
+
+            return self._build_feature_map(agg_raw)
+        except Exception as e:
+            print(f"[FeatureService] Error fetching building features {building_id}: {e}")
+            return self._build_feature_map({})
+
+    async def get_property_features(self, property_uuid: str) -> Dict[str, dict]:
+        """
+        Get aggregate feature states for a property.
+        Returns the MAJORITY value per feature across all units in the property.
+        """
+        try:
+            unit_ids = self._get_units_for_property(property_uuid)
+            if not unit_ids:
+                return self._build_feature_map({})
+
+            counts: Dict[str, int] = {}
+            for uid in unit_ids:
+                raw = self._get_unit_features_raw(uid)
+                for key, val in raw.items():
+                    counts.setdefault(key, 0)
+                    if val:
+                        counts[key] += 1
+
+            n = len(unit_ids)
+            agg_raw = {}
+            for feature in Feature:
+                key = feature.value
+                if key in counts:
+                    agg_raw[key] = counts[key] >= (n / 2)
+                else:
+                    agg_raw[key] = get_default_state(feature)
+
+            return self._build_feature_map(agg_raw)
+        except Exception as e:
+            print(f"[FeatureService] Error fetching property features {property_uuid}: {e}")
+            return self._build_feature_map({})
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Public: Fast single-feature check (for middleware/guards)
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def is_feature_enabled(self, unit_id: int, feature: Feature) -> bool:
+        """Fast check: is a feature enabled for a specific unit?"""
+        try:
+            result = (
+                self.db.table("property_features")
+                .select("enabled")
+                .eq("unit_id", unit_id)
+                .eq("feature_key", feature.value)
+                .execute()
+            )
             if not result.data:
                 return get_default_state(feature)
             return result.data[0].get("enabled", False)
         except Exception as e:
-            print(f"[FeatureService] Error checking feature {feature.value}: {e}")
+            print(f"[FeatureService] Error checking feature {feature.value} for unit {unit_id}: {e}")
             return get_default_state(feature)
 
-    async def get_property_features(self, property_uuid: str) -> Dict[str, dict]:
-        """Get all feature states for a property (no building/unit scoping)."""
-        try:
-            return self._resolve_features(property_uuid)
-        except Exception as e:
-            print(f"[FeatureService] Error fetching features for {property_uuid}: {e}")
-            return {
-                feature.value: {
-                    "enabled": get_default_state(feature),
-                    "source": "default",
-                    **FEATURE_METADATA.get(feature, {})
-                }
-                for feature in Feature
-            }
-
-    async def get_scoped_features(
-        self,
-        property_uuid: str,
-        building_id: Optional[int] = None,
-        unit_id: Optional[int] = None
-    ) -> Dict[str, dict]:
-        """
-        Get features resolved for a specific scope with inheritance metadata.
-        - Building scope: property_uuid + building_id
-        - Unit scope: property_uuid + building_id + unit_id
-        """
-        try:
-            return self._resolve_features(property_uuid, building_id, unit_id)
-        except Exception as e:
-            print(f"[FeatureService] Error fetching scoped features: {e}")
-            return {
-                feature.value: {
-                    "enabled": get_default_state(feature),
-                    "source": "default",
-                    **FEATURE_METADATA.get(feature, {})
-                }
-                for feature in Feature
-            }
-
     # ──────────────────────────────────────────────────────────────────────────
-    # Public: Set features (upsert into property_features table)
+    # Public: Set features (unit / building / property scope)
     # ──────────────────────────────────────────────────────────────────────────
 
-    async def set_feature_enabled(
-        self,
-        property_uuid: str,
-        feature: Feature,
-        enabled: bool,
-        building_id: Optional[int] = None,
-        unit_id: Optional[int] = None
-    ) -> None:
-        """Enable or disable a feature at the specified scope."""
+    async def set_unit_features(self, unit_id: int, features: Dict[str, bool]) -> None:
+        """Directly update feature flags for one unit."""
         try:
-            if FeatureService._scoped_columns_available:
-                row = {
-                    "property_uuid": property_uuid,
-                    "feature_key": feature.value,
-                    "enabled": enabled,
-                    "building_id": building_id,
-                    "unit_id": unit_id
-                }
-                self.db.table("property_features") \
-                    .upsert(row, on_conflict="property_uuid,feature_key,building_id,unit_id") \
-                    .execute()
-            else:
-                # Scoped columns not available — save at property level only
-                row = {
-                    "property_uuid": property_uuid,
-                    "feature_key": feature.value,
-                    "enabled": enabled,
-                }
-                self.db.table("property_features") \
-                    .upsert(row, on_conflict="property_uuid,feature_key") \
-                    .execute()
+            self._upsert_unit_features(unit_id, features)
         except Exception as e:
-            err_msg = str(e)
-            if ("building_id" in err_msg or "unit_id" in err_msg) and FeatureService._scoped_columns_available:
-                # Columns missing — retry at property scope only
-                FeatureService._scoped_columns_available = False
-                row_simple = {
-                    "property_uuid": property_uuid,
-                    "feature_key": feature.value,
-                    "enabled": enabled,
-                }
-                self.db.table("property_features") \
-                    .upsert(row_simple, on_conflict="property_uuid,feature_key") \
-                    .execute()
-            else:
-                print(f"[FeatureService] Error setting feature {feature.value}: {e}")
-                raise
+            print(f"[FeatureService] Error setting features for unit {unit_id}: {e}")
+            raise
 
+    async def set_building_features(self, building_id: str, features: Dict[str, bool]) -> int:
+        """
+        Bulk-set feature flags for ALL units in a building.
+        Returns the number of units updated.
+        """
+        try:
+            unit_ids = self._get_units_for_building(building_id)
+            for uid in unit_ids:
+                self._upsert_unit_features(uid, features)
+            return len(unit_ids)
+        except Exception as e:
+            print(f"[FeatureService] Error bulk-setting building {building_id}: {e}")
+            raise
 
-    async def initialize_property_features(self, property_uuid: str) -> None:
-        """Initialize default features for a new property."""
-        core_features = [f for f in Feature if get_default_state(f)]
-        for feature in core_features:
-            try:
-                await self.set_feature_enabled(property_uuid, feature, True)
-            except Exception as e:
-                print(f"[FeatureService] Error initializing {feature.value}: {e}")
+    async def set_property_features(self, property_uuid: str, features: Dict[str, bool]) -> int:
+        """
+        Bulk-set feature flags for ALL units across all buildings in a property.
+        Returns the number of units updated.
+        """
+        try:
+            unit_ids = self._get_units_for_property(property_uuid)
+            for uid in unit_ids:
+                self._upsert_unit_features(uid, features)
+            return len(unit_ids)
+        except Exception as e:
+            print(f"[FeatureService] Error bulk-setting property {property_uuid}: {e}")
+            raise
+
+    async def initialize_unit_features(self, unit_id: int) -> None:
+        """Initialize default feature flags for a newly created unit."""
+        defaults = {f.value: get_default_state(f) for f in Feature}
+        try:
+            self._upsert_unit_features(unit_id, defaults)
+        except Exception as e:
+            print(f"[FeatureService] Error initializing unit {unit_id}: {e}")

@@ -281,8 +281,32 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                 if not description or description.strip() == "":
                     description = transcript or "Voice complaint"
                 
+                # Fetch flat_uuid FIRST to check feature flags
+                flat_no = complaint_data.get("flat_number")
+                flat_response = db.table("flats").select("uuid, id").eq("flat_number", flat_no.strip().upper()).execute()
+                
+                if not flat_response.data:
+                    raise Exception(f"Flat {flat_no} not found")
+                    
+                flat_uuid = flat_response.data[0]['uuid']
+                flat_id = flat_response.data[0]['id']
+                
+                # Check voice_calls feature flag for this unit
+                from app.services.feature_service import FeatureService
+                from app.core.features import Feature
+                feature_service = FeatureService(db)
+                voice_enabled = await feature_service.is_feature_enabled(flat_id, Feature.VOICE_CALLS)
+                
+                if not voice_enabled:
+                    print(f"  [BLOCKED] Voice calls feature is disabled for unit {flat_no}")
+                    # Update call log to reflect blocked status
+                    db.table("call_logs").update({
+                        "complaint_status": "blocked_by_feature_flag"
+                    }).eq("id", call_log_id).execute()
+                    return {"status": "processed", "message": "feature_disabled"}
+
                 complaint_payload = {
-                    "flat_number": complaint_data.get("flat_number"),
+                    "flat_number": flat_no.strip().upper(),
                     "category": complaint_data.get("category"),
                     "priority": "medium",  # Default priority for voice complaints
                     "description": description,

@@ -7,6 +7,20 @@ import { format } from 'date-fns';
  * Handles all HTTP requests to FastAPI backend
  */
 
+// Fetch all flats
+export async function fetchFlats() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/flats`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching all flats:', error);
+        throw error;
+    }
+}
+
 // Fetch all complaints
 export async function fetchComplaints() {
     try {
@@ -355,5 +369,49 @@ export async function createPropertyGroup(payload) {
 export async function fetchPropertyBuildings(propertyId) {
     const response = await fetch(`${API_BASE_URL}/property-groups/${propertyId}/buildings`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+// ── Settings (Building & Unit scope) ─────────────────────────────────────────
+
+/** Fetch aggregate settings for a building (majority-vote across its units). */
+export async function fetchBuildingSettings(propertyUuid, buildingId) {
+    const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings/building/${buildingId}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+/** Fetch settings for one specific unit. */
+export async function fetchUnitSettings(unitId) {
+    const response = await fetch(`${API_BASE_URL}/units/${unitId}/settings`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+/** Bulk-apply feature toggles to ALL units in a building. */
+export async function updateBuildingSettings(propertyUuid, buildingId, features) {
+    const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings/building/${buildingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ features }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+/** Update feature toggles for one specific unit. */
+export async function updateUnitSettings(unitId, features) {
+    const response = await fetch(`${API_BASE_URL}/units/${unitId}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ features }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
     return await response.json();
 }

@@ -300,8 +300,20 @@ async def create_flat(
         
         flat = flat_response.data[0]
         flat_uuid = flat["uuid"]
+        flat_id = flat["id"]
         
         print(f"[FLAT CREATED] UUID: {flat_uuid}, Number: {flat_number_normalized}")
+
+        # ========== STEP 4.5: INITIALIZE FEATURES ==========
+        try:
+            from app.services.feature_service import FeatureService
+            feature_service = FeatureService(db)
+            await feature_service.initialize_unit_features(flat_id)
+            print(f"[FEATURES INITIALIZED] unit_id: {flat_id}")
+        except Exception as f_err:
+            print(f"[FEATURE INIT ERROR] {str(f_err)}")
+            # Non-blocking error, flat is still created
+
         
         # ========== STEP 5: CREATE TENANT IF PROVIDED ==========
         tenant_info = None

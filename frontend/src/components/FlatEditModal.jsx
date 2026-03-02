@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib';
 import { updateFlat } from '../services/apiService';
 
-export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
+export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState("details");
@@ -21,6 +22,8 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
         name: '',
         phone: ''
     });
+
+    const f = features || { flat_details: true, tenant_details: true }; // fallback
 
     // Initialize data on open
     useEffect(() => {
@@ -40,9 +43,14 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
             } else {
                 setTenantData({ name: '', phone: '' });
             }
+
+            // Set initial tab based on available features
+            if (f.flat_details) setActiveTab("details");
+            else if (f.tenant_details) setActiveTab("tenant");
+
             setError(null);
         }
-    }, [flat, isOpen]);
+    }, [flat, isOpen, features]);
 
     const handleSaveFlatDetails = async () => {
         setLoading(true);
@@ -145,28 +153,32 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate }) {
                 {/* Tabs */}
                 <div className="border-b border-border">
                     <div className="flex">
-                        <button
-                            onClick={() => setActiveTab("details")}
-                            className={cn(
-                                "flex-1 px-6 py-3 text-sm font-medium transition-colors",
-                                activeTab === "details"
-                                    ? "text-primary border-b-2 border-primary bg-primary/5"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-                            )}
-                        >
-                            Flat Details
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("tenant")}
-                            className={cn(
-                                "flex-1 px-6 py-3 text-sm font-medium transition-colors",
-                                activeTab === "tenant"
-                                    ? "text-primary border-b-2 border-primary bg-primary/5"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-                            )}
-                        >
-                            Tenant ({hasTenant ? 'Occupied' : 'Vacant'})
-                        </button>
+                        {f.flat_details && (
+                            <button
+                                onClick={() => setActiveTab("details")}
+                                className={cn(
+                                    "flex-1 px-6 py-3 text-sm font-medium transition-colors",
+                                    activeTab === "details"
+                                        ? "text-primary border-b-2 border-primary bg-primary/5"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                                )}
+                            >
+                                Flat Details
+                            </button>
+                        )}
+                        {f.tenant_details && (
+                            <button
+                                onClick={() => setActiveTab("tenant")}
+                                className={cn(
+                                    "flex-1 px-6 py-3 text-sm font-medium transition-colors",
+                                    activeTab === "tenant"
+                                        ? "text-primary border-b-2 border-primary bg-primary/5"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                                )}
+                            >
+                                Tenant ({hasTenant ? 'Occupied' : 'Vacant'})
+                            </button>
+                        )}
                     </div>
                 </div>
 

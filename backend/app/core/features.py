@@ -10,7 +10,7 @@ from typing import Dict
 
 
 class Feature(str, Enum):
-    """Centralized feature registry for property-level feature flags"""
+    """Centralized feature registry for unit-level feature flags"""
     
     # Financial Features
     RENT_MANAGEMENT = "rent_management"
@@ -20,9 +20,9 @@ class Feature(str, Enum):
     FLAT_DETAILS = "flat_details"
     
     # Communication Features
-    OUTBOUND_CALLS = "outbound_calls"
-    SMS_AUTOMATION = "sms_automation"
-    EMAIL_AUTOMATION = "email_automation"
+    VOICE_CALLS = "voice_calls"
+    SMS_REMINDERS = "sms_reminders"
+    EMAIL_REMINDERS = "email_reminders"
     
     # Tenant Management
     TENANT_DETAILS = "tenant_details"
@@ -35,7 +35,7 @@ FEATURE_METADATA: Dict[Feature, dict] = {
         "category": "Financial",
         "display_name": "Rent Management",
         "description": "Set and manage rent amounts",
-        "default_enabled": True  # Core feature
+        "default_enabled": True
     },
     Feature.RENT_DUE_DATE: {
         "category": "Financial",
@@ -45,25 +45,25 @@ FEATURE_METADATA: Dict[Feature, dict] = {
     },
     Feature.FLAT_DETAILS: {
         "category": "Property",
-        "display_name": "Flat Details",
+        "display_name": "Property",
         "description": "Edit owner, bedrooms, bathrooms, address",
-        "default_enabled": True  # Core feature
+        "default_enabled": True
     },
-    Feature.OUTBOUND_CALLS: {
+    Feature.VOICE_CALLS: {
         "category": "Communication",
-        "display_name": "Outbound Calls",
+        "display_name": "Twilio Calls",
         "description": "Twilio-powered voice calls",
         "default_enabled": False
     },
-    Feature.SMS_AUTOMATION: {
+    Feature.SMS_REMINDERS: {
         "category": "Communication",
-        "display_name": "SMS Automation",
+        "display_name": "SMS Reminders",
         "description": "Automated rent reminders via SMS",
         "default_enabled": False
     },
-    Feature.EMAIL_AUTOMATION: {
+    Feature.EMAIL_REMINDERS: {
         "category": "Communication",
-        "display_name": "Email Automation",
+        "display_name": "Email Reminders",
         "description": "Automated rent reminders via email",
         "default_enabled": False
     },
@@ -71,7 +71,7 @@ FEATURE_METADATA: Dict[Feature, dict] = {
         "category": "Tenant Management",
         "display_name": "Tenant Details",
         "description": "Edit and view tenant information",
-        "default_enabled": True  # Core feature
+        "default_enabled": True
     },
     Feature.TENANT_DOCUMENTS: {
         "category": "Tenant Management",
