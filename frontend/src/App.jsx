@@ -24,6 +24,12 @@ function App() {
         return () => clearInterval(interval);
     }, []);
 
+    // Listen for custom silent refresh events from modals
+    useEffect(() => {
+        window.addEventListener('refresh-data', loadComplaints);
+        return () => window.removeEventListener('refresh-data', loadComplaints);
+    }, []);
+
     async function loadComplaints() {
         try {
             setLoading(true);

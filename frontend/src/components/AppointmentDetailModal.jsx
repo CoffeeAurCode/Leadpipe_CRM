@@ -1,24 +1,57 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { XMarkIcon, CalendarIcon, MapPinIcon, ClockIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CalendarIcon, MapPinIcon, ClockIcon, TrashIcon, PencilIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { format, parseISO } from 'date-fns';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { APPOINTMENT_STATUS, APPOINTMENT_STATUS_CONFIG, getAppointmentStatusConfig } from '../constants/status';
 import './AppointmentDetailModal.css';
 
 export default function AppointmentDetailModal({ appointment, isOpen, onClose, onUpdate, onDelete }) {
     const [isEditing, setIsEditing] = useState(false);
-    const [editData, setEditData] = useState({
-        appointment_date: '',
-        notes: ''
-    });
+    const [editData, setEditData] = useState({ appointment_date: '', notes: '' });
+    const [currentStatus, setCurrentStatus] = useState(appointment?.status || APPOINTMENT_STATUS.SCHEDULED);
+    const [statusLoading, setStatusLoading] = useState(false);
+    const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    // Sync status from prop when appointment changes
+    useEffect(() => {
+        if (appointment?.status) {
+            setCurrentStatus(appointment.status);
+        }
+    }, [appointment]);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setStatusDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     if (!appointment) return null;
 
+    const handleStatusChange = async (newStatus) => {
+        setStatusDropdownOpen(false);
+        if (newStatus === currentStatus) return;
+        setStatusLoading(true);
+        const prevStatus = currentStatus;
+        setCurrentStatus(newStatus); // optimistic update
+        try {
+            await onUpdate(appointment.id, { status: newStatus });
+        } catch (error) {
+            console.error('Failed to update appointment status:', error);
+            setCurrentStatus(prevStatus); // revert on error
+            alert('Failed to update status. Please try again.');
+        } finally {
+            setStatusLoading(false);
+        }
+    };
+
     const handleEditClick = () => {
-        // Initialize form with current data
-        setEditData({
-            appointment_date: appointment.appointment_date,
-            notes: appointment.notes || ''
-        });
+        setEditData({ appointment_date: appointment.appointment_date, notes: appointment.notes || '' });
         setIsEditing(true);
     };
 
@@ -34,10 +67,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
     };
 
     const handleDelete = async () => {
-        const confirmed = window.confirm(
-            'Delete this appointment?\n\nThis action cannot be undone.'
-        );
-
+        const confirmed = window.confirm('Delete this appointment?\n\nThis action cannot be undone.');
         if (confirmed) {
             try {
                 await onDelete(appointment.id);
@@ -50,6 +80,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
     };
 
     const hasComplaint = appointment.complaint_category != null;
+    const statusConfig = getAppointmentStatusConfig(currentStatus);
 
     return (
         <AnimatePresence>
@@ -129,12 +160,36 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                                 </div>
                                             </div>
 
+                                            {/* Status with inline dropdown */}
                                             <div className="detail-item">
                                                 <div className="status-icon">●</div>
-                                                <div>
+                                                <div style={{ flex: 1 }}>
                                                     <div className="detail-label">Status</div>
-                                                    <div className={`status-badge status-${appointment.status}`}>
-                                                        {appointment.status}
+                                                    <div className="appt-status-wrapper" ref={dropdownRef}>
+                                                        <button
+                                                            className={`appt-status-btn ${statusConfig.text} ${statusConfig.bg} ${statusConfig.border}`}
+                                                            onClick={() => setStatusDropdownOpen(o => !o)}
+                                                            disabled={statusLoading}
+                                                            title="Click to change status"
+                                                        >
+                                                            {statusLoading ? 'Updating…' : statusConfig.label}
+                                                            <ChevronDownIcon className="appt-chevron" />
+                                                        </button>
+
+                                                        {statusDropdownOpen && (
+                                                            <div className="appt-status-dropdown">
+                                                                {Object.entries(APPOINTMENT_STATUS_CONFIG).map(([value, cfg]) => (
+                                                                    <button
+                                                                        key={value}
+                                                                        className={`appt-status-option ${currentStatus === value ? 'active' : ''}`}
+                                                                        onClick={() => handleStatusChange(value)}
+                                                                    >
+                                                                        <span className={`appt-status-dot ${cfg.text}`}>●</span>
+                                                                        {cfg.label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -202,25 +257,16 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                             className="form-textarea"
                                             rows="3"
                                             value={editData.notes}
-                                            onChange={(e) => setEditData({
-                                                ...editData,
-                                                notes: e.target.value
-                                            })}
+                                            onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
                                             placeholder="Add any notes or special instructions..."
                                         />
                                     </div>
 
                                     <div className="form-actions">
-                                        <button
-                                            className="btn-secondary"
-                                            onClick={() => setIsEditing(false)}
-                                        >
+                                        <button className="btn-secondary" onClick={() => setIsEditing(false)}>
                                             Cancel
                                         </button>
-                                        <button
-                                            className="btn-primary"
-                                            onClick={handleSaveEdit}
-                                        >
+                                        <button className="btn-primary" onClick={handleSaveEdit}>
                                             Save Changes
                                         </button>
                                     </div>

@@ -8,9 +8,10 @@ from uuid import UUID
 class AppointmentStatus(str, Enum):
     """Enum for appointment status"""
     SCHEDULED = "scheduled"
-    COMPLETED = "completed"
     CANCELLED = "cancelled"
-    RESCHEDULED = "rescheduled"
+    DONE = "done"
+    COMPLETED = "completed"   # legacy alias — VAPI uses this value
+
 
 
 class AppointmentBase(BaseModel):

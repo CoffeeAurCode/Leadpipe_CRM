@@ -13,9 +13,12 @@ function CompactCalendar({ complaints, onDateClick }) {
     const monthEnd = endOfMonth(currentDate);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-    // Fetch appointments when month changes
+    // Fetch appointments when month changes and listen for refresh events
     useEffect(() => {
         fetchAppointments();
+
+        window.addEventListener('refresh-calendar', fetchAppointments);
+        return () => window.removeEventListener('refresh-calendar', fetchAppointments);
     }, [currentDate]);
 
     const fetchAppointments = async () => {

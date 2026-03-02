@@ -202,16 +202,18 @@ export async function createProperty(formData) {
 // ==================== SETTINGS API ====================
 
 /**
- * Fetch feature settings for a property
- * @param {string} propertyUuid - UUID of the property
- * @returns {Promise<Object>} - Feature settings object
+ * Fetch feature settings for a property (optionally scoped to building/unit).
+ * @param {string} propertyUuid
+ * @param {Object} [scope] - Optional: { building_id, unit_id }
  */
-export async function fetchPropertySettings(propertyUuid) {
+export async function fetchPropertySettings(propertyUuid, scope = {}) {
     try {
-        const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const params = new URLSearchParams();
+        if (scope.building_id != null) params.set('building_id', scope.building_id);
+        if (scope.unit_id != null) params.set('unit_id', scope.unit_id);
+        const qs = params.toString() ? `?${params}` : '';
+        const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings${qs}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return await response.json();
     } catch (error) {
         console.error('Error fetching property settings:', error);
@@ -220,23 +222,25 @@ export async function fetchPropertySettings(propertyUuid) {
 }
 
 /**
- * Update feature settings for a property
- * @param {string} propertyUuid - UUID of the property
- * @param {Object} features - Object mapping feature keys to boolean values
- * @returns {Promise<Object>} - Updated settings
+ * Update feature settings at the given scope.
+ * @param {string} propertyUuid
+ * @param {Object} features  - { featureKey: bool, ... }
+ * @param {Object} [scope]   - Optional: { building_id, unit_id, replace_overrides }
  */
-export async function updatePropertySettings(propertyUuid, features) {
+export async function updatePropertySettings(propertyUuid, features, scope = {}) {
     try {
+        const body = {
+            features,
+            building_id: scope.building_id ?? null,
+            unit_id: scope.unit_id ?? null,
+            replace_overrides: scope.replace_overrides ?? false,
+        };
         const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings`, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ features }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
         });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return await response.json();
     } catch (error) {
         console.error('Error updating property settings:', error);

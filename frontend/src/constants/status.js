@@ -54,3 +54,55 @@ export const getAllStatuses = () => Object.values(STATUS);
 export const getStatusLabel = (status) => {
     return STATUS_CONFIG[status]?.label || status;
 };
+
+// ============================================================
+// APPOINTMENT-SPECIFIC STATUS CONSTANTS
+// ============================================================
+
+/**
+ * Canonical appointment status values.
+ * These match the appointments table in Supabase.
+ */
+export const APPOINTMENT_STATUS = {
+    SCHEDULED: 'scheduled',
+    CANCELLED: 'cancelled',
+    DONE: 'completed',   // DB stores 'completed'; UI displays 'Done'
+};
+
+/**
+ * Appointment status display configuration.
+ */
+export const APPOINTMENT_STATUS_CONFIG = {
+    [APPOINTMENT_STATUS.SCHEDULED]: {
+        label: 'Scheduled',
+        bg: 'bg-blue-500/10',
+        text: 'text-blue-400',
+        border: 'border-blue-500/30',
+    },
+    [APPOINTMENT_STATUS.CANCELLED]: {
+        label: 'Cancelled',
+        bg: 'bg-red-500/10',
+        text: 'text-red-400',
+        border: 'border-red-500/30',
+    },
+    [APPOINTMENT_STATUS.DONE]: {
+        label: 'Done',
+        bg: 'bg-green-500/10',
+        text: 'text-green-400',
+        border: 'border-green-500/30',
+    },
+};
+
+/**
+ * Returns appointment status config with graceful fallback.
+ * Handles legacy 'completed' value from VAPI.
+ */
+export const getAppointmentStatusConfig = (status) => {
+    return APPOINTMENT_STATUS_CONFIG[status] || {
+        label: status ? (status.charAt(0).toUpperCase() + status.slice(1)) : 'Unknown',
+        bg: 'bg-gray-500/10',
+        text: 'text-gray-400',
+        border: 'border-gray-500/30',
+    };
+};
+

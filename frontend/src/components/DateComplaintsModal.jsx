@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Calendar, Plus, Clock, Edit2, Save, X as CloseIcon, Trash2 } from 'lucide-react';
 import { format, parseISO, isFuture, isToday, setHours, setMinutes, setSeconds } from 'date-fns';
@@ -22,9 +22,17 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
     const [error, setError] = useState('');
     const [flatError, setFlatError] = useState('');
 
-    // All items are complaints (they may or may not have appointments)
-    // Filter out any that don't have required fields
-    const allItems = complaints.filter(item => item && item.id);
+    const [localItems, setLocalItems] = useState([]);
+
+    // Sync local items with props when complaints change
+    useEffect(() => {
+        setLocalItems(complaints.filter(item => item && item.id));
+    }, [complaints]);
+
+    const triggerRefresh = () => {
+        window.dispatchEvent(new CustomEvent('refresh-data'));
+        window.dispatchEvent(new CustomEvent('refresh-calendar'));
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -60,12 +68,12 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                 status: 'scheduled'
             });
 
-            // Reset and close
+            // Reset and close form
             setFormData({ flat_number: '', time: '10:00', notes: '' });
             setShowForm(false);
 
-            // Refresh the page to show new appointment
-            window.location.reload();
+            // Silent refresh
+            triggerRefresh();
         } catch (err) {
             setError(err.message || 'Failed to create appointment');
         } finally {
@@ -103,9 +111,16 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                 notes: editingAppointment.notes || null
             });
 
-            // Reset and refresh
+            // Optimistic update for local UI
+            setLocalItems(prev => prev.map(item =>
+                item.id === appointmentId
+                    ? { ...item, appointment_date: isoDateTime, notes: editingAppointment.notes }
+                    : item
+            ));
+
+            // Reset and silent refresh
             setEditingAppointment(null);
-            window.location.reload();
+            triggerRefresh();
         } catch (err) {
             setError(err.message || 'Failed to update appointment');
         } finally {
@@ -128,8 +143,9 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
         setError('');
 
         try {
-            await api.cancelAppointment(appointmentId);
-            window.location.reload();
+            // Optimistic update: remove from local list entirely or mark as cancelled
+            setLocalItems(prev => prev.filter(item => item.id !== appointmentId));
+            triggerRefresh();
         } catch (err) {
             setError(err.message || 'Failed to delete appointment');
         } finally {
@@ -163,7 +179,7 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                                 {format(date, 'MMMM d, yyyy')}
                             </h2>
                             <p className="text-sm text-muted-foreground">
-                                {allItems.length} scheduled visit{allItems.length !== 1 ? 's' : ''}
+                                {localItems.length} scheduled visit{localItems.length !== 1 ? 's' : ''}
                             </p>
                         </div>
                     </div>
@@ -177,7 +193,7 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
 
                 {/* Scheduled Visits List */}
                 <div className="p-6 space-y-3">
-                    {allItems.length === 0 ? (
+                    {localItems.length === 0 ? (
                         <div className="text-center py-8">
                             <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
                             <p className="text-muted-foreground">
@@ -185,7 +201,7 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                             </p>
                         </div>
                     ) : (
-                        allItems.map((item, index) => {
+                        localItems.map((item, index) => {
                             // All items are complaints, they may have appointments attached
                             const hasAppointment = item.appointment_date != null;
                             const isEditing = editingAppointment?.id === item.id;
@@ -470,11 +486,21 @@ function DateComplaintsModal({ date, complaints, onClose, onComplaintClick }) {
                 onClose={() => setSelectedAppointment(null)}
                 onUpdate={async (id, data) => {
                     await api.updateAppointment(id, data);
-                    window.location.reload(); // Refresh to show changes
+
+                    // Optimistic UI update for the modal
+                    setLocalItems(prev => prev.map(item =>
+                        item.id === id ? { ...item, ...data } : item
+                    ));
+                    setSelectedAppointment(prev => prev ? { ...prev, ...data } : null);
+
+                    triggerRefresh(); // Refresh backend data quietly
                 }}
                 onDelete={async (id) => {
                     await api.cancelAppointment(id);
-                    window.location.reload(); // Refresh to show changes
+                    // Optimistic update
+                    setLocalItems(prev => prev.filter(item => item.id !== id));
+                    setSelectedAppointment(null);
+                    triggerRefresh();
                 }}
             />
         </div>
