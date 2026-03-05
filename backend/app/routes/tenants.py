@@ -2,12 +2,13 @@
 Tenant API routes using Supabase client.
 Handles CRUD operations for tenants.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from supabase import Client
 from app.db.session import get_db
-from app.schemas.tenant import TenantCreate, TenantUpdate, TenantResponse, TenantWithFlat
-from typing import List
+from app.schemas.tenant import TenantCreate, TenantUpdate, TenantResponse
+from typing import List, Optional
+from datetime import date
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
 
@@ -202,12 +203,131 @@ async def create_tenant(
         )
 
 
+def _compute_lease_status(tenant: dict) -> str:
+    """Compute lease status from raw tenant dict for server-side filtering."""
+    start = tenant.get("lease_start_date")
+    end = tenant.get("lease_end_date")
+    if not start or not end:
+        return "No Lease"
+    today = date.today()
+    end_date = date.fromisoformat(end) if isinstance(end, str) else end
+    start_date = date.fromisoformat(start) if isinstance(start, str) else start
+    if end_date < today:
+        return "Expired"
+    if (end_date - today).days <= 30:
+        return "Expiring Soon"
+    if start_date <= today:
+        return "Active"
+    return "Upcoming"
+
+
 @router.get("", response_model=List[TenantResponse])
-async def get_all_tenants(db: Client = Depends(get_db)):
-    """Get all tenants"""
+async def get_all_tenants(
+    db: Client = Depends(get_db),
+    property_id: Optional[int] = Query(None, description="Filter by property group ID"),
+    building_id: Optional[int] = Query(None, description="Filter by building ID"),
+    unit_uuid: Optional[str] = Query(None, description="Filter by flat/unit UUID"),
+    lease_status: Optional[str] = Query(None, description="Active | Expiring Soon | Expired | No Lease"),
+    rent_status: Optional[str] = Query(None, description="On-time | Upcoming | Overdue | At Risk"),
+    sort_by: Optional[str] = Query(None, description="lease_end_date"),
+    sort_order: str = Query("asc", description="asc | desc"),
+):
+    """Get all tenants with optional filtering, sorting, and enriched join data."""
     try:
-        response = db.table("tenants").select("*").order("created_at", desc=True).execute()
-        return response.data
+        response = db.table("tenants").select("*").execute()
+        tenants = response.data or []
+
+        # Filter by specific unit
+        if unit_uuid:
+            tenants = [t for t in tenants if t.get("flat_uuid") == unit_uuid]
+
+        # Filter by building (fetch matching flat UUIDs once)
+        if building_id is not None:
+            flat_resp = db.table("flats").select("uuid").eq("building_id", building_id).execute()
+            building_flat_uuids = {f["uuid"] for f in (flat_resp.data or [])}
+            tenants = [t for t in tenants if t.get("flat_uuid") in building_flat_uuids]
+
+        # Filter by property group (fetch buildings → flats)
+        if property_id is not None and building_id is None:
+            bldg_resp = db.table("buildings").select("id").eq("property_group_id", property_id).execute()
+            bldg_ids = [b["id"] for b in (bldg_resp.data or [])]
+            if bldg_ids:
+                flat_resp = db.table("flats").select("uuid").in_("building_id", bldg_ids).execute()
+                prop_flat_uuids = {f["uuid"] for f in (flat_resp.data or [])}
+            else:
+                prop_flat_uuids = set()
+            tenants = [t for t in tenants if t.get("flat_uuid") in prop_flat_uuids]
+
+        # Filter by rent_status (stored field)
+        if rent_status:
+            tenants = [t for t in tenants if t.get("rent_status") == rent_status]
+
+        # Filter by lease_status (computed field)
+        if lease_status:
+            tenants = [t for t in tenants if _compute_lease_status(t) == lease_status]
+
+        # ── Batch-enrich with joined data ─────────────────────────────────────
+        flat_uuids = [t["flat_uuid"] for t in tenants if t.get("flat_uuid")]
+        if flat_uuids:
+            # flat_number + integer id (needed for feature flag lookup)
+            flats_resp = (
+                db.table("flats")
+                .select("uuid, id, flat_number")
+                .in_("uuid", flat_uuids)
+                .execute()
+            )
+            flat_map = {f["uuid"]: f for f in (flats_resp.data or [])}
+            flat_id_by_uuid = {f["uuid"]: f["id"] for f in (flats_resp.data or [])}
+
+            # Active rent: monthly_rent + effective_from
+            rents_resp = (
+                db.table("rents")
+                .select("flat_uuid, monthly_rent, effective_from")
+                .in_("flat_uuid", flat_uuids)
+                .eq("is_active", True)
+                .execute()
+            )
+            rent_map = {r["flat_uuid"]: r for r in (rents_resp.data or [])}
+
+            # Feature flag: tenant_details per unit (integer id)
+            flat_ids = list(flat_id_by_uuid.values())
+            feature_resp = (
+                db.table("property_features")
+                .select("unit_id, enabled")
+                .eq("feature_key", "tenant_details")
+                .in_("unit_id", flat_ids)
+                .execute()
+            )
+            # Default is True (tenant_details is default-enabled in features.py)
+            feature_map = {row["unit_id"]: row["enabled"] for row in (feature_resp.data or [])}
+        else:
+            flat_map = {}
+            flat_id_by_uuid = {}
+            rent_map = {}
+            feature_map = {}
+
+        for t in tenants:
+            fid = t.get("flat_uuid")
+            flat = flat_map.get(fid) if fid else None
+            rent = rent_map.get(fid) if fid else None
+            unit_int_id = flat_id_by_uuid.get(fid) if fid else None
+
+            t["flat_number"] = flat["flat_number"] if flat else None
+            t["rent_amount"] = rent["monthly_rent"] if rent else None
+            t["due_date"] = rent["effective_from"] if rent else None
+            # Fall back to True when no explicit row (matches feature default)
+            t["tenant_details_enabled"] = feature_map.get(unit_int_id, True) if unit_int_id is not None else True
+
+        # Sorting
+        if sort_by == "lease_end_date":
+            tenants.sort(
+                key=lambda t: t.get("lease_end_date") or "9999-12-31",
+                reverse=(sort_order == "desc"),
+            )
+        else:
+            tenants.sort(key=lambda t: t.get("created_at") or "", reverse=True)
+
+        return tenants
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

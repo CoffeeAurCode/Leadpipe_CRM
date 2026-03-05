@@ -36,12 +36,19 @@ class Unit(Base):
 
 class Tenant(Base):
     __tablename__ = "tenants"
-    
+
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
     phone = Column(String(20), unique=True, nullable=False)
     unit_id = Column(Integer, ForeignKey("units.id", ondelete="SET NULL"))
-    
+    # Lease fields (mirrors Supabase schema; routes use SDK directly)
+    lease_start_date = Column(String(10), nullable=True)  # DATE stored as ISO string
+    lease_end_date = Column(String(10), nullable=True)
+    rent_status = Column(String(20), nullable=True)       # On-time | Upcoming | Overdue | At Risk
+    payment_schedule = Column(String(20), nullable=True)  # monthly | quarterly | custom
+    manager_notes = Column(Text, nullable=True)
+    # rent_amount and due_date are NOT stored here — joined from rents table at query time
+
     unit = relationship("Unit", back_populates="tenants")
     complaints = relationship("Complaint", back_populates="tenant")
     

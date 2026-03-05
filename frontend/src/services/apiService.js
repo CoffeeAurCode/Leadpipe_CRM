@@ -262,6 +262,48 @@ export async function updatePropertySettings(propertyUuid, features, scope = {})
     }
 }
 
+// ==================== TENANTS API ====================
+
+/** Fetch all tenants with optional filtering and sorting. */
+export async function fetchTenants(params = {}) {
+    try {
+        const query = new URLSearchParams();
+        if (params.rent_status)  query.set('rent_status',  params.rent_status);
+        if (params.lease_status) query.set('lease_status', params.lease_status);
+        if (params.sort_by)      query.set('sort_by',      params.sort_by);
+        if (params.sort_order)   query.set('sort_order',   params.sort_order);
+        if (params.building_id != null) query.set('building_id', params.building_id);
+        if (params.property_id != null) query.set('property_id', params.property_id);
+        if (params.unit_uuid)    query.set('unit_uuid',    params.unit_uuid);
+        const qs = query.toString() ? `?${query}` : '';
+        const response = await fetch(`${API_BASE_URL}/tenants${qs}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching tenants:', error);
+        throw error;
+    }
+}
+
+/** Update a tenant's fields (PATCH). */
+export async function updateTenant(tenantUuid, updates) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/tenants/${tenantUuid}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates),
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`Error updating tenant ${tenantUuid}:`, error);
+        throw error;
+    }
+}
+
 // ==================== RENT API ====================
 
 export async function fetchActiveRent(flatUuid) {

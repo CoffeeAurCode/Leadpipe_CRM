@@ -6,6 +6,7 @@ import BentoDashboard from './components/BentoDashboard';
 import CalendarView from './components/CalendarView';
 import PropertiesPage from './components/PropertiesPage';
 import SettingsPage from './components/SettingsPage';
+import TenantManagement from './components/TenantManagement';
 import { fetchComplaints, updateComplaint } from './services/apiService';
 import { cn } from '@/lib';
 
@@ -125,6 +126,9 @@ function App() {
                             )}
                             {currentView === 'properties' && (
                                 <PropertiesPage />
+                            )}
+                            {currentView === 'tenants' && (
+                                <TenantManagement />
                             )}
                             {currentView === 'settings' && (
                                 <SettingsPage />

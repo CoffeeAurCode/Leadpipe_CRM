@@ -1,4 +1,4 @@
-import { Home, Calendar, Building2, Settings } from 'lucide-react';
+import { Home, Building2, Settings, Users } from 'lucide-react';
 import { cn } from '@/lib';
 import Logo from './icon.svg';
 
@@ -6,6 +6,7 @@ function Sidebar({ currentView, onNavigate }) {
     const navItems = [
         { id: 'dashboard', icon: Home, label: 'Dashboard' },
         { id: 'properties', icon: Building2, label: 'Properties' },
+        { id: 'tenants', icon: Users, label: 'Tenants' },
         { id: 'settings', icon: Settings, label: 'Settings' },
     ];
 
