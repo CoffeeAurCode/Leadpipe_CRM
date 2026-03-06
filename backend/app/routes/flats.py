@@ -39,7 +39,7 @@ async def verify_flat(
     try:
         response = db.table("flats")\
             .select("*")\
-            .eq("flat_number", request.flat_number.strip().upper())\
+            .ilike("flat_number", request.flat_number.strip())\
             .execute()
         
         if response.data:
