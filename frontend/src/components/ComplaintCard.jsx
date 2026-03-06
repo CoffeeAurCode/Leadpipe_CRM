@@ -7,11 +7,6 @@ import { format, parseISO } from 'date-fns';
 import './ComplaintCard.css';
 
 export default function ComplaintCard({ complaint, onUpdate, onViewDetails }) {
-    const truncateText = (text, maxLength = 120) => {
-        if (!text) return '';
-        return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-    };
-
     return (
         <motion.div
             className="complaint-card clickable"
@@ -38,7 +33,7 @@ export default function ComplaintCard({ complaint, onUpdate, onViewDetails }) {
                 </div>
 
                 <p className="description">
-                    {truncateText(complaint.description)}
+                    {complaint.description || 'No description provided.'}
                 </p>
 
                 {/* Appointment Badge */}
@@ -53,14 +48,14 @@ export default function ComplaintCard({ complaint, onUpdate, onViewDetails }) {
             {/* Footer */}
             <div className="card-footer">
                 <div className="footer-left">
+                    <span className="timestamp">{formatDate(complaint.created_at)}</span>
+                </div>
+                <div className="footer-right">
                     <StatusDropdown
                         complaintId={complaint.id}
                         currentStatus={complaint.status}
                         onUpdate={onUpdate}
                     />
-                </div>
-                <div className="footer-right">
-                    <span className="timestamp">{formatDate(complaint.created_at)}</span>
                 </div>
             </div>
         </motion.div>

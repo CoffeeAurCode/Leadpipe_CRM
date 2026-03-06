@@ -1,7 +1,7 @@
-import { format, parseISO } from 'date-fns';
 import PriorityBadge from './PriorityBadge';
 import StatusDropdown from './StatusDropdown';
 import { MapPin } from 'lucide-react';
+import { formatDate } from '../services/apiService';
 import { cn } from '@/lib';
 
 function CompactComplaintCard({ complaint, onClick, onUpdate }) {
@@ -14,23 +14,31 @@ function CompactComplaintCard({ complaint, onClick, onUpdate }) {
                 "transition-all duration-300 group"
             )}
         >
+            {/* Top: ID + category heading | Priority badge */}
             <div className="flex items-start justify-between gap-2 mb-2">
-                <h4 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                    {complaint.summary || complaint.flat_number || 'No summary available'}
+                <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                    #{complaint.id} · {complaint.category}
                 </h4>
                 <PriorityBadge priority={complaint.priority} />
             </div>
 
-            {(complaint.location || complaint.flat_number) && (
+            {/* Property / unit reference */}
+            {complaint.flat_number && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
                     <MapPin className="w-3 h-3" />
-                    <span className="line-clamp-1">{complaint.location || complaint.flat_number}</span>
+                    <span className="line-clamp-1">{complaint.flat_number}</span>
                 </div>
             )}
 
-            <div className="flex items-center justify-between gap-2 mt-3">
+            {/* Middle: description */}
+            <p className="text-sm text-foreground/80 line-clamp-2 break-words mb-3">
+                {complaint.description || 'No description provided.'}
+            </p>
+
+            {/* Bottom: date (left) | status (right) */}
+            <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">
-                    {format(parseISO(complaint.created_at), 'MMM d, yyyy')}
+                    {formatDate(complaint.created_at)}
                 </span>
                 <StatusDropdown
                     currentStatus={complaint.status}
