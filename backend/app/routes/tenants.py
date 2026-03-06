@@ -8,7 +8,7 @@ from supabase import Client
 from app.db.session import get_db
 from app.schemas.tenant import TenantCreate, TenantUpdate, TenantResponse
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime, timezone
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
 
@@ -79,29 +79,38 @@ async def get_tenant_by_flat(
         if (not tenant_response.data) and flat.get("tenant_uuid"):
             tenant_response = db.table("tenants").select("name, phone").eq("uuid", flat["tenant_uuid"]).execute()
         
-        # If no tenant assigned to this flat, return {"exists": false}
-        # (Vacant flat scenario)
+        current_time_str = datetime.now(timezone.utc).astimezone().replace(microsecond=0).isoformat()
+
+        # If no tenant assigned to this flat, we still return exists=True but with null tenant fields
+        # This tells the AI "The flat exists, but it is vacant"
         if not tenant_response.data or len(tenant_response.data) == 0:
             return JSONResponse(
                 status_code=200,
-                content={"exists": False},
+                content={
+                    "exists": True,
+                    "flat_no": str(flat['flat_number']),
+                    "tenant_name": None,
+                    "tenant_phone": None,
+                    "datetime": current_time_str
+                },
                 headers={"Content-Type": "application/json"}
             )
-        
+
         # Step 4: Return tenant information
         # IMPORTANT: Flat structure for Vapi's variableExtractionPlan
         # Vapi expects: tenant_name, tenant_phone (not nested under 'tenant')
         tenant = tenant_response.data[0]
-        
+
         # CRITICAL: Return explicit JSONResponse with proper content-type
         # This ensures Vapi can parse the response correctly
         return JSONResponse(
             status_code=200,
             content={
                 "exists": True,
-                "flat_no": str(flat['flat_number']),  # Ensure string type
-                "tenant_name": str(tenant['name']),  # Ensure string type
-                "tenant_phone": str(tenant['phone'])  # Ensure string type
+                "flat_no": str(flat['flat_number']),
+                "tenant_name": str(tenant['name']),
+                "tenant_phone": str(tenant['phone']),
+                "datetime": current_time_str
             },
             headers={"Content-Type": "application/json"}
         )
@@ -157,17 +166,26 @@ async def get_tenant_by_flat_query(
         if (not tenant_response.data) and flat.get("tenant_uuid"):
             tenant_response = db.table("tenants").select("name, phone").eq("uuid", flat["tenant_uuid"]).execute()
         
+        current_time_str = datetime.now(timezone.utc).astimezone().replace(microsecond=0).isoformat()
+
         if not tenant_response.data or len(tenant_response.data) == 0:
-            return {"exists": False}
-        
+            return {
+                "exists": True,
+                "flat_no": flat['flat_number'],
+                "tenant_name": None,
+                "tenant_phone": None,
+                "datetime": current_time_str
+            }
+
         tenant = tenant_response.data[0]
-        
+
         # Flat structure to match Vapi's schema
         return {
             "exists": True,
             "flat_no": flat['flat_number'],
             "tenant_name": tenant['name'],
-            "tenant_phone": tenant['phone']
+            "tenant_phone": tenant['phone'],
+            "datetime": current_time_str
         }
         
     except Exception as e:
