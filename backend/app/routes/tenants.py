@@ -8,7 +8,9 @@ from supabase import Client
 from app.db.session import get_db
 from app.schemas.tenant import TenantCreate, TenantUpdate, TenantResponse
 from typing import List, Optional
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
 
@@ -79,7 +81,7 @@ async def get_tenant_by_flat(
         if (not tenant_response.data) and flat.get("tenant_uuid"):
             tenant_response = db.table("tenants").select("name, phone").eq("uuid", flat["tenant_uuid"]).execute()
         
-        current_time_str = datetime.now(timezone.utc).astimezone().replace(microsecond=0).isoformat()
+        current_time_str = datetime.now(IST).replace(microsecond=0).isoformat()
 
         # If no tenant assigned to this flat, we still return exists=True but with null tenant fields
         # This tells the AI "The flat exists, but it is vacant"
@@ -166,7 +168,7 @@ async def get_tenant_by_flat_query(
         if (not tenant_response.data) and flat.get("tenant_uuid"):
             tenant_response = db.table("tenants").select("name, phone").eq("uuid", flat["tenant_uuid"]).execute()
         
-        current_time_str = datetime.now(timezone.utc).astimezone().replace(microsecond=0).isoformat()
+        current_time_str = datetime.now(IST).replace(microsecond=0).isoformat()
 
         if not tenant_response.data or len(tenant_response.data) == 0:
             return {
