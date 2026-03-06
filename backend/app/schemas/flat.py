@@ -65,4 +65,6 @@ class FlatVerifyRequest(BaseModel):
 class FlatVerifyResponse(BaseModel):
     """Schema for flat verification response"""
     exists: bool = Field(..., description="Whether the flat exists in the database")
-    flat: Optional[FlatResponse] = Field(None, description="Flat details if exists")
+    tenant_name: Optional[str] = Field(None, description="Tenant name if flat is occupied")
+    tenant_number: Optional[str] = Field(None, description="Tenant phone number if flat is occupied")
+    datetime: Optional[str] = Field(None, description="Current server datetime in ISO 8601 format, only returned when flat exists")

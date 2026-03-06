@@ -4,6 +4,7 @@ Handles CRUD operations and verification for flats.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from supabase import Client
+from datetime import datetime, timezone
 from app.db.session import get_db
 from app.schemas.flat import (
     FlatCreate, 
@@ -42,15 +43,28 @@ async def verify_flat(
             .execute()
         
         if response.data:
+            flat = response.data[0]
+            tenant_name = None
+            tenant_number = None
+
+            if flat.get("tenant_uuid"):
+                tenant_resp = db.table("tenants")\
+                    .select("name, phone")\
+                    .eq("uuid", flat["tenant_uuid"])\
+                    .execute()
+                if tenant_resp.data:
+                    tenant_name = tenant_resp.data[0].get("name")
+                    tenant_number = tenant_resp.data[0].get("phone")
+
+            current_time_str = datetime.now(timezone.utc).astimezone().replace(microsecond=0).isoformat()
             return FlatVerifyResponse(
                 exists=True,
-                flat=response.data[0]
+                tenant_name=tenant_name,
+                tenant_number=tenant_number,
+                datetime=current_time_str
             )
         else:
-            return FlatVerifyResponse(
-                exists=False,
-                flat=None
-            )
+            return FlatVerifyResponse(exists=False)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
