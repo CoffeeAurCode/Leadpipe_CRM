@@ -4,7 +4,9 @@ Handles CRUD operations and verification for flats.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from supabase import Client
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+IST = timezone(timedelta(hours=5, minutes=30))
 from app.db.session import get_db
 from app.schemas.flat import (
     FlatCreate, 
@@ -56,7 +58,7 @@ async def verify_flat(
                     tenant_name = tenant_resp.data[0].get("name")
                     tenant_number = tenant_resp.data[0].get("phone")
 
-            current_time_str = datetime.now(timezone.utc).astimezone().replace(microsecond=0).isoformat()
+            current_time_str = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
             return FlatVerifyResponse(
                 exists=True,
                 tenant_name=tenant_name,

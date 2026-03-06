@@ -81,7 +81,7 @@ async def get_tenant_by_flat(
         if (not tenant_response.data) and flat.get("tenant_uuid"):
             tenant_response = db.table("tenants").select("name, phone").eq("uuid", flat["tenant_uuid"]).execute()
         
-        current_time_str = datetime.now(IST).replace(microsecond=0).isoformat()
+        current_time_str = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
 
         # If no tenant assigned to this flat, we still return exists=True but with null tenant fields
         # This tells the AI "The flat exists, but it is vacant"
@@ -168,7 +168,7 @@ async def get_tenant_by_flat_query(
         if (not tenant_response.data) and flat.get("tenant_uuid"):
             tenant_response = db.table("tenants").select("name, phone").eq("uuid", flat["tenant_uuid"]).execute()
         
-        current_time_str = datetime.now(IST).replace(microsecond=0).isoformat()
+        current_time_str = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
 
         if not tenant_response.data or len(tenant_response.data) == 0:
             return {
