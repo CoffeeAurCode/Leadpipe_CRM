@@ -53,11 +53,11 @@ async def get_tenant_by_flat(
         # - Trim whitespace
         # - Convert to uppercase
         # This ensures "a-512", " A-512 ", "A-512" all match the same flat
-        normalized_flat_no = flat_no.strip().upper()
+        normalized_flat_no = flat_no.strip()
         
         # Step 2: Lookup flat by flat_number
         # This is a READ-ONLY operation, NO state change
-        flat_response = db.table("flats").select("uuid, flat_number").eq("flat_number", normalized_flat_no).execute()
+        flat_response = db.table("flats").select("uuid, flat_number").ilike("flat_number", normalized_flat_no).execute()
         
         # If flat doesn't exist, return {"exists": false}
         # We return 200 (not 404) because Vapi AI needs boolean logic
@@ -140,9 +140,9 @@ async def get_tenant_by_flat_query(
     """
     # Simply call the existing function with normalization
     try:
-        normalized_flat_no = flat_no.strip().upper()
+        normalized_flat_no = flat_no.strip()
         
-        flat_response = db.table("flats").select("uuid, flat_number").eq("flat_number", normalized_flat_no).execute()
+        flat_response = db.table("flats").select("uuid, flat_number").ilike("flat_number", normalized_flat_no).execute()
         
         if not flat_response.data or len(flat_response.data) == 0:
             return {"exists": False}
