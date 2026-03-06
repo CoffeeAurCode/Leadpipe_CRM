@@ -57,8 +57,8 @@ async def get_tenant_by_flat(
         
         # Step 2: Lookup flat by flat_number
         # This is a READ-ONLY operation, NO state change
-        flat_response = db.table("flats").select("uuid, flat_number").ilike("flat_number", normalized_flat_no).execute()
-        
+        flat_response = db.table("flats").select("uuid, flat_number, tenant_uuid").ilike("flat_number", normalized_flat_no).execute()
+
         # If flat doesn't exist, return {"exists": false}
         # We return 200 (not 404) because Vapi AI needs boolean logic
         if not flat_response.data or len(flat_response.data) == 0:
@@ -67,14 +67,17 @@ async def get_tenant_by_flat(
                 content={"exists": False},
                 headers={"Content-Type": "application/json"}
             )
-        
+
         flat = flat_response.data[0]
         flat_uuid = flat['uuid']
-        
+
         # Step 3: Find tenant living in this flat
-        # Query: WHERE tenant.flat_uuid = flat.uuid
-        # This establishes the relationship: which tenant lives in this flat?
+        # Primary: query via tenant.flat_uuid (forward FK from tenant side)
+        # Fallback: query via flat.tenant_uuid (forward FK from flat side)
+        # Both directions are checked because data may have been created inconsistently
         tenant_response = db.table("tenants").select("name, phone").eq("flat_uuid", flat_uuid).execute()
+        if (not tenant_response.data) and flat.get("tenant_uuid"):
+            tenant_response = db.table("tenants").select("name, phone").eq("uuid", flat["tenant_uuid"]).execute()
         
         # If no tenant assigned to this flat, return {"exists": false}
         # (Vacant flat scenario)
@@ -142,15 +145,17 @@ async def get_tenant_by_flat_query(
     try:
         normalized_flat_no = flat_no.strip()
         
-        flat_response = db.table("flats").select("uuid, flat_number").ilike("flat_number", normalized_flat_no).execute()
-        
+        flat_response = db.table("flats").select("uuid, flat_number, tenant_uuid").ilike("flat_number", normalized_flat_no).execute()
+
         if not flat_response.data or len(flat_response.data) == 0:
             return {"exists": False}
-        
+
         flat = flat_response.data[0]
         flat_uuid = flat['uuid']
-        
+
         tenant_response = db.table("tenants").select("name, phone").eq("flat_uuid", flat_uuid).execute()
+        if (not tenant_response.data) and flat.get("tenant_uuid"):
+            tenant_response = db.table("tenants").select("name, phone").eq("uuid", flat["tenant_uuid"]).execute()
         
         if not tenant_response.data or len(tenant_response.data) == 0:
             return {"exists": False}
