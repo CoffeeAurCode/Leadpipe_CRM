@@ -309,10 +309,9 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                     "flat_number": flat_no.strip().upper(),
                     "category": complaint_data.get("category"),
                     "priority": "medium",  # Default priority for voice complaints
-                    "description": description,
+                    "description": description[:1000], # safe clip
                     "status": "pending",
-                    "source": "voice",
-                    "tenant_id": None
+                    "source": "voice"
                 }
                 
                 # Store appointment date for later use

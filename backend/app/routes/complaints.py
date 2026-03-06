@@ -51,6 +51,9 @@ async def create_complaint(
             if tenant.data:
                 complaint_dict['tenant_uuid'] = str(tenant.data[0]['uuid'])
         
+        # Strip deprecated legacy fields before inserting to prevent Supabase Schema errors
+        complaint_dict.pop("tenant_id", None)
+        
         response = db.table("complaints").insert(complaint_dict).execute()
         
         if response.data:
