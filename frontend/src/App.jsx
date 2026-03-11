@@ -8,11 +8,13 @@ import PropertiesPage from './components/PropertiesPage';
 import SettingsPage from './components/SettingsPage';
 import TenantManagement from './components/TenantManagement';
 import SmsWorkflow from './components/SmsWorkflow';
-import { fetchComplaints, updateComplaint } from './services/apiService';
+import { fetchComplaints, updateComplaint, fetchAppointments } from './services/apiService';
+import { format, subDays, addDays } from 'date-fns';
 import { cn } from '@/lib';
 
 function App() {
     const [complaints, setComplaints] = useState([]);
+    const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentView, setCurrentView] = useState('dashboard');
@@ -20,6 +22,7 @@ function App() {
     // Fetch complaints on mount
     useEffect(() => {
         loadComplaints();
+        loadAppointments();
 
         // Auto-refresh every 30 seconds
         const interval = setInterval(loadComplaints, 30000);
@@ -31,6 +34,17 @@ function App() {
         window.addEventListener('refresh-data', loadComplaints);
         return () => window.removeEventListener('refresh-data', loadComplaints);
     }, []);
+
+    async function loadAppointments() {
+        try {
+            const start = format(subDays(new Date(), 90), 'yyyy-MM-dd');
+            const end = format(addDays(new Date(), 30), 'yyyy-MM-dd');
+            const data = await fetchAppointments(start, end);
+            setAppointments(data);
+        } catch (err) {
+            console.error('Failed to load appointments:', err);
+        }
+    }
 
     async function loadComplaints() {
         try {
@@ -123,6 +137,7 @@ function App() {
                                     {currentView === 'dashboard' && (
                                         <BentoDashboard
                                             complaints={complaints}
+                                            appointments={appointments}
                                             onComplaintUpdate={handleComplaintUpdate}
                                         />
                                     )}

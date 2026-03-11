@@ -31,6 +31,13 @@
         --input: 214 32% 88%;
         --ring: 17 100% 55%;
         --radius: 0.75rem;
+        /* ─── Chart palette ─── */
+        --chart-1: 17 100% 55%;    /* brand orange */
+        --chart-2: 215 70% 55%;    /* blue */
+        --chart-3: 142 70% 45%;    /* green */
+        --chart-4: 38 90% 55%;     /* amber */
+        --chart-grid: 214 32% 88%; /* matches --border */
+        --chart-text: 215 16% 47%; /* matches --muted-foreground */
     }
 
     /* ─── Dark Mode (original palette) ─── */
@@ -51,6 +58,9 @@
         --input: 0 0% 15%;
         --ring: 17 100% 60%;
         --radius: 0.75rem;
+        /* ─── Chart palette (dark) ─── */
+        --chart-grid: 0 0% 15%;    /* matches dark --border */
+        --chart-text: 0 0% 64%;    /* matches dark --muted-foreground */
     }
 }
 

@@ -444,6 +444,18 @@ export async function updateBuildingSettings(propertyUuid, buildingId, features)
     return await response.json();
 }
 
+// ==================== APPOINTMENTS API ====================
+
+/** Fetch appointments within a date range (yyyy-MM-dd strings). */
+export async function fetchAppointments(startDate, endDate) {
+    const qs = new URLSearchParams();
+    if (startDate) qs.set('start_date', startDate);
+    if (endDate) qs.set('end_date', endDate);
+    const response = await fetch(`${API_BASE_URL}/appointments?${qs}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
 // ==================== WORKFLOW API ====================
 
 /** Send an SMS to a list of tenants (identified by UUID). */
