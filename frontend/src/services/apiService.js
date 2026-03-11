@@ -444,6 +444,19 @@ export async function updateBuildingSettings(propertyUuid, buildingId, features)
     return await response.json();
 }
 
+// ==================== WORKFLOW API ====================
+
+/** Send an SMS to a list of tenants (identified by UUID). */
+export async function sendWorkflowSms(tenantUuids, message) {
+    const response = await fetch(`${API_BASE_URL}/workflow/send-sms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_ids: tenantUuids, message }),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
 /** Update feature toggles for one specific unit. */
 export async function updateUnitSettings(unitId, features) {
     const response = await fetch(`${API_BASE_URL}/units/${unitId}/settings`, {
