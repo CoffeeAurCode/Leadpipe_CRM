@@ -23,10 +23,6 @@ function App() {
     useEffect(() => {
         loadComplaints();
         loadAppointments();
-
-        // Auto-refresh every 30 seconds
-        const interval = setInterval(loadComplaints, 30000);
-        return () => clearInterval(interval);
     }, []);
 
     // Listen for custom silent refresh events from modals

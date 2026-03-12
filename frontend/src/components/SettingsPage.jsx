@@ -396,7 +396,7 @@ function SettingsPage() {
 
     // ── Load settings when scope changes ──────────────────────────────────────
     useEffect(() => {
-        if (!selectedProperty || selectedProperty.isUnassigned) return;
+        if (!selectedProperty || (selectedProperty.isUnassigned && !selectedUnit)) return;
         (async () => {
             try {
                 setLoadingSettings(true);
