@@ -12,27 +12,34 @@ from uuid import uuid4
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
-ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+ALLOWED_DOC_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"}
 MAX_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
-BUCKET_NAME = "Property Pics"
+IMAGE_BUCKET = "Property Pics"
+DOC_BUCKET = "Tenant_docs"
 
 
 @router.post("/image")
 async def upload_image(
     file: UploadFile = File(...),
-    entity_type: Optional[str] = Form("misc"),  # e.g. property | building | unit
+    entity_type: Optional[str] = Form("misc"),  # e.g. property | building | unit | tenant_document
     db: Client = Depends(get_db),
 ):
     """
-    Upload an image to Supabase Storage and return its public URL.
+    Upload a file to Supabase Storage and return its public URL.
 
-    - Validates file type (jpg, jpeg, png, webp only)
+    - For entity_type="tenant_document": uploads to Tenant_docs bucket, allows PDFs + images
+    - Otherwise: uploads to Property Pics bucket, images only
     - Validates file size (max 5 MB)
     - Generates a unique filename: {entity_type}/{uuid}.{ext}
     - Returns: { "url": "<public url>" }
     """
+    is_doc = entity_type == "tenant_document"
+    allowed = ALLOWED_DOC_TYPES if is_doc else ALLOWED_IMAGE_TYPES
+    bucket = DOC_BUCKET if is_doc else IMAGE_BUCKET
+
     # ── Validate MIME type ────────────────────────────────────────────────────
-    if file.content_type not in ALLOWED_TYPES:
+    if file.content_type not in allowed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid file type '{file.content_type}'. Allowed: jpg, jpeg, png, webp.",
@@ -53,7 +60,7 @@ async def upload_image(
 
     # ── Upload to Supabase Storage ────────────────────────────────────────────
     try:
-        db.storage.from_(BUCKET_NAME).upload(
+        db.storage.from_(bucket).upload(
             storage_path,
             contents,
             {"content-type": file.content_type},
@@ -66,7 +73,7 @@ async def upload_image(
 
     # ── Get public URL ────────────────────────────────────────────────────────
     try:
-        public_url = db.storage.from_(BUCKET_NAME).get_public_url(storage_path)
+        public_url = db.storage.from_(bucket).get_public_url(storage_path)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

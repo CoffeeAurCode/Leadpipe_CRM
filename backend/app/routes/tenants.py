@@ -314,17 +314,23 @@ async def get_all_tenants(
             )
             rent_map = {r["flat_uuid"]: r for r in (rents_resp.data or [])}
 
-            # Feature flag: tenant_details per unit (integer id)
+            # Feature flags: tenant_details + tenant_documents per unit (integer id)
             flat_ids = list(flat_id_by_uuid.values())
             feature_resp = (
                 db.table("property_features")
-                .select("unit_id, enabled")
-                .eq("feature_key", "tenant_details")
+                .select("unit_id, feature_key, enabled")
+                .in_("feature_key", ["tenant_details", "tenant_documents"])
                 .in_("unit_id", flat_ids)
                 .execute()
             )
-            # Default is True (tenant_details is default-enabled in features.py)
-            feature_map = {row["unit_id"]: row["enabled"] for row in (feature_resp.data or [])}
+            # Build per-feature maps; defaults: tenant_details=True, tenant_documents=False
+            tenant_details_map = {}
+            tenant_documents_map = {}
+            for row in (feature_resp.data or []):
+                if row["feature_key"] == "tenant_details":
+                    tenant_details_map[row["unit_id"]] = row["enabled"]
+                elif row["feature_key"] == "tenant_documents":
+                    tenant_documents_map[row["unit_id"]] = row["enabled"]
         else:
             flat_map = {}
             flat_id_by_uuid = {}
@@ -340,8 +346,9 @@ async def get_all_tenants(
             t["flat_number"] = flat["flat_number"] if flat else None
             t["rent_amount"] = rent["monthly_rent"] if rent else None
             t["due_date"] = rent["effective_from"] if rent else None
-            # Fall back to True when no explicit row (matches feature default)
-            t["tenant_details_enabled"] = feature_map.get(unit_int_id, True) if unit_int_id is not None else True
+            # Fall back to defaults when no explicit row
+            t["tenant_details_enabled"] = tenant_details_map.get(unit_int_id, True) if unit_int_id is not None else True
+            t["tenant_documents_enabled"] = tenant_documents_map.get(unit_int_id, False) if unit_int_id is not None else False
 
         # Sorting
         if sort_by == "lease_end_date":

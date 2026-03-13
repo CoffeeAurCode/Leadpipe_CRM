@@ -9,6 +9,7 @@ class TenantBase(BaseModel):
     """Base tenant model with common fields"""
     name: str = Field(..., description="Tenant's full name")
     phone: str = Field(..., description="Tenant's phone number (unique)")
+    email: Optional[str] = None
 
 
 class TenantCreate(TenantBase):
@@ -19,18 +20,21 @@ class TenantCreate(TenantBase):
     rent_status: Optional[str] = Field(None, description="On-time | Upcoming | Overdue | At Risk")
     payment_schedule: Optional[str] = Field(None, description="monthly | quarterly | custom")
     manager_notes: Optional[str] = None
+    document_urls: Optional[list[str]] = []
 
 
 class TenantUpdate(BaseModel):
     """Schema for updating tenant fields"""
     name: Optional[str] = Field(None, description="Update tenant's name")
     phone: Optional[str] = Field(None, description="Update tenant's phone")
+    email: Optional[str] = None
     flat_uuid: Optional[UUID] = Field(None, description="Reassign tenant to a different flat")
     lease_start_date: Optional[date] = None
     lease_end_date: Optional[date] = None
     rent_status: Optional[str] = None
     payment_schedule: Optional[str] = None
     manager_notes: Optional[str] = None
+    document_urls: Optional[list[str]] = None
 
 
 class TenantResponse(TenantBase):
@@ -45,13 +49,15 @@ class TenantResponse(TenantBase):
     rent_status: Optional[str] = None
     payment_schedule: Optional[str] = None
     manager_notes: Optional[str] = None
+    document_urls: Optional[list[str]] = []
     # Joined from flats table
     flat_number: Optional[str] = None
     # Joined from rents table (monthly_rent + effective_from where is_active=true)
     rent_amount: Optional[float] = None
     due_date: Optional[date] = None
-    # Feature flag from property_features table
+    # Feature flags from property_features table
     tenant_details_enabled: Optional[bool] = None
+    tenant_documents_enabled: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 

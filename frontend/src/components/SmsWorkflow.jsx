@@ -11,13 +11,17 @@ export default function SmsWorkflow() {
     const [message, setMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [banner, setBanner] = useState(null); // { type: 'success'|'error', text: string }
+    const [rentStatusFilter, setRentStatusFilter] = useState('');
 
-    async function load() {
+    const RENT_STATUS_OPTIONS = ['On-time', 'Upcoming', 'Overdue', 'At Risk'];
+
+    async function load(filter = rentStatusFilter) {
         try {
             setLoading(true);
             setLoadError(null);
-            const data = await fetchTenants();
+            const data = await fetchTenants(filter ? { rent_status: filter } : {});
             setTenants(data);
+            setSelectedUuids(new Set());
         } catch (err) {
             setLoadError('Failed to load tenants. Check that the backend is running.');
             console.error(err);
@@ -26,7 +30,7 @@ export default function SmsWorkflow() {
         }
     }
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => { load(rentStatusFilter); }, [rentStatusFilter]);
 
     function toggleOne(uuid) {
         setSelectedUuids(prev => {
@@ -120,19 +124,31 @@ export default function SmsWorkflow() {
 
             {/* Tenant Table */}
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border gap-3">
                     <span className="text-sm font-medium text-foreground">
                         {selectedUuids.size > 0
                             ? `${selectedUuids.size} tenant(s) selected`
                             : 'Select tenants to message'}
                     </span>
-                    <button
-                        onClick={load}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                        title="Refresh"
-                    >
-                        <RefreshCw className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={rentStatusFilter}
+                            onChange={e => setRentStatusFilter(e.target.value)}
+                            className="text-sm bg-secondary border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                            <option value="">All Rent Statuses</option>
+                            {RENT_STATUS_OPTIONS.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                            ))}
+                        </select>
+                        <button
+                            onClick={() => load(rentStatusFilter)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title="Refresh"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
 
                 {loadError && (

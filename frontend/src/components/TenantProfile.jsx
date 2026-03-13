@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, User, Calendar, CreditCard, FileText, Home, Pencil, Save, Lock } from 'lucide-react';
+import { X, User, Calendar, CreditCard, FileText, Home, Pencil, Save, Lock, Paperclip, ExternalLink, Trash2 } from 'lucide-react';
 import { updateTenant } from '../services/apiService';
 import { cn } from '@/lib';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const RENT_STATUS_OPTIONS = ['On-time', 'Upcoming', 'Overdue', 'At Risk'];
 const PAYMENT_SCHEDULE_OPTIONS = ['monthly', 'quarterly', 'custom'];
@@ -48,6 +50,8 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState(null);
     const [form, setForm] = useState({});
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef(null);
 
     if (!tenant) return null;
 
@@ -55,11 +59,13 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
 
     const startEdit = () => {
         setForm({
+            email: tenant.email || '',
             lease_start_date: tenant.lease_start_date || '',
             lease_end_date: tenant.lease_end_date || '',
             rent_status: tenant.rent_status || '',
             payment_schedule: tenant.payment_schedule || '',
             manager_notes: tenant.manager_notes || '',
+            document_urls: tenant.document_urls || [],
         });
         setSaveError(null);
         setEditing(true);
@@ -86,6 +92,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
                 rent_amount: tenant.rent_amount,
                 due_date: tenant.due_date,
                 tenant_details_enabled: tenant.tenant_details_enabled,
+                tenant_documents_enabled: tenant.tenant_documents_enabled,
             };
             onUpdate(merged);
             setEditing(false);
@@ -97,6 +104,29 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
     };
 
     const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }));
+
+    const handleDocUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('entity_type', 'tenant_document');
+            const res = await fetch(`${API_BASE_URL}/upload/image`, { method: 'POST', body: fd });
+            if (!res.ok) throw new Error('Upload failed');
+            const { url } = await res.json();
+            setForm(f => ({ ...f, document_urls: [...(f.document_urls || []), url] }));
+        } catch {
+            setSaveError('Document upload failed.');
+        } finally {
+            setUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const removeDoc = (url) =>
+        setForm(f => ({ ...f, document_urls: f.document_urls.filter(u => u !== url) }));
 
     return (
         <AnimatePresence>
@@ -128,6 +158,9 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
                                 <div>
                                     <h2 className="font-semibold text-foreground">{tenant.name}</h2>
                                     <p className="text-sm text-muted-foreground">{tenant.phone}</p>
+                                    {tenant.email && (
+                                        <p className="text-xs text-muted-foreground">{tenant.email}</p>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -186,6 +219,19 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
                                         label="Tenancy Duration"
                                         value={tenant.tenancy_duration_months != null ? `${tenant.tenancy_duration_months} months` : null}
                                     />
+                                    {editing ? (
+                                        <FieldRow label="Email">
+                                            <input
+                                                type="email"
+                                                className={inputCls}
+                                                value={form.email}
+                                                onChange={set('email')}
+                                                placeholder="tenant@example.com"
+                                            />
+                                        </FieldRow>
+                                    ) : (
+                                        <InfoRow label="Email" value={tenant.email} />
+                                    )}
                                 </section>
 
                                 {/* Contract Details */}
@@ -271,6 +317,58 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
                                         )
                                     )}
                                 </section>
+
+                                {/* Documents */}
+                                {tenant.tenant_documents_enabled !== false && (
+                                    <section>
+                                        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
+                                            <Paperclip className="w-4 h-4 text-primary" /> Documents
+                                        </h3>
+                                        {(editing ? form.document_urls : tenant.document_urls || []).length === 0 ? (
+                                            <p className="text-sm text-muted-foreground italic">No documents uploaded.</p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {(editing ? form.document_urls : tenant.document_urls || []).map((url, i) => (
+                                                    <div key={i} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-secondary">
+                                                        <a
+                                                            href={url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-1.5 text-sm text-primary hover:underline truncate"
+                                                        >
+                                                            <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                                                            Document {i + 1}
+                                                        </a>
+                                                        {editing && (
+                                                            <button onClick={() => removeDoc(url)} className="flex-shrink-0 text-muted-foreground hover:text-red-400 transition-colors">
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {editing && (
+                                            <div className="mt-3">
+                                                <input
+                                                    ref={fileInputRef}
+                                                    type="file"
+                                                    accept="image/*,application/pdf"
+                                                    className="hidden"
+                                                    onChange={handleDocUpload}
+                                                />
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    disabled={uploading}
+                                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-secondary hover:bg-secondary/80 text-foreground transition-colors disabled:opacity-60"
+                                                >
+                                                    <Paperclip className="w-3.5 h-3.5" />
+                                                    {uploading ? 'Uploading…' : 'Upload Document'}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </section>
+                                )}
 
                                 {/* Save / error */}
                                 {editing && (
