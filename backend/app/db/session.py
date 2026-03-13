@@ -20,7 +20,10 @@ def get_supabase_client() -> Client:
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
     
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+    url = settings.SUPABASE_URL
+    if not url.endswith('/'):
+        url = url + '/'
+    return create_client(url, settings.SUPABASE_KEY)
 
 
 # Dependency for FastAPI routes

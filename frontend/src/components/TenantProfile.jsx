@@ -353,7 +353,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
                                                 <input
                                                     ref={fileInputRef}
                                                     type="file"
-                                                    accept="image/*,application/pdf"
+                                                    accept="application/pdf"
                                                     className="hidden"
                                                     onChange={handleDocUpload}
                                                 />

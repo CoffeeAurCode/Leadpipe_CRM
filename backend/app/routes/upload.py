@@ -13,8 +13,9 @@ from uuid import uuid4
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
-ALLOWED_DOC_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"}
-MAX_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+ALLOWED_DOC_TYPES = {"application/pdf"}
+MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024   # 5 MB
+MAX_DOC_SIZE_BYTES  = 10 * 1024 * 1024  # 10 MB
 IMAGE_BUCKET = "Property Pics"
 DOC_BUCKET = "Tenant_docs"
 
@@ -40,17 +41,19 @@ async def upload_image(
 
     # ── Validate MIME type ────────────────────────────────────────────────────
     if file.content_type not in allowed:
+        allowed_label = "pdf" if is_doc else "jpg, jpeg, png, webp"
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type '{file.content_type}'. Allowed: jpg, jpeg, png, webp.",
+            detail=f"Invalid file type '{file.content_type}'. Allowed: {allowed_label}.",
         )
 
     # ── Read & validate size ──────────────────────────────────────────────────
+    max_size = MAX_DOC_SIZE_BYTES if is_doc else MAX_IMAGE_SIZE_BYTES
     contents = await file.read()
-    if len(contents) > MAX_SIZE_BYTES:
+    if len(contents) > max_size:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File too large ({len(contents) // 1024} KB). Maximum: 5 MB.",
+            detail=f"File too large ({len(contents) // 1024} KB). Maximum: {'10 MB' if is_doc else '5 MB'}.",
         )
 
     # ── Build unique storage path ─────────────────────────────────────────────
