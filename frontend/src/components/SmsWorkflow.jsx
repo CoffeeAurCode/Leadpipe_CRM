@@ -102,6 +102,9 @@ export default function SmsWorkflow() {
                     rows={4}
                     className="w-full bg-background border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
                 />
+                <p className="text-xs text-muted-foreground">
+                    Tip: Use <code className="px-1 py-0.5 rounded bg-secondary text-foreground">{'{'+'name}'}</code> and <code className="px-1 py-0.5 rounded bg-secondary text-foreground">{'{'+'unit}'}</code> to personalise your message — e.g. <span className="italic">"Hi {'{'+'name}'}, rent for flat {'{'+'unit}'} is due."</span>
+                </p>
                 <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
                         {message.length} character{message.length !== 1 ? 's' : ''}
