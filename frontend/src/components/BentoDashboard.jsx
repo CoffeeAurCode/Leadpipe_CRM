@@ -6,6 +6,8 @@ import { cn } from '@/lib';
 import QuickFilters from './QuickFilters';
 import CompactComplaintCard from './CompactComplaintCard';
 import ComplaintModal from './ComplaintModal';
+import DashboardListModal from './dashboard/DashboardListModal';
+import DailyTasksModal from './dashboard/DailyTasksModal';
 import KPICard from './dashboard/KPICard';
 import TrendsChart from './dashboard/TrendsChart';
 import StatusDonut from './dashboard/StatusDonut';
@@ -25,6 +27,8 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate }) {
     const [filters, setFilters] = useState({ status: 'all', priority: 'all' });
     const [timeRange, setTimeRange] = useState('7d');
     const [selectedComplaint, setSelectedComplaint] = useState(null);
+    const [activeModal, setActiveModal] = useState(null); // { title, complaints }
+    const [showDailyTasks, setShowDailyTasks] = useState(false);
 
     // Filter complaints based on active filters
     const filteredComplaints = useMemo(() => {
@@ -107,6 +111,14 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate }) {
     const openComplaintModal = (complaint) => setSelectedComplaint(complaint);
     const closeComplaintModal = () => setSelectedComplaint(null);
 
+    const openKpiModal = (title, list) => setActiveModal({ title, complaints: list });
+    const closeKpiModal = () => setActiveModal(null);
+
+    const todayAppointments = useMemo(() => appointments.filter(a => {
+        try { return a.appointment_date && isToday(parseISO(a.appointment_date)); }
+        catch { return false; }
+    }), [appointments]);
+
     return (
         <div className="space-y-6">
 
@@ -141,10 +153,37 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate }) {
 
             {/* ── KPI Row ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KPICard label="Total Complaints" value={kpis.total}              icon={TrendingUp}   delay={0.05} />
-                <KPICard label="Pending"          value={kpis.pending}            icon={Clock}        iconColor="text-amber-500"   delay={0.1} />
-                <KPICard label="In Progress"      value={kpis.inProgress}         icon={AlertCircle}  iconColor="text-blue-500"    delay={0.15} />
-                <KPICard label="Appts Today"      value={kpis.appointmentsToday}  icon={CalendarCheck} iconColor="text-emerald-500" delay={0.2} />
+                <KPICard
+                    label="Total Complaints"
+                    value={kpis.total}
+                    icon={TrendingUp}
+                    delay={0.05}
+                    onClick={() => openKpiModal(`Total Complaints (${timeRange})`, filteredByTime)}
+                />
+                <KPICard
+                    label="Pending"
+                    value={kpis.pending}
+                    icon={Clock}
+                    iconColor="text-amber-500"
+                    delay={0.1}
+                    onClick={() => openKpiModal(`Pending (${timeRange})`, filteredByTime.filter(c => c.status === STATUS.PENDING))}
+                />
+                <KPICard
+                    label="In Progress"
+                    value={kpis.inProgress}
+                    icon={AlertCircle}
+                    iconColor="text-blue-500"
+                    delay={0.15}
+                    onClick={() => openKpiModal(`In Progress (${timeRange})`, filteredByTime.filter(c => c.status === STATUS.IN_PROGRESS))}
+                />
+                <KPICard
+                    label="Daily Tasks"
+                    value={kpis.appointmentsToday}
+                    icon={CalendarCheck}
+                    iconColor="text-emerald-500"
+                    delay={0.2}
+                    onClick={() => setShowDailyTasks(true)}
+                />
             </div>
 
             {/* ── Charts Row 1: Trends + Status Donut ── */}
@@ -217,10 +256,22 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate }) {
                         onUpdate={onComplaintUpdate}
                     />
                 )}
+                {activeModal && (
+                    <DashboardListModal
+                        title={activeModal.title}
+                        complaints={activeModal.complaints}
+                        onClose={closeKpiModal}
+                    />
+                )}
+                {showDailyTasks && (
+                    <DailyTasksModal
+                        appointments={todayAppointments}
+                        onClose={() => setShowDailyTasks(false)}
+                    />
+                )}
             </AnimatePresence>
         </div>
     );
 }
 
 export default BentoDashboard;
-
