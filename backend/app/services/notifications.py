@@ -4,12 +4,85 @@ Orchestrates sending notifications to managers via SMS and Email.
 """
 import os
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
+from supabase import Client
 from app.integrations.twilio_client import get_twilio_client
 from app.integrations.email_client import get_email_client
 
 logger = logging.getLogger(__name__)
+
+
+def notify_tenant_appointment(
+    flat_uuid: str,
+    event: str,  # "created" | "rescheduled" | "cancelled"
+    flat_number: str,
+    db: Client,
+    new_date: Optional[str] = None,
+) -> None:
+    """
+    Send a personalised SMS to the tenant when an appointment is created,
+    rescheduled, or cancelled. Errors are logged and never raised.
+
+    Args:
+        flat_uuid: UUID of the flat (used to look up the tenant).
+        event: One of "created", "rescheduled", "cancelled".
+        flat_number: Flat number string used in the SMS message text.
+        db: Supabase client instance.
+        new_date: ISO date string for rescheduled events (optional).
+    """
+    try:
+        # Look up tenant by flat_uuid
+        tenant_resp = (
+            db.table("tenants")
+            .select("name, phone")
+            .eq("flat_uuid", flat_uuid)
+            .maybe_single()
+            .execute()
+        )
+        if not tenant_resp.data:
+            logger.warning(f"notify_tenant_appointment: no tenant for flat_uuid={flat_uuid}")
+            return
+
+        tenant_name = tenant_resp.data.get("name") or "Tenant"
+        phone = tenant_resp.data.get("phone")
+        if not phone:
+            logger.warning(f"notify_tenant_appointment: tenant has no phone (flat_uuid={flat_uuid})")
+            return
+
+        # Format new_date for the rescheduled message
+        formatted_date = new_date or ""
+        if new_date:
+            try:
+                dt = datetime.fromisoformat(new_date.replace("T", " ").replace("Z", ""))
+                formatted_date = dt.strftime("%d %b %Y at %I:%M %p")
+            except Exception:
+                formatted_date = new_date
+
+        if event == "created":
+            message = (
+                f"Hi {tenant_name}, a new maintenance appointment has been "
+                f"scheduled for flat {flat_number}."
+            )
+        elif event == "rescheduled":
+            message = (
+                f"Hi {tenant_name}, your maintenance appointment for flat "
+                f"{flat_number} has been rescheduled to {formatted_date}."
+            )
+        elif event == "cancelled":
+            message = (
+                f"Hi {tenant_name}, your maintenance appointment for flat "
+                f"{flat_number} has been cancelled."
+            )
+        else:
+            logger.warning(f"notify_tenant_appointment: unknown event '{event}'")
+            return
+
+        get_twilio_client().send_sms(to=phone, message=message)
+        logger.info(f"Tenant SMS ({event}) sent to {phone} for flat {flat_number}")
+
+    except Exception as e:
+        logger.error(f"notify_tenant_appointment failed: {type(e).__name__} - {str(e)}")
 
 
 def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:

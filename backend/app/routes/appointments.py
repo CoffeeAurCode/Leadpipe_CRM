@@ -9,14 +9,15 @@ from app.schemas.appointment import (
     AppointmentCreate,
     AppointmentUpdate,
     AppointmentResponse,
-    AppointmentStatus,
     VapiAppointmentViewItem,
     VapiAppointmentViewResponse,
-    VapiAppointmentUpdateRequest,
     VapiAppointmentUpdateResponse,
+    VapiAppointmentCancelResponse,
 )
-from app.services.notifications import notify_manager_appointment_scheduled
-from datetime import datetime, timezone
+from app.services.notifications import (
+    notify_manager_appointment_scheduled,
+    notify_tenant_appointment,
+)
 from typing import Optional
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
@@ -100,6 +101,7 @@ async def vapi_view_appointments(
 
 @router.patch("/update", response_model=VapiAppointmentUpdateResponse)
 async def vapi_update_appointment(
+    background_tasks: BackgroundTasks,
     flat_number: str = Query(..., description="Flat number the appointment belongs to"),
     id: int = Query(..., description="Primary key of the appointment"),
     new_appointment_date: str = Query(..., description="New date/time in format YYYY-MM-DD HH:MM:SS"),
@@ -116,12 +118,14 @@ async def vapi_update_appointment(
     try:
         # 1. Normalize flat_number and validate it exists
         normalized_flat = flat_number.strip().upper()
-        flat_check = db.table("flats").select("id").ilike("flat_number", normalized_flat).execute()
+        flat_check = db.table("flats").select("id, uuid").ilike("flat_number", normalized_flat).execute()
         if not flat_check.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Flat '{flat_number}' not found",
             )
+
+        flat_uuid = flat_check.data[0].get("uuid")
 
         # 2. Fetch the appointment by id AND flat_number together
         apt_resp = (
@@ -129,7 +133,6 @@ async def vapi_update_appointment(
             .select("*")
             .eq("id", id)
             .ilike("flat_number", normalized_flat)
-            .maybe_single()
             .execute()
         )
 
@@ -139,7 +142,7 @@ async def vapi_update_appointment(
                 detail="Appointment not found",
             )
 
-        apt = apt_resp.data
+        apt = apt_resp.data[0]
 
         # 3. Refuse if already completed
         if apt.get("status") == "completed":
@@ -166,6 +169,18 @@ async def vapi_update_appointment(
             )
 
         updated = update_resp.data[0]
+
+        # 6. Notify tenant of reschedule
+        if flat_uuid:
+            background_tasks.add_task(
+                notify_tenant_appointment,
+                str(flat_uuid),
+                "rescheduled",
+                normalized_flat,
+                db,
+                normalized_date,
+            )
+
         return VapiAppointmentUpdateResponse(
             id=updated["id"],
             new_appointment_date=updated["appointment_date"],
@@ -178,6 +193,95 @@ async def vapi_update_appointment(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating appointment: {str(e)}",
+        )
+
+
+@router.patch("/cancel", response_model=VapiAppointmentCancelResponse)
+async def vapi_cancel_appointment(
+    background_tasks: BackgroundTasks,
+    flat_number: str = Query(..., description="Flat number the appointment belongs to"),
+    id: int = Query(..., description="Primary key of the appointment"),
+    db: Client = Depends(get_db),
+):
+    """
+    VAPI tool — Cancel an appointment.
+
+    Idempotent: if already cancelled, returns 200 OK silently.
+    Refuses cancellation if the appointment is already completed.
+    """
+    try:
+        # 1. Normalize flat_number and validate it exists
+        normalized_flat = flat_number.strip().upper()
+        flat_check = db.table("flats").select("id, uuid").ilike("flat_number", normalized_flat).execute()
+        if not flat_check.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Flat '{flat_number}' not found",
+            )
+
+        flat_uuid = flat_check.data[0].get("uuid")
+
+        # 2. Fetch the appointment by id AND flat_number together
+        apt_resp = (
+            db.table("appointments")
+            .select("*")
+            .eq("id", id)
+            .ilike("flat_number", normalized_flat)
+            .execute()
+        )
+
+        if not apt_resp.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Appointment not found",
+            )
+
+        apt = apt_resp.data[0]
+
+        # 3. Idempotent: already cancelled → return 200 silently (no duplicate SMS)
+        if apt.get("status") == "cancelled":
+            return VapiAppointmentCancelResponse(id=apt["id"], status="cancelled")
+
+        # 4. Refuse if already completed
+        if apt.get("status") == "completed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot cancel a completed appointment",
+            )
+
+        # 5. Update status to cancelled
+        update_resp = (
+            db.table("appointments")
+            .update({"status": "cancelled"})
+            .eq("id", apt["id"])
+            .execute()
+        )
+
+        if not update_resp.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to cancel appointment",
+            )
+
+        # 6. Notify tenant
+        if flat_uuid:
+            background_tasks.add_task(
+                notify_tenant_appointment,
+                str(flat_uuid),
+                "cancelled",
+                normalized_flat,
+                db,
+            )
+
+        return VapiAppointmentCancelResponse(id=apt["id"], status="cancelled")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] vapi_cancel_appointment failed: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error cancelling appointment: {str(e)}",
         )
 
 
@@ -220,7 +324,18 @@ async def create_appointment(
                 notify_manager_appointment_scheduled,
                 created_appointment
             )
-            
+
+            # Notify tenant
+            flat_uuid = str(appointment_data.flat_uuid) if appointment_data.flat_uuid else None
+            if flat_uuid:
+                background_tasks.add_task(
+                    notify_tenant_appointment,
+                    flat_uuid,
+                    "created",
+                    appointment_data.flat_number or created_appointment.get("flat_number", ""),
+                    db,
+                )
+
             return created_appointment
         else:
             raise HTTPException(
@@ -330,6 +445,7 @@ async def get_appointment_by_id(
 async def update_appointment(
     appointment_id: int,
     appointment_data: AppointmentUpdate,
+    background_tasks: BackgroundTasks,
     db: Client = Depends(get_db)
 ):
     """Update an appointment's details."""
@@ -355,8 +471,21 @@ async def update_appointment(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Appointment with id {appointment_id} not found"
             )
-        
-        return response.data[0]
+
+        updated = response.data[0]
+        if "appointment_date" in update_data:
+            flat_uuid = updated.get("flat_uuid")
+            if flat_uuid:
+                background_tasks.add_task(
+                    notify_tenant_appointment,
+                    str(flat_uuid),
+                    "rescheduled",
+                    updated.get("flat_number", ""),
+                    db,
+                    updated["appointment_date"],
+                )
+
+        return updated
     except HTTPException:
         raise
     except Exception as e:
@@ -369,6 +498,7 @@ async def update_appointment(
 @router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def cancel_appointment(
     appointment_id: int,
+    background_tasks: BackgroundTasks,
     db: Client = Depends(get_db)
 ):
     """
@@ -376,18 +506,42 @@ async def cancel_appointment(
     Use DELETE method for semantic clarity.
     """
     try:
+        # Pre-fetch to get flat_uuid for tenant notification
+        fetch_resp = db.table("appointments")\
+            .select("flat_uuid, flat_number")\
+            .eq("id", appointment_id)\
+            .execute()
+
+        if not fetch_resp.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Appointment with id {appointment_id} not found"
+            )
+
+        flat_uuid = fetch_resp.data[0].get("flat_uuid")
+        flat_number_val = fetch_resp.data[0].get("flat_number", "")
+
         # Update status to cancelled instead of deleting
         response = db.table("appointments")\
             .update({"status": "cancelled"})\
             .eq("id", appointment_id)\
             .execute()
-        
+
         if not response.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Appointment with id {appointment_id} not found"
             )
-        
+
+        if flat_uuid:
+            background_tasks.add_task(
+                notify_tenant_appointment,
+                str(flat_uuid),
+                "cancelled",
+                flat_number_val,
+                db,
+            )
+
         return None
     except HTTPException:
         raise

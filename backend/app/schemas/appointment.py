@@ -91,3 +91,9 @@ class VapiAppointmentUpdateResponse(BaseModel):
     """Response for PATCH /appointments/update."""
     id: int
     new_appointment_date: str
+
+
+class VapiAppointmentCancelResponse(BaseModel):
+    """Response for PATCH /appointments/cancel."""
+    id: int
+    status: str
