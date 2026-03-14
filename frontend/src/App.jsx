@@ -10,7 +10,6 @@ import TenantManagement from './components/TenantManagement';
 import SmsWorkflow from './components/SmsWorkflow';
 import { fetchComplaints, updateComplaint, fetchAppointments } from './services/apiService';
 import { format, subDays, addDays } from 'date-fns';
-import { cn } from '@/lib';
 
 function App() {
     const [complaints, setComplaints] = useState([]);
@@ -138,7 +137,7 @@ function App() {
                                         />
                                     )}
                                     {currentView === 'calendar' && (
-                                        <CalendarView complaints={complaints} />
+                                        <CalendarView complaints={complaints} appointments={appointments} />
                                     )}
                                     {currentView === 'properties' && (
                                         <PropertiesPage />

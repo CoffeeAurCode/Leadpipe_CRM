@@ -1,4 +1,4 @@
-import { Home, Building2, Settings, Users, MessageSquareMore } from 'lucide-react';
+import { Home, Building2, Settings, Users, MessageSquareMore, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib';
 import Logo from './icon.svg';
 
@@ -9,6 +9,7 @@ function Sidebar({ currentView, onNavigate }) {
         { id: 'tenants', icon: Users, label: 'Tenants' },
         { id: 'settings', icon: Settings, label: 'Settings' },
         { id: 'workflow', icon: MessageSquareMore, label: 'SMS Workflow' },
+        { id: 'calendar', icon: CalendarDays, label: 'Calendar' },
     ];
 
     return (
