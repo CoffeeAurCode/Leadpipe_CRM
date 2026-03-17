@@ -2,22 +2,20 @@
 Flats API routes using Supabase client.
 Handles CRUD operations and verification for flats.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+import re
+import json as _json
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query
 from supabase import Client
 from datetime import datetime, timezone, timedelta
 
 IST = timezone(timedelta(hours=5, minutes=30))
 from app.db.session import get_db
 from app.schemas.flat import (
-    FlatCreate, 
-    FlatUpdate, 
-    FlatResponse, 
-    FlatVerifyRequest, 
-    FlatCreate, 
-    FlatUpdate, 
-    FlatResponse, 
-    FlatVerifyRequest, 
-    FlatVerifyResponse
+    FlatCreate,
+    FlatUpdate,
+    FlatResponse,
+    FlatVerifyPhoneRequest,
+    FlatVerifyPhoneResponse,
 )
 from app.schemas.flat_update import FlatEditRequest
 from typing import Optional
@@ -26,52 +24,116 @@ from uuid import uuid4
 router = APIRouter(prefix="/flats", tags=["Flats"])
 
 
-@router.post("/verify", response_model=FlatVerifyResponse)
-async def verify_flat(
-    request: FlatVerifyRequest,
-    db: Client = Depends(get_db)
+def _digits_only(phone: str) -> str:
+    """Strip everything except digits from a phone string."""
+    return re.sub(r"\D", "", phone)
+
+
+def _phones_match(a: str, b: str) -> bool:
+    """
+    Compare two phone numbers flexibly.
+
+    Normalises both to digits only, then checks whether either is a suffix
+    of the other.  This handles country-code variations:
+      +919998064026  vs  9998064026  →  True
+      +919998064026  vs  +919998064026  →  True
+      +919998064026  vs  9998064027  →  False
+    """
+    da, db_ = _digits_only(a), _digits_only(b)
+    if not da or not db_:
+        return False
+    return da.endswith(db_) or db_.endswith(da)
+
+
+# ---------------------------------------------------------------------------
+# VAPI endpoint — must stay above dynamic path routes to avoid shadowing
+# ---------------------------------------------------------------------------
+
+@router.post("/verify-phone", response_model=FlatVerifyPhoneResponse)
+async def verify_phone(
+    request: FlatVerifyPhoneRequest,
+    phone_number: Optional[str] = Query(None, description="Caller phone — injected by VAPI as {{customer.number}}"),
+    db: Client = Depends(get_db),
 ):
     """
-    Verify if a flat exists in the database.
-    
-    This endpoint is designed for VAPI voice agent integration.
-    The agent can call this to check if the flat number provided
-    by the caller actually exists before creating a complaint.
+    VAPI apiRequest tool — Verify that the caller is the registered tenant of a flat.
+
+    VAPI tool config:
+      Type:   apiRequest
+      Method: POST
+      URL:    /flats/verify-phone?phone_number={{customer.number}}
+      Body:   {"flat_number": "<LLM fills from conversation>"}
+
+    CRITICAL REQUIREMENTS (VAPI contract):
+    - ALWAYS returns HTTP 200 — never 404 / 500
+    - STATELESS, READ-ONLY, no side effects
     """
+    flat_number = request.flat_number
+    print(f"[DEBUG] verify_phone: flat_number={flat_number!r} phone_number={phone_number!r}")
+
     try:
-        response = db.table("flats")\
-            .select("*")\
-            .ilike("flat_number", request.flat_number.strip())\
+        if not flat_number:
+            print("[WARN] verify_phone: flat_number missing")
+            return FlatVerifyPhoneResponse(result="Verification failed: no flat number provided.", status="invalid")
+
+        if not phone_number:
+            print(f"[WARN] verify_phone: phone_number missing for flat '{flat_number}'")
+            return FlatVerifyPhoneResponse(result="Verification failed: phone number not available.", status="invalid")
+
+        normalized_flat = flat_number.strip().upper()
+
+        # 1. Look up flat (case-insensitive)
+        flat_resp = (
+            db.table("flats")
+            .select("uuid, tenant_uuid")
+            .ilike("flat_number", normalized_flat)
             .execute()
-        
-        if response.data:
-            flat = response.data[0]
-            tenant_name = None
-            tenant_number = None
-
-            if flat.get("tenant_uuid"):
-                tenant_resp = db.table("tenants")\
-                    .select("name, phone")\
-                    .eq("uuid", flat["tenant_uuid"])\
-                    .execute()
-                if tenant_resp.data:
-                    tenant_name = tenant_resp.data[0].get("name")
-                    tenant_number = tenant_resp.data[0].get("phone")
-
-            current_time_str = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
-            return FlatVerifyResponse(
-                exists=True,
-                tenant_name=tenant_name,
-                tenant_number=tenant_number,
-                datetime=current_time_str
-            )
-        else:
-            return FlatVerifyResponse(exists=False)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error verifying flat: {str(e)}"
         )
+        print(f"[DEBUG] flat lookup '{normalized_flat}': found={bool(flat_resp.data)}")
+        if not flat_resp.data:
+            return FlatVerifyPhoneResponse(result="Verification failed: flat not found.", status="invalid")
+
+        flat = flat_resp.data[0]
+        flat_uuid = flat["uuid"]
+
+        # 2. Look up tenant — primary: flat_uuid FK; fallback: flat.tenant_uuid
+        tenant_resp = (
+            db.table("tenants")
+            .select("phone")
+            .eq("flat_uuid", flat_uuid)
+            .execute()
+        )
+        if not tenant_resp.data and flat.get("tenant_uuid"):
+            tenant_resp = (
+                db.table("tenants")
+                .select("phone")
+                .eq("uuid", flat["tenant_uuid"])
+                .execute()
+            )
+
+        if not tenant_resp.data:
+            return FlatVerifyPhoneResponse(result="Verification result: vacant. Flat has no registered tenant.", status="vacant")
+
+        # 3. Compare phones (digits-only, suffix-aware for country codes)
+        tenant_phone = tenant_resp.data[0].get("phone", "")
+        match = _phones_match(phone_number, tenant_phone)
+        print(f"[DEBUG] phone match: caller={phone_number!r} db={tenant_phone!r} match={match}")
+        if match:
+            current_time_ist = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
+            return FlatVerifyPhoneResponse(
+                result=f"Verification result: valid. Caller is the registered tenant. Current IST time: {current_time_ist}.",
+                status="valid",
+                datetime=current_time_ist,
+            )
+
+        return FlatVerifyPhoneResponse(
+            result="Verification failed: phone number does not match the registered tenant for this flat.",
+            status="invalid",
+        )
+
+    except Exception as e:
+        print(f"[ERROR] verify_phone failed: {type(e).__name__}: {e}")
+        return FlatVerifyPhoneResponse(result="Verification failed due to an internal error.", status="invalid")
 
 
 @router.get("", response_model=list[FlatResponse])

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { sendChatMessage } from '../services/apiService';
 
 export default function Chatbot() {
@@ -84,13 +85,32 @@ export default function Chatbot() {
                                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                 >
                                     <div
-                                        className={`max-w-[85%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap leading-relaxed ${
+                                        className={`max-w-[85%] px-3 py-2 rounded-xl text-sm leading-relaxed ${
                                             msg.role === 'user'
-                                                ? 'bg-primary text-primary-foreground rounded-br-sm'
+                                                ? 'bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap'
                                                 : 'bg-secondary text-foreground rounded-bl-sm'
                                         }`}
                                     >
-                                        {msg.content}
+                                        {msg.role === 'assistant' ? (
+                                            <ReactMarkdown
+                                                components={{
+                                                    p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                                                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                                    em: ({ children }) => <em className="italic">{children}</em>,
+                                                    ul: ({ children }) => <ul className="list-disc list-inside space-y-0.5 my-1">{children}</ul>,
+                                                    ol: ({ children }) => <ol className="list-decimal list-inside space-y-0.5 my-1">{children}</ol>,
+                                                    li: ({ children }) => <li>{children}</li>,
+                                                    code: ({ children }) => <code className="bg-background/50 rounded px-1 text-xs font-mono">{children}</code>,
+                                                    h1: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+                                                    h2: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+                                                    h3: ({ children }) => <p className="font-medium mb-1">{children}</p>,
+                                                }}
+                                            >
+                                                {msg.content}
+                                            </ReactMarkdown>
+                                        ) : (
+                                            msg.content
+                                        )}
                                     </div>
                                 </div>
                             ))}

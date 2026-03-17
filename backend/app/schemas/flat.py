@@ -57,14 +57,19 @@ class FlatResponse(FlatBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class FlatVerifyRequest(BaseModel):
-    """Schema for verifying if a flat exists (for VAPI)"""
-    flat_number: str = Field(..., description="Flat number to verify")
+class FlatVerifyPhoneRequest(BaseModel):
+    """Schema for verifying a caller's phone against a flat's tenant (for VAPI)"""
+    flat_number: Optional[str] = Field(None, description="Flat number to look up")
+    phone_number: Optional[str] = Field(None, description="Caller's phone number — populated automatically from call metadata")
 
 
-class FlatVerifyResponse(BaseModel):
-    """Schema for flat verification response"""
-    exists: bool = Field(..., description="Whether the flat exists in the database")
-    tenant_name: Optional[str] = Field(None, description="Tenant name if flat is occupied")
-    tenant_number: Optional[str] = Field(None, description="Tenant phone number if flat is occupied")
-    datetime: Optional[str] = Field(None, description="Current server datetime in ISO 8601 format, only returned when flat exists")
+class FlatVerifyPhoneResponse(BaseModel):
+    """Schema for phone verification response.
+
+    result  — plain-English summary the LLM reads directly.
+    status  — machine-readable status for VAPI variable extraction.
+    datetime — current IST time, only on valid responses.
+    """
+    result: str = Field(..., description="Plain-English outcome for the LLM")
+    status: str = Field(..., description="'valid', 'invalid', or 'vacant'")
+    datetime: Optional[str] = Field(None, description="Current server datetime in IST (ISO 8601), only on valid responses")

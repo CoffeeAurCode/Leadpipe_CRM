@@ -97,3 +97,17 @@ class VapiAppointmentCancelResponse(BaseModel):
     """Response for PATCH /appointments/cancel."""
     id: int
     status: str
+
+
+# ---------------------------------------------------------------------------
+# VAPI-specific schema for GET /appointments/availability
+# ---------------------------------------------------------------------------
+
+class VapiAvailabilityResponse(BaseModel):
+    """Response for GET /appointments/availability.
+
+    status values:
+      'available'   — no scheduled appointment exists at the requested time
+      'unavailable' — a scheduled appointment already exists at that time
+    """
+    status: str = Field(..., description="'available' or 'unavailable'")

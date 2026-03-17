@@ -13,7 +13,7 @@ MAX_TOOL_CALL_TURNS = 5
 # Base prompt — today's date is injected at request time in run_chat()
 _SYSTEM_PROMPT_BASE = """You are a property management assistant for a tenant management dashboard.
 You help managers manage the full property hierarchy: properties → buildings → units.
-You can add/delete properties, add/delete buildings (and link them to properties), add/delete units, retrieve tenant information, and check or reschedule appointments.
+You can add/delete properties, add/delete buildings (and link them to properties), add/delete units, retrieve tenant information by name/phone/unit number, and check or reschedule appointments.
 Be concise and professional.
 
 Rules you must always follow:
@@ -169,6 +169,23 @@ TOOLS = [
                     }
                 },
                 "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_unit_info",
+            "description": "Retrieve full details about a unit/flat by its unit number, including the current tenant's information if occupied.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "flat_number": {
+                        "type": "string",
+                        "description": "The unit/flat number to look up (e.g. '101', 'A205', 'T33')"
+                    }
+                },
+                "required": ["flat_number"]
             }
         }
     },
@@ -565,6 +582,55 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
 
             db.table("flats").delete().eq("id", unit.get("id")).execute()
             return f"Unit '{unit.get('flat_number')}' has been deleted."
+
+        elif tool_name == "get_unit_info":
+            flat_number = args.get("flat_number")
+            if not flat_number:
+                return "Missing required field: flat_number."
+
+            flat_res = db.table("flats").select(
+                "flat_number, address, floor_number, bedrooms, bathrooms, occupied, tenant_uuid"
+            ).ilike("flat_number", flat_number).execute()
+
+            if not flat_res.data:
+                return f"No unit found with flat number '{flat_number}'."
+            if len(flat_res.data) > 1:
+                opts = ", ".join(f"'{f.get('flat_number')}'" for f in flat_res.data)
+                return f"Multiple units match '{flat_number}': {opts}. Please be more specific."
+
+            unit = flat_res.data[0]
+            lines = [
+                f"**Unit {unit.get('flat_number')}**",
+                f"Address: {unit.get('address') or 'N/A'}",
+                f"Floor: {unit.get('floor_number') if unit.get('floor_number') is not None else 'N/A'}",
+                f"Bedrooms: {unit.get('bedrooms') or 'N/A'} | Bathrooms: {unit.get('bathrooms') or 'N/A'}",
+                f"Status: {'Occupied' if unit.get('occupied') else 'Vacant'}",
+            ]
+
+            tenant_uuid = unit.get("tenant_uuid")
+            if tenant_uuid:
+                tenant_res = db.table("tenants").select(
+                    "name, phone, lease_start_date, lease_end_date, rent_status, payment_schedule, manager_notes"
+                ).eq("uuid", tenant_uuid).execute()
+
+                if tenant_res.data:
+                    t = tenant_res.data[0]
+                    lines += [
+                        "",
+                        "**Current Tenant**",
+                        f"Name: {t.get('name')}",
+                        f"Phone: {t.get('phone')}",
+                        f"Rent Status: {t.get('rent_status') or 'N/A'}",
+                        f"Lease: {t.get('lease_start_date') or 'N/A'} to {t.get('lease_end_date') or 'N/A'}",
+                        f"Payment Schedule: {t.get('payment_schedule') or 'N/A'}",
+                        f"Notes: {t.get('manager_notes') or 'None'}",
+                    ]
+                else:
+                    lines.append("Tenant record not found (data inconsistency).")
+            else:
+                lines.append("No tenant currently assigned.")
+
+            return "\n".join(lines)
 
         else:
             return f"Unknown tool: {tool_name}."

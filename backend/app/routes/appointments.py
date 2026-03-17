@@ -2,6 +2,7 @@
 Appointments API routes using Supabase client.
 Handles CRUD operations for appointments.
 """
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from supabase import Client
 from app.db.session import get_db
@@ -13,6 +14,7 @@ from app.schemas.appointment import (
     VapiAppointmentViewResponse,
     VapiAppointmentUpdateResponse,
     VapiAppointmentCancelResponse,
+    VapiAvailabilityResponse,
 )
 from app.services.notifications import (
     notify_manager_appointment_scheduled,
@@ -283,6 +285,61 @@ async def vapi_cancel_appointment(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error cancelling appointment: {str(e)}",
         )
+
+
+@router.get("/availability", response_model=VapiAvailabilityResponse)
+async def vapi_check_availability(
+    appointment_date: str = Query(..., description="Requested date/time in format YYYY-MM-DDTHH:MM:SS"),
+    db: Client = Depends(get_db),
+):
+    """
+    VAPI tool — Check whether the manager is available at a requested date/time.
+
+    CRITICAL REQUIREMENTS (VAPI contract):
+    - ALWAYS returns HTTP 200 — never 404 / 500
+    - STATELESS, READ-ONLY, no side effects
+    - On any DB error, returns 'unavailable' as the safe fail-default
+      (prevents accidental double-booking if the DB is momentarily unreachable)
+
+    Logic (1-hour slot model):
+      - Every appointment is assumed to occupy exactly 1 hour.
+      - A requested slot T is 'unavailable' if any scheduled appointment A satisfies:
+            A - 1hr < T < A + 1hr
+        i.e. the two 1-hour windows [A, A+1hr) and [T, T+1hr) overlap.
+      - Example: appointment at 10:00 → 10:30 and 10:50 are both unavailable;
+        11:00 is available (back-to-back is allowed).
+      - 'done' / 'completed' / 'cancelled' records are always ignored.
+    """
+    try:
+        # Normalise: "2025-06-01T10:00:00" → "2025-06-01 10:00:00"
+        normalized_date = appointment_date.strip().replace("T", " ")
+
+        # Parse so we can do datetime arithmetic
+        requested_dt = datetime.strptime(normalized_date, "%Y-%m-%d %H:%M:%S")
+
+        # Window boundaries (exclusive on both ends for back-to-back slots)
+        window_start = (requested_dt - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+        window_end   = (requested_dt + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+
+        # Any scheduled appointment whose start falls strictly inside (T-1hr, T+1hr)
+        # means the two 1-hour windows overlap → unavailable
+        result = (
+            db.table("appointments")
+            .select("id")
+            .eq("status", "scheduled")
+            .gt("appointment_date", window_start)
+            .lt("appointment_date", window_end)
+            .execute()
+        )
+
+        if result.data:
+            return VapiAvailabilityResponse(status="unavailable")
+        return VapiAvailabilityResponse(status="available")
+
+    except Exception as e:
+        # Fail-safe: never propagate to VAPI; return unavailable to avoid double-booking
+        print(f"[ERROR] vapi_check_availability failed: {type(e).__name__}: {e}")
+        return VapiAvailabilityResponse(status="unavailable")
 
 
 # ===========================================================================
