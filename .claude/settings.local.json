@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install recharts)"
+      "Bash(npm install recharts)",
+      "Bash(curl -s http://127.0.0.1:8000/)",
+      "Bash(curl -s http://localhost:5173/ -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s -X POST http://127.0.0.1:8000/chat -H \"Content-Type: application/json\" -d '{\"\"messages\"\": [{\"\"role\"\": \"\"user\"\", \"\"content\"\": \"\"Hello, what can you help me with?\"\"}]}')"
     ]
   }
 }

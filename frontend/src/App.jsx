@@ -8,6 +8,7 @@ import PropertiesPage from './components/PropertiesPage';
 import SettingsPage from './components/SettingsPage';
 import TenantManagement from './components/TenantManagement';
 import SmsWorkflow from './components/SmsWorkflow';
+import Chatbot from './components/Chatbot';
 import { fetchComplaints, updateComplaint, fetchAppointments } from './services/apiService';
 import { format, subDays, addDays } from 'date-fns';
 
@@ -28,6 +29,12 @@ function App() {
     useEffect(() => {
         window.addEventListener('refresh-data', loadComplaints);
         return () => window.removeEventListener('refresh-data', loadComplaints);
+    }, []);
+
+    // Refresh appointments when chatbot performs a write action
+    useEffect(() => {
+        window.addEventListener('refresh-appointments', loadAppointments);
+        return () => window.removeEventListener('refresh-appointments', loadAppointments);
     }, []);
 
     async function loadAppointments() {
@@ -100,6 +107,7 @@ function App() {
     };
 
     return (
+        <>
         <div className="flex h-screen bg-background overflow-hidden">
             <Sidebar currentView={currentView} onNavigate={handleNavigate} />
 
@@ -155,6 +163,8 @@ function App() {
                 </motion.div>
             </div>
         </div>
+        <Chatbot />
+        </>
     );
 }
 

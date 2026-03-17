@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import complaints, voice, call_logs, flats, appointments, tenants, properties, settings, rents, buildings, property_types, property_groups, upload, workflow
+from app.routes import complaints, voice, call_logs, flats, appointments, tenants, properties, settings, rents, buildings, property_types, property_groups, upload, workflow, chat
 from app.config import settings as config
 
 app = FastAPI(title="AI Complaint System")
@@ -31,6 +31,7 @@ app.include_router(property_types.router)  # NEW: Property type classifications
 app.include_router(property_groups.router)  # NEW: Top-level property group entities
 app.include_router(upload.router)           # NEW: Generic image upload endpoint
 app.include_router(workflow.router)         # NEW: SMS workflow endpoint
+app.include_router(chat.router)             # NEW: AI chatbot endpoint
 
 
 @app.get("/")

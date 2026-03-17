@@ -469,6 +469,19 @@ export async function sendWorkflowSms(tenantUuids, message) {
     return await response.json();
 }
 
+// ==================== CHAT API ====================
+
+/** Send a conversation history to the AI chatbot and get the next reply. */
+export async function sendChatMessage(messages) {
+    const response = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }),
+    });
+    if (!response.ok) throw new Error(`Chat error: ${response.status}`);
+    return await response.json(); // { reply: string }
+}
+
 /** Update feature toggles for one specific unit. */
 export async function updateUnitSettings(unitId, features) {
     const response = await fetch(`${API_BASE_URL}/units/${unitId}/settings`, {
