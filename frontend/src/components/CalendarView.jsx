@@ -6,6 +6,8 @@ import {
 } from 'date-fns';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib';
+import AppointmentDetailModal from './AppointmentDetailModal';
+import ComplaintModal from './ComplaintModal';
 import './CalendarView.css';
 
 // ── Status colour maps ────────────────────────────────────────────────────────
@@ -17,6 +19,7 @@ const MINI_STATUS = {
     'in progress':'border-orange-500 bg-orange-50 text-orange-700',
     completed:    'border-green-500  bg-green-50  text-green-700',
     resolved:     'border-green-500  bg-green-50  text-green-700',
+    attended:     'border-purple-500 bg-purple-50 text-purple-700',
     cancelled:    'border-red-500    bg-red-50    text-red-700',
     canceled:     'border-red-500    bg-red-50    text-red-700',
     pending:      'border-amber-500  bg-amber-50  text-amber-700',
@@ -29,6 +32,7 @@ const PANEL_BORDER = {
     'in progress':'border-l-orange-500',
     completed:    'border-l-green-500',
     resolved:     'border-l-green-500',
+    attended:     'border-l-purple-500',
     cancelled:    'border-l-red-500',
     canceled:     'border-l-red-500',
     pending:      'border-l-amber-500',
@@ -41,6 +45,7 @@ const BADGE_CLASSES = {
     'in progress':'bg-orange-100 text-orange-700',
     completed:    'bg-green-100  text-green-700',
     resolved:     'bg-green-100  text-green-700',
+    attended:     'bg-purple-100 text-purple-700',
     cancelled:    'bg-red-100    text-red-700',
     canceled:     'bg-red-100    text-red-700',
     pending:      'bg-amber-100  text-amber-700',
@@ -62,15 +67,23 @@ const LEGEND = [
     { label: 'Scheduled',   color: 'bg-blue-500' },
     { label: 'In Progress', color: 'bg-orange-500' },
     { label: 'Completed',   color: 'bg-green-500' },
+    { label: 'Attended',    color: 'bg-purple-500' },
     { label: 'Cancelled',   color: 'bg-red-500' },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function CalendarView({ complaints = [], appointments = [] }) {
+export default function CalendarView({
+    complaints = [],
+    appointments = [],
+    onComplaintUpdate,
+    onAppointmentUpdate,
+    onAppointmentDelete,
+}) {
     const [currentDate, setCurrentDate]   = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [hoveredDate, setHoveredDate]   = useState(null);
+    const [activeEvent, setActiveEvent]   = useState(null); // event clicked in panel
 
     // Month days array
     const monthDays = useMemo(() => eachDayOfInterval({
@@ -107,7 +120,7 @@ export default function CalendarView({ complaints = [], appointments = [] }) {
     const goToNext  = () => { setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); setSelectedDate(null); };
     const goToToday = () => { setCurrentDate(new Date()); setSelectedDate(null); };
 
-    const closePanel = () => setSelectedDate(null);
+    const closePanel = () => { setSelectedDate(null); setActiveEvent(null); };
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-4">
@@ -237,9 +250,9 @@ export default function CalendarView({ complaints = [], appointments = [] }) {
                                     </div>
                                 )}
 
-                                {/* Hover tooltip */}
+                                {/* Hover tooltip — opaque bg-card */}
                                 {isHovered && !isSelected && events.length > 0 && (
-                                    <div className="absolute bottom-full left-0 mb-1 z-20 w-52 bg-popover border border-border rounded-lg shadow-xl p-2.5 pointer-events-none">
+                                    <div className="absolute bottom-full left-0 mb-1 z-20 w-52 bg-card border border-border rounded-lg shadow-xl p-2.5 pointer-events-none">
                                         <p className="text-xs font-semibold text-foreground mb-1.5">{format(day, 'MMM d')}</p>
                                         {events.slice(0, 5).map((evt, idx) => (
                                             <div key={idx} className="text-[10px] text-muted-foreground truncate py-0.5 flex items-center gap-1">
@@ -318,15 +331,17 @@ export default function CalendarView({ complaints = [], appointments = [] }) {
                                 ) : (
                                     <>
                                         <p className="text-xs text-muted-foreground font-medium">
-                                            {panelEvents.length} event{panelEvents.length !== 1 ? 's' : ''}
+                                            {panelEvents.length} event{panelEvents.length !== 1 ? 's' : ''} — click a card to view or edit
                                         </p>
                                         {panelEvents.map((evt, idx) => (
                                             <div
                                                 key={`${evt._type}-${evt.id}-${idx}`}
                                                 className={cn(
                                                     'p-3 rounded-lg border border-border border-l-4 bg-background',
+                                                    'cursor-pointer hover:bg-secondary/50 transition-colors',
                                                     getPanelBorder(evt.status)
                                                 )}
+                                                onClick={() => setActiveEvent(evt)}
                                             >
                                                 {evt._type === 'appointment' ? (
                                                     <>
@@ -382,6 +397,24 @@ export default function CalendarView({ complaints = [], appointments = [] }) {
                     </>
                 )}
             </AnimatePresence>
+
+            {/* ── Event Detail Modals ── */}
+            {activeEvent?._type === 'appointment' && (
+                <AppointmentDetailModal
+                    appointment={activeEvent}
+                    isOpen={true}
+                    onClose={() => setActiveEvent(null)}
+                    onUpdate={onAppointmentUpdate}
+                    onDelete={onAppointmentDelete}
+                />
+            )}
+            {activeEvent?._type === 'complaint' && (
+                <ComplaintModal
+                    complaint={activeEvent}
+                    onClose={() => setActiveEvent(null)}
+                    onUpdate={onComplaintUpdate}
+                />
+            )}
         </div>
     );
 }

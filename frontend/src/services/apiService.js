@@ -456,6 +456,32 @@ export async function fetchAppointments(startDate, endDate) {
     return await response.json();
 }
 
+/** Update an appointment by ID (status, date, notes, etc.). */
+export async function updateAppointment(id, updates) {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+/** Delete an appointment by ID. */
+export async function deleteAppointment(id) {
+    const response = await fetch(`${API_BASE_URL}/appointments/${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return response.status === 204 ? null : await response.json();
+}
+
 // ==================== WORKFLOW API ====================
 
 /** Send an SMS to a list of tenants (identified by UUID). */

@@ -9,6 +9,7 @@ class AppointmentStatus(str, Enum):
     """Enum for appointment status"""
     SCHEDULED = "scheduled"
     CANCELLED = "cancelled"
+    ATTENDED = "attended"
     DONE = "done"
     COMPLETED = "completed"   # legacy alias — VAPI uses this value
 

@@ -3,9 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { subDays, format, parseISO, isToday } from 'date-fns';
 import { TrendingUp, Clock, AlertCircle, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib';
-import QuickFilters from './QuickFilters';
-import CompactComplaintCard from './CompactComplaintCard';
-import ComplaintModal from './ComplaintModal';
 import DashboardListModal from './dashboard/DashboardListModal';
 import DailyTasksModal from './dashboard/DailyTasksModal';
 import KPICard from './dashboard/KPICard';
@@ -24,20 +21,9 @@ const TIME_RANGES = [
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function BentoDashboard({ complaints, appointments = [], onComplaintUpdate }) {
-    const [filters, setFilters] = useState({ status: 'all', priority: 'all' });
     const [timeRange, setTimeRange] = useState('7d');
-    const [selectedComplaint, setSelectedComplaint] = useState(null);
     const [activeModal, setActiveModal] = useState(null); // { title, complaints }
     const [showDailyTasks, setShowDailyTasks] = useState(false);
-
-    // Filter complaints based on active filters
-    const filteredComplaints = useMemo(() => {
-        return complaints.filter(complaint => {
-            const matchesStatus = filters.status === 'all' || complaint.status === filters.status;
-            const matchesPriority = filters.priority === 'all' || complaint.priority === filters.priority;
-            return matchesStatus && matchesPriority;
-        });
-    }, [complaints, filters]);
 
     // ── Analytics data (time-range filtered) ──────────────────────────────────
 
@@ -107,9 +93,6 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate }) {
     }, [appointments, cutoff]);
 
     // ── End analytics ──────────────────────────────────────────────────────────
-
-    const openComplaintModal = (complaint) => setSelectedComplaint(complaint);
-    const closeComplaintModal = () => setSelectedComplaint(null);
 
     const openKpiModal = (title, list) => setActiveModal({ title, complaints: list });
     const closeKpiModal = () => setActiveModal(null);
@@ -212,50 +195,8 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate }) {
                 <AppointmentsBar data={appointmentsBarData} />
             </motion.div>
 
-            {/* ── All Complaints ── */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.45 }}
-                className="space-y-3"
-            >
-                <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-foreground">
-                        All Complaints
-                        <span className="ml-2 text-sm font-normal text-muted-foreground">
-                            ({filters.status !== 'all' || filters.priority !== 'all'
-                                ? `${filteredComplaints.length} filtered`
-                                : `${complaints.length} total`})
-                        </span>
-                    </h3>
-                </div>
-                <QuickFilters filters={filters} onFilterChange={setFilters} />
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredComplaints.map(complaint => (
-                        <CompactComplaintCard
-                            key={complaint.id}
-                            complaint={complaint}
-                            onClick={() => openComplaintModal(complaint)}
-                            onUpdate={onComplaintUpdate}
-                        />
-                    ))}
-                    {filteredComplaints.length === 0 && (
-                        <div className="col-span-3 flex items-center justify-center h-32 rounded-lg border border-border bg-card">
-                            <p className="text-muted-foreground text-sm">No complaints match the current filters</p>
-                        </div>
-                    )}
-                </div>
-            </motion.div>
-
             {/* ── Modals ── */}
             <AnimatePresence>
-                {selectedComplaint && (
-                    <ComplaintModal
-                        complaint={selectedComplaint}
-                        onClose={closeComplaintModal}
-                        onUpdate={onComplaintUpdate}
-                    />
-                )}
                 {activeModal && (
                     <DashboardListModal
                         title={activeModal.title}

@@ -8,8 +8,9 @@ import PropertiesPage from './components/PropertiesPage';
 import SettingsPage from './components/SettingsPage';
 import TenantManagement from './components/TenantManagement';
 import SmsWorkflow from './components/SmsWorkflow';
+import ComplaintsPage from './components/ComplaintsPage';
 import Chatbot from './components/Chatbot';
-import { fetchComplaints, updateComplaint, fetchAppointments } from './services/apiService';
+import { fetchComplaints, updateComplaint, fetchAppointments, updateAppointment, deleteAppointment } from './services/apiService';
 import { format, subDays, addDays } from 'date-fns';
 
 function App() {
@@ -65,40 +66,31 @@ function App() {
     // Handle complaint update from child components
     const handleComplaintUpdate = async (updatedComplaint) => {
         try {
-            // Extract only the fields that have changed
-            // For status updates, we only need to send the status field
             const updates = {};
-
-            // Find the original complaint to compare
             const original = complaints.find(c => c.id === updatedComplaint.id);
-
-            if (!original) {
-                console.error('Original complaint not found');
-                return;
-            }
-
-            // Determine which fields changed
-            if (updatedComplaint.status !== original.status) {
-                updates.status = updatedComplaint.status;
-            }
-
-            // If no changes, skip API call
-            if (Object.keys(updates).length === 0) {
-                return;
-            }
-
-            // Call the backend API to persist changes
+            if (!original) { console.error('Original complaint not found'); return; }
+            if (updatedComplaint.status !== original.status) updates.status = updatedComplaint.status;
+            if (Object.keys(updates).length === 0) return;
             const serverUpdatedComplaint = await updateComplaint(updatedComplaint.id, updates);
-
-            // Only update local state after successful API response
             setComplaints(prev =>
                 prev.map(c => c.id === serverUpdatedComplaint.id ? serverUpdatedComplaint : c)
             );
         } catch (error) {
             console.error('Failed to update complaint:', error);
-            // Optionally show user-friendly error message
             alert('Failed to update complaint. Please try again.');
         }
+    };
+
+    // Handle appointment update (status, date, notes)
+    const handleAppointmentUpdate = async (id, updates) => {
+        await updateAppointment(id, updates);
+        await loadAppointments();
+    };
+
+    // Handle appointment delete
+    const handleAppointmentDelete = async (id) => {
+        await deleteAppointment(id);
+        await loadAppointments();
     };
 
     // Handle navigation
@@ -144,8 +136,20 @@ function App() {
                                             onComplaintUpdate={handleComplaintUpdate}
                                         />
                                     )}
+                                    {currentView === 'complaints' && (
+                                        <ComplaintsPage
+                                            complaints={complaints}
+                                            onComplaintUpdate={handleComplaintUpdate}
+                                        />
+                                    )}
                                     {currentView === 'calendar' && (
-                                        <CalendarView complaints={complaints} appointments={appointments} />
+                                        <CalendarView
+                                            complaints={complaints}
+                                            appointments={appointments}
+                                            onComplaintUpdate={handleComplaintUpdate}
+                                            onAppointmentUpdate={handleAppointmentUpdate}
+                                            onAppointmentDelete={handleAppointmentDelete}
+                                        />
                                     )}
                                     {currentView === 'properties' && (
                                         <PropertiesPage />
@@ -169,5 +173,3 @@ function App() {
 }
 
 export default App;
-
-

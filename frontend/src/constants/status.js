@@ -66,6 +66,7 @@ export const getStatusLabel = (status) => {
 export const APPOINTMENT_STATUS = {
     SCHEDULED: 'scheduled',
     CANCELLED: 'cancelled',
+    ATTENDED: 'attended',
     DONE: 'completed',   // DB stores 'completed'; UI displays 'Done'
 };
 
@@ -84,6 +85,12 @@ export const APPOINTMENT_STATUS_CONFIG = {
         bg: 'bg-red-500/10',
         text: 'text-red-400',
         border: 'border-red-500/30',
+    },
+    [APPOINTMENT_STATUS.ATTENDED]: {
+        label: 'Attended',
+        bg: 'bg-purple-500/10',
+        text: 'text-purple-400',
+        border: 'border-purple-500/30',
     },
     [APPOINTMENT_STATUS.DONE]: {
         label: 'Done',

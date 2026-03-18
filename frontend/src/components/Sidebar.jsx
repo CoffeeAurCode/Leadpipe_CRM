@@ -1,10 +1,11 @@
-import { Home, Building2, Settings, Users, MessageSquareMore, CalendarDays } from 'lucide-react';
+import { Home, Building2, Settings, Users, MessageSquareMore, CalendarDays, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib';
 import Logo from './icon.svg';
 
 function Sidebar({ currentView, onNavigate }) {
     const navItems = [
         { id: 'dashboard', icon: Home, label: 'Dashboard' },
+        { id: 'complaints', icon: ClipboardList, label: 'Complaints' },
         { id: 'properties', icon: Building2, label: 'Properties' },
         { id: 'tenants', icon: Users, label: 'Tenants' },
         { id: 'settings', icon: Settings, label: 'Settings' },
