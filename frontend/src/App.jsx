@@ -134,6 +134,8 @@ function App() {
                                             complaints={complaints}
                                             appointments={appointments}
                                             onComplaintUpdate={handleComplaintUpdate}
+                                            onAppointmentUpdate={handleAppointmentUpdate}
+                                            onAppointmentDelete={handleAppointmentDelete}
                                         />
                                     )}
                                     {currentView === 'complaints' && (

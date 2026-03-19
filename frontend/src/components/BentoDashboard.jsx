@@ -20,7 +20,7 @@ const TIME_RANGES = [
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-function BentoDashboard({ complaints, appointments = [], onComplaintUpdate }) {
+function BentoDashboard({ complaints, appointments = [], onComplaintUpdate, onAppointmentUpdate, onAppointmentDelete }) {
     const [timeRange, setTimeRange] = useState('7d');
     const [activeModal, setActiveModal] = useState(null); // { title, complaints }
     const [showDailyTasks, setShowDailyTasks] = useState(false);
@@ -208,6 +208,8 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate }) {
                     <DailyTasksModal
                         appointments={todayAppointments}
                         onClose={() => setShowDailyTasks(false)}
+                        onAppointmentUpdate={onAppointmentUpdate}
+                        onAppointmentDelete={onAppointmentDelete}
                     />
                 )}
             </AnimatePresence>
