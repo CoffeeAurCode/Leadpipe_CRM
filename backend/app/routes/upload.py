@@ -5,8 +5,9 @@ Provides a single upload endpoint for any entity type (property, building, unit)
 Uploads to the existing 'Property Pics' Supabase Storage bucket and returns the public URL.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from supabase import Client
+from supabase import Client, create_client
 from app.db.session import get_db
+from app.config import settings
 from typing import Optional
 from uuid import uuid4
 
@@ -61,9 +62,14 @@ async def upload_image(
     safe_type = entity_type.strip().lower() or "misc"
     storage_path = f"{safe_type}/{uuid4()}.{ext}"
 
+    # ── Build service-role storage client (bypasses RLS on storage buckets) ──
+    svc_key = settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_KEY
+    svc_url = settings.SUPABASE_URL.rstrip("/") + "/"
+    storage_client = create_client(svc_url, svc_key)
+
     # ── Upload to Supabase Storage ────────────────────────────────────────────
     try:
-        db.storage.from_(bucket).upload(
+        storage_client.storage.from_(bucket).upload(
             storage_path,
             contents,
             {"content-type": file.content_type},
@@ -76,7 +82,7 @@ async def upload_image(
 
     # ── Get public URL ────────────────────────────────────────────────────────
     try:
-        public_url = db.storage.from_(bucket).get_public_url(storage_path)
+        public_url = storage_client.storage.from_(bucket).get_public_url(storage_path)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

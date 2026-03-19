@@ -10,6 +10,7 @@ class Settings:
     # Supabase Configuration
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
+    SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
     
     # Legacy DATABASE_URL (kept for backward compatibility if needed)
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")

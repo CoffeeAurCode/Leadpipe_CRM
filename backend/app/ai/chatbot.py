@@ -7,13 +7,14 @@ from datetime import datetime
 from openai import OpenAI, BadRequestError
 from supabase import Client
 from app.config import settings
+from app.services.notifications import notify_tenant_appointment
 
 MAX_TOOL_CALL_TURNS = 5
 
 # Base prompt — today's date is injected at request time in run_chat()
 _SYSTEM_PROMPT_BASE = """You are a property management assistant for a tenant management dashboard.
 You help managers manage the full property hierarchy: properties → buildings → units.
-You can add/delete properties, add/delete buildings (and link them to properties), add/delete units, retrieve tenant information by name/phone/unit number, and check or reschedule appointments.
+You can add/delete properties, add/delete buildings (and link them to properties), add/delete units, retrieve tenant/building/property/unit/appointment/complaint details, and check, reschedule, or cancel appointments.
 Be concise and professional.
 
 Rules you must always follow:
@@ -260,6 +261,86 @@ TOOLS = [
                 "required": ["appointment_id", "new_date"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cancel_appointment",
+            "description": "Cancel an existing appointment by setting its status to cancelled. Only use the appointment ID explicitly provided by the user.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "appointment_id": {
+                        "type": "integer",
+                        "description": "The exact ID of the appointment to cancel, as stated by the user"
+                    }
+                },
+                "required": ["appointment_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_appointment_status",
+            "description": "Change the status of an appointment. Use this to mark an appointment as attended, reactivate a cancelled appointment to scheduled, or cancel one. Valid statuses: 'scheduled', 'attended', 'cancelled'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "appointment_id": {
+                        "type": "integer",
+                        "description": "The ID of the appointment to update"
+                    },
+                    "new_status": {
+                        "type": "string",
+                        "description": "The new status: 'scheduled', 'attended', or 'cancelled'"
+                    }
+                },
+                "required": ["appointment_id", "new_status"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_appointment_details",
+            "description": "View appointment details by appointment ID, or list all appointments for a specific flat number. Provide at least one of the two parameters.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "appointment_id": {
+                        "type": "integer",
+                        "description": "The ID of a specific appointment to retrieve"
+                    },
+                    "flat_number": {
+                        "type": "string",
+                        "description": "The flat/unit number to list all appointments for (e.g. '101', 'A205')"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_complaints",
+            "description": "View complaints, optionally filtered by flat number and/or status. Returns all complaints if no filters are given.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "flat_number": {
+                        "type": "string",
+                        "description": "Filter complaints for a specific flat/unit number (e.g. '101', 'B205')"
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "Filter by complaint status: 'pending', 'in-progress', or 'resolved'"
+                    }
+                },
+                "required": []
+            }
+        }
     }
 ]
 
@@ -433,7 +514,7 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
             except (ValueError, TypeError):
                 return "Invalid date format. Please use YYYY-MM-DD HH:MM:SS (e.g. 2025-06-15 10:00:00)."
 
-            fetch = db.table("appointments").select("id, status").eq("id", appointment_id).execute()
+            fetch = db.table("appointments").select("id, status, flat_uuid, flat_number").eq("id", appointment_id).execute()
             if not fetch.data:
                 return f"No appointment found with ID {appointment_id}. Please verify the appointment ID and try again."
 
@@ -451,6 +532,11 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
             )
 
             if update.data:
+                flat_uuid = apt.get("flat_uuid")
+                if flat_uuid:
+                    notify_tenant_appointment(
+                        str(flat_uuid), "rescheduled", apt.get("flat_number", ""), db, normalized_date
+                    )
                 return f"Appointment {appointment_id} successfully rescheduled to {normalized_date}."
             return "Failed to reschedule appointment. Please try again."
 
@@ -630,6 +716,141 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
             else:
                 lines.append("No tenant currently assigned.")
 
+            return "\n".join(lines)
+
+        elif tool_name == "cancel_appointment":
+            appointment_id = args.get("appointment_id")
+            if not appointment_id:
+                return "Missing required field: appointment_id."
+
+            fetch = db.table("appointments").select("id, status, flat_number, flat_uuid").eq("id", appointment_id).execute()
+            if not fetch.data:
+                return f"No appointment found with ID {appointment_id}. Please verify the ID and try again."
+
+            apt = fetch.data[0]
+            if apt.get("status") == "cancelled":
+                return f"Appointment {appointment_id} is already cancelled."
+
+            db.table("appointments").update({"status": "cancelled"}).eq("id", appointment_id).execute()
+            flat_uuid = apt.get("flat_uuid")
+            if flat_uuid:
+                notify_tenant_appointment(str(flat_uuid), "cancelled", apt.get("flat_number", ""), db)
+            return f"Appointment {appointment_id} for flat {apt.get('flat_number', 'N/A')} has been cancelled."
+
+        elif tool_name == "update_appointment_status":
+            appointment_id = args.get("appointment_id")
+            new_status = args.get("new_status", "").lower().strip()
+
+            if not appointment_id:
+                return "Missing required field: appointment_id."
+            valid_statuses = {"scheduled", "attended", "cancelled"}
+            if new_status not in valid_statuses:
+                return f"Invalid status '{new_status}'. Valid options: scheduled, attended, cancelled."
+
+            fetch = db.table("appointments").select("id, status, flat_number, flat_uuid").eq("id", appointment_id).execute()
+            if not fetch.data:
+                return f"No appointment found with ID {appointment_id}."
+
+            apt = fetch.data[0]
+            current_status = apt.get("status", "")
+            if current_status == new_status:
+                return f"Appointment {appointment_id} is already '{new_status}'."
+
+            db.table("appointments").update({"status": new_status}).eq("id", appointment_id).execute()
+
+            _event_map = {"cancelled": "cancelled", "attended": "attended", "scheduled": "reactivated"}
+            event = _event_map.get(new_status)
+            flat_uuid = apt.get("flat_uuid")
+            if flat_uuid and event:
+                notify_tenant_appointment(str(flat_uuid), event, apt.get("flat_number", ""), db)
+
+            return (
+                f"Appointment {appointment_id} for flat {apt.get('flat_number', 'N/A')} "
+                f"status updated from '{current_status}' to '{new_status}'."
+            )
+
+        elif tool_name == "get_appointment_details":
+            appointment_id = args.get("appointment_id")
+            flat_number = args.get("flat_number")
+
+            if not appointment_id and not flat_number:
+                return "Please provide either an appointment ID or a flat number."
+
+            if appointment_id:
+                result = db.table("appointments").select(
+                    "id, flat_number, appointment_date, status, notes, complaint_id"
+                ).eq("id", appointment_id).execute()
+
+                if not result.data:
+                    return f"No appointment found with ID {appointment_id}."
+
+                a = result.data[0]
+                lines = [
+                    f"**Appointment #{a.get('id')}**",
+                    f"Flat: {a.get('flat_number') or 'N/A'}",
+                    f"Date: {a.get('appointment_date') or 'N/A'}",
+                    f"Status: {a.get('status') or 'N/A'}",
+                    f"Notes: {a.get('notes') or 'None'}",
+                ]
+                if a.get("complaint_id"):
+                    comp = db.table("complaints").select(
+                        "category, description, priority"
+                    ).eq("id", a.get("complaint_id")).execute()
+                    if comp.data:
+                        c = comp.data[0]
+                        lines += [
+                            f"Linked Complaint: {c.get('category')} ({c.get('priority')} priority)",
+                            f"Description: {c.get('description') or 'N/A'}",
+                        ]
+                return "\n".join(lines)
+
+            else:
+                result = db.table("appointments").select(
+                    "id, flat_number, appointment_date, status, notes"
+                ).ilike("flat_number", flat_number).order("appointment_date", desc=True).execute()
+
+                if not result.data:
+                    return f"No appointments found for flat '{flat_number}'."
+
+                lines = [f"Appointments for flat '{flat_number}' ({len(result.data)} found):"]
+                for a in result.data:
+                    lines.append(
+                        f"- ID {a['id']} | {a.get('appointment_date', 'N/A')} | "
+                        f"Status: {a.get('status', 'N/A')} | Notes: {a.get('notes') or 'None'}"
+                    )
+                return "\n".join(lines)
+
+        elif tool_name == "get_complaints":
+            flat_number = args.get("flat_number")
+            complaint_status = args.get("status")
+
+            query = db.table("complaints").select(
+                "id, flat_number, category, priority, status, description, created_at"
+            )
+
+            if flat_number:
+                query = query.ilike("flat_number", flat_number)
+            if complaint_status:
+                query = query.eq("status", complaint_status)
+
+            result = query.order("created_at", desc=True).execute()
+
+            if not result.data:
+                filter_desc = []
+                if flat_number:
+                    filter_desc.append(f"flat '{flat_number}'")
+                if complaint_status:
+                    filter_desc.append(f"status '{complaint_status}'")
+                suffix = f" for {' and '.join(filter_desc)}" if filter_desc else ""
+                return f"No complaints found{suffix}."
+
+            lines = [f"Found {len(result.data)} complaint(s):"]
+            for c in result.data:
+                lines.append(
+                    f"- #{c['id']} | Flat {c.get('flat_number', 'N/A')} | "
+                    f"{c.get('category', 'N/A')} | {c.get('priority', 'N/A')} priority | "
+                    f"Status: {c.get('status', 'N/A')} | {(c.get('description') or '')[:60]}"
+                )
             return "\n".join(lines)
 
         else:

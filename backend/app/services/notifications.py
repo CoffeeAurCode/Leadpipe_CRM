@@ -74,6 +74,16 @@ def notify_tenant_appointment(
                 f"Hi {tenant_name}, your maintenance appointment for flat "
                 f"{flat_number} has been cancelled."
             )
+        elif event == "attended":
+            message = (
+                f"Hi {tenant_name}, your maintenance appointment for flat "
+                f"{flat_number} has been marked as attended. Thank you!"
+            )
+        elif event == "reactivated":
+            message = (
+                f"Hi {tenant_name}, your maintenance appointment for flat "
+                f"{flat_number} has been reactivated and is now scheduled."
+            )
         else:
             logger.warning(f"notify_tenant_appointment: unknown event '{event}'")
             return

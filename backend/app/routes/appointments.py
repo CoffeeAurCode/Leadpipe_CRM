@@ -530,16 +530,33 @@ async def update_appointment(
             )
 
         updated = response.data[0]
-        if "appointment_date" in update_data:
-            flat_uuid = updated.get("flat_uuid")
-            if flat_uuid:
+        flat_uuid = updated.get("flat_uuid")
+        flat_number_val = updated.get("flat_number", "")
+
+        if "appointment_date" in update_data and flat_uuid:
+            background_tasks.add_task(
+                notify_tenant_appointment,
+                str(flat_uuid),
+                "rescheduled",
+                flat_number_val,
+                db,
+                updated["appointment_date"],
+            )
+
+        if "status" in update_data and flat_uuid:
+            _status_event_map = {
+                "cancelled": "cancelled",
+                "attended": "attended",
+                "scheduled": "reactivated",
+            }
+            event = _status_event_map.get(update_data["status"])
+            if event:
                 background_tasks.add_task(
                     notify_tenant_appointment,
                     str(flat_uuid),
-                    "rescheduled",
-                    updated.get("flat_number", ""),
+                    event,
+                    flat_number_val,
                     db,
-                    updated["appointment_date"],
                 )
 
         return updated

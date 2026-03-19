@@ -5,12 +5,12 @@ import Logo from './icon.svg';
 function Sidebar({ currentView, onNavigate }) {
     const navItems = [
         { id: 'dashboard', icon: Home, label: 'Dashboard' },
-        { id: 'complaints', icon: ClipboardList, label: 'Complaints' },
-        { id: 'properties', icon: Building2, label: 'Properties' },
         { id: 'tenants', icon: Users, label: 'Tenants' },
-        { id: 'settings', icon: Settings, label: 'Settings' },
-        { id: 'workflow', icon: MessageSquareMore, label: 'SMS Workflow' },
+        { id: 'properties', icon: Building2, label: 'Properties' },
         { id: 'calendar', icon: CalendarDays, label: 'Calendar' },
+        { id: 'complaints', icon: ClipboardList, label: 'Complaints' },
+        { id: 'workflow', icon: MessageSquareMore, label: 'SMS Workflow' },
+        { id: 'settings', icon: Settings, label: 'Settings' },
     ];
 
     return (
