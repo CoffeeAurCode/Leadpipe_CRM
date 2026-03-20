@@ -1,15 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import BentoDashboard from './components/BentoDashboard';
-import CalendarView from './components/CalendarView';
-import PropertiesPage from './components/PropertiesPage';
-import SettingsPage from './components/SettingsPage';
-import TenantManagement from './components/TenantManagement';
-import SmsWorkflow from './components/SmsWorkflow';
-import ComplaintsPage from './components/ComplaintsPage';
 import Chatbot from './components/Chatbot';
+
+// Lazy-loaded routes — only downloaded when the user first navigates to them
+const CalendarView     = lazy(() => import('./components/CalendarView'));
+const PropertiesPage   = lazy(() => import('./components/PropertiesPage'));
+const SettingsPage     = lazy(() => import('./components/SettingsPage'));
+const TenantManagement = lazy(() => import('./components/TenantManagement'));
+const SmsWorkflow      = lazy(() => import('./components/SmsWorkflow'));
+const ComplaintsPage   = lazy(() => import('./components/ComplaintsPage'));
+
+const PageFallback = () => (
+    <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground text-sm">Loading...</p>
+    </div>
+);
 import { fetchComplaints, updateComplaint, fetchAppointments, updateAppointment, deleteAppointment } from './services/apiService';
 import { format, subDays, addDays } from 'date-fns';
 
@@ -114,7 +122,7 @@ function App() {
                     className="flex-1 overflow-y-auto p-6"
                 >
                     {currentView === 'workflow' ? (
-                        <SmsWorkflow />
+                        <Suspense fallback={<PageFallback />}><SmsWorkflow /></Suspense>
                     ) : (
                         <>
                             {error && (
@@ -128,7 +136,7 @@ function App() {
                                     <p className="text-muted-foreground">Loading complaints...</p>
                                 </div>
                             ) : (
-                                <>
+                                <Suspense fallback={<PageFallback />}>
                                     {currentView === 'dashboard' && (
                                         <BentoDashboard
                                             complaints={complaints}
@@ -162,7 +170,7 @@ function App() {
                                     {currentView === 'settings' && (
                                         <SettingsPage />
                                     )}
-                                </>
+                                </Suspense>
                             )}
                         </>
                     )}
