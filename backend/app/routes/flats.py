@@ -577,3 +577,34 @@ async def update_flat_details(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing update: {str(e)}"
         )
+
+
+@router.delete("/{flat_uuid}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_flat(flat_uuid: str, db: Client = Depends(get_db)):
+    """Delete a flat. If occupied, cascade-deletes the tenant and rent record first."""
+    try:
+        flat_resp = db.table("flats").select("id, uuid, tenant_uuid").eq("uuid", flat_uuid).execute()
+        if not flat_resp.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Flat {flat_uuid} not found"
+            )
+
+        flat = flat_resp.data[0]
+        tenant_uuid = flat.get("tenant_uuid")
+
+        if tenant_uuid:
+            # Delete rent record for this flat
+            db.table("rents").delete().eq("flat_uuid", flat_uuid).execute()
+            # Delete the tenant
+            db.table("tenants").delete().eq("uuid", tenant_uuid).execute()
+
+        db.table("flats").delete().eq("uuid", flat_uuid).execute()
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting flat: {str(e)}"
+        )

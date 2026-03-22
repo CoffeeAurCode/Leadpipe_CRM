@@ -20,6 +20,7 @@ import {
     fetchPropertyGroups,
     fetchPropertyBuildings,
     deletePropertyGroup,
+    deleteBuilding,
 } from '../services/apiService';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -220,6 +221,7 @@ function PropertiesPage() {
     const [loadingDrill, setLoadingDrill] = useState(false);
     const [error, setError] = useState(null);
     const [deletingProperty, setDeletingProperty] = useState(false);
+    const [deletingBuilding, setDeletingBuilding] = useState(false);
 
     // ── Navigation state ──────────────────────────────────────────────────────
     const [viewMode, setViewMode] = useState('properties'); // 'properties' | 'buildings' | 'units'
@@ -365,6 +367,32 @@ function PropertiesPage() {
         }
     };
 
+    const handleDeleteBuilding = async () => {
+        if (!window.confirm(
+            `Delete building "${selectedBuilding.name}" and ALL its units and tenants?\n\nThis cannot be undone.`
+        )) return;
+        setDeletingBuilding(true);
+        try {
+            await deleteBuilding(selectedBuilding.id);
+            setBuildings(prev => prev.filter(b => b.id !== selectedBuilding.id));
+            if (selectedProperty) {
+                setPropertyBuildings(prev => prev.filter(b => b.id !== selectedBuilding.id));
+            }
+            setSelectedBuilding(null);
+            setBuildingUnits([]);
+        } catch (err) {
+            alert(err.message || 'Failed to delete building.');
+        } finally {
+            setDeletingBuilding(false);
+        }
+    };
+
+    const handleFlatDelete = (deletedUuid) => {
+        setBuildingUnits(prev => prev.filter(u => u.uuid !== deletedUuid));
+        setAllUnits(prev => prev.filter(u => u.uuid !== deletedUuid));
+        setSelectedFlatUuid(null);
+    };
+
     const handleFlatUpdate = (updatedFlat) => {
         setAllUnits(prev => prev.map(u => u.uuid === updatedFlat.uuid
             ? { ...u, tenant_uuid: updatedFlat.tenant_uuid, occupied: !!updatedFlat.tenant_uuid }
@@ -416,16 +444,26 @@ function PropertiesPage() {
                     onBack={backFromBuilding}
                 />
 
-                <div>
-                    <h2 className="text-2xl font-bold text-foreground">{selectedBuilding.name}</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                        {totalUnits} {totalUnits === 1 ? 'unit' : 'units'} ·{' '}
-                        <span className="text-green-500">{vacantCount} vacant</span> ·{' '}
-                        <span className="text-red-400">{occupiedCount} occupied</span>
-                        {selectedBuilding.property_type_name && (
-                            <> · <span className="text-primary">{selectedBuilding.property_type_name}</span></>
-                        )}
-                    </p>
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-foreground">{selectedBuilding.name}</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                            {totalUnits} {totalUnits === 1 ? 'unit' : 'units'} ·{' '}
+                            <span className="text-green-500">{vacantCount} vacant</span> ·{' '}
+                            <span className="text-red-400">{occupiedCount} occupied</span>
+                            {selectedBuilding.property_type_name && (
+                                <> · <span className="text-primary">{selectedBuilding.property_type_name}</span></>
+                            )}
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleDeleteBuilding}
+                        disabled={deletingBuilding}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-60 flex-shrink-0"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        {deletingBuilding ? 'Deleting…' : 'Delete Building'}
+                    </button>
                 </div>
 
                 {loadingDrill ? (
@@ -455,6 +493,7 @@ function PropertiesPage() {
                         flatUuid={selectedFlatUuid}
                         onClose={() => setSelectedFlatUuid(null)}
                         onFlatUpdate={handleFlatUpdate}
+                        onDelete={handleFlatDelete}
                     />
                 )}
                 <AddPropertyModal
@@ -533,6 +572,7 @@ function PropertiesPage() {
                         flatUuid={selectedFlatUuid}
                         onClose={() => setSelectedFlatUuid(null)}
                         onFlatUpdate={handleFlatUpdate}
+                        onDelete={handleFlatDelete}
                     />
                 )}
             </div>
@@ -648,6 +688,7 @@ function PropertiesPage() {
                     flatUuid={selectedFlatUuid}
                     onClose={() => setSelectedFlatUuid(null)}
                     onFlatUpdate={handleFlatUpdate}
+                    onDelete={handleFlatDelete}
                 />
             )}
             <BuildingInfoModal building={infoBuilding} onClose={() => setInfoBuilding(null)} />

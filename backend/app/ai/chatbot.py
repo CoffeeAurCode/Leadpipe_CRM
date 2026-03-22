@@ -139,7 +139,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "delete_unit",
-            "description": "Delete a unit/flat by its flat number. The unit must not be occupied by a tenant.",
+            "description": "Delete a unit/flat by its flat number. If the unit is occupied, the tenant and rent record will also be deleted automatically.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -245,7 +245,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "delete_building",
-            "description": "Delete a building by its ID. The building must have no units/flats associated with it. Use list_buildings first to find the ID.",
+            "description": "Delete a building by its ID and cascade-delete all its units, tenants, and rent records. Use list_buildings first to find the ID.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -578,24 +578,27 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
             if not building_id:
                 return "Missing required field: building_id."
 
-            # Verify the building exists
             fetch = db.table("buildings").select("id, name").eq("id", building_id).execute()
             if not fetch.data:
                 return f"No building found with ID '{building_id}'."
 
             building_name = fetch.data[0].get("name")
 
-            # Safety check: refuse if the building has any units
-            flats_check = db.table("flats").select("id").eq("building_id", building_id).execute()
-            if flats_check.data:
-                return (
-                    f"Cannot delete building '{building_name}' (ID: {building_id}) — "
-                    f"it has {len(flats_check.data)} unit(s) linked to it. "
-                    f"Remove all units from this building first."
-                )
+            flats_resp = db.table("flats").select("uuid, tenant_uuid").eq("building_id", building_id).execute()
+            flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
+            tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
 
+            if tenant_uuids:
+                db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
+            if flat_uuids:
+                db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
+            db.table("flats").delete().eq("building_id", building_id).execute()
             db.table("buildings").delete().eq("id", building_id).execute()
-            return f"Building '{building_name}' (ID: {building_id}) has been deleted."
+
+            msg = f"Building '{building_name}' (ID: {building_id}) has been deleted."
+            if flats_resp.data:
+                msg += f" Cascade removed: {len(flats_resp.data)} unit(s), {len(tenant_uuids)} tenant(s)."
+            return msg
 
         elif tool_name == "list_properties":
             name_filter = args.get("name_filter", "")
@@ -681,7 +684,7 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
             if not flat_number:
                 return "Missing required field: flat_number."
 
-            fetch = db.table("flats").select("id, flat_number, occupied, tenant_uuid").ilike("flat_number", flat_number).execute()
+            fetch = db.table("flats").select("id, uuid, flat_number, tenant_uuid").ilike("flat_number", flat_number).execute()
             if not fetch.data:
                 return f"No unit found with flat number '{flat_number}'."
             if len(fetch.data) > 1:
@@ -689,14 +692,17 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
                 return f"Multiple units match '{flat_number}': {opts}. Please be more specific."
 
             unit = fetch.data[0]
-            if unit.get("occupied") or unit.get("tenant_uuid"):
-                return (
-                    f"Cannot delete unit '{unit.get('flat_number')}' — it is currently occupied by a tenant. "
-                    f"Remove the tenant first."
-                )
+            flat_uuid = unit.get("uuid")
+            tenant_uuid = unit.get("tenant_uuid")
+            tenant_note = ""
+
+            if tenant_uuid:
+                db.table("rents").delete().eq("flat_uuid", flat_uuid).execute()
+                db.table("tenants").delete().eq("uuid", tenant_uuid).execute()
+                tenant_note = " The tenant and their rent record were also removed."
 
             db.table("flats").delete().eq("id", unit.get("id")).execute()
-            return f"Unit '{unit.get('flat_number')}' has been deleted."
+            return f"Unit '{unit.get('flat_number')}' has been deleted.{tenant_note}"
 
         elif tool_name == "delete_tenant":
             tenant_uuid = args.get("tenant_uuid")

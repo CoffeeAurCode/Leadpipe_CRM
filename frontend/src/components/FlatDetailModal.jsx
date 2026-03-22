@@ -1,13 +1,14 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home, Edit, IndianRupee } from 'lucide-react';
+import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home, Edit, IndianRupee, Trash2 } from 'lucide-react';
 import { cn } from '@/lib';
 import { useEffect, useState } from 'react';
-import { fetchFlatDetails, fetchActiveRent, setRent as setRentAPI, fetchUnitSettings } from '../services/apiService';
+import { fetchFlatDetails, fetchActiveRent, setRent as setRentAPI, fetchUnitSettings, deleteFlat } from '../services/apiService';
 import { FlatEditModal } from './FlatEditModal';
 
-function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
+function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
     const [flatDetails, setFlatDetails] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [rent, setRent] = useState(null);
@@ -113,6 +114,25 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
         }
     };
 
+    const handleDelete = async () => {
+        const label = flatDetails?.flat_number ? `Unit #${flatDetails.flat_number}` : 'this unit';
+        const isOccupied = !!flatDetails?.tenant_uuid;
+        const msg = isOccupied
+            ? `Delete ${label}? The current tenant and rent record will also be removed. This cannot be undone.`
+            : `Delete ${label}? This cannot be undone.`;
+        if (!window.confirm(msg)) return;
+        setDeleting(true);
+        try {
+            await deleteFlat(flatUuid);
+            onDelete?.(flatUuid);
+            onClose();
+        } catch (err) {
+            alert(err.message || 'Failed to delete unit.');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     return (
         <AnimatePresence>
             <motion.div
@@ -136,6 +156,16 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate }) {
                 >
                     {/* Header Actions */}
                     <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                        {flatDetails && (
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors disabled:opacity-60"
+                                title="Delete Unit"
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                        )}
                         {(features.flat_details || features.tenant_details) && (
                             <button
                                 onClick={() => setIsEditModalOpen(true)}

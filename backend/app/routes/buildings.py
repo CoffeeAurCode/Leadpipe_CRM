@@ -203,3 +203,35 @@ async def update_building(building_id: str, request: BuildingUpdate, db: Client 
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating building: {str(e)}")
+
+
+@router.delete("/{building_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_building(building_id: int, db: Client = Depends(get_db)):
+    """Delete a building and cascade-delete all its flats, tenants, and rent records."""
+    try:
+        building_resp = db.table("buildings").select("id").eq("id", building_id).execute()
+        if not building_resp.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Building {building_id} not found"
+            )
+
+        flats_resp = db.table("flats").select("uuid, tenant_uuid").eq("building_id", building_id).execute()
+        flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
+        tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
+
+        if tenant_uuids:
+            db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
+        if flat_uuids:
+            db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
+            db.table("flats").delete().eq("building_id", building_id).execute()
+
+        db.table("buildings").delete().eq("id", building_id).execute()
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting building: {str(e)}"
+        )

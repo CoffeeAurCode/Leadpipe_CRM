@@ -434,6 +434,26 @@ export async function deleteTenant(tenantUuid) {
     return null;
 }
 
+/** Delete a flat by UUID. Backend cascade-deletes the tenant + rent if occupied. */
+export async function deleteFlat(flatUuid) {
+    const response = await fetch(`${API_BASE_URL}/flats/${flatUuid}`, { method: 'DELETE' });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return null;
+}
+
+/** Delete a building by ID. Backend cascade-deletes all its units, tenants, and rents. */
+export async function deleteBuilding(buildingId) {
+    const response = await fetch(`${API_BASE_URL}/buildings/${buildingId}`, { method: 'DELETE' });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return null;
+}
+
 // ── Settings (Building & Unit scope) ─────────────────────────────────────────
 
 /** Fetch aggregate settings for a building (majority-vote across its units). */
