@@ -206,7 +206,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                     ) : flatDetails ? (
                         <div className="p-6 space-y-6">
                             {/* Header */}
-                            <div className="flex items-start gap-4 pr-20">
+                            <div className="flex items-start gap-4 pr-32">
                                 <div className="p-3 rounded-lg bg-primary/10">
                                     <Home className="w-8 h-8 text-primary" />
                                 </div>
@@ -218,20 +218,20 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                         <MapPin className="w-4 h-4" />
                                         <span>{flatDetails.address || 'Address not specified'}</span>
                                     </div>
-                                </div>
-                                {/* Occupancy Badge */}
-                                <div className="mt-2">
-                                    {!!flatDetails.tenant_uuid ? (
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 text-sm font-medium border border-red-500/20">
-                                            <XCircle className="w-4 h-4" />
-                                            <span>Occupied</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 text-green-500 text-sm font-medium border border-green-500/20">
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            <span>Available</span>
-                                        </div>
-                                    )}
+                                    {/* Occupancy Badge */}
+                                    <div className="mt-2">
+                                        {!!flatDetails.tenant_uuid ? (
+                                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 text-sm font-medium border border-red-500/20">
+                                                <XCircle className="w-4 h-4" />
+                                                <span>Occupied</span>
+                                            </div>
+                                        ) : (
+                                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 text-green-500 text-sm font-medium border border-green-500/20">
+                                                <CheckCircle2 className="w-4 h-4" />
+                                                <span>Available</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
