@@ -1,11 +1,11 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { XMarkIcon, CalendarIcon, MapPinIcon, ClockIcon, TrashIcon, PencilIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CalendarIcon, MapPinIcon, ClockIcon, PencilIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { format, parseISO } from 'date-fns';
 import { useState, useRef, useEffect } from 'react';
 import { APPOINTMENT_STATUS, APPOINTMENT_STATUS_CONFIG, getAppointmentStatusConfig } from '../constants/status';
 import './AppointmentDetailModal.css';
 
-export default function AppointmentDetailModal({ appointment, isOpen, onClose, onUpdate, onDelete }) {
+export default function AppointmentDetailModal({ appointment, isOpen, onClose, onUpdate }) {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({ appointment_date: '', notes: '' });
     const [currentStatus, setCurrentStatus] = useState(appointment?.status || APPOINTMENT_STATUS.SCHEDULED);
@@ -66,18 +66,6 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
         }
     };
 
-    const handleDelete = async () => {
-        const confirmed = window.confirm('Delete this appointment?\n\nThis action cannot be undone.');
-        if (confirmed) {
-            try {
-                await onDelete(appointment.id);
-                onClose();
-            } catch (error) {
-                console.error('Failed to delete appointment:', error);
-                alert('Failed to delete appointment');
-            }
-        }
-    };
 
     const hasComplaint = appointment.complaint_category != null;
     const statusConfig = getAppointmentStatusConfig(currentStatus);
@@ -277,10 +265,6 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                         {/* Footer */}
                         {!isEditing && (
                             <div className="modal-footer">
-                                <button className="btn-delete" onClick={handleDelete}>
-                                    <TrashIcon className="btn-icon" />
-                                    Delete
-                                </button>
                                 <div className="footer-right">
                                     <button className="btn-edit" onClick={handleEditClick}>
                                         <PencilIcon className="btn-icon" />

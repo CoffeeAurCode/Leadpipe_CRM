@@ -431,16 +431,26 @@ async def update_tenant(
 
 @router.delete("/{tenant_uuid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_tenant(tenant_uuid: str, db: Client = Depends(get_db)):
-    """Delete a tenant"""
+    """Delete a tenant, vacate their flat, and remove their rent record."""
     try:
-        response = db.table("tenants").delete().eq("uuid", tenant_uuid).execute()
-        
-        if not response.data:
+        tenant_resp = db.table("tenants").select("uuid").eq("uuid", tenant_uuid).execute()
+        if not tenant_resp.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Tenant with UUID {tenant_uuid} not found"
             )
-        
+
+        # Find the linked flat and clean it up
+        flat_resp = db.table("flats").select("uuid").eq("tenant_uuid", tenant_uuid).execute()
+        if flat_resp.data:
+            flat_uuid = flat_resp.data[0]["uuid"]
+            # Remove rent record for this flat
+            db.table("rents").delete().eq("flat_uuid", flat_uuid).execute()
+            # Vacate the flat
+            db.table("flats").update({"tenant_uuid": None, "occupied": False}).eq("uuid", flat_uuid).execute()
+
+        # Delete the tenant
+        db.table("tenants").delete().eq("uuid", tenant_uuid).execute()
         return None
     except HTTPException:
         raise

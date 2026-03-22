@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, User, Calendar, CreditCard, FileText, Home, Pencil, Save, Lock, Paperclip, ExternalLink, Trash2 } from 'lucide-react';
-import { updateTenant } from '../services/apiService';
+import { updateTenant, deleteTenant } from '../services/apiService';
 import { cn } from '@/lib';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -45,9 +45,10 @@ function FieldRow({ label, children }) {
 
 const inputCls = 'w-full px-2 py-1.5 bg-secondary border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary';
 
-export default function TenantProfile({ tenant, onClose, onUpdate }) {
+export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [saveError, setSaveError] = useState(null);
     const [form, setForm] = useState({});
     const [uploading, setUploading] = useState(false);
@@ -74,6 +75,19 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
     const cancelEdit = () => {
         setEditing(false);
         setSaveError(null);
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm(`Permanently delete "${tenant.name}"? Their flat will become vacant and rent record removed. This cannot be undone.`)) return;
+        setDeleting(true);
+        try {
+            await deleteTenant(tenant.uuid);
+            onDelete(tenant.uuid);
+        } catch (err) {
+            alert(err.message || 'Failed to delete tenant.');
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handleSave = async () => {
@@ -164,6 +178,16 @@ export default function TenantProfile({ tenant, onClose, onUpdate }) {
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
+                                {!editing && onDelete && (
+                                    <button
+                                        onClick={handleDelete}
+                                        disabled={deleting}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors disabled:opacity-60"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        {deleting ? 'Deleting…' : 'Delete'}
+                                    </button>
+                                )}
                                 {featureEnabled && !editing && (
                                     <button
                                         onClick={startEdit}

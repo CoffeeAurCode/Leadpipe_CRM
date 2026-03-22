@@ -81,6 +81,11 @@ export default function TenantManagement() {
         setSelectedTenant(updated);
     };
 
+    const handleTenantDelete = (deletedUuid) => {
+        setTenants(prev => prev.filter(t => t.uuid !== deletedUuid));
+        setSelectedTenant(null);
+    };
+
     const hasFilters = rentStatus || leaseStatus || sortBy;
 
     return (
@@ -229,6 +234,7 @@ export default function TenantManagement() {
                 tenant={selectedTenant}
                 onClose={() => setSelectedTenant(null)}
                 onUpdate={handleTenantUpdate}
+                onDelete={handleTenantDelete}
             />
         </div>
     );

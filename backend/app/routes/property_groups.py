@@ -189,3 +189,49 @@ async def get_property_buildings(property_id: str, db: Client = Depends(get_db))
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching buildings for property {property_id}: {str(e)}"
         )
+
+
+@router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_property_group(property_id: str, db: Client = Depends(get_db)):
+    """
+    Delete a property group and cascade-delete all buildings, flats, rents, and tenants within it.
+    Order: tenants → rents → flats → buildings → property group
+    """
+    try:
+        prop_resp = db.table("properties_list").select("id").eq("id", property_id).execute()
+        if not prop_resp.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Property group with ID {property_id} not found"
+            )
+
+        buildings_resp = db.table("buildings").select("id").eq("property_id", property_id).execute()
+        building_ids = [b["id"] for b in buildings_resp.data]
+
+        if building_ids:
+            flats_resp = (
+                db.table("flats")
+                .select("id, uuid, tenant_uuid")
+                .in_("building_id", building_ids)
+                .execute()
+            )
+            flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
+            tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
+
+            if tenant_uuids:
+                db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
+            if flat_uuids:
+                db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
+            db.table("flats").delete().in_("building_id", building_ids).execute()
+            db.table("buildings").delete().eq("property_id", property_id).execute()
+
+        db.table("properties_list").delete().eq("id", property_id).execute()
+        return None
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting property group: {str(e)}"
+        )

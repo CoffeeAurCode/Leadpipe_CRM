@@ -122,7 +122,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "delete_property",
-            "description": "Delete a property by its ID. The property must have no buildings linked to it. Use list_properties first to find the ID.",
+            "description": "Delete a property group and cascade-delete all its buildings, flats, rents, and tenants. This is destructive — warn the user before proceeding. Use list_properties first to find the ID.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -149,6 +149,23 @@ TOOLS = [
                     }
                 },
                 "required": ["flat_number"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_tenant",
+            "description": "Permanently delete a tenant by UUID. Their flat will be marked as vacant and their rent record removed. Use get_tenant_details first to find the UUID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tenant_uuid": {
+                        "type": "string",
+                        "description": "The exact UUID of the tenant to delete"
+                    }
+                },
+                "required": ["tenant_uuid"]
             }
         }
     },
@@ -635,17 +652,29 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
 
             property_name = fetch.data[0].get("name")
 
-            # Safety check: refuse if any buildings are linked
-            buildings_check = db.table("buildings").select("id").eq("property_id", property_id).execute()
-            if buildings_check.data:
-                return (
-                    f"Cannot delete property '{property_name}' (ID: {property_id}) — "
-                    f"it has {len(buildings_check.data)} building(s) linked to it. "
-                    f"Remove all buildings from this property first."
-                )
+            buildings_resp = db.table("buildings").select("id").eq("property_id", property_id).execute()
+            building_ids = [b["id"] for b in buildings_resp.data]
+            flat_count = tenant_count = 0
+
+            if building_ids:
+                flats_resp = db.table("flats").select("id, uuid, tenant_uuid").in_("building_id", building_ids).execute()
+                flat_count = len(flats_resp.data)
+                flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
+                tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
+                tenant_count = len(tenant_uuids)
+                if tenant_uuids:
+                    db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
+                if flat_uuids:
+                    db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
+                db.table("flats").delete().in_("building_id", building_ids).execute()
+                db.table("buildings").delete().eq("property_id", property_id).execute()
 
             db.table("properties_list").delete().eq("id", property_id).execute()
-            return f"Property '{property_name}' (ID: {property_id}) has been deleted."
+
+            msg = f"Property '{property_name}' (ID: {property_id}) has been deleted."
+            if building_ids:
+                msg += f" Cascade removed: {len(building_ids)} building(s), {flat_count} flat(s), {tenant_count} tenant(s)."
+            return msg
 
         elif tool_name == "delete_unit":
             flat_number = args.get("flat_number")
@@ -668,6 +697,26 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
 
             db.table("flats").delete().eq("id", unit.get("id")).execute()
             return f"Unit '{unit.get('flat_number')}' has been deleted."
+
+        elif tool_name == "delete_tenant":
+            tenant_uuid = args.get("tenant_uuid")
+            if not tenant_uuid:
+                return "Missing required field: tenant_uuid."
+
+            fetch = db.table("tenants").select("uuid, name").eq("uuid", tenant_uuid).execute()
+            if not fetch.data:
+                return f"No tenant found with UUID '{tenant_uuid}'."
+
+            name = fetch.data[0].get("name", "Unknown")
+
+            flat_resp = db.table("flats").select("uuid").eq("tenant_uuid", tenant_uuid).execute()
+            if flat_resp.data:
+                flat_uuid = flat_resp.data[0]["uuid"]
+                db.table("rents").delete().eq("flat_uuid", flat_uuid).execute()
+                db.table("flats").update({"tenant_uuid": None, "occupied": False}).eq("uuid", flat_uuid).execute()
+
+            db.table("tenants").delete().eq("uuid", tenant_uuid).execute()
+            return f"Tenant '{name}' (UUID: {tenant_uuid}) has been deleted. Their flat is now vacant."
 
         elif tool_name == "get_unit_info":
             flat_number = args.get("flat_number")

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Building2, Plus, Home, Hash, Bed, Bath,
-    CheckCircle2, XCircle, ArrowLeft, Layers
+    CheckCircle2, XCircle, ArrowLeft, Layers, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib';
 
@@ -19,6 +19,7 @@ import {
     fetchBuildingUnits,
     fetchPropertyGroups,
     fetchPropertyBuildings,
+    deletePropertyGroup,
 } from '../services/apiService';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -218,6 +219,7 @@ function PropertiesPage() {
     const [loadingMain, setLoadingMain] = useState(true);
     const [loadingDrill, setLoadingDrill] = useState(false);
     const [error, setError] = useState(null);
+    const [deletingProperty, setDeletingProperty] = useState(false);
 
     // ── Navigation state ──────────────────────────────────────────────────────
     const [viewMode, setViewMode] = useState('properties'); // 'properties' | 'buildings' | 'units'
@@ -346,6 +348,23 @@ function PropertiesPage() {
         if (selectedBuilding) drillIntoBuilding(selectedBuilding);
     };
 
+    const handleDeleteProperty = async () => {
+        if (!window.confirm(
+            `Delete "${selectedProperty.name}" and ALL its buildings, flats, and tenants?\n\nThis cannot be undone.`
+        )) return;
+        setDeletingProperty(true);
+        try {
+            await deletePropertyGroup(selectedProperty.id);
+            setPropertyGroups(prev => prev.filter(p => p.id !== selectedProperty.id));
+            setSelectedProperty(null);
+            setPropertyBuildings([]);
+        } catch (err) {
+            alert(err.message || 'Failed to delete property.');
+        } finally {
+            setDeletingProperty(false);
+        }
+    };
+
     const handleFlatUpdate = (updatedFlat) => {
         setAllUnits(prev => prev.map(u => u.uuid === updatedFlat.uuid
             ? { ...u, tenant_uuid: updatedFlat.tenant_uuid, occupied: !!updatedFlat.tenant_uuid }
@@ -457,12 +476,22 @@ function PropertiesPage() {
                     onBack={backFromProperty}
                 />
 
-                <div>
-                    <h2 className="text-2xl font-bold text-foreground">{selectedProperty.name}</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                        {selectedProperty.building_count} {selectedProperty.building_count === 1 ? 'building' : 'buildings'}
-                        {selectedProperty.address && <> · {selectedProperty.address}</>}
-                    </p>
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-foreground">{selectedProperty.name}</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                            {selectedProperty.building_count} {selectedProperty.building_count === 1 ? 'building' : 'buildings'}
+                            {selectedProperty.address && <> · {selectedProperty.address}</>}
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleDeleteProperty}
+                        disabled={deletingProperty}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-60 flex-shrink-0"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        {deletingProperty ? 'Deleting…' : 'Delete Property'}
+                    </button>
                 </div>
 
                 {loadingDrill ? (
