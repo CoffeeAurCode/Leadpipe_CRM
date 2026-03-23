@@ -206,7 +206,7 @@ async def update_building(building_id: str, request: BuildingUpdate, db: Client 
 
 
 @router.delete("/{building_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_building(building_id: int, db: Client = Depends(get_db)):
+async def delete_building(building_id: str, db: Client = Depends(get_db)):
     """Delete a building and cascade-delete all its flats, tenants, and rent records."""
     try:
         building_resp = db.table("buildings").select("id").eq("id", building_id).execute()

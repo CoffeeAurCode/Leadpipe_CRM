@@ -28,8 +28,9 @@ export default function Chatbot() {
         try {
             const data = await sendChatMessage(updated);
             setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
-            // Refresh dashboard data in case a tool mutated the DB
-            window.dispatchEvent(new Event('refresh-appointments'));
+            if (data.refresh_needed) {
+                window.dispatchEvent(new Event('refresh-appointments'));
+            }
         } catch {
             setMessages(prev => [
                 ...prev,

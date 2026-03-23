@@ -245,16 +245,16 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "delete_building",
-            "description": "Delete a building by its ID and cascade-delete all its units, tenants, and rent records. Use list_buildings first to find the ID.",
+            "description": "Delete a building by name and cascade-delete all its units, tenants, and rent records. Looks up the building by name automatically — do NOT require the user to provide an ID.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "building_id": {
+                    "building_name": {
                         "type": "string",
-                        "description": "The exact ID of the building to delete"
+                        "description": "The name of the building to delete (partial match supported)"
                     }
                 },
-                "required": ["building_id"]
+                "required": ["building_name"]
             }
         }
     },
@@ -574,14 +574,18 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
             return "\n".join(lines)
 
         elif tool_name == "delete_building":
-            building_id = args.get("building_id")
-            if not building_id:
-                return "Missing required field: building_id."
+            building_name_arg = args.get("building_name")
+            if not building_name_arg:
+                return "Missing required field: building_name."
 
-            fetch = db.table("buildings").select("id, name").eq("id", building_id).execute()
+            fetch = db.table("buildings").select("id, name").ilike("name", f"%{building_name_arg}%").execute()
             if not fetch.data:
-                return f"No building found with ID '{building_id}'."
+                return f"No building found matching '{building_name_arg}'. Please check the name and try again."
+            if len(fetch.data) > 1:
+                options = ", ".join(f"'{b.get('name')}'" for b in fetch.data)
+                return f"Multiple buildings match '{building_name_arg}': {options}. Please be more specific."
 
+            building_id = fetch.data[0].get("id")
             building_name = fetch.data[0].get("name")
 
             flats_resp = db.table("flats").select("uuid, tenant_uuid").eq("building_id", building_id).execute()
@@ -915,7 +919,11 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
         return f"Tool execution error: {str(e)}"
 
 
-def run_chat(messages: list, db: Client) -> str:
+_APPOINTMENT_WRITE_TOOLS = {"reschedule_appointment", "cancel_appointment", "update_appointment_status"}
+
+
+def run_chat(messages: list, db: Client) -> tuple[str, bool]:
+    """Returns (reply, refresh_needed) where refresh_needed is True only when an appointment was mutated."""
     client = OpenAI(api_key=settings.OPEN_AI_API)
 
     today = datetime.now().strftime("%A, %B %d, %Y")
@@ -924,6 +932,7 @@ def run_chat(messages: list, db: Client) -> str:
 
     truncated = messages[-10:] if len(messages) > 10 else messages
     full_messages = [system_message] + truncated
+    refresh_needed = False
 
     for _ in range(MAX_TOOL_CALL_TURNS):
         try:
@@ -939,7 +948,7 @@ def run_chat(messages: list, db: Client) -> str:
                 model="gpt-4o-mini",
                 messages=full_messages,
             )
-            return fallback.choices[0].message.content or "I'm sorry, I couldn't process that request."
+            return fallback.choices[0].message.content or "I'm sorry, I couldn't process that request.", refresh_needed
 
         msg = response.choices[0].message
 
@@ -961,10 +970,13 @@ def run_chat(messages: list, db: Client) -> str:
 
         # No tool calls → final answer
         if not msg.tool_calls:
-            return msg.content or "I'm sorry, I couldn't generate a response."
+            return msg.content or "I'm sorry, I couldn't generate a response.", refresh_needed
 
         # Execute each tool call and append results
         for tool_call in msg.tool_calls:
+            if tool_call.function.name in _APPOINTMENT_WRITE_TOOLS:
+                refresh_needed = True
+
             try:
                 tool_args = json.loads(tool_call.function.arguments)
             except (json.JSONDecodeError, TypeError):
@@ -978,4 +990,4 @@ def run_chat(messages: list, db: Client) -> str:
                 "content": result,
             })
 
-    return "I've reached the maximum number of steps. Please try rephrasing your request."
+    return "I've reached the maximum number of steps. Please try rephrasing your request.", refresh_needed

@@ -30,8 +30,8 @@ async def chat_endpoint(request: ChatRequest, db: Client = Depends(get_db)):
 
     try:
         messages = [m.model_dump() for m in request.messages]
-        reply = chatbot.run_chat(messages, db)
-        return {"reply": reply}
+        reply, refresh_needed = chatbot.run_chat(messages, db)
+        return {"reply": reply, "refresh_needed": refresh_needed}
     except Exception as e:
         print(f"[ERROR] Chat endpoint failed: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail="Chat service error.")
