@@ -1,13 +1,20 @@
 from fastapi import APIRouter, Request, Depends, BackgroundTasks
 from supabase import Client
+from pydantic import BaseModel
 import json
 import httpx
+from datetime import datetime, timezone
 
 from app.db.session import get_db
 from app.ai.validator import validate_complaint
 from app.services.notifications import notify_manager_appointment_scheduled
 
 router = APIRouter()
+
+# Tracks the ISO timestamp of the last end-of-call-report received.
+# The frontend polls /voice/call-status and refreshes the dashboard when this changes.
+# NOTE: module-level variable — resets on server restart, not shared across multiple workers.
+_last_call_ended_at: str | None = None
 
 @router.post("/voice/webhook")
 async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db: Client = Depends(get_db)):
@@ -421,6 +428,11 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
         print(f"  Status: {call_log.get('complaint_status')}")
         print("=" * 80)
         
+        # Stamp end-of-call time so the frontend can poll and refresh
+        if message_type == "end-of-call-report":
+            global _last_call_ended_at
+            _last_call_ended_at = datetime.now(timezone.utc).isoformat()
+
         # Always return 200 for valid final events
         # This prevents Vapi dashboard from showing "Failed"
         return {
@@ -438,3 +450,47 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
         
         # Still return 200 to prevent Vapi failure
         return {"status": "error", "message": str(e)}
+
+
+# ── Call status polling endpoint ──────────────────────────────────────────────
+
+@router.get("/voice/call-status")
+async def get_call_status():
+    """
+    Returns the timestamp of the last end-of-call-report received.
+    Frontend polls this every 10s; when the timestamp changes it refreshes
+    complaints and appointments.
+    """
+    return {"last_call_ended_at": _last_call_ended_at}
+
+
+# ── Outbound call endpoint ────────────────────────────────────────────────────
+
+class OutboundCallRequest(BaseModel):
+    customer_number: str   # E.164 format, e.g. "+919876543210"
+    first_message: str | None = None
+
+
+@router.post("/voice/call/outbound")
+async def make_outbound_call(req: OutboundCallRequest):
+    """
+    Initiate an outbound call to a tenant using the Vapi agent.
+    The same agent workflow (verification, complaints, appointments) applies.
+    """
+    from vapi import Vapi, CreateCustomerDto, AssistantOverrides
+    from app.config import settings
+
+    client = Vapi(token=settings.PRIVATE_VAPI_API)
+
+    overrides = None
+    if req.first_message:
+        overrides = AssistantOverrides(first_message=req.first_message)
+
+    call = client.calls.create(
+        assistant_id=settings.VAPI_ASSISTANT_ID,
+        phone_number_id=settings.VAPI_NUMBER_ID,
+        customer=CreateCustomerDto(number=req.customer_number),
+        assistant_overrides=overrides,
+    )
+
+    return {"call_id": call.id, "status": call.status}

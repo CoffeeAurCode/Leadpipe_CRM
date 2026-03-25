@@ -18,6 +18,11 @@ class Settings:
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     OPEN_AI_API: str = os.getenv("OPEN_AI_API", "")
+    # Vapi
+    PRIVATE_VAPI_API: str = os.getenv("PRIVATE_VAPI_API", "")
+    VAPI_NUMBER_ID: str = os.getenv("VAPI_NUMBER_ID", "")
+    VAPI_ASSISTANT_ID: str = os.getenv("VAPI_ASSISTANT_ID", "")
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "https://tenant-management-mvp.onrender.com")
     APP_NAME: str = os.getenv("APP_NAME", "Tenant Management System")
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "")

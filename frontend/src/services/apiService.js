@@ -561,3 +561,26 @@ export async function updateUnitSettings(unitId, features) {
     }
     return await response.json();
 }
+
+// ── Voice / Outbound Calls ────────────────────────────────────────────────────
+
+export async function makeOutboundCall(customerNumber, firstMessage = null) {
+    const body = { customer_number: customerNumber };
+    if (firstMessage) body.first_message = firstMessage;
+    const response = await fetch(`${API_BASE_URL}/voice/call/outbound`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function getCallStatus() {
+    const response = await fetch(`${API_BASE_URL}/voice/call-status`);
+    if (!response.ok) throw new Error('Failed to get call status');
+    return await response.json();
+}

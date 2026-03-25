@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import BentoDashboard from './components/BentoDashboard';
 import Chatbot from './components/Chatbot';
+import OutboundCallButton from './components/OutboundCallButton';
 
 // Lazy-loaded routes — only downloaded when the user first navigates to them
 const CalendarView     = lazy(() => import('./components/CalendarView'));
@@ -18,7 +19,7 @@ const PageFallback = () => (
         <p className="text-muted-foreground text-sm">Loading...</p>
     </div>
 );
-import { fetchComplaints, updateComplaint, fetchAppointments, updateAppointment, deleteAppointment } from './services/apiService';
+import { fetchComplaints, updateComplaint, fetchAppointments, updateAppointment, deleteAppointment, getCallStatus } from './services/apiService';
 import { format, subDays, addDays } from 'date-fns';
 
 function App() {
@@ -44,6 +45,25 @@ function App() {
     useEffect(() => {
         window.addEventListener('refresh-appointments', loadAppointments);
         return () => window.removeEventListener('refresh-appointments', loadAppointments);
+    }, []);
+
+    // Poll for call-end events every 10s — refreshes dashboard after any Vapi call finishes
+    useEffect(() => {
+        let lastSeen = null;
+        const poll = async () => {
+            try {
+                const { last_call_ended_at } = await getCallStatus();
+                if (last_call_ended_at && last_call_ended_at !== lastSeen) {
+                    lastSeen = last_call_ended_at;
+                    loadComplaints();
+                    loadAppointments();
+                }
+            } catch {
+                // silently ignore — backend may not be running
+            }
+        };
+        const id = setInterval(poll, 10000);
+        return () => clearInterval(id);
     }, []);
 
     async function loadAppointments() {
@@ -177,7 +197,11 @@ function App() {
                 </motion.div>
             </div>
         </div>
-        <Chatbot />
+        {/* Floating action buttons — phone + chatbot, bottom-right corner */}
+        <div className="fixed bottom-4 right-4 z-50 flex items-end gap-3">
+            <OutboundCallButton />
+            <Chatbot />
+        </div>
         </>
     );
 }

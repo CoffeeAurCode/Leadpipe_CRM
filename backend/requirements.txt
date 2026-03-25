@@ -73,3 +73,4 @@ yarl==1.22.0
 twilio>=8.0.0
 sendgrid>=6.0.0
 python-multipart==0.0.22
+vapi_server_sdk>=0.0.1

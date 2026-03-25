@@ -4,7 +4,14 @@
       "Bash(npm install recharts)",
       "Bash(curl -s http://127.0.0.1:8000/)",
       "Bash(curl -s http://localhost:5173/ -o /dev/null -w \"%{http_code}\")",
-      "Bash(curl -s -X POST http://127.0.0.1:8000/chat -H \"Content-Type: application/json\" -d '{\"\"messages\"\": [{\"\"role\"\": \"\"user\"\", \"\"content\"\": \"\"Hello, what can you help me with?\"\"}]}')"
+      "Bash(curl -s -X POST http://127.0.0.1:8000/chat -H \"Content-Type: application/json\" -d '{\"\"messages\"\": [{\"\"role\"\": \"\"user\"\", \"\"content\"\": \"\"Hello, what can you help me with?\"\"}]}')",
+      "Bash(pip install:*)",
+      "Bash(python -c \"import inspect; from vapi.resources.assistants.client import AssistantsClient; print\\(inspect.signature\\(AssistantsClient.update\\)\\)\")",
+      "Bash(python -c \"import vapi; print\\(dir\\(vapi\\)\\)\")",
+      "Bash(python -c \"from vapi import Vapi; v = Vapi.__new__\\(Vapi\\); import inspect; print\\(inspect.signature\\(v.assistants.update\\)\\)\")",
+      "Bash(python:*)",
+      "Bash(xargs grep:*)",
+      "Bash(find C:UsersBITCodingTenant_management_MVPfrontend -maxdepth 2 -type f \\\\\\(-name package.json -o -name vite.config.js -o -name tailwind.config.js -o -name .env* \\\\\\))"
     ]
   }
 }
