@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends, BackgroundTasks
+from fastapi import APIRouter, Request, Depends, BackgroundTasks, HTTPException
 from supabase import Client
 from pydantic import BaseModel
 import json
@@ -479,6 +479,13 @@ async def make_outbound_call(req: OutboundCallRequest):
     """
     from vapi import Vapi, CreateCustomerDto, AssistantOverrides
     from app.config import settings
+
+    if not settings.PRIVATE_VAPI_API:
+        raise HTTPException(status_code=500, detail="PRIVATE_VAPI_API env var is not configured on the server")
+    if not settings.VAPI_ASSISTANT_ID:
+        raise HTTPException(status_code=500, detail="VAPI_ASSISTANT_ID env var is not configured on the server")
+    if not settings.VAPI_NUMBER_ID:
+        raise HTTPException(status_code=500, detail="VAPI_NUMBER_ID env var is not configured on the server")
 
     client = Vapi(token=settings.PRIVATE_VAPI_API)
 
