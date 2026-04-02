@@ -126,7 +126,7 @@ export default function CalendarView({
         <div className="p-6 max-w-7xl mx-auto space-y-4">
 
             {/* ── Header ── */}
-            <div className="flex items-center justify-between">
+            <div data-tour="calendar-header" className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-foreground">
                     {format(currentDate, 'MMMM yyyy')}
                 </h1>
@@ -177,7 +177,7 @@ export default function CalendarView({
             </div>
 
             {/* ── Calendar Grid ── */}
-            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+            <div data-tour="calendar-grid" className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
 
                 {/* Weekday headers */}
                 <div className="grid grid-cols-7 border-b border-border">

@@ -8,7 +8,8 @@ Hierarchy: Property → Building → Unit (flat)
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
@@ -43,7 +44,7 @@ class PropertyGroupResponse(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=List[PropertyGroupResponse])
-async def get_all_property_groups(db: Client = Depends(get_db)):
+async def get_all_property_groups(user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """
     Get all property groups with building counts.
     Uses 2 queries to avoid N+1.
@@ -92,7 +93,7 @@ async def get_all_property_groups(db: Client = Depends(get_db)):
 
 
 @router.post("", response_model=PropertyGroupResponse, status_code=status.HTTP_201_CREATED)
-async def create_property_group(request: PropertyGroupCreate, db: Client = Depends(get_db)):
+async def create_property_group(request: PropertyGroupCreate, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Create a new property group."""
     try:
         payload = request.model_dump(exclude_none=True)
@@ -125,7 +126,7 @@ async def create_property_group(request: PropertyGroupCreate, db: Client = Depen
 
 
 @router.get("/{property_id}/buildings")
-async def get_property_buildings(property_id: str, db: Client = Depends(get_db)):
+async def get_property_buildings(property_id: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """
     Get all buildings belonging to a specific property group.
     Includes unit counts aggregated from the flats table.
@@ -192,7 +193,7 @@ async def get_property_buildings(property_id: str, db: Client = Depends(get_db))
 
 
 @router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_property_group(property_id: str, db: Client = Depends(get_db)):
+async def delete_property_group(property_id: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """
     Delete a property group and cascade-delete all buildings, flats, rents, and tenants within it.
     Order: tenants → rents → flats → buildings → property group

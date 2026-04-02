@@ -106,7 +106,7 @@ export default function TenantManagement() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-3 items-center p-4 bg-card border border-border rounded-xl">
+            <div data-tour="tenant-filters" className="flex flex-wrap gap-3 items-center p-4 bg-card border border-border rounded-xl">
                 <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <select
                     value={rentStatus}
@@ -142,7 +142,7 @@ export default function TenantManagement() {
             )}
 
             {/* Table */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div data-tour="tenant-table" className="bg-card border border-border rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>

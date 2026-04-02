@@ -594,7 +594,7 @@ function PropertiesPage() {
                                 : `${buildings.length} ${buildings.length === 1 ? 'building' : 'buildings'}`
                     }
                 />
-                <ViewSwitcher activeView={viewMode} onChange={handleViewSwitch} />
+                <div data-tour="view-switcher"><ViewSwitcher activeView={viewMode} onChange={handleViewSwitch} /></div>
             </div>
 
             <AnimatePresence mode="wait">
@@ -608,6 +608,7 @@ function PropertiesPage() {
                                 subtitle='Click "Add Property" below to create your first property estate'
                             />
                         ) : (
+                            <div data-tour="property-list">
                             <CardGrid>
                                 {propertyGroups.map(p => (
                                     <motion.div key={p.id} variants={cardVariants}>
@@ -615,6 +616,7 @@ function PropertiesPage() {
                                     </motion.div>
                                 ))}
                             </CardGrid>
+                            </div>
                         )}
                     </motion.div>
                 )}
@@ -672,7 +674,7 @@ function PropertiesPage() {
             </AnimatePresence>
 
             {/* Floating Action Buttons */}
-            <div className="fixed bottom-8 left-8 flex flex-col gap-3 z-50">
+            <div data-tour="fab-buttons" className="fixed bottom-8 left-8 flex flex-col gap-3 z-50">
                 {viewMode === 'properties' && (
                     <FAB icon={Layers} label="Add Property" onClick={() => setShowAddProperty(true)} />
                 )}

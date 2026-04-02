@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Literal
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from app.ai import chatbot
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -22,7 +23,7 @@ class ChatRequest(BaseModel):
 
 
 @router.post("")
-async def chat_endpoint(request: ChatRequest, db: Client = Depends(get_db)):
+async def chat_endpoint(request: ChatRequest, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     # Guard: last user message must not exceed 2000 characters
     user_messages = [m for m in request.messages if m.role == "user"]
     if user_messages and len(user_messages[-1].content) > 2000:

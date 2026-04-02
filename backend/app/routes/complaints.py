@@ -4,7 +4,8 @@ Handles CRUD operations for tenant complaints.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from app.schemas.complaint import ComplaintCreate, ComplaintUpdate, ComplaintResponse
 from app.services.notifications import notify_manager_appointment_scheduled
 
@@ -15,7 +16,8 @@ router = APIRouter(prefix="/complaints", tags=["Complaints"])
 async def create_complaint(
     complaint_data: ComplaintCreate,
     background_tasks: BackgroundTasks,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
 ):
     """Create a new complaint."""
     try:
@@ -91,7 +93,10 @@ async def create_complaint(
 
 
 @router.get("", response_model=list[ComplaintResponse])
-async def get_all_complaints(db: Client = Depends(get_db)):
+async def get_all_complaints(
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
+):
     """Get all complaints with appointment data (if exists) ordered by created_at (newest first)."""
     try:
         # Join with appointments using explicit foreign key relationship
@@ -131,7 +136,8 @@ async def get_all_complaints(db: Client = Depends(get_db)):
 @router.get("/{complaint_id}", response_model=ComplaintResponse)
 async def get_complaint_by_id(
     complaint_id: int,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
 ):
     """Get a specific complaint by ID."""
     try:
@@ -160,7 +166,8 @@ async def get_complaint_by_id(
 async def update_complaint(
     complaint_id: int,
     complaint_data: ComplaintUpdate,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
 ):
     """Update a complaint's fields."""
     try:

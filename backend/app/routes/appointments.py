@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from supabase import Client
 from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from app.schemas.appointment import (
     AppointmentCreate,
     AppointmentUpdate,
@@ -350,7 +352,8 @@ async def vapi_check_availability(
 async def create_appointment(
     appointment_data: AppointmentCreate,
     background_tasks: BackgroundTasks,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
 ):
     """Create a new appointment."""
     try:
@@ -413,7 +416,8 @@ async def get_appointments(
     start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
     end_date: Optional[str] = Query(None, description="End date (ISO format)"),
     flat_number: Optional[str] = Query(None, description="Filter by flat number"),
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
 ):
     """
     Get all appointments with optional filters.
@@ -473,7 +477,8 @@ async def get_appointments(
 @router.get("/{appointment_id}", response_model=AppointmentResponse)
 async def get_appointment_by_id(
     appointment_id: int,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
 ):
     """Get a specific appointment by ID."""
     try:
@@ -503,7 +508,8 @@ async def update_appointment(
     appointment_id: int,
     appointment_data: AppointmentUpdate,
     background_tasks: BackgroundTasks,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
 ):
     """Update an appointment's details."""
     try:
@@ -573,7 +579,8 @@ async def update_appointment(
 async def cancel_appointment(
     appointment_id: int,
     background_tasks: BackgroundTasks,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
 ):
     """
     Cancel an appointment (sets status to 'cancelled').

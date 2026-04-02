@@ -4,13 +4,15 @@ Handles retrieval of voice call logs.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 
 router = APIRouter(prefix="/call_logs", tags=["Call Logs"])
 
 
 @router.get("")
-async def get_all_call_logs(db: Client = Depends(get_db)):
+async def get_all_call_logs(user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)):
     """Get all call logs ordered by created_at (newest first)."""
     try:
         response = db.table("call_logs")\
@@ -29,7 +31,8 @@ async def get_all_call_logs(db: Client = Depends(get_db)):
 @router.get("/{call_log_id}")
 async def get_call_log_by_id(
     call_log_id: int,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
 ):
     """Get a specific call log by ID."""
     try:

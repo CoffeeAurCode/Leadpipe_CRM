@@ -1,16 +1,56 @@
 // Use environment variable for API URL, fallback to localhost for development
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 import { format } from 'date-fns';
+import { supabase } from '../lib/supabase';
 
 /**
  * API Service for Tenant Management Backend
  * Handles all HTTP requests to FastAPI backend
  */
 
+/**
+ * Authenticated fetch wrapper — attaches the Supabase JWT as a Bearer token.
+ * Redirects to landing page on 401 (expired) or pricing on 403 (no subscription).
+ */
+async function authFetch(url, options = {}) {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+        // No session — sign out to reset state; AuthGate will show login page
+        await supabase.auth.signOut();
+        window.location.reload();
+        throw new Error('No active session');
+    }
+
+    const headers = { ...options.headers };
+    headers['Authorization'] = `Bearer ${session.access_token}`;
+
+    // Don't override Content-Type for FormData (browser sets multipart boundary)
+    if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+    }
+
+    const response = await fetch(url, { ...options, headers });
+
+    if (response.status === 401) {
+        await supabase.auth.signOut();
+        window.location.reload();
+        throw new Error('Session expired');
+    }
+
+    if (response.status === 403) {
+        const landingUrl = import.meta.env.VITE_LANDING_PAGE_URL || 'http://localhost:3000';
+        window.location.href = `${landingUrl}/pricing`;
+        throw new Error('Subscription required');
+    }
+
+    return response;
+}
+
 // Fetch all flats
 export async function fetchFlats() {
     try {
-        const response = await fetch(`${API_BASE_URL}/flats`);
+        const response = await authFetch(`${API_BASE_URL}/flats`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -24,7 +64,7 @@ export async function fetchFlats() {
 // Fetch all complaints
 export async function fetchComplaints() {
     try {
-        const response = await fetch(`${API_BASE_URL}/complaints`);
+        const response = await authFetch(`${API_BASE_URL}/complaints`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -39,7 +79,7 @@ export async function fetchComplaints() {
 // Fetch single complaint by ID
 export async function fetchComplaintById(id) {
     try {
-        const response = await fetch(`${API_BASE_URL}/complaints/${id}`);
+        const response = await authFetch(`${API_BASE_URL}/complaints/${id}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -54,7 +94,7 @@ export async function fetchComplaintById(id) {
 // Update complaint (PATCH)
 export async function updateComplaint(id, updates) {
     try {
-        const response = await fetch(`${API_BASE_URL}/complaints/${id}`, {
+        const response = await authFetch(`${API_BASE_URL}/complaints/${id}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -77,7 +117,7 @@ export async function updateComplaint(id, updates) {
 // Create new complaint
 export async function createComplaint(complaintData) {
     try {
-        const response = await fetch(`${API_BASE_URL}/complaints`, {
+        const response = await authFetch(`${API_BASE_URL}/complaints`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -140,7 +180,7 @@ export function formatDate(dateString) {
 // Fetch all properties
 export async function fetchProperties() {
     try {
-        const response = await fetch(`${API_BASE_URL}/properties`);
+        const response = await authFetch(`${API_BASE_URL}/properties`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -155,7 +195,7 @@ export async function fetchProperties() {
 // Fetch detailed flat information including tenant data
 export async function fetchFlatDetails(flatUuid) {
     try {
-        const response = await fetch(`${API_BASE_URL}/flats/${flatUuid}/details`);
+        const response = await authFetch(`${API_BASE_URL}/flats/${flatUuid}/details`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -170,7 +210,7 @@ export async function fetchFlatDetails(flatUuid) {
 // Update flat details and tenant (PATCH)
 export async function updateFlat(flatUuid, updateData) {
     try {
-        const response = await fetch(`${API_BASE_URL}/flats/${flatUuid}`, {
+        const response = await authFetch(`${API_BASE_URL}/flats/${flatUuid}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -196,7 +236,7 @@ export async function createProperty(formData) {
     try {
         // FormData is sent as-is (multipart/form-data)
         // Do NOT set Content-Type header - browser will set it with boundary
-        const response = await fetch(`${API_BASE_URL}/flats`, {
+        const response = await authFetch(`${API_BASE_URL}/flats`, {
             method: 'POST',
             body: formData,
         });
@@ -226,7 +266,7 @@ export async function fetchPropertySettings(propertyUuid, scope = {}) {
         if (scope.building_id != null) params.set('building_id', scope.building_id);
         if (scope.unit_id != null) params.set('unit_id', scope.unit_id);
         const qs = params.toString() ? `?${params}` : '';
-        const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings${qs}`);
+        const response = await authFetch(`${API_BASE_URL}/properties/${propertyUuid}/settings${qs}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return await response.json();
     } catch (error) {
@@ -249,7 +289,7 @@ export async function updatePropertySettings(propertyUuid, features, scope = {})
             unit_id: scope.unit_id ?? null,
             replace_overrides: scope.replace_overrides ?? false,
         };
-        const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings`, {
+        const response = await authFetch(`${API_BASE_URL}/properties/${propertyUuid}/settings`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
@@ -276,7 +316,7 @@ export async function fetchTenants(params = {}) {
         if (params.property_id != null) query.set('property_id', params.property_id);
         if (params.unit_uuid)    query.set('unit_uuid',    params.unit_uuid);
         const qs = query.toString() ? `?${query}` : '';
-        const response = await fetch(`${API_BASE_URL}/tenants${qs}`);
+        const response = await authFetch(`${API_BASE_URL}/tenants${qs}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return await response.json();
     } catch (error) {
@@ -288,7 +328,7 @@ export async function fetchTenants(params = {}) {
 /** Update a tenant's fields (PATCH). */
 export async function updateTenant(tenantUuid, updates) {
     try {
-        const response = await fetch(`${API_BASE_URL}/tenants/${tenantUuid}`, {
+        const response = await authFetch(`${API_BASE_URL}/tenants/${tenantUuid}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates),
@@ -308,7 +348,7 @@ export async function updateTenant(tenantUuid, updates) {
 
 export async function fetchActiveRent(flatUuid) {
     try {
-        const response = await fetch(`${API_BASE_URL}/rents/${flatUuid}`);
+        const response = await authFetch(`${API_BASE_URL}/rents/${flatUuid}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
         return data.rent; // null if not set
@@ -319,7 +359,7 @@ export async function fetchActiveRent(flatUuid) {
 }
 
 export async function setRent(flatUuid, monthlyRent, effectiveFrom) {
-    const response = await fetch(`${API_BASE_URL}/rents/set`, {
+    const response = await authFetch(`${API_BASE_URL}/rents/set`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -335,7 +375,7 @@ export async function setRent(flatUuid, monthlyRent, effectiveFrom) {
 // ── Property Types ────────────────────────────────────────────────────────────
 
 export async function fetchPropertyTypes() {
-    const response = await fetch(`${API_BASE_URL}/property-types`);
+    const response = await authFetch(`${API_BASE_URL}/property-types`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
@@ -344,21 +384,21 @@ export async function fetchPropertyTypes() {
 
 /** Fetch all buildings (with unit counts aggregated server-side). */
 export async function fetchBuildings() {
-    const response = await fetch(`${API_BASE_URL}/buildings`);
+    const response = await authFetch(`${API_BASE_URL}/buildings`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
 
 /** Fetch all units (flats) belonging to a specific building. */
 export async function fetchBuildingUnits(buildingId) {
-    const response = await fetch(`${API_BASE_URL}/buildings/${buildingId}/units`);
+    const response = await authFetch(`${API_BASE_URL}/buildings/${buildingId}/units`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
 
 /** Create a new building. */
 export async function createBuilding(payload) {
-    const response = await fetch(`${API_BASE_URL}/buildings`, {
+    const response = await authFetch(`${API_BASE_URL}/buildings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -372,7 +412,7 @@ export async function createBuilding(payload) {
 
 /** Update a building's details. */
 export async function updateBuilding(buildingId, payload) {
-    const response = await fetch(`${API_BASE_URL}/buildings/${buildingId}`, {
+    const response = await authFetch(`${API_BASE_URL}/buildings/${buildingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -388,14 +428,14 @@ export async function updateBuilding(buildingId, payload) {
 
 /** Fetch all top-level property groups. */
 export async function fetchPropertyGroups() {
-    const response = await fetch(`${API_BASE_URL}/property-groups`);
+    const response = await authFetch(`${API_BASE_URL}/property-groups`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
 
 /** Create a new property group. */
 export async function createPropertyGroup(payload) {
-    const response = await fetch(`${API_BASE_URL}/property-groups`, {
+    const response = await authFetch(`${API_BASE_URL}/property-groups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -409,14 +449,14 @@ export async function createPropertyGroup(payload) {
 
 /** Fetch all buildings belonging to a specific property group. */
 export async function fetchPropertyBuildings(propertyId) {
-    const response = await fetch(`${API_BASE_URL}/property-groups/${propertyId}/buildings`);
+    const response = await authFetch(`${API_BASE_URL}/property-groups/${propertyId}/buildings`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
 
 /** Delete a property group and cascade-delete all its buildings, flats, rents, and tenants. */
 export async function deletePropertyGroup(propertyId) {
-    const response = await fetch(`${API_BASE_URL}/property-groups/${propertyId}`, { method: 'DELETE' });
+    const response = await authFetch(`${API_BASE_URL}/property-groups/${propertyId}`, { method: 'DELETE' });
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP error! status: ${response.status}`);
@@ -426,7 +466,7 @@ export async function deletePropertyGroup(propertyId) {
 
 /** Delete a tenant by UUID. The backend vacates their flat and removes the rent record. */
 export async function deleteTenant(tenantUuid) {
-    const response = await fetch(`${API_BASE_URL}/tenants/${tenantUuid}`, { method: 'DELETE' });
+    const response = await authFetch(`${API_BASE_URL}/tenants/${tenantUuid}`, { method: 'DELETE' });
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP error! status: ${response.status}`);
@@ -436,7 +476,7 @@ export async function deleteTenant(tenantUuid) {
 
 /** Delete a flat by UUID. Backend cascade-deletes the tenant + rent if occupied. */
 export async function deleteFlat(flatUuid) {
-    const response = await fetch(`${API_BASE_URL}/flats/${flatUuid}`, { method: 'DELETE' });
+    const response = await authFetch(`${API_BASE_URL}/flats/${flatUuid}`, { method: 'DELETE' });
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP error! status: ${response.status}`);
@@ -446,7 +486,7 @@ export async function deleteFlat(flatUuid) {
 
 /** Delete a building by ID. Backend cascade-deletes all its units, tenants, and rents. */
 export async function deleteBuilding(buildingId) {
-    const response = await fetch(`${API_BASE_URL}/buildings/${buildingId}`, { method: 'DELETE' });
+    const response = await authFetch(`${API_BASE_URL}/buildings/${buildingId}`, { method: 'DELETE' });
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP error! status: ${response.status}`);
@@ -458,21 +498,21 @@ export async function deleteBuilding(buildingId) {
 
 /** Fetch aggregate settings for a building (majority-vote across its units). */
 export async function fetchBuildingSettings(propertyUuid, buildingId) {
-    const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings/building/${buildingId}`);
+    const response = await authFetch(`${API_BASE_URL}/properties/${propertyUuid}/settings/building/${buildingId}`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
 
 /** Fetch settings for one specific unit. */
 export async function fetchUnitSettings(unitId) {
-    const response = await fetch(`${API_BASE_URL}/units/${unitId}/settings`);
+    const response = await authFetch(`${API_BASE_URL}/units/${unitId}/settings`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
 
 /** Bulk-apply feature toggles to ALL units in a building. */
 export async function updateBuildingSettings(propertyUuid, buildingId, features) {
-    const response = await fetch(`${API_BASE_URL}/properties/${propertyUuid}/settings/building/${buildingId}`, {
+    const response = await authFetch(`${API_BASE_URL}/properties/${propertyUuid}/settings/building/${buildingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ features }),
@@ -491,14 +531,14 @@ export async function fetchAppointments(startDate, endDate) {
     const qs = new URLSearchParams();
     if (startDate) qs.set('start_date', startDate);
     if (endDate) qs.set('end_date', endDate);
-    const response = await fetch(`${API_BASE_URL}/appointments?${qs}`);
+    const response = await authFetch(`${API_BASE_URL}/appointments?${qs}`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
 
 /** Update an appointment by ID (status, date, notes, etc.). */
 export async function updateAppointment(id, updates) {
-    const response = await fetch(`${API_BASE_URL}/appointments/${id}`, {
+    const response = await authFetch(`${API_BASE_URL}/appointments/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -512,7 +552,7 @@ export async function updateAppointment(id, updates) {
 
 /** Delete an appointment by ID. */
 export async function deleteAppointment(id) {
-    const response = await fetch(`${API_BASE_URL}/appointments/${id}`, {
+    const response = await authFetch(`${API_BASE_URL}/appointments/${id}`, {
         method: 'DELETE',
     });
     if (!response.ok) {
@@ -526,7 +566,7 @@ export async function deleteAppointment(id) {
 
 /** Send an SMS to a list of tenants (identified by UUID). */
 export async function sendWorkflowSms(tenantUuids, message) {
-    const response = await fetch(`${API_BASE_URL}/workflow/send-sms`, {
+    const response = await authFetch(`${API_BASE_URL}/workflow/send-sms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenant_ids: tenantUuids, message }),
@@ -539,7 +579,7 @@ export async function sendWorkflowSms(tenantUuids, message) {
 
 /** Send a conversation history to the AI chatbot and get the next reply. */
 export async function sendChatMessage(messages) {
-    const response = await fetch(`${API_BASE_URL}/chat`, {
+    const response = await authFetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages }),
@@ -550,7 +590,7 @@ export async function sendChatMessage(messages) {
 
 /** Update feature toggles for one specific unit. */
 export async function updateUnitSettings(unitId, features) {
-    const response = await fetch(`${API_BASE_URL}/units/${unitId}/settings`, {
+    const response = await authFetch(`${API_BASE_URL}/units/${unitId}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ features }),
@@ -567,7 +607,7 @@ export async function updateUnitSettings(unitId, features) {
 export async function makeOutboundCall(customerNumber, firstMessage = null) {
     const body = { customer_number: customerNumber };
     if (firstMessage) body.first_message = firstMessage;
-    const response = await fetch(`${API_BASE_URL}/voice/call/outbound`, {
+    const response = await authFetch(`${API_BASE_URL}/voice/call/outbound`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -580,7 +620,7 @@ export async function makeOutboundCall(customerNumber, firstMessage = null) {
 }
 
 export async function getCallStatus() {
-    const response = await fetch(`${API_BASE_URL}/voice/call-status`);
+    const response = await authFetch(`${API_BASE_URL}/voice/call-status`);
     if (!response.ok) throw new Error('Failed to get call status');
     return await response.json();
 }

@@ -4,7 +4,8 @@ Isolated module - does not touch existing flat/tenant/complaint logic.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from pydantic import BaseModel
 from decimal import Decimal
 from datetime import date
@@ -29,7 +30,7 @@ class RentResponse(BaseModel):
 
 
 @router.post("/set", status_code=status.HTTP_201_CREATED)
-async def set_rent(request: RentSetRequest, db: Client = Depends(get_db)):
+async def set_rent(request: RentSetRequest, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """
     Set a new rent for a flat.
     - Deactivates previous active rent
@@ -59,7 +60,7 @@ async def set_rent(request: RentSetRequest, db: Client = Depends(get_db)):
 
 
 @router.get("/{flat_uuid}")
-async def get_active_rent(flat_uuid: str, db: Client = Depends(get_db)):
+async def get_active_rent(flat_uuid: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """
     Returns the current active rent for a flat.
     Returns null if no rent is set.

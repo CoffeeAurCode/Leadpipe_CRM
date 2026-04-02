@@ -4,7 +4,8 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from app.schemas.workflow import SmsWorkflowRequest, SmsWorkflowResponse, SmsResult
 from app.integrations.twilio_client import get_twilio_client
 
@@ -33,7 +34,7 @@ def _next_due_date(billing_day: int, today: date) -> date:
 @router.post("/send-sms", response_model=SmsWorkflowResponse)
 async def send_sms_workflow(
     payload: SmsWorkflowRequest,
-    db: Client = Depends(get_db),
+    user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db),
 ):
     uuid_strs = [str(uid) for uid in payload.tenant_ids]
     needs_unit = "{unit}" in payload.message

@@ -7,12 +7,13 @@ FastAPI dependency injection utilities for feature gating.
 from fastapi import Depends, HTTPException, status
 from supabase import Client
 from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
 from app.services.feature_service import FeatureService
 from app.core.features import Feature
 
 
-def get_feature_service(db: Client = Depends(get_db)) -> FeatureService:
-    """Dependency: Get feature service instance"""
+def get_feature_service(db: Client = Depends(get_authenticated_db)) -> FeatureService:
+    """Dependency: Get feature service instance (uses authenticated client for RLS)"""
     return FeatureService(db)
 
 

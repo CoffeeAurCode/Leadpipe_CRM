@@ -135,7 +135,7 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate, onAp
             </motion.div>
 
             {/* ── KPI Row ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div data-tour="kpi-cards" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
                     label="Total Complaints"
                     value={kpis.total}
@@ -171,6 +171,7 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate, onAp
 
             {/* ── Charts Row 1: Trends + Status Donut ── */}
             <motion.div
+                data-tour="trends-charts"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
@@ -186,6 +187,7 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate, onAp
 
             {/* ── Charts Row 2: Categories + Appointments ── */}
             <motion.div
+                data-tour="category-charts"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35 }}

@@ -9,7 +9,9 @@ from supabase import Client
 from datetime import datetime, timezone, timedelta
 
 IST = timezone(timedelta(hours=5, minutes=30))
-from app.db.session import get_db
+from app.db.session import get_db, get_service_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from app.schemas.flat import (
     FlatCreate,
     FlatUpdate,
@@ -136,8 +138,127 @@ async def verify_phone(
         return FlatVerifyPhoneResponse(result="Verification failed due to an internal error.", status="invalid")
 
 
+@router.post("/identify-caller")
+async def identify_caller(
+    request: Request,
+    db: Client = Depends(get_service_db),
+):
+    """
+    VAPI Option B — Identify a caller by phone number.
+    Uses the service-role client (bypasses RLS) to search across ALL managers' data.
+
+    Returns tenant + property chain so VAPI knows which manager/society to route to.
+    Always returns HTTP 200 (VAPI contract).
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    phone_number = body.get("phone_number", "")
+    print(f"[DEBUG] identify_caller: phone_number={phone_number!r}")
+
+    if not phone_number:
+        return {
+            "exists": False,
+            "message": "We don't recognize your number. Please contact your property manager directly.",
+        }
+
+    caller_digits = _digits_only(phone_number)
+    if not caller_digits:
+        return {
+            "exists": False,
+            "message": "We don't recognize your number. Please contact your property manager directly.",
+        }
+
+    try:
+        # Search tenants by phone (get all, match flexibly)
+        tenants_resp = db.table("tenants").select("uuid, name, phone, flat_uuid").execute()
+        matched_tenant = None
+        for t in tenants_resp.data or []:
+            if _phones_match(phone_number, t.get("phone", "")):
+                matched_tenant = t
+                break
+
+        if not matched_tenant:
+            return {
+                "exists": False,
+                "message": "We don't recognize your number. Please contact your property manager directly.",
+            }
+
+        # Walk up the chain: tenant -> flat -> building -> property_group -> manager
+        flat_resp = (
+            db.table("flats")
+            .select("uuid, flat_number, building_id")
+            .eq("uuid", matched_tenant["flat_uuid"])
+            .limit(1)
+            .execute()
+        )
+        if not flat_resp.data:
+            return {"exists": False, "message": "We don't recognize your number. Please contact your property manager directly."}
+
+        flat = flat_resp.data[0]
+
+        building_resp = (
+            db.table("buildings")
+            .select("id, name, property_id")
+            .eq("id", flat["building_id"])
+            .limit(1)
+            .execute()
+        )
+        if not building_resp.data:
+            return {"exists": False, "message": "We don't recognize your number. Please contact your property manager directly."}
+
+        building = building_resp.data[0]
+
+        property_resp = (
+            db.table("properties_list")
+            .select("id, name, manager_id")
+            .eq("id", building["property_id"])
+            .limit(1)
+            .execute()
+        )
+        if not property_resp.data:
+            return {"exists": False, "message": "We don't recognize your number. Please contact your property manager directly."}
+
+        prop = property_resp.data[0]
+
+        # Get manager profile
+        manager_name = "Manager"
+        manager_phone = ""
+        if prop.get("manager_id"):
+            mgr_resp = (
+                db.table("manager_profiles")
+                .select("name, phone")
+                .eq("user_id", prop["manager_id"])
+                .limit(1)
+                .execute()
+            )
+            if mgr_resp.data:
+                manager_name = mgr_resp.data[0].get("name", "Manager")
+                manager_phone = mgr_resp.data[0].get("phone", "")
+
+        return {
+            "exists": True,
+            "tenant_name": matched_tenant.get("name", ""),
+            "flat_number": flat["flat_number"],
+            "building_name": building["name"],
+            "society_name": prop["name"],
+            "property_group_id": str(prop["id"]),
+            "manager_name": manager_name,
+            "manager_phone": manager_phone,
+        }
+
+    except Exception as e:
+        print(f"[ERROR] identify_caller failed: {type(e).__name__}: {e}")
+        return {
+            "exists": False,
+            "message": "We don't recognize your number. Please contact your property manager directly.",
+        }
+
+
 @router.get("", response_model=list[FlatResponse])
-async def get_all_flats(db: Client = Depends(get_db)):
+async def get_all_flats(user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Get all flats ordered by building and flat number."""
     try:
         response = db.table("flats")\
@@ -157,7 +278,8 @@ async def get_all_flats(db: Client = Depends(get_db)):
 @router.get("/{flat_uuid}/details", response_model=FlatResponse)
 async def get_flat_details(
     flat_uuid: str,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
 ):
     """
     Get detailed flat information by UUID including tenant data.
@@ -205,7 +327,8 @@ async def get_flat_details(
 @router.get("/{flat_number}", response_model=FlatResponse)
 async def get_flat_by_number(
     flat_number: str,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
 ):
     """Get a specific flat by flat_number."""
     try:
@@ -241,7 +364,8 @@ async def create_flat(
     tenant_phone: Optional[str] = Form(None),
     building_id: Optional[str] = Form(None),  # NEW: auto-link to building
     image: Optional[UploadFile] = File(None),
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
 ):
     """
     Create a new flat with optional image upload and tenant assignment.
@@ -472,7 +596,8 @@ async def create_flat(
 async def update_flat_details(
     flat_uuid: str,
     request: FlatEditRequest,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
 ):
     """
     Update flat details and manage tenant occupancy.
@@ -580,7 +705,7 @@ async def update_flat_details(
 
 
 @router.delete("/{flat_uuid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_flat(flat_uuid: str, db: Client = Depends(get_db)):
+async def delete_flat(flat_uuid: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Delete a flat. If occupied, cascade-deletes the tenant and rent record first."""
     try:
         flat_resp = db.table("flats").select("id, uuid, tenant_uuid").eq("uuid", flat_uuid).execute()

@@ -5,7 +5,8 @@ Handles CRUD operations for tenants.
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from app.schemas.tenant import TenantCreate, TenantUpdate, TenantResponse
 from typing import List, Optional
 from datetime import date, datetime, timezone, timedelta
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/tenants", tags=["Tenants"])
 @router.get("/by-flat/{flat_no}")
 async def get_tenant_by_flat(
     flat_no: str,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)
 ):
     """
     VAPI API REQUEST TOOL ENDPOINT
@@ -137,7 +138,7 @@ async def get_tenant_by_flat(
 @router.get("/by-flat-query")
 async def get_tenant_by_flat_query(
     flat_no: str,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)
 ):
     """
     VAPI API REQUEST TOOL ENDPOINT (Query Parameter Version)
@@ -198,7 +199,7 @@ async def get_tenant_by_flat_query(
 @router.post("", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
 async def create_tenant(
     tenant_data: TenantCreate,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)
 ):
     """Create a new tenant"""
     try:
@@ -248,7 +249,7 @@ def _compute_lease_status(tenant: dict) -> str:
 
 @router.get("", response_model=List[TenantResponse])
 async def get_all_tenants(
-    db: Client = Depends(get_db),
+    user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db),
     property_id: Optional[int] = Query(None, description="Filter by property group ID"),
     building_id: Optional[int] = Query(None, description="Filter by building ID"),
     unit_uuid: Optional[str] = Query(None, description="Filter by flat/unit UUID"),
@@ -368,7 +369,7 @@ async def get_all_tenants(
 
 
 @router.get("/{tenant_uuid}", response_model=TenantResponse)
-async def get_tenant(tenant_uuid: str, db: Client = Depends(get_db)):
+async def get_tenant(tenant_uuid: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Get tenant by UUID"""
     try:
         response = db.table("tenants").select("*").eq("uuid", tenant_uuid).execute()
@@ -393,7 +394,7 @@ async def get_tenant(tenant_uuid: str, db: Client = Depends(get_db)):
 async def update_tenant(
     tenant_uuid: str,
     tenant_data: TenantUpdate,
-    db: Client = Depends(get_db)
+    user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)
 ):
     """Update a tenant's information"""
     try:
@@ -430,7 +431,7 @@ async def update_tenant(
 
 
 @router.delete("/{tenant_uuid}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_tenant(tenant_uuid: str, db: Client = Depends(get_db)):
+async def delete_tenant(tenant_uuid: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Delete a tenant, vacate their flat, and remove their rent record."""
     try:
         tenant_resp = db.table("tenants").select("uuid").eq("uuid", tenant_uuid).execute()
@@ -462,7 +463,7 @@ async def delete_tenant(tenant_uuid: str, db: Client = Depends(get_db)):
 
 
 @router.get("/by-phone/{phone}", response_model=TenantResponse)
-async def get_tenant_by_phone(phone: str, db: Client = Depends(get_db)):
+async def get_tenant_by_phone(phone: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Get tenant by phone number (useful for voice system)"""
     try:
         response = db.table("tenants").select("*").eq("phone", phone).execute()

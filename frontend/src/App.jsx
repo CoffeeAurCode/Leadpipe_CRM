@@ -1,10 +1,14 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
+import AuthPage from './components/AuthPage';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import BentoDashboard from './components/BentoDashboard';
 import Chatbot from './components/Chatbot';
 import OutboundCallButton from './components/OutboundCallButton';
+import { OnboardingTour } from './components/OnboardingTour';
 
 // Lazy-loaded routes — only downloaded when the user first navigates to them
 const CalendarView     = lazy(() => import('./components/CalendarView'));
@@ -13,6 +17,7 @@ const SettingsPage     = lazy(() => import('./components/SettingsPage'));
 const TenantManagement = lazy(() => import('./components/TenantManagement'));
 const SmsWorkflow      = lazy(() => import('./components/SmsWorkflow'));
 const ComplaintsPage   = lazy(() => import('./components/ComplaintsPage'));
+const OnboardingChecklist = lazy(() => import('./components/OnboardingChecklist'));
 
 const PageFallback = () => (
     <div className="flex items-center justify-center h-full">
@@ -22,32 +27,54 @@ const PageFallback = () => (
 import { fetchComplaints, updateComplaint, fetchAppointments, updateAppointment, deleteAppointment, getCallStatus } from './services/apiService';
 import { format, subDays, addDays } from 'date-fns';
 
-function App() {
+function AuthGate({ children }) {
+    const { session, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-background">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+                    <p className="text-muted-foreground text-sm">Checking authentication...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!session) {
+        return <AuthPage />;
+    }
+
+    return children;
+}
+
+function Dashboard() {
     const [complaints, setComplaints] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [currentView, setCurrentView] = useState('dashboard');
+    const { isChecklistComplete } = useOnboarding();
+    const [currentView, setCurrentView] = useState(() => {
+        const checked = localStorage.getItem('crm-onboarding-checklist');
+        if (!checked || Object.keys(JSON.parse(checked)).length === 0) return 'onboarding';
+        return 'dashboard';
+    });
 
-    // Fetch complaints on mount
     useEffect(() => {
         loadComplaints();
         loadAppointments();
     }, []);
 
-    // Listen for custom silent refresh events from modals
     useEffect(() => {
         window.addEventListener('refresh-data', loadComplaints);
         return () => window.removeEventListener('refresh-data', loadComplaints);
     }, []);
 
-    // Refresh appointments when chatbot performs a write action
     useEffect(() => {
         window.addEventListener('refresh-appointments', loadAppointments);
         return () => window.removeEventListener('refresh-appointments', loadAppointments);
     }, []);
 
-    // Poll for call-end events every 10s — refreshes dashboard after any Vapi call finishes
     useEffect(() => {
         let lastSeen = null;
         const poll = async () => {
@@ -59,7 +86,7 @@ function App() {
                     loadAppointments();
                 }
             } catch {
-                // silently ignore — backend may not be running
+                // silently ignore
             }
         };
         const id = setInterval(poll, 10000);
@@ -91,7 +118,6 @@ function App() {
         }
     }
 
-    // Handle complaint update from child components
     const handleComplaintUpdate = async (updatedComplaint) => {
         try {
             const updates = {};
@@ -109,19 +135,16 @@ function App() {
         }
     };
 
-    // Handle appointment update (status, date, notes)
     const handleAppointmentUpdate = async (id, updates) => {
         await updateAppointment(id, updates);
         await loadAppointments();
     };
 
-    // Handle appointment delete
     const handleAppointmentDelete = async (id) => {
         await deleteAppointment(id);
         await loadAppointments();
     };
 
-    // Handle navigation
     const handleNavigate = (view) => {
         setCurrentView(view);
     };
@@ -141,8 +164,14 @@ function App() {
                     transition={{ duration: 0.3 }}
                     className="flex-1 overflow-y-auto p-6"
                 >
-                    {currentView === 'workflow' ? (
-                        <Suspense fallback={<PageFallback />}><SmsWorkflow /></Suspense>
+                    {currentView === 'onboarding' ? (
+                        <Suspense fallback={<PageFallback />}>
+                            <OnboardingChecklist />
+                        </Suspense>
+                    ) : currentView === 'workflow' ? (
+                        <Suspense fallback={<PageFallback />}>
+                            <SmsWorkflow />
+                        </Suspense>
                     ) : (
                         <>
                             {error && (
@@ -197,12 +226,28 @@ function App() {
                 </motion.div>
             </div>
         </div>
-        {/* Floating action buttons — phone + chatbot, bottom-right corner */}
+
+        {/* Global tour controller — lives outside motion.div so it survives page transitions */}
+        <OnboardingTour onNavigate={handleNavigate} />
+
+        {/* Floating action buttons */}
         <div className="fixed bottom-4 right-4 z-50 flex items-end gap-3">
             <OutboundCallButton />
             <Chatbot />
         </div>
         </>
+    );
+}
+
+function App() {
+    return (
+        <AuthProvider>
+            <AuthGate>
+                <OnboardingProvider>
+                    <Dashboard />
+                </OnboardingProvider>
+            </AuthGate>
+        </AuthProvider>
     );
 }
 

@@ -11,7 +11,9 @@
       "Bash(python -c \"from vapi import Vapi; v = Vapi.__new__\\(Vapi\\); import inspect; print\\(inspect.signature\\(v.assistants.update\\)\\)\")",
       "Bash(python:*)",
       "Bash(xargs grep:*)",
-      "Bash(find C:UsersBITCodingTenant_management_MVPfrontend -maxdepth 2 -type f \\\\\\(-name package.json -o -name vite.config.js -o -name tailwind.config.js -o -name .env* \\\\\\))"
+      "Bash(find C:UsersBITCodingTenant_management_MVPfrontend -maxdepth 2 -type f \\\\\\(-name package.json -o -name vite.config.js -o -name tailwind.config.js -o -name .env* \\\\\\))",
+      "Bash(xargs cat:*)",
+      "Bash(curl -s http://localhost:8000/)"
     ]
   }
 }

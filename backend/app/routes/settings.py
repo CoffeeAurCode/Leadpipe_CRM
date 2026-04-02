@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, validator
 from typing import Dict, Optional
 from app.dependencies.features import get_feature_service
+from app.dependencies.subscription import require_active_subscription
 from app.services.feature_service import FeatureService
 from app.core.features import Feature
 
@@ -47,6 +48,7 @@ class FeatureToggleRequest(BaseModel):
 @router.get("/properties/{property_uuid}/settings")
 async def get_property_settings(
     property_uuid: str,
+    user: dict = Depends(require_active_subscription),
     service: FeatureService = Depends(get_feature_service),
 ):
     """
@@ -71,6 +73,7 @@ async def get_property_settings(
 async def get_building_settings(
     property_uuid: str,
     building_id: str,
+    user: dict = Depends(require_active_subscription),
     service: FeatureService = Depends(get_feature_service),
 ):
     """
@@ -94,6 +97,7 @@ async def get_building_settings(
 @router.get("/units/{unit_id}/settings")
 async def get_unit_settings(
     unit_id: int,
+    user: dict = Depends(require_active_subscription),
     service: FeatureService = Depends(get_feature_service),
 ):
     """Returns the feature flags for one specific unit."""
@@ -115,6 +119,7 @@ async def get_unit_settings(
 async def bulk_update_property_settings(
     property_uuid: str,
     request: FeatureToggleRequest,
+    user: dict = Depends(require_active_subscription),
     service: FeatureService = Depends(get_feature_service),
 ):
     """
@@ -145,6 +150,7 @@ async def bulk_update_building_settings(
     property_uuid: str,
     building_id: str,
     request: FeatureToggleRequest,
+    user: dict = Depends(require_active_subscription),
     service: FeatureService = Depends(get_feature_service),
 ):
     """
@@ -174,6 +180,7 @@ async def bulk_update_building_settings(
 async def update_unit_settings(
     unit_id: int,
     request: FeatureToggleRequest,
+    user: dict = Depends(require_active_subscription),
     service: FeatureService = Depends(get_feature_service),
 ):
     """

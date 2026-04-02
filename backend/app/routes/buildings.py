@@ -8,7 +8,8 @@ Unit counts are aggregated from the flats table in a single extra query to avoid
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
@@ -105,7 +106,7 @@ def _fetch_property_type(db: Client, property_type_id: str) -> dict:
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=List[BuildingResponse])
-async def get_all_buildings(db: Client = Depends(get_db)):
+async def get_all_buildings(user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """
     Get all buildings with property type info and unit counts.
     Uses 2 queries total (buildings + flats summary) — no N+1.
@@ -132,7 +133,7 @@ async def get_all_buildings(db: Client = Depends(get_db)):
 
 
 @router.get("/{building_id}/units")
-async def get_building_units(building_id: str, db: Client = Depends(get_db)):
+async def get_building_units(building_id: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """
     Get all units (flats) belonging to a specific building.
     Returns raw flat records — frontend maps them to unit cards.
@@ -154,7 +155,7 @@ async def get_building_units(building_id: str, db: Client = Depends(get_db)):
 
 
 @router.post("", response_model=BuildingResponse, status_code=status.HTTP_201_CREATED)
-async def create_building(request: BuildingCreate, db: Client = Depends(get_db)):
+async def create_building(request: BuildingCreate, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Create a new building."""
     try:
         payload = {k: str(v) if isinstance(v, UUID) else v for k, v in request.model_dump(exclude_none=True).items()}
@@ -175,7 +176,7 @@ async def create_building(request: BuildingCreate, db: Client = Depends(get_db))
 
 
 @router.patch("/{building_id}", response_model=BuildingResponse)
-async def update_building(building_id: str, request: BuildingUpdate, db: Client = Depends(get_db)):
+async def update_building(building_id: str, request: BuildingUpdate, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Update a building's details."""
     try:
         payload = {k: str(v) if isinstance(v, UUID) else v for k, v in request.model_dump(exclude_none=True).items()}
@@ -206,7 +207,7 @@ async def update_building(building_id: str, request: BuildingUpdate, db: Client 
 
 
 @router.delete("/{building_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_building(building_id: str, db: Client = Depends(get_db)):
+async def delete_building(building_id: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Delete a building and cascade-delete all its flats, tenants, and rent records."""
     try:
         building_resp = db.table("buildings").select("id").eq("id", building_id).execute()

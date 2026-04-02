@@ -4,7 +4,8 @@ Returns the seeded property type classifications for buildings.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
@@ -21,7 +22,7 @@ class PropertyTypeResponse(BaseModel):
 
 
 @router.get("", response_model=List[PropertyTypeResponse])
-async def get_property_types(db: Client = Depends(get_db)):
+async def get_property_types(user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Get all property type classifications (Residential, Commercial, Mixed-use)."""
     try:
         response = db.table("property_types").select("*").order("name").execute()

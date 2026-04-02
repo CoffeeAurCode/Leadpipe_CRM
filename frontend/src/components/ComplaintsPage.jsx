@@ -33,10 +33,11 @@ export default function ComplaintsPage({ complaints = [], onComplaintUpdate }) {
             </motion.div>
 
             {/* Filters */}
-            <QuickFilters filters={filters} onFilterChange={setFilters} />
+            <div data-tour="quick-filters"><QuickFilters filters={filters} onFilterChange={setFilters} /></div>
 
             {/* Card grid */}
             <motion.div
+                data-tour="complaint-cards"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}

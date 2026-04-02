@@ -6,7 +6,8 @@ Uploads to the existing 'Property Pics' Supabase Storage bucket and returns the 
 """
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from supabase import Client, create_client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from app.config import settings
 from typing import Optional
 from uuid import uuid4
@@ -25,7 +26,7 @@ DOC_BUCKET = "Tenant_docs"
 async def upload_image(
     file: UploadFile = File(...),
     entity_type: Optional[str] = Form("misc"),  # e.g. property | building | unit | tenant_document
-    db: Client = Depends(get_db),
+    user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db),
 ):
     """
     Upload a file to Supabase Storage and return its public URL.

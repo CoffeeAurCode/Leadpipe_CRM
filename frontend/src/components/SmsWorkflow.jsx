@@ -438,7 +438,7 @@ export default function SmsWorkflow() {
             )}
 
             {/* ── Composer + Preview ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div data-tour="sms-composer" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Composer */}
                 <div className="bg-card border border-border rounded-xl p-5 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -549,7 +549,7 @@ export default function SmsWorkflow() {
             </div>
 
             {/* ── Tenant Table ── */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+            <div data-tour="sms-recipients" className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                 {/* Table toolbar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-border gap-3">
                     <span className="text-sm font-medium text-foreground shrink-0">

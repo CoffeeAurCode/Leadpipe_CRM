@@ -4,7 +4,8 @@ Maps flats data to properties format for the Properties page.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
-from app.db.session import get_db
+from app.dependencies.authenticated_db import get_authenticated_db
+from app.dependencies.subscription import require_active_subscription
 from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
@@ -30,7 +31,7 @@ class PropertyResponse(BaseModel):
 
 
 @router.get("", response_model=List[PropertyResponse])
-async def get_all_properties(db: Client = Depends(get_db)):
+async def get_all_properties(user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """
     Get all properties (flats) for the properties listing page.
     Maps flat data to property format with computed fields.

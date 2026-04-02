@@ -1,10 +1,10 @@
 """
 Database session management using Supabase client.
-Provides a dependency injection function for FastAPI routes.
+Provides dependency injection functions for FastAPI routes.
 
-The client is created ONCE at module load time (singleton pattern).
-This avoids the overhead of creating a new HTTP session and connection
-pool on every API request, which was a measurable source of latency.
+Two clients:
+  - _anon_client: respects RLS, used for authenticated manager requests
+  - _service_client: bypasses RLS, used for webhooks/VAPI/admin ops
 """
 from supabase import create_client, Client
 from app.config import settings
@@ -12,22 +12,22 @@ from app.config import settings
 if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
     raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
 
-# Singleton — created once when the server process starts, reused forever.
-_client: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+# Anon client — RLS enforced. Per-request JWT set via postgrest.auth().
+_anon_client: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
+# Service-role client — bypasses RLS. Used for Stripe webhooks, VAPI lookup, admin.
+_service_client: Client | None = None
+if settings.SUPABASE_SERVICE_KEY:
+    _service_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
 
 
 def get_db() -> Client:
-    """
-    FastAPI dependency that provides the shared Supabase client.
+    """Anon Supabase client (RLS enforced). Use with authenticated_db for per-user scoping."""
+    return _anon_client
 
-    Usage in routes:
-        @router.get("/items")
-        async def get_items(db: Client = Depends(get_db)):
-            response = db.table("items").select("*").execute()
-            return response.data
 
-    Returns:
-        Client: The shared Supabase client instance.
-    """
-    return _client
-
+def get_service_db() -> Client:
+    """Service-role Supabase client (RLS bypassed). For webhooks, VAPI, admin operations."""
+    if _service_client is None:
+        raise ValueError("SUPABASE_SERVICE_KEY is not configured")
+    return _service_client
