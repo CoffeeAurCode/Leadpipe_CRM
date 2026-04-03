@@ -549,9 +549,9 @@ export default function SmsWorkflow() {
             </div>
 
             {/* ── Tenant Table ── */}
-            <div data-tour="sms-recipients" className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                 {/* Table toolbar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-border gap-3">
+                <div data-tour="sms-recipients" className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-border gap-3">
                     <span className="text-sm font-medium text-foreground shrink-0">
                         {selectedUuids.size > 0
                             ? `${selectedUuids.size} tenant(s) selected`

@@ -1,0 +1,16 @@
+Here is the full diagnosis containing all possible root causes for why the tour refuses to progress past Step 1 (Sidebar) and fails to draw the tooltip for Step 2 (`kpi-cards`), leaving the screen frozen:
+
+### 1. The 0-Dimension Entrance Bug (Most Likely)
+When you click "Next", Joyride calculates the exact coordinates of Step 2 (`kpi-cards`). If the children inside that wrapper (the four `<KPICard />` components) utilize framer-motion entrance animations (e.g., scaling up from 0 to 1), at the exact millisecond Joyride queries the wrapper, its calculated physical dimensions might be `0px` by `0px`. Joyride explicitly treats any zero-size target as "invisible" and immediately fires a `TARGET_NOT_FOUND` error. This traps the application in your infinite retry loop because the target dimensions keep bouncing exactly when it measures them.
+
+### 2. The `offsetParent` Layout Crash
+Step 0 (`sidebar-nav`) targets an element completely outside your main scrolling pane. Step 2 (`kpi-cards`) is the very first step *inside* the custom `<motion.div className="overflow-y-auto">`. When Joyride transitions between these radically different layout contexts, its underlying positioning engine (`@floating-ui`) must traverse the DOM upwards to find the new scrolling wrapper. In Vite/React 18 layouts involving flexbox and `framer-motion`, this engine calculation regularly faults and throws a strict `type: "error"`. Because your callback only listens for `TARGET_NOT_FOUND` and `STEP_AFTER`, the unhandled error causes Joyride to permanently halt render pipelines without retracting the dark overlay.
+
+### 3. Asynchronous DOM Check Race Condition
+When you click "Next" on the sidebar, your code executes a seamless `setStepIndex(1)`. There is no 1200ms `setTimeout` pause injected for same-page transitions. Because React 18 batches state updates concurrently, Joyride is often forced to execute its `document.querySelector` lookup slightly faster than React is able to solidify the new virtual DOM geometry in the browser, leading to immediate missing target faults.
+
+### 4. React Strict Mode Double-Bounce
+In local development environments using Vite, `<React.StrictMode>` fires components and callbacks twice. If the Joyride `EVENTS.STEP_AFTER` trigger double-fires, it forcefully queues compounding `setStepIndex` updates. This desynchronizes Joyride's internal tracker from your React state tracker, rendering the component effectively paralyzed—it believes the step is completed while your state thinks it is just beginning.
+
+### 5. Accidental Navigation Interruptions
+Because Step 0 places the spotlight over your entire interactive navigation sidebar, an errant click on the "Get Started" or "Dashboard" buttons while the spotlight is active can trigger your app's `onNavigate` routers. This forcibly alters the underlying `currentView` in [App.jsx](cci:7://file:///c:/Users/BIT/Coding/Tenant_management_MVP/frontend/src/App.jsx:0:0-0:0) right as Joyride attempts to transition. With the DOM physically stripped or altered mid-step, Step 2 is guaranteed to never be located, sending the entire tour into a downward spiral of missing targets.

@@ -16,6 +16,7 @@ export default function OnboardingChecklist() {
     totalItems,
     completedItems,
     reset,
+    triggerTour,
     SECTION_ORDER,
     SECTION_META,
     SECTION_ITEMS,
@@ -27,9 +28,8 @@ export default function OnboardingChecklist() {
 
   const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
-  /** Dispatch custom event to start the full tour from a given section */
   const startTour = (fromSection = 'dashboard') => {
-    window.dispatchEvent(new CustomEvent('start-tour', { detail: { section: fromSection } }));
+    triggerTour(fromSection);
   };
 
   if (isChecklistComplete) {

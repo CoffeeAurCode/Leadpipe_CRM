@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { SECTION_ORDER, SECTION_CHECKLIST_IDS } from '../config/onboardingTours';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 const STORAGE_KEY = 'crm-onboarding-checklist';
 
@@ -28,7 +30,44 @@ function loadChecked() {
 }
 
 export function OnboardingProvider({ children }) {
+  const { user } = useAuth();
   const [checked, setCheckedState] = useState(loadChecked);
+  const [dbTourCompleted, setDbTourCompleted] = useState(false);
+  // null = not running; string = section to start from (triggers OnboardingTour)
+  const [tourStartSection, setTourStartSection] = useState(null);
+  
+  // Ref to prevent spamming backend when already updating
+  const isUpdatingBackend = useRef(false);
+
+  // Fetch db status on mount
+  useEffect(() => {
+    if (!user) return;
+    const fetchStatus = async () => {
+      const { data } = await supabase
+        .from('manager_profiles')
+        .select('tour_completed')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (data?.tour_completed) {
+        setDbTourCompleted(true);
+        // Force all local items complete if server says it's done
+        const allChecked = {};
+        Object.values(SECTION_ITEMS).flat().forEach((id) => { allChecked[id] = true; });
+        setCheckedState(allChecked);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allChecked));
+      }
+    };
+    fetchStatus();
+  }, [user]);
+
+  const triggerTour = useCallback((section = 'dashboard') => {
+    setTourStartSection(section);
+  }, []);
+
+  const clearTourTrigger = useCallback(() => {
+    setTourStartSection(null);
+  }, []);
 
   const setChecked = useCallback((updater) => {
     setCheckedState((prev) => {
@@ -78,6 +117,27 @@ export function OnboardingProvider({ children }) {
 
   const isChecklistComplete = completedItems === totalItems;
 
+  // Sync completion to backend when 100% checked locally
+  useEffect(() => {
+    if (!user || !isChecklistComplete || dbTourCompleted || isUpdatingBackend.current) return;
+
+    const saveCompletion = async () => {
+      isUpdatingBackend.current = true;
+      try {
+        await supabase
+          .from('manager_profiles')
+          .update({ tour_completed: true })
+          .eq('user_id', user.id);
+        
+        setDbTourCompleted(true);
+      } catch (err) {
+        console.error('Failed to save tour completion to backend:', err);
+        isUpdatingBackend.current = false;
+      }
+    };
+    saveCompletion();
+  }, [user, isChecklistComplete, dbTourCompleted]);
+
   const value = useMemo(() => ({
     checked,
     setChecked,
@@ -89,10 +149,14 @@ export function OnboardingProvider({ children }) {
     isChecklistComplete,
     totalItems,
     completedItems,
+    tourStartSection,
+    triggerTour,
+    clearTourTrigger,
+    dbTourCompleted,
     SECTION_ORDER,
     SECTION_META,
     SECTION_ITEMS,
-  }), [checked, setChecked, toggle, markComplete, reset, isSectionComplete, isSectionUnlocked, isChecklistComplete, totalItems, completedItems]);
+  }), [checked, setChecked, toggle, markComplete, reset, isSectionComplete, isSectionUnlocked, isChecklistComplete, totalItems, completedItems, tourStartSection, triggerTour, clearTourTrigger, dbTourCompleted]);
 
   return (
     <OnboardingContext.Provider value={value}>

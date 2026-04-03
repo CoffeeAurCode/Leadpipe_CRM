@@ -308,13 +308,13 @@ export async function updatePropertySettings(propertyUuid, features, scope = {})
 export async function fetchTenants(params = {}) {
     try {
         const query = new URLSearchParams();
-        if (params.rent_status)  query.set('rent_status',  params.rent_status);
+        if (params.rent_status) query.set('rent_status', params.rent_status);
         if (params.lease_status) query.set('lease_status', params.lease_status);
-        if (params.sort_by)      query.set('sort_by',      params.sort_by);
-        if (params.sort_order)   query.set('sort_order',   params.sort_order);
+        if (params.sort_by) query.set('sort_by', params.sort_by);
+        if (params.sort_order) query.set('sort_order', params.sort_order);
         if (params.building_id != null) query.set('building_id', params.building_id);
         if (params.property_id != null) query.set('property_id', params.property_id);
-        if (params.unit_uuid)    query.set('unit_uuid',    params.unit_uuid);
+        if (params.unit_uuid) query.set('unit_uuid', params.unit_uuid);
         const qs = query.toString() ? `?${query}` : '';
         const response = await authFetch(`${API_BASE_URL}/tenants${qs}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);

@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
@@ -53,12 +53,20 @@ function Dashboard() {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { isChecklistComplete } = useOnboarding();
+    const { isChecklistComplete, dbTourCompleted } = useOnboarding();
     const [currentView, setCurrentView] = useState(() => {
+        // Optimistic fast-load based on localStorage
         const checked = localStorage.getItem('crm-onboarding-checklist');
         if (!checked || Object.keys(JSON.parse(checked)).length === 0) return 'onboarding';
         return 'dashboard';
     });
+
+    // Enforce db-level completion (e.g. if they log in on a new device)
+    useEffect(() => {
+        if (dbTourCompleted && currentView === 'onboarding') {
+            setCurrentView('dashboard');
+        }
+    }, [dbTourCompleted, currentView]);
 
     useEffect(() => {
         loadComplaints();
@@ -145,9 +153,9 @@ function Dashboard() {
         await loadAppointments();
     };
 
-    const handleNavigate = (view) => {
+    const handleNavigate = useCallback((view) => {
         setCurrentView(view);
-    };
+    }, []);
 
     return (
         <>
