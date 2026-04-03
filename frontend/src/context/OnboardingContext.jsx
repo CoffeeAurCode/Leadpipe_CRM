@@ -3,7 +3,7 @@ import { SECTION_ORDER, SECTION_CHECKLIST_IDS } from '../config/onboardingTours'
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
-const STORAGE_KEY = 'crm-onboarding-checklist';
+const getStorageKey = (userId) => `crm-onboarding-checklist-${userId}`;
 
 /** Human-readable section metadata */
 const SECTION_META = {
@@ -20,9 +20,10 @@ const SECTION_ITEMS = SECTION_CHECKLIST_IDS;
 
 const OnboardingContext = createContext(null);
 
-function loadChecked() {
+function loadChecked(userId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!userId) return {};
+    const raw = localStorage.getItem(getStorageKey(userId));
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -31,7 +32,7 @@ function loadChecked() {
 
 export function OnboardingProvider({ children }) {
   const { user } = useAuth();
-  const [checked, setCheckedState] = useState(loadChecked);
+  const [checked, setCheckedState] = useState(() => loadChecked(user?.id));
   const [dbTourCompleted, setDbTourCompleted] = useState(false);
   // null = not running; string = section to start from (triggers OnboardingTour)
   const [tourStartSection, setTourStartSection] = useState(null);
@@ -55,7 +56,7 @@ export function OnboardingProvider({ children }) {
         const allChecked = {};
         Object.values(SECTION_ITEMS).flat().forEach((id) => { allChecked[id] = true; });
         setCheckedState(allChecked);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(allChecked));
+        localStorage.setItem(getStorageKey(user.id), JSON.stringify(allChecked));
       }
     };
     fetchStatus();
@@ -72,10 +73,10 @@ export function OnboardingProvider({ children }) {
   const setChecked = useCallback((updater) => {
     setCheckedState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(getStorageKey(user?.id), JSON.stringify(next));
       return next;
     });
-  }, []);
+  }, [user?.id]);
 
   const toggle = useCallback((id) => {
     setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -90,9 +91,9 @@ export function OnboardingProvider({ children }) {
   }, [setChecked]);
 
   const reset = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(getStorageKey(user?.id));
     setCheckedState({});
-  }, []);
+  }, [user?.id]);
 
   const isSectionComplete = useCallback((sectionId) => {
     const items = SECTION_ITEMS[sectionId] || [];

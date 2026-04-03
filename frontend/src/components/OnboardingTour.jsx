@@ -52,16 +52,8 @@ export function OnboardingTour({ onNavigate }) {
     // Tour finished or skipped
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
       setRun(false);
-      if (status === STATUS.FINISHED) {
-        Object.values(SECTION_CHECKLIST_IDS).forEach((ids) => markComplete(ids));
-      } else {
-        // Mark only visited sections
-        const visited = new Set();
-        for (let i = 0; i <= index && i < ALL_STEPS.length; i++) {
-          visited.add(ALL_STEPS[i].section);
-        }
-        visited.forEach((sec) => markComplete(SECTION_CHECKLIST_IDS[sec]));
-      }
+      // Mark all checklist items complete so the user is permanently done
+      Object.values(SECTION_CHECKLIST_IDS).forEach((ids) => markComplete(ids));
       onNavigate('onboarding');
       return;
     }
@@ -77,9 +69,9 @@ export function OnboardingTour({ onNavigate }) {
       return;
     }
 
-    // Target not found — DOM hasn't settled yet (e.g. framer-motion still animating or data loading).
+    // Target not found or internal positioning crash
     // Retry the same step, but bail after 5 attempts to avoid an infinite loop.
-    if (type === EVENTS.TARGET_NOT_FOUND) {
+    if (type === EVENTS.TARGET_NOT_FOUND || type === EVENTS.ERROR) {
       retryCountRef.current += 1;
       if (retryCountRef.current <= 5) {
         setRun(false);
@@ -91,8 +83,8 @@ export function OnboardingTour({ onNavigate }) {
       retryCountRef.current = 0;
     }
 
-    // Step completed (or target permanently missing) — advance
-    if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
+    // Step completed (or target permanently missing/crashing) — advance
+    if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND || type === EVENTS.ERROR) {
       retryCountRef.current = 0;
       const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
 
@@ -136,6 +128,7 @@ export function OnboardingTour({ onNavigate }) {
       continuous
       scrollToFirstStep
       onEvent={handleCallback}
+      disableScrolling={true}
       tooltipComponent={OnboardingTooltip}
       options={{
         overlayClickAction: false,

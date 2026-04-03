@@ -53,10 +53,12 @@ function Dashboard() {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const { user } = useAuth();
     const { isChecklistComplete, dbTourCompleted } = useOnboarding();
     const [currentView, setCurrentView] = useState(() => {
-        // Optimistic fast-load based on localStorage
-        const checked = localStorage.getItem('crm-onboarding-checklist');
+        // Optimistic fast-load based on localStorage but scoped to the user
+        if (!user) return 'onboarding';
+        const checked = localStorage.getItem(`crm-onboarding-checklist-${user.id}`);
         if (!checked || Object.keys(JSON.parse(checked)).length === 0) return 'onboarding';
         return 'dashboard';
     });
@@ -167,8 +169,8 @@ function Dashboard() {
 
                 <motion.div
                     key={currentView}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     transition={{ duration: 0.3 }}
                     className="flex-1 overflow-y-auto p-6"
                 >
