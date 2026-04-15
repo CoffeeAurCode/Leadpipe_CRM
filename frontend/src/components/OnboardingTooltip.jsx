@@ -49,7 +49,7 @@ export function OnboardingTooltip({
             {...primaryProps}
             className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
           >
-            {isLastStep ? 'Finish' : 'Next'}
+            {isLastStep ? 'Finish' : step.isActionStep ? 'Open Form →' : 'Next'}
           </button>
         </div>
       </div>

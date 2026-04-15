@@ -273,6 +273,13 @@ function PropertiesPage() {
     useEffect(() => { loadPropertyGroups(); loadBuildings(); }, []);
     useEffect(() => { if (viewMode === 'units') loadAllUnits(); }, [viewMode]);
 
+    // Refresh triggered by onboarding tour after creating a property/building/unit
+    useEffect(() => {
+        const handler = () => { loadPropertyGroups(); loadBuildings(); };
+        window.addEventListener('refresh-properties', handler);
+        return () => window.removeEventListener('refresh-properties', handler);
+    }, [loadPropertyGroups, loadBuildings]);
+
     // ── Drill into a property group → show its buildings ──────────────────────
     const drillIntoProperty = useCallback(async (property) => {
         setSelectedProperty(property);

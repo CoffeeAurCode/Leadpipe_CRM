@@ -40,7 +40,7 @@ export function OnboardingProvider({ children }) {
   // Ref to prevent spamming backend when already updating
   const isUpdatingBackend = useRef(false);
 
-  // Fetch db status on mount
+  // Fetch db status on mount — DB is the authority; local is the cache
   useEffect(() => {
     if (!user) return;
     const fetchStatus = async () => {
@@ -52,11 +52,22 @@ export function OnboardingProvider({ children }) {
 
       if (data?.tour_completed) {
         setDbTourCompleted(true);
-        // Force all local items complete if server says it's done
+        // DB says done — force local to the complete state
         const allChecked = {};
         Object.values(SECTION_ITEMS).flat().forEach((id) => { allChecked[id] = true; });
         setCheckedState(allChecked);
         localStorage.setItem(getStorageKey(user.id), JSON.stringify(allChecked));
+      } else if (data && !data.tour_completed) {
+        // DB explicitly says NOT done. If local thinks everything is complete
+        // (e.g. tour_completed was manually reset in Supabase for re-testing),
+        // clear local so the walkthrough restarts from the beginning.
+        const localChecked = loadChecked(user.id);
+        const allItemIds = Object.values(SECTION_ITEMS).flat();
+        const localIsAllChecked = allItemIds.length > 0 && allItemIds.every((id) => localChecked[id]);
+        if (localIsAllChecked) {
+          setCheckedState({});
+          localStorage.removeItem(getStorageKey(user.id));
+        }
       }
     };
     fetchStatus();

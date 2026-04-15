@@ -11,12 +11,13 @@ import { ALL_STEPS, SECTION_CHECKLIST_IDS, SECTION_VIEW, getFirstStepIndex } fro
 import { OnboardingTooltip } from './OnboardingTooltip';
 import { useOnboarding } from '../context/OnboardingContext';
 
-export function OnboardingTour({ onNavigate }) {
+export function OnboardingTour({ onNavigate, onTriggerAction }) {
   const { markComplete, tourStartSection, clearTourTrigger } = useOnboarding();
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const timerRef = useRef(null);
   const retryCountRef = useRef(0);
+  const createdIdsRef = useRef({ propertyId: null, buildingId: null });
 
   // React to tourStartSection changes from context (set by the checklist's "Start Tour" button)
   useEffect(() => {
@@ -86,6 +87,24 @@ export function OnboardingTour({ onNavigate }) {
     // Step completed (or target permanently missing/crashing) — advance
     if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND || type === EVENTS.ERROR) {
       retryCountRef.current = 0;
+
+      // Action step: pause tour and open a creation modal; resume is handled externally
+      const step = ALL_STEPS[index];
+      if (step?.isActionStep && type === EVENTS.STEP_AFTER && action !== ACTIONS.PREV) {
+        setRun(false);
+        const nextIdx = index + 1;
+        onTriggerAction?.(step.action, createdIdsRef.current, (newIds) => {
+          if (newIds !== null) {
+            // Success — merge the newly created entity IDs and advance
+            createdIdsRef.current = { ...createdIdsRef.current, ...newIds };
+            setStepIndex(nextIdx);
+          }
+          // null means cancelled — stay on the same step so they can try again
+          setTimeout(() => setRun(true), 300);
+        });
+        return;
+      }
+
       const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
 
       if (nextIndex < 0 || nextIndex >= ALL_STEPS.length) {
@@ -118,7 +137,7 @@ export function OnboardingTour({ onNavigate }) {
       // Same page — just advance
       setStepIndex(nextIndex);
     }
-  }, [markComplete, onNavigate]);
+  }, [markComplete, onNavigate, onTriggerAction]);
 
   return (
     <Joyride

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
@@ -9,6 +9,9 @@ import BentoDashboard from './components/BentoDashboard';
 import Chatbot from './components/Chatbot';
 import OutboundCallButton from './components/OutboundCallButton';
 import { OnboardingTour } from './components/OnboardingTour';
+import AddPropertyGroupModal from './components/AddPropertyGroupModal';
+import AddBuildingModal from './components/AddBuildingModal';
+import { AddPropertyModal } from './components/AddPropertyModal';
 
 // Lazy-loaded routes — only downloaded when the user first navigates to them
 const CalendarView     = lazy(() => import('./components/CalendarView'));
@@ -159,6 +162,49 @@ function Dashboard() {
         setCurrentView(view);
     }, []);
 
+    // ── Onboarding action modals ──────────────────────────────────────────────
+    const [onboardingModal, setOnboardingModal] = useState(null); // null | 'property' | 'building' | 'unit'
+    const [onboardingCreatedIds, setOnboardingCreatedIds] = useState({ propertyId: null, buildingId: null });
+    const onboardingResumeCb = useRef(null);
+
+    const handleOnboardingAction = useCallback((action, _createdIds, resume) => {
+        onboardingResumeCb.current = resume;
+        if (action === 'add-property') setOnboardingModal('property');
+        else if (action === 'add-building') setOnboardingModal('building');
+        else if (action === 'add-unit') setOnboardingModal('unit');
+    }, []);
+
+    const handleOnboardingClose = useCallback(() => {
+        setOnboardingModal(null);
+        onboardingResumeCb.current?.(null); // null = cancelled, re-show same step
+        onboardingResumeCb.current = null;
+    }, []);
+
+    const handleOnboardingPropertySuccess = useCallback((created) => {
+        const newIds = { propertyId: created.id };
+        setOnboardingCreatedIds(prev => ({ ...prev, ...newIds }));
+        setOnboardingModal(null);
+        window.dispatchEvent(new Event('refresh-properties'));
+        onboardingResumeCb.current?.(newIds);
+        onboardingResumeCb.current = null;
+    }, []);
+
+    const handleOnboardingBuildingSuccess = useCallback((created) => {
+        const newIds = { buildingId: created.id };
+        setOnboardingCreatedIds(prev => ({ ...prev, ...newIds }));
+        setOnboardingModal(null);
+        window.dispatchEvent(new Event('refresh-properties'));
+        onboardingResumeCb.current?.(newIds);
+        onboardingResumeCb.current = null;
+    }, []);
+
+    const handleOnboardingUnitSuccess = useCallback(() => {
+        setOnboardingModal(null);
+        window.dispatchEvent(new Event('refresh-properties'));
+        onboardingResumeCb.current?.({}); // {} = success, advance tour
+        onboardingResumeCb.current = null;
+    }, []);
+
     return (
         <>
         <div className="flex h-screen bg-background overflow-hidden">
@@ -238,7 +284,26 @@ function Dashboard() {
         </div>
 
         {/* Global tour controller — lives outside motion.div so it survives page transitions */}
-        <OnboardingTour onNavigate={handleNavigate} />
+        <OnboardingTour onNavigate={handleNavigate} onTriggerAction={handleOnboardingAction} />
+
+        {/* Onboarding creation modals — rendered globally so tour can open them from any view */}
+        <AddPropertyGroupModal
+            isOpen={onboardingModal === 'property'}
+            onClose={handleOnboardingClose}
+            onSuccess={handleOnboardingPropertySuccess}
+        />
+        <AddBuildingModal
+            isOpen={onboardingModal === 'building'}
+            onClose={handleOnboardingClose}
+            onSuccess={handleOnboardingBuildingSuccess}
+            initialPropertyId={onboardingCreatedIds.propertyId}
+        />
+        <AddPropertyModal
+            isOpen={onboardingModal === 'unit'}
+            onClose={handleOnboardingClose}
+            onSuccess={handleOnboardingUnitSuccess}
+            initialBuildingId={onboardingCreatedIds.buildingId}
+        />
 
         {/* Floating action buttons */}
         <div className="fixed bottom-4 right-4 z-50 flex items-end gap-3">

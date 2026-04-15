@@ -73,6 +73,12 @@ async def create_checkout_session(
     manager_id = user["sub"]
     email = user.get("email", "")
 
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email not found in session. Please sign out and sign in again.",
+        )
+
     # Check if already subscribed
     existing = (
         db.table("subscriptions")
@@ -120,6 +126,121 @@ async def create_checkout_session(
     )
 
     return CheckoutResponse(checkout_url=session.url)
+
+
+@router.get("/verify-session")
+async def verify_session(
+    session_id: str,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_service_db),
+):
+    """
+    Verify a completed Stripe checkout session and upsert the subscription row.
+    Called by the success page BEFORE redirecting to the CRM — this is a webhook
+    fallback that works in both local dev (no CLI forwarding) and production.
+    """
+    manager_id = user["sub"]
+
+    try:
+        session = stripe.checkout.Session.retrieve(
+            session_id,
+            expand=["subscription"],
+        )
+    except stripe.error.StripeError as exc:
+        logger.error(f"Stripe session retrieval failed for {session_id}: {exc}")
+        raise HTTPException(status_code=400, detail="Invalid or expired session ID.")
+
+    # Confirm this session was created for the authenticated manager
+    # session.metadata is a StripeObject (not a plain dict) in Stripe 15.x — use [] not .get()
+    metadata = session.metadata
+    session_manager_id = metadata["manager_id"] if metadata and "manager_id" in metadata else None
+    if session_manager_id != manager_id:
+        raise HTTPException(status_code=403, detail="Session does not belong to this account.")
+
+    if session.status != "complete":
+        raise HTTPException(status_code=400, detail="Checkout session is not yet complete.")
+
+    # Retrieve subscription (may be an expanded object or just an ID string)
+    subscription = session.subscription
+    if subscription is None:
+        raise HTTPException(status_code=400, detail="No subscription found in this session.")
+    if isinstance(subscription, str):
+        subscription = stripe.Subscription.retrieve(subscription)
+
+    # ── Ensure manager_profile exists ────────────────────────────────────────────
+    # The user may have authenticated on the landing page and never touched the CRM,
+    # so the CRM's AuthContext hasn't run yet and the manager_profile row may not exist.
+    # The subscriptions table has an FK → manager_profiles, so we must create it first.
+    email = user.get("email", "")
+    name = email.split("@")[0] if email else "Manager"
+    try:
+        existing_profile = (
+            db.table("manager_profiles")
+            .select("id")
+            .eq("user_id", manager_id)
+            .maybeSingle()
+            .execute()
+        )
+        if not existing_profile.data:
+            db.table("manager_profiles").insert({
+                "user_id": manager_id,
+                "name": name,
+            }).execute()
+            logger.info(f"Manager profile created for {manager_id} via verify-session")
+    except Exception as exc:
+        logger.warning(f"Could not ensure manager profile for {manager_id}: {exc}")
+        # Non-fatal — continue; if subscriptions has no FK this still works
+
+    # ── Upsert subscription row ───────────────────────────────────────────────
+    customer_id = str(session.customer) if session.customer else ""
+    sub_data = {
+        "manager_id": manager_id,
+        "stripe_customer_id": customer_id,
+        "stripe_subscription_id": subscription.id,
+        "plan": "trial" if subscription.status == "trialing" else "paid",
+        "status": subscription.status,
+        "trial_ends_at": _unix_to_iso(getattr(subscription, "trial_end", None)),
+        "current_period_end": _unix_to_iso(getattr(subscription, "current_period_end", None)),
+    }
+
+    try:
+        db.table("subscriptions").insert(sub_data).execute()
+        logger.info(f"Subscription row created for manager {manager_id} via verify-session")
+    except Exception as insert_exc:
+        logger.warning(f"Subscription insert failed for {manager_id} (will try update): {insert_exc}")
+        try:
+            db.table("subscriptions").update({
+                "status": subscription.status,
+                "stripe_customer_id": customer_id,
+                "stripe_subscription_id": subscription.id,
+                "current_period_end": _unix_to_iso(getattr(subscription, "current_period_end", None)),
+                "updated_at": "now()",
+            }).eq("manager_id", manager_id).execute()
+            logger.info(f"Subscription row updated for manager {manager_id} via verify-session")
+        except Exception as update_exc:
+            logger.error(f"Subscription update also failed for {manager_id}: {update_exc}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to activate subscription. Please contact support.",
+            )
+
+    # ── Confirm the row actually exists before telling the client to proceed ──
+    check = (
+        db.table("subscriptions")
+        .select("status")
+        .eq("manager_id", manager_id)
+        .in_("status", ["trialing", "active"])
+        .limit(1)
+        .execute()
+    )
+    if not check.data:
+        logger.error(f"Subscription row missing after upsert for manager {manager_id}")
+        raise HTTPException(
+            status_code=500,
+            detail="Subscription could not be confirmed. Please contact support.",
+        )
+
+    return {"subscribed": True, "status": subscription.status}
 
 
 @router.post("/webhook")
