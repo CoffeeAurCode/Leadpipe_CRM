@@ -5,6 +5,7 @@ Handles CRUD operations and verification for flats.
 import re
 import json as _json
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request, Query
+from pydantic import BaseModel
 from supabase import Client
 from datetime import datetime, timezone, timedelta
 
@@ -258,21 +259,74 @@ async def identify_caller(
 
 
 @router.get("", response_model=list[FlatResponse])
-async def get_all_flats(user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
+async def get_all_flats(
+    vacant: Optional[bool] = Query(None, description="If true, return only vacant flats (tenant_uuid IS NULL)"),
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
     """Get all flats ordered by building and flat number."""
     try:
-        response = db.table("flats")\
-            .select("*")\
-            .order("address")\
-            .order("flat_number")\
-            .execute()
-        
+        query = db.table("flats").select("*").order("address").order("flat_number")
+        if vacant:
+            query = query.is_("tenant_uuid", "null")
+        response = query.execute()
         return response.data
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching flats: {str(e)}"
         )
+
+
+class AssignTenantRequest(BaseModel):
+    tenant_uuid: str
+
+
+@router.patch("/{flat_uuid}/assign-tenant")
+async def assign_tenant(
+    flat_uuid: str,
+    body: AssignTenantRequest,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """Assign an existing tenant to a vacant flat (bidirectional link)."""
+    try:
+        flat_resp = db.table("flats").select("uuid, tenant_uuid").eq("uuid", flat_uuid).execute()
+        if not flat_resp.data:
+            raise HTTPException(status_code=404, detail="Flat not found")
+        if flat_resp.data[0].get("tenant_uuid"):
+            raise HTTPException(status_code=400, detail="Flat is already occupied")
+
+        db.table("flats").update({"tenant_uuid": body.tenant_uuid, "occupied": True}).eq("uuid", flat_uuid).execute()
+        db.table("tenants").update({"flat_uuid": flat_uuid}).eq("uuid", body.tenant_uuid).execute()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error assigning tenant: {str(e)}")
+
+
+@router.patch("/{flat_uuid}/unassign-tenant")
+async def unassign_tenant(
+    flat_uuid: str,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """Remove the tenant from a flat (bidirectional unlink)."""
+    try:
+        flat_resp = db.table("flats").select("uuid, tenant_uuid").eq("uuid", flat_uuid).execute()
+        if not flat_resp.data:
+            raise HTTPException(status_code=404, detail="Flat not found")
+
+        tenant_uuid = flat_resp.data[0].get("tenant_uuid")
+        if tenant_uuid:
+            db.table("tenants").update({"flat_uuid": None}).eq("uuid", tenant_uuid).execute()
+        db.table("flats").update({"tenant_uuid": None, "occupied": False}).eq("uuid", flat_uuid).execute()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error unassigning tenant: {str(e)}")
 
 
 @router.get("/{flat_uuid}/details", response_model=FlatResponse)

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, ChevronUp, ChevronDown, Filter, RefreshCw } from 'lucide-react';
+import { Users, ChevronUp, ChevronDown, Filter, RefreshCw, UserPlus } from 'lucide-react';
 import { fetchTenants } from '../services/apiService';
 import TenantProfile from './TenantProfile';
+import AddTenantModal from './AddTenantModal';
 import { cn } from '@/lib';
 
 const RENT_STATUS_OPTIONS = ['On-time', 'Upcoming', 'Overdue', 'At Risk'];
@@ -37,6 +38,7 @@ export default function TenantManagement() {
     const [leaseStatus, setLeaseStatus] = useState('');
     const [sortBy, setSortBy] = useState('');
     const [sortOrder, setSortOrder] = useState('asc');
+    const [addModalOpen, setAddModalOpen] = useState(false);
 
     const load = useCallback(async () => {
         try {
@@ -91,18 +93,27 @@ export default function TenantManagement() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                     <Users className="w-6 h-6 text-primary" />
                     <h1 className="text-2xl font-bold text-foreground">Tenant Management</h1>
                 </div>
-                <button
-                    onClick={load}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
-                >
-                    <RefreshCw className="w-4 h-4" />
-                    Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setAddModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        <span className="hidden sm:inline">Add Tenant</span>
+                    </button>
+                    <button
+                        onClick={load}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                    >
+                        <RefreshCw className="w-4 h-4" />
+                        Refresh
+                    </button>
+                </div>
             </div>
 
             {/* Filters */}
@@ -235,6 +246,15 @@ export default function TenantManagement() {
                 onClose={() => setSelectedTenant(null)}
                 onUpdate={handleTenantUpdate}
                 onDelete={handleTenantDelete}
+            />
+
+            <AddTenantModal
+                isOpen={addModalOpen}
+                onClose={() => setAddModalOpen(false)}
+                onSuccess={(newTenant) => {
+                    setTenants(prev => [newTenant, ...prev]);
+                    setAddModalOpen(false);
+                }}
             />
         </div>
     );

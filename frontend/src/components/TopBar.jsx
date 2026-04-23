@@ -1,6 +1,7 @@
 import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib';
 import ThemeToggle from './ThemeToggle';
+import NotificationPanel from './NotificationPanel';
 
 function TopBar({ onRefresh }) {
     return (
@@ -11,6 +12,9 @@ function TopBar({ onRefresh }) {
             </div>
 
             <div className="flex items-center gap-2">
+                {/* Notification Bell */}
+                <NotificationPanel />
+
                 {/* Theme Toggle */}
                 <ThemeToggle />
 

@@ -1,4 +1,4 @@
-import { Home, Building2, Settings, Users, MessageSquareMore, CalendarDays, ClipboardList, LogOut, Sparkles } from 'lucide-react';
+import { Home, Building2, Settings, Users, MessageSquareMore, CalendarDays, ClipboardList, LogOut, Sparkles, IndianRupee, PhoneCall } from 'lucide-react';
 import { cn } from '@/lib';
 import { useAuth } from '../context/AuthContext';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -11,8 +11,10 @@ function Sidebar({ currentView, onNavigate }) {
         { id: 'dashboard', icon: Home, label: 'Dashboard' },
         { id: 'tenants', icon: Users, label: 'Tenants' },
         { id: 'properties', icon: Building2, label: 'Properties' },
+        { id: 'rent', icon: IndianRupee, label: 'Rent' },
         { id: 'calendar', icon: CalendarDays, label: 'Calendar' },
         { id: 'complaints', icon: ClipboardList, label: 'Complaints' },
+        { id: 'voice-stats', icon: PhoneCall, label: 'Voice Stats' },
         { id: 'workflow', icon: MessageSquareMore, label: 'SMS Workflow' },
         { id: 'settings', icon: Settings, label: 'Settings' },
     ];

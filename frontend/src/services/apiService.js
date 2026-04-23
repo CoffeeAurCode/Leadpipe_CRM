@@ -624,3 +624,123 @@ export async function getCallStatus() {
     if (!response.ok) throw new Error('Failed to get call status');
     return await response.json();
 }
+
+// ── Vacant / Unassigned helpers ───────────────────────────────────────────────
+
+export async function fetchVacantFlats() {
+    const response = await authFetch(`${API_BASE_URL}/flats?vacant=true`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+export async function fetchUnassignedTenants() {
+    const response = await authFetch(`${API_BASE_URL}/tenants?unassigned=true`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+// ── Tenant create / rent-status ───────────────────────────────────────────────
+
+export async function createTenant(data) {
+    const response = await authFetch(`${API_BASE_URL}/tenants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function updateTenantRentStatus(tenantUuid, rentStatus) {
+    const response = await authFetch(`${API_BASE_URL}/tenants/${tenantUuid}/rent-status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rent_status: rentStatus }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+// ── Flat assign / unassign ────────────────────────────────────────────────────
+
+export async function assignTenantToFlat(flatUuid, tenantUuid) {
+    const response = await authFetch(`${API_BASE_URL}/flats/${flatUuid}/assign-tenant`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_uuid: tenantUuid }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function unassignTenantFromFlat(flatUuid) {
+    const response = await authFetch(`${API_BASE_URL}/flats/${flatUuid}/unassign-tenant`, {
+        method: 'PATCH',
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+// ── Rent summary ──────────────────────────────────────────────────────────────
+
+export async function fetchRentSummary() {
+    const response = await authFetch(`${API_BASE_URL}/rents/summary`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+// ── Call log stats ────────────────────────────────────────────────────────────
+
+export async function fetchCallStats(days = 30) {
+    const response = await authFetch(`${API_BASE_URL}/call_logs/stats?days=${days}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+export async function fetchCallLogs() {
+    const response = await authFetch(`${API_BASE_URL}/call_logs`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export async function fetchNotifications() {
+    const response = await authFetch(`${API_BASE_URL}/notifications`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+export async function markNotificationRead(id) {
+    const response = await authFetch(`${API_BASE_URL}/notifications/${id}/read`, { method: 'PATCH' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+export async function markAllNotificationsRead() {
+    const response = await authFetch(`${API_BASE_URL}/notifications/read-all`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+export async function createNotification(data) {
+    const response = await authFetch(`${API_BASE_URL}/notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}

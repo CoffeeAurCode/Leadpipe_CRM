@@ -4,6 +4,7 @@ Handles CRUD operations for tenants.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from supabase import Client
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
@@ -201,25 +202,34 @@ async def create_tenant(
     tenant_data: TenantCreate,
     user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)
 ):
-    """Create a new tenant"""
+    """Create a new tenant. If flat_uuid is provided, bidirectionally links the flat."""
     try:
         tenant_dict = tenant_data.model_dump(mode='json')
-        
+
         # Verify flat exists if flat_uuid provided
         if tenant_data.flat_uuid:
             flat = db.table("flats").select("uuid").eq("uuid", str(tenant_data.flat_uuid)).execute()
             if not flat.data:
                 raise HTTPException(status_code=404, detail="Flat not found")
-        
+
         response = db.table("tenants").insert(tenant_dict).execute()
-        
-        if response.data:
-            return response.data[0]
-        else:
+
+        if not response.data:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create tenant"
             )
+
+        new_tenant = response.data[0]
+
+        # Bidirectional link: update flat.tenant_uuid and set occupied=True
+        if tenant_data.flat_uuid:
+            db.table("flats").update({
+                "tenant_uuid": new_tenant["uuid"],
+                "occupied": True,
+            }).eq("uuid", str(tenant_data.flat_uuid)).execute()
+
+        return new_tenant
     except HTTPException:
         raise
     except Exception as e:
@@ -255,6 +265,7 @@ async def get_all_tenants(
     unit_uuid: Optional[str] = Query(None, description="Filter by flat/unit UUID"),
     lease_status: Optional[str] = Query(None, description="Active | Expiring Soon | Expired | No Lease"),
     rent_status: Optional[str] = Query(None, description="On-time | Upcoming | Overdue | At Risk"),
+    unassigned: Optional[bool] = Query(None, description="If true, return only tenants with no flat assigned"),
     sort_by: Optional[str] = Query(None, description="lease_end_date"),
     sort_order: str = Query("asc", description="asc | desc"),
 ):
@@ -262,6 +273,10 @@ async def get_all_tenants(
     try:
         response = db.table("tenants").select("*").execute()
         tenants = response.data or []
+
+        # Filter by unassigned (no flat)
+        if unassigned:
+            tenants = [t for t in tenants if not t.get("flat_uuid")]
 
         # Filter by specific unit
         if unit_uuid:
@@ -460,6 +475,32 @@ async def delete_tenant(tenant_uuid: str, user: dict = Depends(require_active_su
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting tenant: {str(e)}"
         )
+
+
+class RentStatusUpdate(BaseModel):
+    rent_status: str
+
+
+@router.patch("/{tenant_uuid}/rent-status", response_model=TenantResponse)
+async def update_rent_status(
+    tenant_uuid: str,
+    body: RentStatusUpdate,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """Update only the rent_status field for a tenant."""
+    allowed = {"On-time", "Upcoming", "Overdue", "At Risk"}
+    if body.rent_status not in allowed:
+        raise HTTPException(status_code=400, detail=f"Invalid rent_status. Must be one of: {', '.join(allowed)}")
+    try:
+        response = db.table("tenants").update({"rent_status": body.rent_status}).eq("uuid", tenant_uuid).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        return response.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating rent status: {str(e)}")
 
 
 @router.get("/by-phone/{phone}", response_model=TenantResponse)
