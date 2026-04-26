@@ -128,6 +128,26 @@ async def create_checkout_session(
     return CheckoutResponse(checkout_url=session.url)
 
 
+@router.get("/subscription-status")
+async def subscription_status(
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_service_db),
+):
+    """Return whether the authenticated manager has an active or trialing subscription."""
+    manager_id = user["sub"]
+    result = (
+        db.table("subscriptions")
+        .select("status")
+        .eq("manager_id", manager_id)
+        .in_("status", ["trialing", "active"])
+        .limit(1)
+        .execute()
+    )
+    if result.data:
+        return {"subscribed": True, "status": result.data[0]["status"]}
+    return {"subscribed": False, "status": None}
+
+
 @router.get("/verify-session")
 async def verify_session(
     session_id: str,
