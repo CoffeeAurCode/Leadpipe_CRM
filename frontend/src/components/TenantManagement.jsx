@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, ChevronUp, ChevronDown, Filter, RefreshCw, UserPlus } from 'lucide-react';
+import { Users, ChevronUp, ChevronDown, Filter, RefreshCw, UserPlus, Upload } from 'lucide-react';
 import { fetchTenants } from '../services/apiService';
 import TenantProfile from './TenantProfile';
 import AddTenantModal from './AddTenantModal';
+import CsvImportModal from './CsvImportModal';
 import { cn } from '@/lib';
 
 const RENT_STATUS_OPTIONS = ['On-time', 'Upcoming', 'Overdue', 'At Risk'];
@@ -39,6 +40,7 @@ export default function TenantManagement() {
     const [sortBy, setSortBy] = useState('');
     const [sortOrder, setSortOrder] = useState('asc');
     const [addModalOpen, setAddModalOpen] = useState(false);
+    const [importModalOpen, setImportModalOpen] = useState(false);
 
     const load = useCallback(async () => {
         try {
@@ -99,6 +101,13 @@ export default function TenantManagement() {
                     <h1 className="text-2xl font-bold text-foreground">Tenant Management</h1>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setImportModalOpen(true)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground border border-border hover:border-primary/50 hover:text-foreground hover:bg-secondary transition-colors"
+                    >
+                        <Upload className="w-4 h-4" />
+                        <span className="hidden sm:inline">Import CSV</span>
+                    </button>
                     <button
                         onClick={() => setAddModalOpen(true)}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
@@ -255,6 +264,13 @@ export default function TenantManagement() {
                     setTenants(prev => [newTenant, ...prev]);
                     setAddModalOpen(false);
                 }}
+            />
+
+            <CsvImportModal
+                isOpen={importModalOpen}
+                onClose={() => setImportModalOpen(false)}
+                defaultTab="tenants"
+                onSuccess={load}
             />
         </div>
     );

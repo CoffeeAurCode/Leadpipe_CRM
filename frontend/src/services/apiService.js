@@ -744,3 +744,33 @@ export async function createNotification(data) {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
 }
+
+// ── CSV Import ────────────────────────────────────────────────────────────────
+
+export async function importPropertiesCsv(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await authFetch(`${API_BASE_URL}/import/properties`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function importTenantsCsv(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await authFetch(`${API_BASE_URL}/import/tenants`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}

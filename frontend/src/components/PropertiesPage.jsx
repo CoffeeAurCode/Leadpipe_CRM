@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Building2, Plus, Home, Hash, Bed, Bath,
-    CheckCircle2, XCircle, ArrowLeft, Layers, Trash2
+    CheckCircle2, XCircle, ArrowLeft, Layers, Trash2, Upload
 } from 'lucide-react';
 import { cn } from '@/lib';
 
@@ -13,6 +13,7 @@ import AddBuildingModal from './AddBuildingModal';
 import FlatDetailModal from './FlatDetailModal';
 import { AddPropertyModal } from './AddPropertyModal';
 import AddPropertyGroupModal from './AddPropertyGroupModal';
+import CsvImportModal from './CsvImportModal';
 import {
     fetchBuildings,
     fetchProperties,
@@ -234,6 +235,7 @@ function PropertiesPage() {
     const [showAddProperty, setShowAddProperty] = useState(false);  // AddPropertyGroupModal
     const [showAddBuilding, setShowAddBuilding] = useState(false);
     const [showAddUnit, setShowAddUnit] = useState(false);
+    const [showCsvImport, setShowCsvImport] = useState(false);
 
     // ── Load property groups on mount ─────────────────────────────────────────
     const loadPropertyGroups = useCallback(async () => {
@@ -689,6 +691,7 @@ function PropertiesPage() {
                     <FAB icon={Building2} label="Add Building" onClick={() => setShowAddBuilding(true)} />
                 )}
                 <FAB icon={Plus} label="Add Unit" onClick={() => setShowAddUnit(true)} secondary />
+                <FAB icon={Upload} label="Import CSV" onClick={() => setShowCsvImport(true)} secondary />
             </div>
 
             {/* ── Modals ── */}
@@ -715,6 +718,16 @@ function PropertiesPage() {
                 isOpen={showAddUnit}
                 onClose={() => setShowAddUnit(false)}
                 onSuccess={handleUnitAdded}
+            />
+            <CsvImportModal
+                isOpen={showCsvImport}
+                onClose={() => setShowCsvImport(false)}
+                defaultTab="properties"
+                onSuccess={() => {
+                    loadPropertyGroups();
+                    loadBuildings();
+                    loadAllUnits();
+                }}
             />
         </div>
     );
