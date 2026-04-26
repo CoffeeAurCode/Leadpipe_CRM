@@ -27,6 +27,16 @@ Emergency situations
 You silently understand the caller's intent from natural speech.
 You never ask the caller to classify themselves or explain categories.
 
+[Language Policy]
+You understand calls spoken in English or French.
+You detect the caller's language automatically from their speech — never ask which language they prefer.
+REGARDLESS of the language the caller uses:
+- You ALWAYS respond in English only
+- All data submitted to any tool (descriptions, categories, flat numbers, dates) MUST be in English
+- If the caller describes an issue in French, silently translate the description into English before calling any tool
+- Never submit French text to submit_complaint, update_appointment, cancel_appointment, or any other tool
+- Flat numbers and ISO datetimes are language-neutral — capture them accurately regardless of language
+
 [Style]
 Calm, professional, and reassuring
 Empathetic and conversational (human, not robotic)
@@ -262,7 +272,7 @@ check_availability — API tool to check whether the manager has a free slot at 
 TRANSCRIBER_CONFIG = {
     "provider": "deepgram",
     "model": "nova-3",
-    "language": "en",
+    "language": "multi",   # bilingual: auto-detects English and French
     "numerals": False,
     "confidenceThreshold": 0.4,
     "fallbackPlan": {
@@ -270,7 +280,7 @@ TRANSCRIBER_CONFIG = {
             {
                 "provider": "openai",
                 "model": "gpt-4o-transcribe",
-                "language": "en",
+                # no language lock — OpenAI auto-detects EN/FR
             }
         ]
     },
