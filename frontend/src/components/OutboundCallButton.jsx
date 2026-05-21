@@ -10,26 +10,39 @@ const STATUS = {
     ERROR: 'error',
 };
 
+const AGENTS = [
+    {
+        id: 'complaint',
+        label: 'Complaint',
+        description: 'Runs the maintenance complaint + appointment workflow.',
+    },
+    {
+        id: 'lease',
+        label: 'Lease',
+        description: 'Runs the leasing inquiry + lead capture workflow.',
+    },
+];
+
 export default function OutboundCallButton() {
     const [open, setOpen] = useState(false);
     const [number, setNumber] = useState('+91');
+    const [agentId, setAgentId] = useState('complaint');
     const [status, setStatus] = useState(STATUS.IDLE);
     const [errorMsg, setErrorMsg] = useState('');
     const inputRef = useRef(null);
 
-    // Focus input when panel opens
     useEffect(() => {
         if (open) {
             setTimeout(() => inputRef.current?.focus(), 150);
         }
     }, [open]);
 
-    // Reset state when panel closes
     function handleClose() {
         setOpen(false);
         setStatus(STATUS.IDLE);
         setErrorMsg('');
         setNumber('+91');
+        setAgentId('complaint');
     }
 
     function handleToggle() {
@@ -41,7 +54,6 @@ export default function OutboundCallButton() {
         const trimmed = number.trim();
         if (!trimmed) return;
 
-        // Basic E.164 validation: starts with + and has 7–15 digits after it
         if (!/^\+\d{7,15}$/.test(trimmed)) {
             setStatus(STATUS.ERROR);
             setErrorMsg('Enter a valid number: +[country code][number], e.g. +919876543210');
@@ -52,7 +64,7 @@ export default function OutboundCallButton() {
         setErrorMsg('');
 
         try {
-            const result = await makeOutboundCall(trimmed);
+            const result = await makeOutboundCall(trimmed, agentId);
             console.log('[Outbound Call]', result);
             setStatus(STATUS.SUCCESS);
         } catch (err) {
@@ -67,6 +79,7 @@ export default function OutboundCallButton() {
     }
 
     const isCalling = status === STATUS.CALLING;
+    const selectedAgent = AGENTS.find(a => a.id === agentId);
 
     return (
         <div className="flex flex-col items-end gap-3">
@@ -95,11 +108,35 @@ export default function OutboundCallButton() {
 
                         {/* Body */}
                         <div className="px-4 py-4 space-y-3">
-                            <p className="text-xs text-muted-foreground">
-                                Calls the tenant using Alex (the voice agent). The verification
-                                and complaint workflow runs exactly like an inbound call.
-                            </p>
+                            {/* Agent selector */}
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-foreground">Agent</label>
+                                <div className="flex rounded-lg border border-border overflow-hidden">
+                                    {AGENTS.map(agent => (
+                                        <button
+                                            key={agent.id}
+                                            onClick={() => {
+                                                setAgentId(agent.id);
+                                                if (status !== STATUS.IDLE) {
+                                                    setStatus(STATUS.IDLE);
+                                                    setErrorMsg('');
+                                                }
+                                            }}
+                                            disabled={isCalling}
+                                            className={`flex-1 text-xs py-1.5 font-medium transition-colors disabled:opacity-50 ${
+                                                agentId === agent.id
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'bg-background text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            {agent.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-muted-foreground">{selectedAgent?.description}</p>
+                            </div>
 
+                            {/* Phone number input */}
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-foreground">
                                     Phone Number (E.164)
@@ -128,7 +165,7 @@ export default function OutboundCallButton() {
                             )}
                             {status === STATUS.SUCCESS && (
                                 <p className="text-xs text-green-500">
-                                    Call initiated — Alex is dialling the tenant.
+                                    Call initiated — {selectedAgent?.label} agent is dialling.
                                 </p>
                             )}
 

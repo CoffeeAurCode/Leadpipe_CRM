@@ -604,8 +604,8 @@ export async function updateUnitSettings(unitId, features) {
 
 // ── Voice / Outbound Calls ────────────────────────────────────────────────────
 
-export async function makeOutboundCall(customerNumber, firstMessage = null) {
-    const body = { customer_number: customerNumber };
+export async function makeOutboundCall(customerNumber, agentType = 'complaint', firstMessage = null) {
+    const body = { customer_number: customerNumber, agent: agentType };
     if (firstMessage) body.first_message = firstMessage;
     const response = await authFetch(`${API_BASE_URL}/voice/call/outbound`, {
         method: 'POST',

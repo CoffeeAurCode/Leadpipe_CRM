@@ -566,23 +566,35 @@ async def get_call_status():
 class OutboundCallRequest(BaseModel):
     customer_number: str   # E.164 format, e.g. "+919876543210"
     first_message: str | None = None
+    agent: str = "complaint"  # "complaint" or "lease"
 
 
 @router.post("/voice/call/outbound")
 async def make_outbound_call(req: OutboundCallRequest):
     """
-    Initiate an outbound call to a tenant using the Vapi agent.
-    The same agent workflow (verification, complaints, appointments) applies.
+    Initiate an outbound call using either the complaint or lease agent.
+    agent="complaint" uses VAPI_ASSISTANT_ID + VAPI_NUMBER_ID (test group).
+    agent="lease" uses VAPI_SHARED_LEASE_ASSISTANT_ID + VAPI_SHARED_LEASE_NUMBER_ID
+                  (falls back to VAPI_NUMBER_ID if lease number not set).
     """
     from vapi import Vapi, CreateCustomerDto, AssistantOverrides
     from app.config import settings
 
     if not settings.PRIVATE_VAPI_API:
         raise HTTPException(status_code=500, detail="PRIVATE_VAPI_API env var is not configured on the server")
-    if not settings.VAPI_ASSISTANT_ID:
-        raise HTTPException(status_code=500, detail="VAPI_ASSISTANT_ID env var is not configured on the server")
     if not settings.VAPI_NUMBER_ID:
         raise HTTPException(status_code=500, detail="VAPI_NUMBER_ID env var is not configured on the server")
+
+    if req.agent == "lease":
+        assistant_id = settings.VAPI_SHARED_LEASE_ASSISTANT_ID
+        phone_number_id = settings.VAPI_SHARED_LEASE_NUMBER_ID or settings.VAPI_NUMBER_ID
+        if not assistant_id:
+            raise HTTPException(status_code=500, detail="VAPI_SHARED_LEASE_ASSISTANT_ID env var is not configured on the server")
+    else:
+        assistant_id = settings.VAPI_ASSISTANT_ID
+        phone_number_id = settings.VAPI_NUMBER_ID
+        if not assistant_id:
+            raise HTTPException(status_code=500, detail="VAPI_ASSISTANT_ID env var is not configured on the server")
 
     client = Vapi(token=settings.PRIVATE_VAPI_API)
 
@@ -591,10 +603,10 @@ async def make_outbound_call(req: OutboundCallRequest):
         overrides = AssistantOverrides(first_message=req.first_message)
 
     call = client.calls.create(
-        assistant_id=settings.VAPI_ASSISTANT_ID,
-        phone_number_id=settings.VAPI_NUMBER_ID,
+        assistant_id=assistant_id,
+        phone_number_id=phone_number_id,
         customer=CreateCustomerDto(number=req.customer_number),
         assistant_overrides=overrides,
     )
 
-    return {"call_id": call.id, "status": call.status}
+    return {"call_id": call.id, "status": call.status, "agent": req.agent}
