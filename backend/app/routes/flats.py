@@ -434,7 +434,8 @@ async def create_flat(
     building_id: Optional[str] = Form(None),  # NEW: auto-link to building
     image: Optional[UploadFile] = File(None),
     user: dict = Depends(require_active_subscription),
-    db: Client = Depends(get_authenticated_db)
+    db: Client = Depends(get_authenticated_db),
+    svc: Client = Depends(get_service_db),
 ):
     """
     Create a new flat with optional image upload and tenant assignment.
@@ -475,14 +476,14 @@ async def create_flat(
             
             # Upload to Supabase Storage
             try:
-                upload_response = db.storage.from_("Property Pics").upload(
+                upload_response = svc.storage.from_("Property Pics").upload(
                     uploaded_filename,
                     contents,
                     {"content-type": image.content_type}
                 )
-                
+
                 # Get public URL
-                image_url = db.storage.from_("Property Pics").get_public_url(uploaded_filename)
+                image_url = svc.storage.from_("Property Pics").get_public_url(uploaded_filename)
                 
                 print(f"[IMAGE UPLOAD] Successfully uploaded: {uploaded_filename}")
                 print(f"[IMAGE UPLOAD] Public URL: {image_url}")
@@ -530,7 +531,7 @@ async def create_flat(
             # Cleanup uploaded image
             if uploaded_filename:
                 try:
-                    db.storage.from_("Property Pics").remove([uploaded_filename])
+                    svc.storage.from_("Property Pics").remove([uploaded_filename])
                     print(f"[CLEANUP] Deleted uploaded image due to duplicate flat_number")
                 except:
                     pass
@@ -559,7 +560,7 @@ async def create_flat(
             # Cleanup uploaded image
             if uploaded_filename:
                 try:
-                    db.storage.from_("Property Pics").remove([uploaded_filename])
+                    svc.storage.from_("Property Pics").remove([uploaded_filename])
                     print(f"[CLEANUP] Deleted uploaded image due to flat creation failure")
                 except:
                     pass
@@ -646,7 +647,7 @@ async def create_flat(
         # Cleanup uploaded image on unexpected error
         if uploaded_filename:
             try:
-                db.storage.from_("Property Pics").remove([uploaded_filename])
+                svc.storage.from_("Property Pics").remove([uploaded_filename])
                 print(f"[CLEANUP] Deleted uploaded image due to error: {str(e)}")
             except:
                 pass
