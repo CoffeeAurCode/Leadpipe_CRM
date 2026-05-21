@@ -2,8 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { uploadImage } from '../services/apiService';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const MAX_SIZE_MB = 5;
@@ -67,21 +66,7 @@ function ImageUploadField({
         onUploadStart?.();  // notify parent upload has begun
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('entity_type', entityType);
-
-            const response = await fetch(`${API_BASE_URL}/upload/image`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err.detail || `Upload failed (${response.status})`);
-            }
-
-            const { url } = await response.json();
+            const { url } = await uploadImage(file, entityType);
             onUploadComplete(url);
             // Replace blob URL with permanent Supabase URL
             setPreview(url);

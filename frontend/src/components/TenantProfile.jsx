@@ -1,10 +1,8 @@
 import { useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, User, Calendar, CreditCard, FileText, Home, Pencil, Save, Lock, Paperclip, ExternalLink, Trash2 } from 'lucide-react';
-import { updateTenant, deleteTenant } from '../services/apiService';
+import { updateTenant, deleteTenant, uploadImage } from '../services/apiService';
 import { cn } from '@/lib';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const RENT_STATUS_OPTIONS = ['On-time', 'Upcoming', 'Overdue', 'At Risk'];
 const PAYMENT_SCHEDULE_OPTIONS = ['monthly', 'quarterly', 'custom'];
@@ -124,12 +122,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
         if (!file) return;
         setUploading(true);
         try {
-            const fd = new FormData();
-            fd.append('file', file);
-            fd.append('entity_type', 'tenant_document');
-            const res = await fetch(`${API_BASE_URL}/upload/image`, { method: 'POST', body: fd });
-            if (!res.ok) throw new Error('Upload failed');
-            const { url } = await res.json();
+            const { url } = await uploadImage(file, 'tenant_document');
             setForm(f => ({ ...f, document_urls: [...(f.document_urls || []), url] }));
         } catch {
             setSaveError('Document upload failed.');

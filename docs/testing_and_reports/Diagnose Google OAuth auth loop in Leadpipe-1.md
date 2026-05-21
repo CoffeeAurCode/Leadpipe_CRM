@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-13  
 **Symptom:** Infinite loop: `/auth` → Google OAuth → `/pricing` → "Please sign in first" → `/auth`
-
+**project file**:"C:\Users\BIT\Coding\Leadpipe-1"
 ---
 
 ## Root Cause (One Line)

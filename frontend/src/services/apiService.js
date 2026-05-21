@@ -745,6 +745,23 @@ export async function createNotification(data) {
     return await response.json();
 }
 
+// ── Image Upload ─────────────────────────────────────────────────────────────
+
+export async function uploadImage(file, entityType = 'misc') {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('entity_type', entityType);
+    const response = await authFetch(`${API_BASE_URL}/upload/image`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `Upload failed (${response.status})`);
+    }
+    return await response.json(); // { url, path }
+}
+
 // ── CSV Import ────────────────────────────────────────────────────────────────
 
 export async function importPropertiesCsv(file) {
