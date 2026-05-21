@@ -524,22 +524,32 @@ async def create_flat(
                 detail="bathrooms must be between 0 and 10"
             )
         
-        # ========== STEP 3: CHECK FOR DUPLICATE FLAT_NUMBER ==========
+        # ========== STEP 3: CHECK FOR DUPLICATES BEFORE ANY DB WRITES ==========
         existing_flat = db.table("flats").select("*").eq("flat_number", flat_number_normalized).execute()
-        
+
         if existing_flat.data:
-            # Cleanup uploaded image
             if uploaded_filename:
                 try:
                     svc.storage.from_("Property Pics").remove([uploaded_filename])
-                    print(f"[CLEANUP] Deleted uploaded image due to duplicate flat_number")
                 except:
                     pass
-            
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Flat {flat_number_normalized} already exists"
             )
+
+        if tenant_phone:
+            existing_tenant = db.table("tenants").select("uuid").eq("phone", tenant_phone.strip()).execute()
+            if existing_tenant.data:
+                if uploaded_filename:
+                    try:
+                        svc.storage.from_("Property Pics").remove([uploaded_filename])
+                    except:
+                        pass
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A tenant with this phone number already exists."
+                )
         
         # ========== STEP 4: CREATE FLAT ==========
         flat_payload = {
@@ -609,31 +619,34 @@ async def create_flat(
                 "phone": tenant_phone.strip(),
                 "flat_uuid": flat_uuid
             }
-            
+
             try:
                 tenant_response = db.table("tenants").insert(tenant_payload).execute()
-                
+
                 if tenant_response.data:
                     tenant_info = tenant_response.data[0]
                     tenant_uuid = tenant_info["uuid"]
-                    
+
                     # Link tenant to flat
-                    update_response = db.table("flats").update({
+                    db.table("flats").update({
                         "tenant_uuid": tenant_uuid,
                         "occupied": True
                     }).eq("uuid", flat_uuid).execute()
-                    
+
                     flat["tenant_uuid"] = tenant_uuid
                     flat["occupied"] = True
-                    
+
                     print(f"[TENANT CREATED] UUID: {tenant_uuid}, Name: {tenant_name}")
                     print(f"[TENANT LINKED] Flat {flat_number_normalized} now occupied")
-                    
+
+            except HTTPException:
+                raise
             except Exception as tenant_error:
                 print(f"[TENANT CREATION ERROR] {str(tenant_error)}")
-                # Note: We don't rollback flat creation here
-                # Instead, we log the error and continue
-                # The flat exists but without a tenant
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Flat created but tenant could not be added: {str(tenant_error)}"
+                )
         
         # ========== STEP 6: RETURN FLAT WITH TENANT DETAILS ==========
         return {
@@ -707,12 +720,25 @@ async def update_flat_details(
         new_tenant_uuid = current_tenant_uuid
         
         if request.action == 'ADD_TENANT':
+            # Guard: phone must be unique in the tenants table
+            existing = db.table("tenants").select("uuid, flat_uuid").eq("phone", request.tenant_data.phone).execute()
+            if existing.data:
+                existing_tenant = existing.data[0]
+                if existing_tenant.get("flat_uuid"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="A tenant with this phone number is already assigned to another flat. Use 'Assign Existing Tenant' to move them."
+                    )
+                raise HTTPException(
+                    status_code=400,
+                    detail="A tenant with this phone number already exists. Use 'Assign Existing Tenant' to link them to this flat."
+                )
+
             # Create new tenant
             tenant_payload = {
                 "name": request.tenant_data.name,
                 "phone": request.tenant_data.phone,
-                "flat_uuid": flat_uuid,  # Link back to flat
-                # "unit_id": ... (Optional: if we need to link to units table too)
+                "flat_uuid": flat_uuid,
             }
             tenant_res = db.table("tenants").insert(tenant_payload).execute()
             if tenant_res.data:
