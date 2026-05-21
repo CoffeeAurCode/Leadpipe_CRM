@@ -139,6 +139,10 @@ PropertyGroup (properties_list)
 | name | text | |
 | description, address, image_url | text | |
 | manager_id | UUID | FK → auth.users (RLS key) |
+| vapi_lease_assistant_id | text | VAPI assistant ID provisioned for this group |
+| vapi_phone_number_id | text | VAPI phone number ID |
+| vapi_phone_number | text | E.164 phone number for this group's lease agent |
+| vapi_provisioning_status | text | not_applicable / pending / active / failed |
 
 #### `buildings`
 | Column | Type | Notes |
@@ -234,6 +238,45 @@ PropertyGroup (properties_list)
 | effective_from | date | |
 | is_active | boolean | Only one active per flat |
 | manager_id | UUID | RLS key |
+
+#### `lease_listings`
+| Column | Type | Notes |
+|---|---|---|
+| id | int PK | |
+| uuid | UUID UNIQUE | |
+| property_group_id | UUID | FK → properties_list |
+| flat_uuid | UUID | FK → flats |
+| flat_number | text | Denormalized |
+| title | text | |
+| monthly_rent | numeric | |
+| description | text | |
+| available_from | date | |
+| photo_urls | text[] | |
+| is_active | boolean | |
+| custom_rules | JSONB | `{max_occupants, income_required, pets_allowed, vegetarian_only, lease_term_months, custom_question}` |
+| manager_id | UUID | |
+
+#### `lease_leads`
+| Column | Type | Notes |
+|---|---|---|
+| id | int PK | |
+| uuid | UUID UNIQUE | |
+| property_group_id | UUID | FK → properties_list |
+| listing_uuid | UUID | FK → lease_listings (nullable) |
+| caller_name | text | |
+| phone | text | |
+| email | text | |
+| bedrooms, occupants | int | |
+| budget_max | numeric | |
+| move_in_timeline, floor_preference | text | |
+| qualification_status | text | qualified / not_qualified / unmatched / contacted / toured / converted / lost |
+| disqualifying_reason | text | |
+| qualifying_answers | JSONB | Custom Q&A from agent |
+| notes | text | Agent-generated summary |
+| manager_notes | text | Manager editable |
+| source | text | voice (default) |
+| call_id | text | VAPI call ID |
+| call_duration_seconds | int | |
 
 #### `subscriptions`
 | Column | Type | Notes |
@@ -418,6 +461,19 @@ Computed fields on GET (from `TenantResponse` schema):
 - Filters on final event types: `tool-calls`, `end-of-call-report`
 - Creates CallLog always
 - Creates Complaint only if user confirmed via VAPI tool call
+- Uses `get_service_db` (bypasses RLS — call arrives without user JWT)
+
+**Lease lead webhook:** `POST /voice/lease-lead-webhook`
+- Accepts `submit_lease_lead` tool calls from the lease agent
+- Resolves `property_group_id` from listing UUID or assistant ID → `properties_list.vapi_lease_assistant_id`
+- Inserts row into `lease_leads`; always returns HTTP 200
+
+**Outbound call:** `POST /voice/call/outbound`
+- Body: `{customer_number, agent, first_message?}` — `agent` is `"complaint"` (default) or `"lease"`
+- `complaint` → uses `VAPI_ASSISTANT_ID` + `VAPI_NUMBER_ID`
+- `lease` → uses `VAPI_SHARED_LEASE_ASSISTANT_ID` + `VAPI_SHARED_LEASE_NUMBER_ID` (falls back to `VAPI_NUMBER_ID`)
+- Wrapped in `asyncio.to_thread` to avoid blocking the event loop
+- Returns `{call_id, status, agent}`; raises HTTP 504 on `httpx.ReadTimeout`
 
 ---
 
@@ -427,6 +483,29 @@ Computed fields on GET (from `TenantResponse` schema):
 | POST | `/notifications/test-sms` | Send test SMS |
 | POST | `/notifications/test-email` | Send test email |
 | GET | `/notifications/preferences` | Notification settings per building |
+
+---
+
+### `/leasing` — `routes/leasing.py`
+
+#### VAPI Tool Endpoints (no auth, service DB, always HTTP 200)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/leasing/find-listing?query=&property_group_id=` | Search listing by flat number or title; returns `{found, listing_uuid, address, bedrooms, monthly_rent, floor_number, available_from, custom_rules}` |
+| GET | `/leasing/search?bedrooms=&budget_max=&property_group_id=` | Return up to 5 matching listings as a text summary `{count, listings}` |
+
+#### Manager CRUD (authenticated + subscription gate)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/leasing/listings` | List manager's listings (newest first) |
+| POST | `/leasing/listings` | Create listing — looks up flat, resolves property_group_id |
+| PATCH | `/leasing/listings/{listing_uuid}` | Update listing fields |
+| DELETE | `/leasing/listings/{listing_uuid}` | Hard delete |
+| GET | `/leasing/leads?listing_uuid=&qualification_status=` | List leads scoped to manager's property groups |
+| PATCH | `/leasing/leads/{lead_uuid}` | Update lead status (contacted/toured/converted/lost only for manager) |
+| DELETE | `/leasing/leads/{lead_uuid}` | Hard delete |
+| GET | `/leasing/metrics?days=30` | Aggregated call metrics: total, qualified, not_qualified, unmatched, rate, avg_duration |
+| GET | `/leasing/export` | CSV download of filtered leads |
 
 ---
 
@@ -509,6 +588,30 @@ get_service_db()  # service-role client (bypasses RLS) — for webhooks, admin
 
 ---
 
+### `app/schemas/leasing.py`
+- `CustomRules` — JSONB config: `max_occupants`, `income_required`, `pets_allowed`, `vegetarian_only`, `lease_term_months`, `custom_question`
+- `ListingCreate / ListingUpdate / ListingResponse`
+- `LeadUpdate / LeadResponse`
+
+---
+
+### `app/services/vapi_provisioning.py`
+- `provision_vapi_for_property_group(property_group_id, pg_name, db)` — run as a FastAPI `BackgroundTask` when a `PropertyGroup` is created
+- Calls VAPI API to create a per-group lease assistant + phone number
+- Updates `properties_list` with `vapi_lease_assistant_id`, `vapi_phone_number_id`, `vapi_phone_number`, `vapi_provisioning_status`
+- On failure: sets `vapi_provisioning_status = "failed"` and re-raises
+
+---
+
+### `app/services/vapi_agent_config.py`
+Four builder functions:
+- `build_assistant_config()` — legacy complaint agent (existing test group)
+- `build_complaint_config(backend_url)` — global complaint agent (Option B, multi-group)
+- `build_lease_config_shared(backend_url)` — shared lease agent for existing property groups
+- `build_lease_config(backend_url, property_group_id, pg_name)` — per-group lease agent; injects `property_group_id` into the VAPI system prompt so the agent only searches listings for that group
+
+---
+
 ### `app/ai/chatbot.py` — AI Chatbot
 - Entry: `run_chat(messages: list, db: Client) -> (reply: str, refresh_needed: bool)`
 - Model: `gpt-4o-mini` with tool calling
@@ -578,6 +681,7 @@ class Feature(str, Enum):
 | `components/VoiceStatsTab.jsx` | Voice call analytics |
 | `components/SmsWorkflow.jsx` | Bulk SMS broadcast to tenants |
 | `components/OnboardingChecklist.jsx` | Interactive onboarding checklist |
+| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export |
 
 ### Modals
 | File | Purpose |
@@ -594,6 +698,8 @@ class Feature(str, Enum):
 | `AddPropertyGroupModal.jsx` | Alias for property group creation |
 | `AddTenantModal.jsx` | Create Tenant |
 | `AssignTenantModal.jsx` | Assign existing tenant to flat |
+| `AddListingModal.jsx` | Create / edit a lease listing (flat selector, rent, availability, custom rules) |
+| `LeadDetailModal.jsx` | View lead details + update qualification status |
 | `BuildingInfoModal.jsx` | Building detail |
 | `CsvImportModal.jsx` | CSV bulk import UI |
 | `DateComplaintsModal.jsx` | Complaints for a selected calendar date |
@@ -627,7 +733,7 @@ class Feature(str, Enum):
 ### Navigation & UI Primitives
 | File | Purpose |
 |---|---|
-| `Sidebar.jsx` | Main nav sidebar with route switching |
+| `Sidebar.jsx` | Main nav sidebar with route switching; nav list is `overflow-y-auto` so it scrolls when items exceed the viewport height |
 | `TopBar.jsx` | Header — user menu, theme toggle |
 | `ViewSwitcher.jsx` | Toggle list/card/calendar views |
 | `QuickFilters.jsx` | Filter bar |
@@ -641,7 +747,7 @@ class Feature(str, Enum):
 | File | Purpose |
 |---|---|
 | `Chatbot.jsx` | Floating FAB chatbot — renders responses as markdown |
-| `OutboundCallButton.jsx` | Trigger outbound VAPI call |
+| `OutboundCallButton.jsx` | Trigger outbound VAPI call — agent selector toggle (complaint / lease) |
 | `NotificationPanel.jsx` | Toast notification display |
 | `RecentUpdates.jsx` | Recent activity feed |
 
@@ -667,6 +773,9 @@ class Feature(str, Enum):
 - **All HTTP calls go here.** Never inline `fetch` in components.
 - `authFetch(path, options)` — adds `Authorization: Bearer <token>`, handles 401 (sign out) and 403 (redirect to pricing)
 - Exports: `fetchComplaints`, `createComplaint`, `updateComplaint`, `fetchAppointments`, `updateAppointment`, `deleteAppointment`, `fetchFlats`, `fetchTenants`, `fetchBuildings`, `sendChatMessage`, `createCheckoutSession`, `getCallStatus`, etc.
+- **Leasing exports:** `getListings`, `createListing`, `updateListing`, `deleteListing`, `getLeaseLeads`, `updateLead`, `deleteLead`, `getLeasingMetrics`, `exportLeads`
+- **Image upload:** `uploadImage(file, entityType)` → `POST /upload/image`, returns `{url, path}`
+- **Outbound call:** `makeOutboundCall(customerNumber, agentType='complaint', firstMessage=null)` — `agentType` forwarded as `agent` field in request body
 
 ### `lib/supabase.js`
 - Supabase client configured with PKCE auth flow
@@ -718,6 +827,21 @@ window.dispatchEvent(new Event('refresh-appointments'))
 ```
 Used after voice/chatbot actions that modify data.
 
+### Flat Creation Duplicate Checks
+- Flat number uniqueness is enforced at DB level (UNIQUE constraint)
+- Before inserting a tenant during flat creation, the route checks `tenants.phone` for uniqueness
+- If the phone already exists, returns HTTP 400 with a message distinguishing "already assigned to a flat" vs "unassigned — use Assign Existing Tenant"
+- Image uploaded to Storage is cleaned up if any subsequent check fails (no orphaned files)
+
+### VAPI Voice Webhook DB Client
+- `POST /voice/webhook` uses `get_service_db` (not `get_authenticated_db`) — inbound calls carry no user JWT
+
+### VAPI Agent Types
+- Two agent roles: **complaint** (maintenance intake) and **lease** (lead capture)
+- Both agents can be triggered via outbound call; `agent` field in `POST /voice/call/outbound` selects which
+- Complaint agent is global (one assistant for all groups); lease agent is per-property-group (auto-provisioned)
+- `vapi_provisioning_status` on `properties_list` tracks provisioning state: `not_applicable` | `pending` | `active` | `failed`
+
 ### Idempotency
 - Stripe webhooks: deduplicated via `stripe_events` table (`event_id` UNIQUE)
 - VAPI webhooks: `call_id` UNIQUE on `call_logs` prevents duplicate processing
@@ -753,7 +877,7 @@ Used after voice/chatbot actions that modify data.
 |---|---|---|
 | Supabase | DB, Auth, Storage | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` |
 | Stripe | Subscription billing | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` |
-| Vapi.ai | Voice phone agent | `VAPI_API_KEY`, `VAPI_NUMBER_ID`, `VAPI_ASSISTANT_ID` |
+| Vapi.ai | Voice phone agent | `VAPI_API_KEY`, `VAPI_NUMBER_ID`, `VAPI_ASSISTANT_ID`, `PRIVATE_VAPI_API` (private SDK key), `VAPI_SHARED_LEASE_ASSISTANT_ID`, `VAPI_SHARED_LEASE_NUMBER_ID` |
 | OpenAI | Chatbot (gpt-4o-mini) | `OPENAI_API_KEY` |
 | Groq | Complaint extraction | `GROQ_API_KEY` |
 | Twilio | SMS notifications | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` |

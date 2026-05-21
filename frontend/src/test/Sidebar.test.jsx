@@ -90,6 +90,13 @@ describe('Sidebar', () => {
             expect(screen.getByText(label)).toBeInTheDocument();
         });
     });
+
+    it('nav element has overflow-y-auto so items scroll on small screens', () => {
+        renderSidebar();
+        const nav = document.querySelector('nav[data-tour="sidebar-nav"]');
+        expect(nav).not.toBeNull();
+        expect(nav.className).toMatch(/overflow-y-auto/);
+    });
 });
 
 // ── TopBar ────────────────────────────────────────────────────────────────────

@@ -26,6 +26,14 @@ import {
     getStatusDisplay,
     getPriorityDisplay,
     formatDate,
+    getListings,
+    createListing,
+    updateListing,
+    deleteListing,
+    getLeaseLeads,
+    updateLead,
+    getLeasingMetrics,
+    makeOutboundCall,
 } from '../services/apiService';
 
 const MOCK_TOKEN = 'mock-jwt-token';
@@ -197,6 +205,152 @@ describe('getPriorityDisplay', () => {
 
     it('passes through unknown priorities', () => {
         expect(getPriorityDisplay('critical')).toBe('critical');
+    });
+});
+
+// ── Leasing API ───────────────────────────────────────────────────────────────
+
+describe('getListings', () => {
+    it('GET /leasing/listings and returns array', async () => {
+        const mock = [{ uuid: 'l1', flat_number: 'A-101', monthly_rent: 25000 }];
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => mock });
+        const result = await getListings();
+        const [url] = global.fetch.mock.calls[0];
+        expect(url).toContain('/leasing/listings');
+        expect(result).toEqual(mock);
+    });
+});
+
+describe('createListing', () => {
+    it('POST /leasing/listings with JSON body', async () => {
+        const payload = { flat_uuid: 'f1', monthly_rent: 20000 };
+        const created = { uuid: 'l2', ...payload };
+        global.fetch.mockResolvedValue({ ok: true, status: 201, json: async () => created });
+        const result = await createListing(payload);
+        const [url, options] = global.fetch.mock.calls[0];
+        expect(url).toContain('/leasing/listings');
+        expect(options.method).toBe('POST');
+        expect(JSON.parse(options.body)).toMatchObject(payload);
+        expect(result).toEqual(created);
+    });
+
+    it('throws with detail message on non-ok response', async () => {
+        global.fetch.mockResolvedValue({
+            ok: false,
+            status: 404,
+            json: async () => ({ detail: 'Flat not found' }),
+        });
+        await expect(createListing({ flat_uuid: 'bad' })).rejects.toThrow('Flat not found');
+    });
+});
+
+describe('updateListing', () => {
+    it('PATCH /leasing/listings/:uuid', async () => {
+        const updated = { uuid: 'l1', monthly_rent: 22000 };
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => updated });
+        const result = await updateListing('l1', { monthly_rent: 22000 });
+        const [url, options] = global.fetch.mock.calls[0];
+        expect(url).toContain('/leasing/listings/l1');
+        expect(options.method).toBe('PATCH');
+        expect(result).toEqual(updated);
+    });
+});
+
+describe('deleteListing', () => {
+    it('DELETE /leasing/listings/:uuid returns null on 204', async () => {
+        global.fetch.mockResolvedValue({ ok: true, status: 204, json: async () => null });
+        const result = await deleteListing('l1');
+        const [url, options] = global.fetch.mock.calls[0];
+        expect(url).toContain('/leasing/listings/l1');
+        expect(options.method).toBe('DELETE');
+        expect(result).toBeNull();
+    });
+});
+
+describe('getLeaseLeads', () => {
+    it('GET /leasing/leads without params', async () => {
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+        await getLeaseLeads();
+        const [url] = global.fetch.mock.calls[0];
+        expect(url).toContain('/leasing/leads');
+    });
+
+    it('appends listing_uuid and qualification_status when provided', async () => {
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+        await getLeaseLeads({ listing_uuid: 'l1', qualification_status: 'qualified' });
+        const [url] = global.fetch.mock.calls[0];
+        expect(url).toContain('listing_uuid=l1');
+        expect(url).toContain('qualification_status=qualified');
+    });
+});
+
+describe('updateLead', () => {
+    it('PATCH /leasing/leads/:uuid with status update', async () => {
+        const updated = { uuid: 'ld1', qualification_status: 'contacted' };
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => updated });
+        const result = await updateLead('ld1', { qualification_status: 'contacted' });
+        const [url, options] = global.fetch.mock.calls[0];
+        expect(url).toContain('/leasing/leads/ld1');
+        expect(options.method).toBe('PATCH');
+        expect(result).toEqual(updated);
+    });
+});
+
+describe('getLeasingMetrics', () => {
+    it('GET /leasing/metrics', async () => {
+        const metrics = { total_calls: 5, qualified: 2 };
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => metrics });
+        const result = await getLeasingMetrics();
+        const [url] = global.fetch.mock.calls[0];
+        expect(url).toContain('/leasing/metrics');
+        expect(result).toEqual(metrics);
+    });
+
+    it('appends days param when provided', async () => {
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+        await getLeasingMetrics({ days: 7 });
+        const [url] = global.fetch.mock.calls[0];
+        expect(url).toContain('days=7');
+    });
+});
+
+describe('makeOutboundCall', () => {
+    it('POST /voice/call/outbound with customer_number and agent', async () => {
+        const response = { call_id: 'c1', status: 'initiated', agent: 'complaint' };
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => response });
+        const result = await makeOutboundCall('+919876543210', 'complaint');
+        const [url, options] = global.fetch.mock.calls[0];
+        expect(url).toContain('/voice/call/outbound');
+        expect(options.method).toBe('POST');
+        const body = JSON.parse(options.body);
+        expect(body.customer_number).toBe('+919876543210');
+        expect(body.agent).toBe('complaint');
+        expect(result).toEqual(response);
+    });
+
+    it('sends agent=lease for lease outbound calls', async () => {
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+        await makeOutboundCall('+919876543210', 'lease');
+        const [, options] = global.fetch.mock.calls[0];
+        const body = JSON.parse(options.body);
+        expect(body.agent).toBe('lease');
+    });
+
+    it('defaults agent to complaint when not provided', async () => {
+        global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+        await makeOutboundCall('+919876543210');
+        const [, options] = global.fetch.mock.calls[0];
+        const body = JSON.parse(options.body);
+        expect(body.agent).toBe('complaint');
+    });
+
+    it('throws on non-ok response', async () => {
+        global.fetch.mockResolvedValue({
+            ok: false,
+            status: 502,
+            json: async () => ({ detail: 'VAPI error' }),
+        });
+        await expect(makeOutboundCall('+919876543210', 'complaint')).rejects.toThrow();
     });
 });
 
