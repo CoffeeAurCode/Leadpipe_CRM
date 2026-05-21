@@ -577,6 +577,8 @@ async def make_outbound_call(req: OutboundCallRequest):
     agent="lease" uses VAPI_SHARED_LEASE_ASSISTANT_ID + VAPI_SHARED_LEASE_NUMBER_ID
                   (falls back to VAPI_NUMBER_ID if lease number not set).
     """
+    import asyncio
+    import httpx
     from vapi import Vapi, CreateCustomerDto, AssistantOverrides
     from vapi.core.api_error import ApiError
     from app.config import settings
@@ -604,7 +606,8 @@ async def make_outbound_call(req: OutboundCallRequest):
         overrides = AssistantOverrides(first_message=req.first_message)
 
     try:
-        call = client.calls.create(
+        call = await asyncio.to_thread(
+            client.calls.create,
             assistant_id=assistant_id,
             phone_number_id=phone_number_id,
             customer=CreateCustomerDto(number=req.customer_number),
@@ -613,5 +616,7 @@ async def make_outbound_call(req: OutboundCallRequest):
     except ApiError as e:
         detail = e.body.get("message", str(e)) if isinstance(e.body, dict) else str(e)
         raise HTTPException(status_code=e.status_code or 502, detail=detail)
+    except httpx.ReadTimeout:
+        raise HTTPException(status_code=504, detail="VAPI timed out initiating the call. Check the VAPI dashboard — the call may still have been placed.")
 
     return {"call_id": call.id, "status": call.status, "agent": req.agent}
