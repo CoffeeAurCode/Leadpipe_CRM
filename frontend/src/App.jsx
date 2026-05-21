@@ -23,6 +23,7 @@ const ComplaintsPage   = lazy(() => import('./components/ComplaintsPage'));
 const OnboardingChecklist = lazy(() => import('./components/OnboardingChecklist'));
 const RentTab          = lazy(() => import('./components/RentTab'));
 const VoiceStatsTab    = lazy(() => import('./components/VoiceStatsTab'));
+const LeasingTab       = lazy(() => import('./components/LeasingTab'));
 
 const PageFallback = () => (
     <div className="flex items-center justify-center h-full">
@@ -282,6 +283,9 @@ function Dashboard() {
                                     )}
                                     {currentView === 'voice-stats' && (
                                         <VoiceStatsTab />
+                                    )}
+                                    {currentView === 'leasing' && (
+                                        <LeasingTab />
                                     )}
                                 </Suspense>
                             )}

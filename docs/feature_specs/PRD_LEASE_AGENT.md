@@ -1,8 +1,8 @@
 # PRD: Lease Agent — AI Voice Leasing + Leasing Dashboard Tab
 
-**Date:** 2026-05-19  
-**Author:** Pranav Raj  
-**Status:** Draft v2 — Updated with Leadpipe Spec + One-Number-per-PropertyGroup Architecture  
+**Date:** 2026-05-20
+**Author:** Pranav Raj
+**Status:** Draft v3 — Hybrid Architecture (Shared Number for Existing Groups + Auto-Provisioned for New)  
 
 ---
 
@@ -44,78 +44,90 @@ Property managers have vacant units but no automated way to handle inbound leasi
 
 ---
 
-## 2. Architecture: One Phone Number per PropertyGroup
+## 2. Architecture: Hybrid (Shared for Existing Groups, Per-Group for New)
 
-### 2.1 How It Works
+The Lease Agent is a **dedicated leasing-only VAPI assistant**. It never handles complaints. It does not call `Verify_phone_number`. The caller is always a prospective tenant — a stranger with no tenant account.
 
-Each PropertyGroup (a society or real estate company) gets **one dedicated phone number** linked to one VAPI assistant. The `property_group_id` is baked into the assistant's system prompt and all tool URLs at deployment time — the agent inherently knows which group it serves.
+### 2.1 Existing Property Groups — Shared Number
 
-```
-Society "Green Meadows" → +91-XXXXX-00001 → VAPI Assistant (pg_id = "abc-123")
-Society "Blue Heights"  → +91-XXXXX-00002 → VAPI Assistant (pg_id = "def-456")
-Society "Sunset Villas" → +91-XXXXX-00003 → VAPI Assistant (pg_id = "ghi-789")
-```
-
-**Implication for all backend calls:** Every VAPI tool URL includes `property_group_id` as a hardcoded query parameter — injected at assistant build time, never from the caller's speech.
-
-### 2.2 Auto-Provisioning on Signup
-
-When a new PropertyGroup is created (user signup or admin creation), the backend automatically provisions a VAPI voice presence:
+All existing (test) property groups share **one Twilio number** and **one shared VAPI lease assistant**. The shared assistant has no hardcoded `property_group_id` in its system prompt or tool URLs. The backend's leasing endpoints search listings across **all** property groups when no `property_group_id` is provided.
 
 ```
-New PropertyGroup created
+Caller dials shared lease number (user-provided Twilio number)
+        ↓
+Shared VAPI lease assistant (no hardcoded pg_id)
+        ↓
+find_listing / search → backend searches ALL property groups
+        ↓
+submit_lease_lead → property_group_id resolved from matched listing_uuid
+                    (null if no listing was identified)
+```
+
+The shared number is set up once manually. Its assistant ID is stored in the environment as `VAPI_SHARED_LEASE_ASSISTANT_ID`.
+
+### 2.2 New Property Groups — Auto-Provisioned Dedicated Number
+
+From the **next signup onward**, each new PropertyGroup gets its own dedicated VAPI lease assistant and phone number, automatically provisioned when the PropertyGroup is created:
+
+```
+New PropertyGroup created (post-payment signup)
+        ↓
+Background task: provision_vapi_for_property_group()
         ↓
 1. Call VAPI POST /assistant
    • System prompt with property_group_id embedded
-   • All 9 tool URLs include property_group_id
-   → Returns: vapi_assistant_id
+   • All 3 lease tool URLs include property_group_id as hardcoded query param
+   → Returns: vapi_lease_assistant_id
 
         ↓
-2. Call VAPI POST /phone-number/buy
+2. Call VAPI POST /phone-number
    • Purchase an available Indian (+91) number
    → Returns: vapi_phone_number_id, phone_number
 
         ↓
 3. Call VAPI PATCH /phone-number/{id}
-   • Link the purchased number to the assistant
-   → number.assistantId = vapi_assistant_id
+   • Link the purchased number to the lease assistant
+   → number.assistantId = vapi_lease_assistant_id
 
         ↓
-4. Save to property_groups table:
-   • vapi_assistant_id
+4. Save to properties_list table:
+   • vapi_lease_assistant_id
    • vapi_phone_number_id
    • vapi_phone_number (display)
+   • vapi_provisioning_status = "active"
 ```
 
-**Service file:** `backend/app/services/vapi_provisioning.py`  
-**Trigger:** Called from `POST /property-groups` (or equivalent signup endpoint) as a background task.  
-**Re-provisioning:** If provisioning fails, the manager sees a "Voice Agent Not Active" badge in Settings and can retry via a button.
+Callers dialing a group's dedicated number reach that group's listings only — no cross-group leakage.
 
-### 2.3 Dual-Mode Agent (Same Assistant Handles Both Flows)
+**Service file:** `backend/app/services/vapi_provisioning.py`
+**Trigger:** Called as a background task from `POST /property-groups`.
+**Re-provisioning:** If provisioning fails, manager sees a "Lease Agent Not Active" badge in Settings and can retry via `POST /property-groups/{uuid}/provision-voice`.
 
-The same Alex assistant, on the same phone number, handles both:
+### 2.3 Architecture Comparison
 
-| Mode | Who calls | Gate |
-|------|-----------|------|
-| **Complaint / Appointment** | Existing verified tenant | Phone verification required before any action |
-| **Leasing Inquiry** | Anyone — unknown prospective tenant | No verification — caller is a stranger |
-
-Intent detection (silent, from natural speech) determines which branch to take. If a caller starts with leasing intent but then mentions a complaint ("by the way, I already live there and have a water leak"), the agent switches to the complaint flow and asks for a flat number before verifying.
+| | Existing Groups | New Groups (from next signup) |
+|---|---|---|
+| **Phone number** | Shared Twilio number (user-provided) | Dedicated per-group +91 number (auto-purchased) |
+| **VAPI assistant** | One shared assistant (`VAPI_SHARED_LEASE_ASSISTANT_ID`) | One per group (`vapi_lease_assistant_id` in DB) |
+| **property_group_id in tools** | Not hardcoded — backend searches all groups | Hardcoded in all tool URLs at provisioning time |
+| **Lead pg_id** | Derived from matched listing, or null | From assistant lookup in DB |
+| **Setup** | Manual one-time setup | Automatic on PropertyGroup creation |
 
 ---
 
 ## 3. How It Differs From Complaint Agent
 
-| Aspect | Complaint Agent (existing) | Lease Agent (new) |
-|--------|---------------------------|-------------------|
+| Aspect | Complaint Agent | Lease Agent |
+|--------|----------------|-------------|
 | **Who calls** | Existing verified tenants only | Anyone — no tenant account needed |
-| **Identity gate** | Phone + flat verification required | No verification — caller is a stranger |
-| **Property scoping** | Implicit (tenant's own flat) | Explicit — caller states which listing they want |
+| **Identity gate** | `Verify_phone_number` required before any action | No verification — caller is a stranger |
+| **Phone number** | One global shared number (Option B) | Shared for existing groups; dedicated per new group |
+| **property_group_id source** | From `Verify_phone_number` response | Hardcoded in tool URLs (new groups) or from matched listing (shared) |
 | **Data captured** | Complaint + appointment | Lead contact info + qualifying answers + outcome |
-| **New tools** | None | find_listing, search_available_listings, submit_lease_lead |
-| **Outcome** | Complaint in DB + appointment | Lead record (QUALIFIED or NOT_QUALIFIED) |
+| **Tools** | Verify, submit_complaint, appointments × 4 | find_listing, search_available_listings, submit_lease_lead |
+| **Outcome** | Complaint in DB + appointment | Lead record (QUALIFIED / NOT_QUALIFIED / UNMATCHED) |
 
-**Critical rule:** The leasing flow **never calls** `Verify_phone_number`. The caller is a stranger — there is no tenant record to verify against.
+**Critical rule:** The Lease Agent **never calls** `Verify_phone_number`. The caller is a prospective tenant — there is no tenant record to verify against.
 
 ---
 
@@ -359,19 +371,17 @@ Ranking of search results returned to the agent:
 3. Earliest `available_from`
 4. Max 3 results presented on voice
 
-### 4.7 VAPI Tools — Complete List (9 Tools)
+### 4.7 VAPI Tools — Lease Agent Tools (3)
 
-The agent config file `backend/app/services/vapi_agent_config.py` is updated with `build_tools(backend_url, property_group_id)` accepting both parameters.
+The Lease Agent has 3 tools only. Built via `build_lease_config_shared(backend_url)` (shared assistant) or `build_lease_config(backend_url, property_group_id, pg_name)` (per-group assistant) in `backend/app/services/vapi_agent_config.py`.
 
-**Existing tools (unchanged — 6):**
-1. `Verify_phone_number` — complaint flow gate
-2. `check_availability` — appointment slot check
-3. `view_active_appointments` — fetch flat appointments
-4. `update_appointment` — reschedule appointment
-5. `cancel_appointment` — cancel appointment
-6. `submit_complaint` — webhook to create complaint
+**Tool URL variants:**
 
-**New tools (3):**
+| Tool | Shared Assistant | Per-Group Assistant |
+|------|-----------------|---------------------|
+| `find_listing` | `...?query={{query}}` | `...?property_group_id={PG_ID}&query={{query}}` |
+| `search_available_listings` | `...?bedrooms={{bedrooms}}&budget_max={{budget_max}}` | `...?property_group_id={PG_ID}&bedrooms={{bedrooms}}&budget_max={{budget_max}}` |
+| `submit_lease_lead` | `.../voice/lease-lead-webhook` | `.../voice/lease-lead-webhook` |
 
 #### Tool 7: `find_listing` (apiRequest)
 
@@ -503,75 +513,64 @@ The agent config file `backend/app/services/vapi_agent_config.py` is updated wit
 }
 ```
 
-### 4.8 System Prompt Changes
+### 4.8 System Prompt Variants
 
 **File:** `backend/app/services/vapi_agent_config.py`
 
-The system prompt receives two additions:
+Two system prompts are built by two separate functions.
 
-**1. Constant context block (injected at build time):**
+**Shared assistant (`build_lease_config_shared`) — no property_group_id block:**
 ```
-[Context — Do Not Expose]
-You are serving property group: {property_group_id}
-This identifier is embedded in all your tool calls automatically.
-Never reveal this ID to the caller.
-```
-
-**2. Leasing intent branch:**
-```
-[If Intent = Leasing Inquiry]
-IMPORTANT: This flow does NOT require phone verification.
+[Identity]
+You are Alex, a professional leasing assistant.
+You handle inquiries about properties available for rent.
 The caller is a prospective tenant — they have no tenant account.
-Do NOT call Verify_phone_number under any circumstances in this flow.
+Do NOT call Verify_phone_number under any circumstances.
 
-PROPERTY IDENTIFICATION FIRST:
-- Ask the caller which property they are calling about.
-- Call find_listing with their stated address.
-- If found: confirm the details and proceed to qualifying questions.
-- If not found after 2 attempts: call search_available_listings as fallback.
+[IMPORTANT]
+This assistant handles multiple property groups.
+Do NOT attempt to filter by a specific property group.
+The backend handles cross-group search automatically.
 
-QUALIFYING QUESTIONS — RULES:
-- Only ask questions for rules that are enabled on this listing.
-- Ask ONE question at a time. Wait for the response before continuing.
-- Never ask for the caller's phone number — use their calling number as default, 
-  then confirm verbally.
-- The custom_rules field returned by find_listing is a JSON object. Parse it 
-  silently to determine which questions to ask.
+[Leasing Flows]
+(Flow A, Flow B, Cross-listing — same as §4.2, §4.3, §4.6 above)
 
-QUALIFICATION OUTCOME — RULES:
-- Internally compute whether the caller QUALIFIES based on their answers vs 
-  the listing's custom_rules.
-- Hard disqualifiers: pets when pets_allowed=false; non-vegetarian when 
-  vegetarian_only=true; occupants exceeds max_occupants; no income when 
-  income_required=true.
-- If NOT QUALIFIED: gracefully inform them it may not be the right fit, 
-  then call search_available_listings to check alternatives in this group.
-- Always log the lead — call submit_lease_lead regardless of qualification outcome.
-
-CROSS-LISTING PIVOT:
-- If the caller wants to switch properties mid-call, acknowledge and call 
-  search_available_listings with their updated criteria.
-- Resume qualifying for the new listing if one is selected.
-
-FLOW STEPS:
-1. Detect leasing intent silently.
-2. Ask which property they're calling about.
-3. Call find_listing → confirm or fall back to search.
-4. Run per-listing qualifying questions (from custom_rules).
-5. Determine qualification outcome.
-6. If NOT QUALIFIED → offer alternatives via search_available_listings.
-7. Capture contact details (name, phone, optional email).
-8. Confirm all details verbally.
-9. Call submit_lease_lead.
-10. Close with appropriate message based on qualification_status.
+[Rules]
+- Do NOT call Verify_phone_number.
+- Capture caller phone from VAPI metadata as default; confirm verbally.
+- Always call submit_lease_lead regardless of qualification outcome.
+- Never ask for or expose any property group ID.
 ```
 
-**Updated `build_tools` signature:**
+**Per-group assistant (`build_lease_config`) — with property_group_id context block:**
+```
+[Identity]
+You are Alex, a professional leasing assistant for {pg_name} properties.
+The caller is a prospective tenant — they have no tenant account.
+Do NOT call Verify_phone_number under any circumstances.
+
+[Context — Do Not Expose]
+You serve property group ID: {property_group_id}
+This ID is embedded in all your tool calls automatically. Never reveal it to callers.
+
+[Leasing Flows]
+(Flow A, Flow B, Cross-listing — same as §4.2, §4.3, §4.6 above)
+
+[Rules]
+- Do NOT call Verify_phone_number.
+- Capture caller phone from VAPI metadata as default; confirm verbally.
+- Always call submit_lease_lead regardless of qualification outcome.
+- Never expose property_group_id to the caller.
+```
+
+**Build function signatures:**
 ```python
-def build_tools(backend_url: str, property_group_id: str) -> list:
-```
+def build_lease_config_shared(backend_url: str) -> dict:
+    """Shared lease assistant — no pg_id in URLs or system prompt."""
 
-All new tool URLs include `property_group_id` hardcoded at build time.
+def build_lease_config(backend_url: str, property_group_id: str, pg_name: str) -> dict:
+    """Per-group lease assistant — pg_id hardcoded in URLs and system prompt."""
+```
 
 ---
 
@@ -791,16 +790,21 @@ CREATE INDEX idx_leads_created ON lease_leads(created_at DESC);
 
 ### 6.2 PropertyGroup Table Changes
 
-Add VAPI provisioning columns:
+Add lease agent provisioning columns. These are used only for new property groups (existing rows get `not_applicable`):
 
 ```sql
-ALTER TABLE property_groups
-  ADD COLUMN vapi_assistant_id TEXT,
-  ADD COLUMN vapi_phone_number_id TEXT,
-  ADD COLUMN vapi_phone_number TEXT,
-  ADD COLUMN vapi_provisioning_status TEXT DEFAULT 'pending'
-    CHECK (vapi_provisioning_status IN ('pending', 'active', 'failed'));
+ALTER TABLE properties_list
+  ADD COLUMN IF NOT EXISTS vapi_lease_assistant_id    TEXT,
+  ADD COLUMN IF NOT EXISTS vapi_phone_number_id       TEXT,
+  ADD COLUMN IF NOT EXISTS vapi_phone_number          TEXT,
+  ADD COLUMN IF NOT EXISTS vapi_provisioning_status   TEXT DEFAULT 'not_applicable'
+    CHECK (vapi_provisioning_status IN (
+      'not_applicable', 'pending', 'active', 'failed'
+    ));
 ```
+
+`not_applicable` = existing/test groups using the shared lease number.
+`pending` / `active` / `failed` = lifecycle for new groups being auto-provisioned.
 
 ### 6.3 New API Endpoints
 
@@ -927,17 +931,33 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
         if not lead_data:
             return {"result": "ignored"}
 
-        # Extract property_group_id from call metadata (stored in assistant metadata at deploy time)
         call = message.get("call", {})
-        assistant_id = call.get("assistantId")
-        pg_row = (
-            db.table("property_groups")
-            .select("uuid")
-            .eq("vapi_assistant_id", assistant_id)
-            .single()
-            .execute()
-        )
-        property_group_id = pg_row.data["uuid"] if pg_row.data else None
+
+        # Resolve property_group_id — priority order:
+        # 1. From matched listing (works for both shared and per-group assistants)
+        property_group_id = None
+        if listing_uuid := lead_data.get("listing_uuid"):
+            row = (
+                db.table("lease_listings")
+                .select("property_group_id")
+                .eq("uuid", listing_uuid)
+                .maybe_single()
+                .execute()
+            )
+            property_group_id = (row.data or {}).get("property_group_id")
+
+        # 2. From per-group assistant_id in DB (new property groups only)
+        if not property_group_id:
+            assistant_id = call.get("assistantId")
+            pg_row = (
+                db.table("properties_list")
+                .select("id")
+                .eq("vapi_lease_assistant_id", assistant_id)
+                .maybe_single()
+                .execute()
+            )
+            property_group_id = (pg_row.data or {}).get("id")
+        # 3. If still None: shared assistant + unmatched call → pg_id remains null (acceptable)
 
         interested_ids = [
             x.strip()
@@ -990,65 +1010,63 @@ async def get_leasing_metrics(
     #          estimated_time_saved_minutes, calls_by_listing []
 ```
 
-### 6.5 Auto-Provisioning Flow
+### 6.5 Auto-Provisioning Flow (New Property Groups Only)
 
 **File:** `backend/app/services/vapi_provisioning.py`
 
+This runs **only for new property groups** created from the next signup onward. Existing (test) property groups use the shared lease number and are never auto-provisioned.
+
 ```python
-async def provision_vapi_for_property_group(property_group_id: str, db: Client):
+async def provision_vapi_for_property_group(
+    property_group_id: str,
+    pg_name: str,
+    db: Client,
+):
     """
-    Called as a background task when a new PropertyGroup is created.
-    Creates VAPI assistant + buys phone number + links them.
+    BackgroundTask triggered on new PropertyGroup creation.
+    Provisions a dedicated VAPI lease assistant + phone number.
+    Complaint calls are handled by the global complaint assistant (Option B) — no provisioning needed.
     """
-    import httpx
-    VAPI_API_KEY = os.environ["VAPI_API_KEY"]
-    headers = {"Authorization": f"Bearer {VAPI_API_KEY}"}
+    from vapi import AsyncVapi
+    client = AsyncVapi(token=settings.PRIVATE_VAPI_API)
+    try:
+        # 1. Build per-group lease assistant (property_group_id hardcoded in URLs + system prompt)
+        lease_cfg = build_lease_config(BACKEND_URL, property_group_id, pg_name)
+        lease = await client.assistants.create(**lease_cfg)
 
-    # 1. Build assistant config with hardcoded property_group_id
-    config = build_assistant_config(property_group_id=property_group_id)
+        # 2. Buy +91 phone number
+        phone = await client.phone_numbers.create(fallback_destination=None)
 
-    # 2. Create assistant
-    async with httpx.AsyncClient() as client:
-        r = await client.post("https://api.vapi.ai/assistant", json=config, headers=headers)
-        r.raise_for_status()
-        assistant_id = r.json()["id"]
+        # 3. Link phone → lease assistant
+        await client.phone_numbers.update(id=phone.id, assistant_id=lease.id)
 
-        # 3. Buy phone number (Indian +91)
-        r = await client.post(
-            "https://api.vapi.ai/phone-number",
-            json={"provider": "twilio", "fallbackDestination": None, "areaCode": None, "country": "IN"},
-            headers=headers,
-        )
-        r.raise_for_status()
-        phone_data = r.json()
-        phone_number_id = phone_data["id"]
-        phone_number = phone_data["number"]
+        # 4. Save to DB
+        db.table("properties_list").update({
+            "vapi_lease_assistant_id":  lease.id,
+            "vapi_phone_number_id":     phone.id,
+            "vapi_phone_number":        phone.number,
+            "vapi_provisioning_status": "active",
+        }).eq("id", property_group_id).execute()
 
-        # 4. Link phone to assistant
-        await client.patch(
-            f"https://api.vapi.ai/phone-number/{phone_number_id}",
-            json={"assistantId": assistant_id},
-            headers=headers,
-        )
-
-    # 5. Save to DB
-    db.table("property_groups").update({
-        "vapi_assistant_id": assistant_id,
-        "vapi_phone_number_id": phone_number_id,
-        "vapi_phone_number": phone_number,
-        "vapi_provisioning_status": "active",
-    }).eq("uuid", property_group_id).execute()
+    except Exception:
+        db.table("properties_list").update({
+            "vapi_provisioning_status": "failed",
+        }).eq("id", property_group_id).execute()
+        raise
 ```
 
-**Error handling:** If any step fails, set `vapi_provisioning_status = "failed"`. The Settings tab shows a "Voice Agent Setup Failed — Retry" button that calls `POST /property-groups/{uuid}/provision-voice`.
+**Error handling:** If any step fails, `vapi_provisioning_status = "failed"`. The Settings tab shows a "Lease Agent Setup Failed — Retry" button that calls `POST /property-groups/{uuid}/provision-voice`.
+
+**Existing groups:** The SQL migration sets `vapi_provisioning_status = 'not_applicable'` for all existing rows — no auto-provisioning is attempted.
 
 ### 6.6 VAPI Agent Config Changes
 
 **File:** `backend/app/services/vapi_agent_config.py`
 
-1. **`build_tools(backend_url, property_group_id)`** — add 3 new tools with `property_group_id` hardcoded in URLs
-2. **`SYSTEM_PROMPT`** — add `[If Intent = Leasing Inquiry]` section (Section 4.8 above)
-3. **`build_assistant_config(property_group_id)`** — rename agent from "Complaint Intake Agent" to "Property Management Agent — {property_group_name}" and inject `property_group_id` into system prompt and tools
+Add two new lease assistant builders (leave legacy `build_assistant_config()` intact):
+
+1. **`build_lease_config_shared(backend_url)`** — shared lease assistant; no `property_group_id` in tool URLs or system prompt
+2. **`build_lease_config(backend_url, property_group_id, pg_name)`** — per-group lease assistant; `property_group_id` hardcoded in all 3 tool URLs and injected into system prompt context block
 
 ---
 
@@ -1097,10 +1115,10 @@ exportLeads: (params) => apiFetch(`/leasing/export?${new URLSearchParams(params)
 
 | File | Purpose |
 |------|---------|
-| `backend/app/routes/leasing.py` | All listing + lead CRUD + search endpoints |
+| `backend/app/routes/leasing.py` | All listing + lead CRUD + VAPI tool endpoints |
 | `backend/app/schemas/leasing.py` | Pydantic V2 models for listings, leads, metrics |
-| `backend/app/services/vapi_provisioning.py` | Auto-provisioning: create VAPI assistant + buy phone number |
-| `backend/migrations/0XX_create_leasing_tables.sql` | DDL for `lease_listings` + `lease_leads` + `property_groups` changes |
+| `backend/app/services/vapi_provisioning.py` | Auto-provisioning: lease assistant + phone number for new groups |
+| `backend/migrations/0XX_voice_agents.sql` | DDL for `lease_listings`, `lease_leads`, `properties_list` lease columns |
 | `frontend/src/components/LeasingTab.jsx` | Dashboard tab |
 | `frontend/src/components/AddListingModal.jsx` | Listing create/edit modal with custom rules |
 | `frontend/src/components/LeadDetailModal.jsx` | Lead view/edit modal |
@@ -1109,8 +1127,8 @@ exportLeads: (params) => apiFetch(`/leasing/export?${new URLSearchParams(params)
 
 | File | Change |
 |------|--------|
-| `backend/app/services/vapi_agent_config.py` | System prompt + 3 new tools + pg_id injection |
-| `backend/app/routes/voice.py` | Add `/voice/lease-lead-webhook` |
+| `backend/app/services/vapi_agent_config.py` | Add `build_lease_config_shared` + `build_lease_config`; keep legacy |
+| `backend/app/routes/voice.py` | Add `POST /voice/lease-lead-webhook` with new pg_id resolution |
 | `backend/app/main.py` | Register `leasing` router |
 | `frontend/src/components/Sidebar.jsx` | Add "Leasing" nav item |
 | `frontend/src/App.jsx` | Route to LeasingTab |
@@ -1122,19 +1140,20 @@ exportLeads: (params) => apiFetch(`/leasing/export?${new URLSearchParams(params)
 
 | Phase | Task | Effort |
 |-------|------|--------|
-| 1 | DB migration: `lease_listings`, `lease_leads`, `property_groups` columns | Low |
-| 2 | `vapi_provisioning.py` service + wire to PropertyGroup creation | Medium |
-| 3 | `GET /leasing/find-listing` + `GET /leasing/search` (VAPI tools) | Low |
-| 4 | `POST /voice/lease-lead-webhook` | Medium |
-| 5 | `GET/POST/PATCH/DELETE /leasing/listings` CRUD | Medium |
-| 6 | `GET/PATCH/DELETE /leasing/leads` CRUD + filters | Medium |
-| 7 | `GET /leasing/metrics` + `GET /leasing/export` | Medium |
-| 8 | Update `vapi_agent_config.py` (prompt + 3 tools + pg_id injection) | Medium |
-| 9 | `LeasingTab.jsx` — metrics bar + listings grid | Medium |
-| 10 | `AddListingModal.jsx` — form + custom rules + photo upload | Medium |
-| 11 | `LeadDetailModal.jsx` — full lead view + status update | Medium |
-| 12 | Wire Sidebar + App.jsx routing | Low |
-| 13 | End-to-end voice testing (all flows + cross-listing) | High |
+| 1 | DB migration: `lease_listings`, `lease_leads`, `properties_list` columns | Low |
+| 2 | `GET /leasing/find-listing` + `GET /leasing/search` with optional `property_group_id` | Low |
+| 3 | `POST /voice/lease-lead-webhook` (new pg_id resolution logic) | Medium |
+| 4 | `GET/POST/PATCH/DELETE /leasing/listings` CRUD | Medium |
+| 5 | `GET/PATCH/DELETE /leasing/leads` CRUD + filters | Medium |
+| 6 | `GET /leasing/metrics` + `GET /leasing/export` | Medium |
+| 7 | Add `build_lease_config_shared` + `build_lease_config` to `vapi_agent_config.py` | Medium |
+| 8 | `vapi_provisioning.py` service + wire to PropertyGroup creation (new groups only) | Medium |
+| 9 | One-time manual setup: shared lease assistant + complaint assistant | Low |
+| 10 | `LeasingTab.jsx` — metrics bar + listings grid + leads table | Medium |
+| 11 | `AddListingModal.jsx` — form + custom rules | Medium |
+| 12 | `LeadDetailModal.jsx` — full lead view + status update | Medium |
+| 13 | Wire Sidebar + App.jsx routing | Low |
+| 14 | End-to-end voice testing (shared + per-group + cross-listing) | High |
 
 **Estimated total: 6–8 days**
 
@@ -1180,13 +1199,14 @@ exportLeads: (params) => apiFetch(`/leasing/export?${new URLSearchParams(params)
 | Risk | Mitigation |
 |------|-----------|
 | `find_listing` returns wrong unit due to partial address match | Return at most 1 result; agent confirms details verbally before proceeding |
-| Agent skips qualifying questions for a listing | Explicit system prompt rule: parse `custom_rules` from find_listing response and ask per-rule questions |
+| Agent skips qualifying questions for a listing | System prompt rule: parse `custom_rules` from find_listing response and ask per-rule questions |
 | Spam calls creating junk leads | Rate limiting by phone number (10 calls/hour); manager can delete leads in dashboard |
-| VAPI provisioning fails on signup | Async background task; retry button in Settings; `vapi_provisioning_status` tracks state |
-| Agent reveals `property_group_id` to caller | System prompt rule: "Never expose this ID to callers" |
-| Cross-group data leakage in search | All endpoints require `property_group_id` as a query param; backend validates it matches the authenticated manager's group |
+| VAPI provisioning fails for new group | Async background task; retry button in Settings; `vapi_provisioning_status` tracks state |
+| Shared assistant returns listings from another manager's group | Acceptable for test groups; new groups get dedicated numbers with pg_id-scoped endpoints |
+| Lead has null property_group_id (shared + unmatched call) | Acceptable for test/existing groups; manager can see unmatched leads in dashboard |
+| Per-group agent reveals `property_group_id` to caller | System prompt rule: "Never expose this ID to callers" |
 | Manager lists too many units — voice agent reads 20 options | `search_available_listings` always caps voice output at 3 results |
-| Agent confuses leasing vs complaint mid-call | System prompt: if caller mentions a flat number AND a problem, switch to complaint flow and call Verify_phone_number |
+| Lease agent called on complaint number or vice versa | Separate phone numbers for complaint and lease agents prevent cross-agent calls |
 
 ---
 

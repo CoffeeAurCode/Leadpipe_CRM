@@ -5,7 +5,7 @@ import json
 import httpx
 from datetime import datetime, timezone
 
-from app.db.session import get_db
+from app.db.session import get_db, get_service_db
 from app.ai.validator import validate_complaint
 from app.services.notifications import notify_manager_appointment_scheduled
 
@@ -17,7 +17,7 @@ router = APIRouter()
 _last_call_ended_at: str | None = None
 
 @router.post("/voice/webhook")
-async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db: Client = Depends(get_db)):
+async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db: Client = Depends(get_service_db)):
     """
     Vapi webhook handler with proper event-type filtering.
     
@@ -92,7 +92,7 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
         # If call_id is missing even in final event, log and return success
         # This prevents Vapi dashboard from marking call as failed
         if not call_id:
-            print(f"⚠️  WARNING: call_id missing in {message_type} event")
+            print(f"[WARN] call_id missing in {message_type} event")
             print(f"  Returning success to prevent Vapi failure status")
             return {"status": "processed", "warning": "no_call_id"}
         
@@ -161,7 +161,7 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
         
         if user_confirmed:
             print(f"[CONFIRMATION DETECTED]")
-            print(f"  ✓ User confirmed complaint via submit_complaint")
+            print(f"  [OK] User confirmed complaint via submit_complaint")
         elif is_tool_call_event:
             print(f"[NO CONFIRMATION]")
             print(f"  Tool-calls event without submit_complaint (other tool called)")
@@ -450,6 +450,103 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
         
         # Still return 200 to prevent Vapi failure
         return {"status": "error", "message": str(e)}
+
+
+# ── Lease Lead Webhook ────────────────────────────────────────────────────────
+
+@router.post("/voice/lease-lead-webhook")
+async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_db)):
+    """
+    VAPI function tool webhook — processes submit_lease_lead calls from the lease agent.
+    Always returns HTTP 200 (async tool; VAPI does not wait for the result).
+    """
+    try:
+        payload = await request.json()
+        message = payload.get("message", {})
+        call = message.get("call", {})
+
+        tool_calls = message.get("toolCalls", [])
+        if not tool_calls:
+            tool_calls = (message.get("artifact") or {}).get("toolCalls", [])
+
+        lead_tool = None
+        for tool in tool_calls:
+            name = tool.get("function", {}).get("name") or tool.get("name")
+            if name == "submit_lease_lead":
+                lead_tool = tool
+                break
+
+        if not lead_tool:
+            return {"status": "ignored"}
+
+        function_args = (
+            lead_tool.get("function", {}).get("arguments") or
+            lead_tool.get("arguments")
+        )
+        if isinstance(function_args, str):
+            try:
+                lead_data = json.loads(function_args)
+            except Exception:
+                lead_data = {}
+        else:
+            lead_data = function_args or {}
+
+        phone = call.get("customer", {}).get("number", "")
+        call_id = call.get("id")
+        assistant_id = call.get("assistantId")
+
+        # Resolve property_group_id: listing → DB, then assistant_id → DB, then null
+        property_group_id = None
+        listing_uuid = lead_data.get("listing_uuid") or None
+        if listing_uuid:
+            row = db.table("lease_listings").select("property_group_id").eq("uuid", listing_uuid).limit(1).execute()
+            if row.data:
+                property_group_id = row.data[0].get("property_group_id")
+
+        if not property_group_id and assistant_id:
+            pg_row = (
+                db.table("properties_list")
+                .select("id")
+                .eq("vapi_lease_assistant_id", assistant_id)
+                .limit(1)
+                .execute()
+            )
+            if pg_row.data:
+                property_group_id = pg_row.data[0].get("id")
+
+        qualifying_answers = lead_data.get("qualifying_answers", "{}")
+        if isinstance(qualifying_answers, str):
+            try:
+                qualifying_answers = json.loads(qualifying_answers)
+            except Exception:
+                qualifying_answers = {}
+
+        lead_payload = {
+            "property_group_id": str(property_group_id) if property_group_id else None,
+            "listing_uuid": str(listing_uuid) if listing_uuid else None,
+            "caller_name": lead_data.get("caller_name") or "Unknown",
+            "phone": phone,
+            "email": lead_data.get("email"),
+            "bedrooms": lead_data.get("bedrooms") or None,
+            "budget_max": lead_data.get("budget_max") or None,
+            "move_in_timeline": lead_data.get("move_in_timeline"),
+            "occupants": lead_data.get("occupants") or None,
+            "floor_preference": lead_data.get("floor_preference"),
+            "qualification_status": lead_data.get("qualification_status") or "unmatched",
+            "disqualifying_reason": lead_data.get("disqualifying_reason"),
+            "qualifying_answers": qualifying_answers,
+            "notes": lead_data.get("notes"),
+            "source": "voice",
+            "call_id": call_id,
+        }
+
+        db.table("lease_leads").insert(lead_payload).execute()
+        print(f"[LEASE LEAD] Captured: phone={phone} status={lead_payload['qualification_status']}")
+
+    except Exception as e:
+        print(f"[ERROR] lease_lead_webhook: {e}")
+
+    return {"status": "processed"}
 
 
 # ── Call status polling endpoint ──────────────────────────────────────────────

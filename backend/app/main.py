@@ -4,7 +4,7 @@ from app.routes import (
     complaints, voice, call_logs, flats, appointments, tenants,
     properties, settings, rents, buildings, property_types,
     property_groups, upload, workflow, chat, payments, notifications,
-    import_routes,
+    import_routes, leasing,
 )
 from app.config import settings as config
 
@@ -47,6 +47,7 @@ app.include_router(chat.router)
 app.include_router(payments.router)
 app.include_router(notifications.router)
 app.include_router(import_routes.router)
+app.include_router(leasing.router)
 
 
 @app.get("/")

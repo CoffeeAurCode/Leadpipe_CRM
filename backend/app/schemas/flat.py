@@ -66,10 +66,12 @@ class FlatVerifyPhoneRequest(BaseModel):
 class FlatVerifyPhoneResponse(BaseModel):
     """Schema for phone verification response.
 
-    result  — plain-English summary the LLM reads directly.
-    status  — machine-readable status for VAPI variable extraction.
-    datetime — current IST time, only on valid responses.
+    result           — plain-English summary the LLM reads directly.
+    status           — machine-readable status for VAPI variable extraction.
+    datetime         — current IST time, only on valid responses.
+    property_group_id — UUID of the PropertyGroup; only on valid responses.
     """
     result: str = Field(..., description="Plain-English outcome for the LLM")
     status: str = Field(..., description="'valid', 'invalid', or 'vacant'")
     datetime: Optional[str] = Field(None, description="Current server datetime in IST (ISO 8601), only on valid responses")
+    property_group_id: Optional[str] = Field(None, description="PropertyGroup UUID, only on valid responses")

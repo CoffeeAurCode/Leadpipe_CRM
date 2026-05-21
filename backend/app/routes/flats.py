@@ -56,7 +56,7 @@ def _phones_match(a: str, b: str) -> bool:
 async def verify_phone(
     request: FlatVerifyPhoneRequest,
     phone_number: Optional[str] = Query(None, description="Caller phone — injected by VAPI as {{customer.number}}"),
-    db: Client = Depends(get_db),
+    db: Client = Depends(get_service_db),
 ):
     """
     VAPI apiRequest tool — Verify that the caller is the registered tenant of a flat.
@@ -85,10 +85,10 @@ async def verify_phone(
 
         normalized_flat = flat_number.strip().upper()
 
-        # 1. Look up flat (case-insensitive)
+        # 1. Look up flat (case-insensitive); include building_id for property_group resolution
         flat_resp = (
             db.table("flats")
-            .select("uuid, tenant_uuid")
+            .select("uuid, tenant_uuid, building_id")
             .ilike("flat_number", normalized_flat)
             .execute()
         )
@@ -123,10 +123,25 @@ async def verify_phone(
         print(f"[DEBUG] phone match: caller={phone_number!r} db={tenant_phone!r} match={match}")
         if match:
             current_time_ist = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
+
+            # Resolve property_group_id via building → properties_list
+            property_group_id = None
+            if flat.get("building_id"):
+                bldg_resp = (
+                    db.table("buildings")
+                    .select("property_id")
+                    .eq("id", flat["building_id"])
+                    .limit(1)
+                    .execute()
+                )
+                if bldg_resp.data:
+                    property_group_id = str(bldg_resp.data[0]["property_id"])
+
             return FlatVerifyPhoneResponse(
                 result=f"Verification result: valid. Caller is the registered tenant. Current IST time: {current_time_ist}.",
                 status="valid",
                 datetime=current_time_ist,
+                property_group_id=property_group_id,
             )
 
         return FlatVerifyPhoneResponse(

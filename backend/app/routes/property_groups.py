@@ -6,7 +6,7 @@ Each property_group can contain multiple buildings (linked via buildings.propert
 
 Hierarchy: Property → Building → Unit (flat)
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from supabase import Client
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
@@ -39,6 +39,8 @@ class PropertyGroupResponse(BaseModel):
     property_type_icon: Optional[str] = None
     building_count: int = 0
     created_at: datetime
+    vapi_provisioning_status: Optional[str] = None
+    vapi_phone_number: Optional[str] = None
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -82,6 +84,8 @@ async def get_all_property_groups(user: dict = Depends(require_active_subscripti
                 "property_type_icon": pt.get("icon_type"),
                 "building_count": count_map.get(str(g["id"]), 0),
                 "created_at": g["created_at"],
+                "vapi_provisioning_status": g.get("vapi_provisioning_status"),
+                "vapi_phone_number": g.get("vapi_phone_number"),
             })
         return result
 
@@ -93,20 +97,33 @@ async def get_all_property_groups(user: dict = Depends(require_active_subscripti
 
 
 @router.post("", response_model=PropertyGroupResponse, status_code=status.HTTP_201_CREATED)
-async def create_property_group(request: PropertyGroupCreate, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
-    """Create a new property group."""
+async def create_property_group(
+    request: PropertyGroupCreate,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """Create a new property group and trigger VAPI lease assistant provisioning."""
     try:
         payload = request.model_dump(exclude_none=True)
         if "property_type_id" in payload:
             payload["property_type_id"] = str(payload["property_type_id"])
+
+        payload["vapi_provisioning_status"] = "pending"
+        payload["manager_id"] = user["sub"]
 
         response = db.table("properties_list").insert(payload).execute()
         if not response.data:
             raise HTTPException(status_code=500, detail="Failed to create property group")
 
         g = response.data[0]
+        pg_id = str(g["id"])
+        pg_name = g["name"]
 
-        # Fetch property type info for response
+        # Provision dedicated VAPI lease assistant for this new group
+        from app.services.vapi_provisioning import provision_vapi_for_property_group
+        background_tasks.add_task(provision_vapi_for_property_group, pg_id, pg_name, db)
+
         pt = {}
         if g.get("property_type_id"):
             pt_resp = db.table("property_types").select("name, icon_type").eq("id", g["property_type_id"]).execute()
@@ -123,6 +140,26 @@ async def create_property_group(request: PropertyGroupCreate, user: dict = Depen
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating property group: {str(e)}")
+
+
+@router.post("/{property_id}/provision-voice", status_code=202)
+async def retry_voice_provisioning(
+    property_id: str,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """Retry VAPI lease assistant provisioning for a property group (e.g. after a failure)."""
+    pg = db.table("properties_list").select("id, name").eq("id", property_id).limit(1).execute()
+    if not pg.data:
+        raise HTTPException(status_code=404, detail="Property group not found")
+
+    db.table("properties_list").update({"vapi_provisioning_status": "pending"}).eq("id", property_id).execute()
+
+    from app.services.vapi_provisioning import provision_vapi_for_property_group
+    background_tasks.add_task(provision_vapi_for_property_group, pg.data[0]["id"], pg.data[0]["name"], db)
+
+    return {"status": "provisioning_started"}
 
 
 @router.get("/{property_id}/buildings")

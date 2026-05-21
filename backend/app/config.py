@@ -21,8 +21,15 @@ class Settings:
     OPEN_AI_API: str = os.getenv("OPEN_AI_API", "")
     # Vapi
     PRIVATE_VAPI_API: str = os.getenv("PRIVATE_VAPI_API", "")
+    # Legacy single-assistant vars (kept for outbound call endpoint)
     VAPI_NUMBER_ID: str = os.getenv("VAPI_NUMBER_ID", "")
     VAPI_ASSISTANT_ID: str = os.getenv("VAPI_ASSISTANT_ID", "")
+    # Complaint agent (global, Option B architecture)
+    VAPI_COMPLAINT_ASSISTANT_ID: str = os.getenv("VAPI_COMPLAINT_ASSISTANT_ID", "")
+    VAPI_COMPLAINT_NUMBER_ID: str = os.getenv("VAPI_COMPLAINT_NUMBER_ID", "")
+    # Shared lease agent (existing property groups)
+    VAPI_SHARED_LEASE_ASSISTANT_ID: str = os.getenv("VAPI_SHARED_LEASE_ASSISTANT_ID", "")
+    VAPI_SHARED_LEASE_NUMBER_ID: str = os.getenv("VAPI_SHARED_LEASE_NUMBER_ID", "")
     BACKEND_URL: str = os.getenv("BACKEND_URL", "https://tenant-management-mvp.onrender.com")
     APP_NAME: str = os.getenv("APP_NAME", "Tenant Management System")
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"

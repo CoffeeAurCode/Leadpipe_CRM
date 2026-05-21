@@ -774,3 +774,100 @@ export async function importTenantsCsv(file) {
     }
     return await response.json();
 }
+
+// ── Leasing ───────────────────────────────────────────────────────────────────
+
+export async function getListings() {
+    const response = await authFetch(`${API_BASE_URL}/leasing/listings`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+export async function createListing(data) {
+    const response = await authFetch(`${API_BASE_URL}/leasing/listings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function updateListing(uuid, data) {
+    const response = await authFetch(`${API_BASE_URL}/leasing/listings/${uuid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function deleteListing(uuid) {
+    const response = await authFetch(`${API_BASE_URL}/leasing/listings/${uuid}`, { method: 'DELETE' });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return null;
+}
+
+export async function getLeaseLeads(params = {}) {
+    const qs = new URLSearchParams();
+    if (params.listing_uuid) qs.set('listing_uuid', params.listing_uuid);
+    if (params.qualification_status) qs.set('qualification_status', params.qualification_status);
+    const response = await authFetch(`${API_BASE_URL}/leasing/leads?${qs}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+export async function updateLead(uuid, data) {
+    const response = await authFetch(`${API_BASE_URL}/leasing/leads/${uuid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function deleteLead(uuid) {
+    const response = await authFetch(`${API_BASE_URL}/leasing/leads/${uuid}`, { method: 'DELETE' });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return null;
+}
+
+export async function getLeasingMetrics(params = {}) {
+    const qs = new URLSearchParams();
+    if (params.days) qs.set('days', params.days);
+    const response = await authFetch(`${API_BASE_URL}/leasing/metrics?${qs}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+export async function exportLeads(params = {}) {
+    const qs = new URLSearchParams();
+    if (params.listing_uuid) qs.set('listing_uuid', params.listing_uuid);
+    if (params.qualification_status) qs.set('qualification_status', params.qualification_status);
+    const response = await authFetch(`${API_BASE_URL}/leasing/export?${qs}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'leads.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}

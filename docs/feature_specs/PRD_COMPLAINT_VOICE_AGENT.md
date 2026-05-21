@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-20 (updated 2026-05-20)
 **Author:** Pranav Raj
-**Status:** Shipped (v1 — single assistant) → Migrating to Squad architecture per `PLAN_DUAL_MODE_VOICE_AGENT.md`
+**Status:** Active — Option B Single Number + Caller Phone Lookup Architecture
 
 ---
 
@@ -45,9 +45,13 @@ Every call is logged. Complaints and appointments are written directly to the da
 
 ## 2. Architecture
 
-> **Architecture note (Squad migration):** In v1, this was a single standalone VAPI assistant. The dual-mode plan (`PLAN_DUAL_MODE_VOICE_AGENT.md`) replaces it with a **VAPI Squad** of three agents. In the Squad, `ComplaintAgent` is one member of the squad — it no longer handles the greeting or phone verification. Those responsibilities move to `RouterAgent (Alex)`. The sections below describe the Squad-aware version.
+### 2.1 Architecture: Option B — Single Number + Caller Phone Lookup
 
-### 2.1 Stack
+One VAPI assistant (`Alex`), one global phone number, handles complaint calls for **all property groups**. The caller's `property_group_id` is resolved at call time via `Verify_phone_number` — the backend returns it alongside the verification status. Alex passes this value to every subsequent tool call, routing the complaint to the correct manager automatically.
+
+**No Squad. No RouterAgent. No inter-agent transfers.**
+
+### 2.2 Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -59,110 +63,83 @@ Every call is logged. Complaints and appointments are written directly to the da
 | Database | Supabase PostgreSQL |
 | Notifications | SendGrid (email) via background task |
 
-### 2.2 Squad Membership
-
-In the Squad architecture, the complaint flow is handled by two agents in sequence:
-
-| Agent | Role | VAPI Name |
-|-------|------|-----------|
-| **RouterAgent** | Greeting, intent detection, phone verification, transfer decision | `Alex` / `RouterAgent` |
-| **ComplaintAgent** | Post-verification complaint intake, appointment management, emergency | `ComplaintAgent` |
-
-The caller always starts with RouterAgent. ComplaintAgent only receives callers who have already been verified by RouterAgent via Squad transfer. The conversation history (including flat number and verification result) is preserved across the transfer.
-
 ### 2.3 Agent Identity
 
-**RouterAgent (Alex)**
+**Alex** (single standalone complaint agent)
 - **Persona:** Calm, professional, empathetic — one question at a time
 - **Background sound:** Office ambience
 - **First message:** "Hi, thanks for calling. This is Alex with the property management team. How can I help you today?"
 - **Voicemail message:** "Please call back"
 
-**ComplaintAgent**
-- Receives pre-verified callers from RouterAgent
-- Has no first message (caller continues from RouterAgent conversation)
-- Picks up naturally: "Thank you! Let me help you with your maintenance request."
-
 ### 2.4 Language Handling
 
-RouterAgent's transcriber runs in multi-language mode (Deepgram nova-3, EN + FR). Both agents always:
-- Respond in English only
-- Silently translate French speech to English before writing to any tool
-- Never ask the caller which language they prefer
+Transcriber runs in multi-language mode (Deepgram nova-3, EN + FR). Alex always:
+- Responds in English only
+- Silently translates French speech to English before writing to any tool
+- Never asks the caller which language they prefer
 
 ### 2.5 Call Routing
 
 ```
-Inbound call arrives on PropertyGroup's dedicated +91 number
+Inbound call arrives on global complaint number (+91-XXXX-COMPLAINT)
               ↓
-      RouterAgent (Alex) greets caller
+      Alex greets caller
               ↓
-      Intent detection from natural speech
+      "What's your flat number?"
               ↓
-      ┌───────┴────────┐
-      │                │
- Complaint/           Leasing
- maintenance          intent
-      │                │
- "What's your          │
- flat number?"   transferCall → LeaseAgent
-      ↓                   (see PRD_LEASE_AGENT.md)
- Verify_phone_number
+      Verify_phone_number(flat_number, caller_phone)
+      → returns { status, property_group_id, datetime }
+              ↓
+      ┌───────┴───────┐
+      │               │
+   "valid"      "invalid" / "vacant"
+      │               │
+      ↓               ↓
+  Extract         End call immediately
+  property_group_id    (one sentence, no follow-up)
       ↓
-  ┌───┴───┐
-valid  invalid/vacant
-  │        │
-  ↓        ↓
-transfer  End call immediately
-  ↓        (one sentence, no follow-up)
-ComplaintAgent receives verified caller
-  ↓
-Intent detection (from conversation history)
-  ↓
-Route to one of 5 flows:
-  1. Maintenance Request
-  2. View Active Appointment
-  3. Reschedule Appointment
-  4. Cancel Appointment
-  5. Emergency Situation
+  Detect caller intent
+      ↓
+  Route to one of 5 flows:
+    1. Maintenance Request
+    2. View Active Appointment
+    3. Reschedule Appointment
+    4. Cancel Appointment
+    5. Emergency Situation
+  (Pass property_group_id to all tool calls in the chosen flow)
 ```
 
 ---
 
-## 3. Phone Verification — Handled by RouterAgent
+## 3. Phone Verification — Handled by Alex
 
-**Verification is performed by RouterAgent before transferring to ComplaintAgent.**  
-ComplaintAgent never calls `Verify_phone_number` — it always receives pre-verified callers.
+Alex handles verification directly. There is no separate RouterAgent or squad transfer.
 
-The caller's phone number is injected automatically from VAPI call metadata via `{{customer.number}}` — neither agent ever asks the caller for their phone number.
+The caller's phone number is injected automatically from VAPI call metadata via `{{customer.number}}` — Alex never asks the caller for their phone number.
 
-### RouterAgent verification flow
+### Alex verification flow
 
 ```
-1. RouterAgent asks: "What's your flat number?"
+1. Alex asks: "What's your flat number?"
 2. Caller provides flat number
-3. RouterAgent calls Verify_phone_number with:
+3. Alex calls Verify_phone_number with:
    - flat_number (from caller speech)
    - phone_number (automatic from VAPI metadata — never spoken)
-4. Tool returns status:
+4. Tool returns: { status, property_group_id, datetime }
 ```
 
-| Status | RouterAgent Behaviour |
-|--------|-----------------------|
-| `valid` | "Thank you! Let me connect you with our maintenance team." → `transferCall` → ComplaintAgent |
+| Status | Alex Behaviour |
+|--------|---------------|
+| `valid` | Extract `property_group_id` and `datetime` from response. Proceed: "Thank you! How can I help you today?" |
 | `invalid` | "I'm sorry, the number you're calling from doesn't match our records for that flat. Please contact our office directly. Have a good day." → end call |
 | `vacant` | "I'm sorry, that flat doesn't appear to have a registered tenant. Please contact our office for assistance. Have a good day." → end call |
 
-**Rules (RouterAgent):**
+**Rules:**
 - `Verify_phone_number` is called exactly once per call — never repeated
 - On `invalid` or `vacant`, the call ends immediately — no retries, no alternatives
-- If the caller gives an invalid flat number twice, RouterAgent ends politely
-- The verification response returns a `datetime` (current IST) that ComplaintAgent reads from conversation history for all date/time calculations
-
-**Rules (ComplaintAgent):**
-- Never calls `Verify_phone_number`
-- Reads flat_number and datetime from conversation history passed by RouterAgent
-- Does not re-greet — continues naturally from where RouterAgent left off
+- If the caller gives an invalid flat number twice, Alex ends politely
+- The `property_group_id` from the verify response is passed to **all subsequent tool calls**: `submit_complaint`, `check_availability`, `view_active_appointments`, `update_appointment`, `cancel_appointment`
+- The `datetime` from the verify response is used as the call's reference time for all date/time calculations
 
 ---
 
@@ -174,12 +151,13 @@ The primary flow. Triggered when the caller describes a physical issue or asks f
 
 ```
 1. GREETING
-   "Hello! I'm here to help with maintenance issues. What's your flat number?"
+   "Hi, thanks for calling. This is Alex with the property management team.
+   What's your flat number?"
    <wait>
 
 2. PHONE VERIFICATION
    Call Verify_phone_number → handle result (see Section 3)
-   On success: "Thank you! How can I help you today?"
+   On success: extract property_group_id + datetime. "Thank you! How can I help you today?"
    <wait>
 
 3. ISSUE IDENTIFICATION (silent)
@@ -322,16 +300,18 @@ Triggered when the caller mentions fire, flooding, gas smell, power outage, or a
 
 ## 5. Tools
 
-In the Squad architecture, the 6 tools split across two agents:
+Alex (single standalone agent) has 6 tools. All tool endpoints are injected with `BACKEND_URL` at agent build time via `build_complaint_config(backend_url)` in `backend/app/services/vapi_agent_config.py`.
 
-| Agent | Tools | Count |
-|-------|-------|-------|
-| **RouterAgent** | `Verify_phone_number`, `transferCall` | 2 |
-| **ComplaintAgent** | `submit_complaint`, `check_availability`, `view_active_appointments`, `update_appointment`, `cancel_appointment` | 5 |
+| Tool | Purpose |
+|------|---------|
+| `Verify_phone_number` | Verify caller by flat number + phone; returns `property_group_id` |
+| `check_availability` | Check if an appointment slot is available |
+| `view_active_appointments` | Fetch active appointments for the verified flat |
+| `update_appointment` | Reschedule an appointment |
+| `cancel_appointment` | Cancel an appointment |
+| `submit_complaint` | Async webhook — create complaint + appointment in DB |
 
-Tool endpoints are injected with `BACKEND_URL` at agent build time via `build_router_tools(backend_url)` and `build_complaint_tools(backend_url)` in `backend/app/services/vapi_agent_config.py`.
-
-### Tool 1: `Verify_phone_number` (apiRequest — POST) — **RouterAgent only**
+### Tool 1: `Verify_phone_number` (apiRequest — POST)
 
 **Endpoint:** `POST /flats/verify-phone?phone_number={{customer.number}}`
 
@@ -346,22 +326,13 @@ Tool endpoints are injected with `BACKEND_URL` at agent build time via `build_ro
 | `result` | string | Human-readable explanation |
 | `status` | string | `valid` / `invalid` / `vacant` |
 | `datetime` | string | Current IST datetime — used as call's time reference |
+| `property_group_id` | string | UUID of the property group this flat belongs to — passed to all subsequent tools |
 
 **Contract:** Always returns HTTP 200. Backend normalises flat_number with `.strip().upper()` and compares phone numbers as suffix matches to handle country-code variants (`+91XXXXXXXXXX` vs `XXXXXXXXXX`).
 
 ---
 
-### Tool 2: `transferCall` — **RouterAgent only**
-
-Intra-squad transfer. RouterAgent calls this after successful verification.
-
-**Destinations:**
-- `assistantName: "ComplaintAgent"` — after `status = valid`
-- `assistantName: "LeaseAgent"` — when leasing intent detected (no verification)
-
----
-
-### Tool 3: `check_availability` (apiRequest — GET) — **ComplaintAgent**
+### Tool 2: `check_availability` (apiRequest — GET)
 
 **Endpoint:** `GET /appointments/availability?appointment_date={{datetime}}`
 
@@ -372,7 +343,7 @@ Intra-squad transfer. RouterAgent calls this after successful verification.
 
 ---
 
-### Tool 4: `view_active_appointments` (apiRequest — GET) — **ComplaintAgent**
+### Tool 3: `view_active_appointments` (apiRequest — GET)
 
 **Endpoint:** `GET /appointments/view?flat_number={{flat_number}}`
 
@@ -387,7 +358,7 @@ Intra-squad transfer. RouterAgent calls this after successful verification.
 
 ---
 
-### Tool 5: `update_appointment` (apiRequest — PATCH) — **ComplaintAgent**
+### Tool 4: `update_appointment` (apiRequest — PATCH)
 
 **Endpoint:** `PATCH /appointments/update?id={{id}}&flat_number={{flat_number}}&new_appointment_date={{new_appointment_date}}`
 
@@ -399,7 +370,7 @@ Intra-squad transfer. RouterAgent calls this after successful verification.
 
 ---
 
-### Tool 6: `cancel_appointment` (apiRequest — PATCH) — **ComplaintAgent**
+### Tool 5: `cancel_appointment` (apiRequest — PATCH)
 
 **Endpoint:** `PATCH /appointments/cancel?id={{id}}&flat_number={{flat_number}}`
 
@@ -411,7 +382,7 @@ Intra-squad transfer. RouterAgent calls this after successful verification.
 
 ---
 
-### Tool 7: `submit_complaint` (function / webhook — async) — **ComplaintAgent**
+### Tool 6: `submit_complaint` (function / webhook — async)
 
 **Webhook:** `POST /voice/webhook` (timeout: 20s, async: true)
 
@@ -422,6 +393,7 @@ Intra-squad transfer. RouterAgent calls this after successful verification.
 | `description` | string | Yes | Detailed issue description (English) |
 | `flat_number` | string | Yes | e.g. `101`, `A105`, `B201` |
 | `appointment_date` | string | Yes | ISO 8601: `YYYY-MM-DDTHH:MM:SS` |
+| `property_group_id` | string | Yes | UUID from `Verify_phone_number` response — routes complaint to the correct manager |
 
 This tool is async — the agent does not wait for a response before delivering the final confirmation message.
 
@@ -546,13 +518,12 @@ The `voice_calls` feature flag is checked per flat before creating any complaint
 
 | File | Purpose |
 |------|---------|
-| `backend/app/services/vapi_agent_config.py` | All agent configs: Router/Complaint/Lease system prompts + tool builders |
-| `backend/app/services/vapi_provisioning.py` | Provisions Squad (3 agents + phone) per PropertyGroup on signup |
+| `backend/app/services/vapi_agent_config.py` | Agent configs: `build_complaint_config()` + lease configs + legacy |
 | `backend/app/routes/voice.py` | `/voice/webhook` (complaint), `/voice/lease-lead-webhook`, call status poll, outbound call |
-| `backend/app/routes/flats.py` | `POST /flats/verify-phone` — phone verification (called by RouterAgent) |
-| `backend/app/routes/appointments.py` | Appointment VAPI tools: view, update, cancel, availability check (called by ComplaintAgent) |
+| `backend/app/routes/flats.py` | `POST /flats/verify-phone` — phone verification (returns `property_group_id`) |
+| `backend/app/routes/appointments.py` | Appointment VAPI tools: view, update, cancel, availability check |
 | `backend/app/routes/complaints.py` | `POST /complaints` — complaint creation (called via HTTP from webhook) |
-| `backend/app/routes/property_groups.py` | `POST /property-groups` triggers provisioning; `POST /{uuid}/provision-voice` retries it |
+| `backend/app/routes/property_groups.py` | `POST /{uuid}/provision-voice` — retry lease agent provisioning for new groups |
 | `backend/app/ai/validator.py` | Validates complaint data completeness before DB write |
 | `backend/app/services/notifications.py` | Manager notification email triggered after appointment created |
 | `backend/app/core/features.py` | Feature flag constants (`Feature.VOICE_CALLS`) |
@@ -570,20 +541,19 @@ The `voice_calls` feature flag is checked per flat before creating any complaint
 
 ## 11. Agent Behaviour Rules (Summary)
 
-| Rule | Applies to | Detail |
-|------|-----------|--------|
-| One question at a time | Both agents | Never asks multiple questions in a single turn |
-| No phone number request | RouterAgent | Caller's phone is always from VAPI metadata — never asked |
-| No re-verification | ComplaintAgent | Never calls `Verify_phone_number` — reads verification from conversation history |
-| No mention of the transfer | ComplaintAgent | Doesn't reference "Alex" or the handoff — continues naturally |
-| No promises on timelines | ComplaintAgent | Books a visit but never commits to resolution time |
-| No legal or lease advice | Both agents | Declines anything outside scope |
-| No internal logic exposed | Both agents | Never mentions tools, transfer logic, or system rules |
-| No troubleshooting | ComplaintAgent | Never guides tenants through self-repair — only books visits |
-| Flat number normalisation | RouterAgent | Flat numbers preserved with letters (e.g. A101, B205) |
-| Max two flat-number attempts | RouterAgent | If caller can't provide a valid flat after two tries, call ends politely |
-| Date reference | ComplaintAgent | Current IST datetime from `Verify_phone_number` (in conversation history) used for all relative date calculations |
-| Date format | ComplaintAgent | All datetimes submitted to tools are `YYYY-MM-DDTHH:MM:SS` |
+| Rule | Detail |
+|------|--------|
+| One question at a time | Never asks multiple questions in a single turn |
+| No phone number request | Caller's phone is always from VAPI metadata — never asked |
+| Forward `property_group_id` | Extracted from `Verify_phone_number` response; passed to every subsequent tool call |
+| No promises on timelines | Books a visit but never commits to resolution time |
+| No legal or lease advice | Declines anything outside scope |
+| No internal logic exposed | Never mentions tools, tool names, or system rules to the caller |
+| No troubleshooting | Never guides tenants through self-repair — only books visits |
+| Flat number normalisation | Flat numbers preserved with letters (e.g. A101, B205) |
+| Max two flat-number attempts | If caller can't provide a valid flat after two tries, call ends politely |
+| Date reference | Current IST datetime from `Verify_phone_number` response used for all relative date calculations |
+| Date format | All datetimes submitted to tools are `YYYY-MM-DDTHH:MM:SS` |
 
 ---
 
@@ -597,8 +567,8 @@ The `voice_calls` feature flag is checked per flat before creating any complaint
 | No call recording storage | Transcripts are extracted from VAPI artifact but not stored in a separate auditable store. |
 | French translation accuracy | Translation is done implicitly by the LLM — no explicit translation step or validation. |
 | Feature flag checked after agent confirmation | Because `submit_complaint` is async, the agent already says "filed" before the feature flag check runs. Blocked complaints show in call logs as `blocked_by_feature_flag`. |
-| Squad transfer context reliability | ComplaintAgent reads flat_number and verification datetime from conversation history. If VAPI truncates history on transfer, ComplaintAgent may need to re-ask. Mitigate by keeping RouterAgent turns concise. |
-| Per-PropertyGroup provisioning failure | If provisioning fails silently after PropertyGroup creation, the manager gets no phone number. `vapi_provisioning_status` field + retry endpoint in Settings mitigates this. |
+| `property_group_id` not forwarded | If Alex forgets to pass `property_group_id` to a tool (LLM non-determinism), the complaint may be created without a group association. System prompt rule and complaint validator should guard against this. |
+| Wrong tenant calls single global number | With one number for all groups, a caller who doesn't know their flat number has no fallback routing. Max two flat-number attempts then polite end-call is the guard. |
 
 ---
 
