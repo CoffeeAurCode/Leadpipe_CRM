@@ -29,7 +29,7 @@ function Sidebar({ currentView, onNavigate }) {
             </div>
 
             {/* Nav */}
-            <nav data-tour="sidebar-nav" className="flex-1 py-6 px-3 lg:px-4">
+            <nav data-tour="sidebar-nav" className="flex-1 py-6 px-3 lg:px-4 overflow-y-auto">
                 <ul className="space-y-2">
                     {navItems.map((item) => {
                         const Icon = item.icon;
