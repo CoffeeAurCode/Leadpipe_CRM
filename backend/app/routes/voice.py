@@ -578,6 +578,7 @@ async def make_outbound_call(req: OutboundCallRequest):
                   (falls back to VAPI_NUMBER_ID if lease number not set).
     """
     from vapi import Vapi, CreateCustomerDto, AssistantOverrides
+    from vapi.core.api_error import ApiError
     from app.config import settings
 
     if not settings.PRIVATE_VAPI_API:
@@ -602,11 +603,15 @@ async def make_outbound_call(req: OutboundCallRequest):
     if req.first_message:
         overrides = AssistantOverrides(first_message=req.first_message)
 
-    call = client.calls.create(
-        assistant_id=assistant_id,
-        phone_number_id=phone_number_id,
-        customer=CreateCustomerDto(number=req.customer_number),
-        assistant_overrides=overrides,
-    )
+    try:
+        call = client.calls.create(
+            assistant_id=assistant_id,
+            phone_number_id=phone_number_id,
+            customer=CreateCustomerDto(number=req.customer_number),
+            assistant_overrides=overrides,
+        )
+    except ApiError as e:
+        detail = e.body.get("message", str(e)) if isinstance(e.body, dict) else str(e)
+        raise HTTPException(status_code=e.status_code or 502, detail=detail)
 
     return {"call_id": call.id, "status": call.status, "agent": req.agent}
