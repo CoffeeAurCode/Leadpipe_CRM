@@ -125,7 +125,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                 <div className="flex items-center justify-between p-6 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
                     <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
                         <Building className="w-6 h-6 text-primary" />
-                        Add New Property
+                        Add Unit
                     </h2>
                     <button onClick={handleClose}
                         className="p-2 rounded-lg hover:bg-secondary transition-colors">
@@ -150,7 +150,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                         <div className="space-y-4">
                             <h3 className="font-semibold text-lg flex items-center gap-2">
                                 <Home className="w-5 h-5 text-primary" />
-                                Property Details
+                                Unit Details
                             </h3>
 
                             <div className="grid grid-cols-2 gap-4">
