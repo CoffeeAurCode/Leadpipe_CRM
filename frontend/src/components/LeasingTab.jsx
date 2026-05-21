@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, ExternalLink, Phone, BedDouble, Banknote } from 'lucide-react';
+import { Plus, Pencil, Trash2, ExternalLink, Phone, BedDouble, Banknote, PhoneCall } from 'lucide-react';
 import {
     getListings, deleteListing,
     getLeaseLeads, deleteLead,
     getLeasingMetrics, exportLeads,
+    fetchPropertyGroups,
 } from '../services/apiService';
 import AddListingModal from './AddListingModal';
 import LeadDetailModal from './LeadDetailModal';
@@ -35,10 +36,18 @@ function fmtDuration(secs) {
     return `${m}m ${s}s`;
 }
 
+const PROVISION_STATUS = {
+    active:          { label: 'Active',         cls: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
+    pending:         { label: 'Provisioning…',  cls: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
+    failed:          { label: 'Failed',          cls: 'bg-red-500/10 text-red-500 border-red-500/20' },
+    not_applicable:  { label: 'Not set up',      cls: 'bg-muted text-muted-foreground border-border' },
+};
+
 export default function LeasingTab() {
     const [listings, setListings] = useState([]);
     const [leads, setLeads] = useState([]);
     const [metrics, setMetrics] = useState(null);
+    const [propertyGroups, setPropertyGroups] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [listingFilter, setListingFilter] = useState('');
@@ -51,14 +60,16 @@ export default function LeasingTab() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [l, ld, m] = await Promise.all([
+            const [l, ld, m, pg] = await Promise.all([
                 getListings(),
                 getLeaseLeads(),
                 getLeasingMetrics(),
+                fetchPropertyGroups(),
             ]);
             setListings(l);
             setLeads(ld);
             setMetrics(m);
+            setPropertyGroups(pg);
         } catch (e) {
             console.error('Leasing load error', e);
         } finally {
@@ -116,9 +127,35 @@ export default function LeasingTab() {
                 <p className="text-muted-foreground text-sm mt-1">Manage listings and track voice leads from the lease agent.</p>
             </div>
 
+            {/* Lease agent phone numbers */}
+            {propertyGroups.length > 0 && (
+                <div data-tour="leasing-phone" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {propertyGroups.map(pg => {
+                        const status = PROVISION_STATUS[pg.vapi_provisioning_status] || PROVISION_STATUS.not_applicable;
+                        return (
+                            <div key={pg.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl">
+                                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                    <PhoneCall className="w-4 h-4 text-primary" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-xs text-muted-foreground truncate">{pg.name} — Lease Agent</p>
+                                    {pg.vapi_phone_number ? (
+                                        <p className="text-sm font-semibold text-foreground tracking-wide">{pg.vapi_phone_number}</p>
+                                    ) : (
+                                        <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full border mt-0.5 ${status.cls}`}>
+                                            {status.label}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
             {/* Metrics */}
             {metrics && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div data-tour="leasing-metrics" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                     <MetricCard label="Total Calls" value={metrics.total_calls} />
                     <MetricCard label="Qualified" value={metrics.qualified} />
                     <MetricCard label="Not Qualified" value={metrics.not_qualified} />
@@ -128,7 +165,7 @@ export default function LeasingTab() {
             )}
 
             {/* Listings */}
-            <section>
+            <section data-tour="leasing-listings">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-foreground">Available Listings</h2>
                     <button
@@ -177,7 +214,7 @@ export default function LeasingTab() {
             </section>
 
             {/* Leads */}
-            <section>
+            <section data-tour="leasing-leads">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <h2 className="text-lg font-semibold text-foreground">Leads</h2>
                     <div className="flex flex-wrap items-center gap-2">

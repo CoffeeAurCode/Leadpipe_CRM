@@ -1,31 +1,64 @@
-"""
-CSV Import API routes — bulk-import properties and tenants from CSV files.
-No new dependencies: uses Python's built-in csv module.
-"""
 import csv
 import io
+import json
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+import openpyxl
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from openai import AsyncOpenAI
 from supabase import Client
 
+from app.config import settings
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
 
 router = APIRouter(prefix="/import", tags=["Import"])
 
 MAX_ROWS = 1000
-MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MB
+MAX_FILE_BYTES = 5 * 1024 * 1024
 
 PROPERTIES_REQUIRED = {"property_name", "building_name", "flat_number"}
+PROPERTIES_OPTIONAL = {"property_address", "address", "floor_number", "bedrooms", "bathrooms"}
 TENANTS_REQUIRED = {"name", "phone", "flat_number"}
+TENANTS_OPTIONAL = {"email", "lease_start_date", "lease_end_date", "rent_amount", "rent_status", "manager_notes"}
 
+_SCHEMA = {
+    "properties": {
+        "required": {
+            "property_name": "Top-level property group name (e.g. Sunrise Towers)",
+            "building_name": "Building inside the property (e.g. Block A)",
+            "flat_number": "Unit identifier (e.g. A-101)",
+        },
+        "optional": {
+            "property_address": "Street address of the property",
+            "floor_number": "Integer floor number",
+            "bedrooms": "Number of bedrooms (integer)",
+            "bathrooms": "Number of bathrooms (integer)",
+        },
+    },
+    "tenants": {
+        "required": {
+            "name": "Tenant full name",
+            "phone": "Phone number (e.g. +919876543210)",
+            "flat_number": "Flat/unit number the tenant lives in (e.g. A-101)",
+        },
+        "optional": {
+            "email": "Tenant email address",
+            "lease_start_date": "Lease start date ISO format (2024-01-01)",
+            "lease_end_date": "Lease end date ISO format (2025-01-01)",
+            "rent_amount": "Monthly rent as a plain number (e.g. 15000)",
+            "rent_status": "On-time / Upcoming / Overdue / At Risk",
+            "manager_notes": "Free-text notes",
+        },
+    },
+}
+
+
+# ── Parsers ───────────────────────────────────────────────────────────────────
 
 def _parse_csv(content: bytes) -> tuple[list[dict], set[str]]:
-    """Decode bytes → DictReader with lowercased, stripped keys."""
-    text = content.decode("utf-8-sig")  # handle Excel BOM
+    text = content.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
-    # Access fieldnames first so header is parsed even on empty CSVs
     raw_fields = reader.fieldnames or []
     fieldnames = {f.strip().lower() for f in raw_fields}
     rows = [
@@ -35,31 +68,163 @@ def _parse_csv(content: bytes) -> tuple[list[dict], set[str]]:
     return rows, fieldnames
 
 
+def _parse_xlsx(content: bytes) -> tuple[list[dict], set[str]]:
+    wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+    ws = wb.active
+    rows_iter = ws.iter_rows(values_only=True)
+    first_row = next(rows_iter, None)
+    if first_row is None:
+        return [], set()
+    raw_headers = [str(h).strip() if h is not None else "" for h in first_row]
+    fieldnames = {h.lower() for h in raw_headers if h}
+    rows = []
+    for excel_row in rows_iter:
+        row_dict = {
+            h.strip().lower(): (str(v).strip() if v is not None else "")
+            for h, v in zip(raw_headers, excel_row)
+            if h.strip()
+        }
+        if any(row_dict.values()):
+            rows.append(row_dict)
+    return rows, fieldnames
+
+
+def _detect_and_parse(content: bytes, filename: str) -> tuple[list[dict], set[str]]:
+    if filename.lower().endswith(".xlsx"):
+        return _parse_xlsx(content)
+    return _parse_csv(content)
+
+
+# ── Mapping helpers ───────────────────────────────────────────────────────────
+
+def _apply_mapping(rows: list[dict], mapping: dict) -> list[dict]:
+    result = []
+    for row in rows:
+        new_row = {}
+        for orig_key, val in row.items():
+            target = mapping.get(orig_key)
+            if target:
+                new_row[target] = val
+        result.append(new_row)
+    return result
+
+
+async def _map_columns_with_ai(
+    headers: list[str],
+    sample_rows: list[dict],
+    import_type: str,
+) -> dict:
+    schema = _SCHEMA[import_type]
+    all_targets = set(schema["required"]) | set(schema["optional"])
+
+    req_lines = "\n".join(f"  - {k}: {v}" for k, v in schema["required"].items())
+    opt_lines = "\n".join(f"  - {k}: {v}" for k, v in schema["optional"].items())
+    sample_text = "\n".join(
+        "  " + ", ".join(f"{k}={v!r}" for k, v in row.items())
+        for row in sample_rows[:3]
+    )
+
+    prompt = (
+        f"You are a data-mapping assistant for a property management system.\n\n"
+        f"Import type: {import_type}\n\n"
+        f"REQUIRED TARGET COLUMNS:\n{req_lines}\n\n"
+        f"OPTIONAL TARGET COLUMNS:\n{opt_lines}\n\n"
+        f"ACTUAL HEADERS from uploaded file: {headers}\n\n"
+        f"SAMPLE DATA (first rows):\n{sample_text}\n\n"
+        f"Map each actual header to its best-matching target column, or null if irrelevant.\n"
+        f"Return ONLY valid JSON. Example: {{\"Tenant Name\": \"name\", \"Mobile\": \"phone\", \"Extra\": null}}"
+    )
+
+    try:
+        client = AsyncOpenAI(api_key=settings.OPEN_AI_API)
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        raw = response.choices[0].message.content
+        mapping = json.loads(raw)
+
+        sanitized: dict = {}
+        for orig, target in mapping.items():
+            sanitized[orig] = target if (target and target in all_targets) else None
+        # Ensure every header has an entry
+        for h in headers:
+            if h not in sanitized:
+                sanitized[h] = None
+        return sanitized
+
+    except Exception:
+        return {h: None for h in headers}
+
+
+# ── POST /import/analyze ──────────────────────────────────────────────────────
+
+@router.post("/analyze")
+async def analyze_import(
+    file: UploadFile = File(...),
+    import_type: str = Form(...),
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    content = await file.read()
+    if len(content) > MAX_FILE_BYTES:
+        raise HTTPException(400, "File too large (max 5 MB)")
+
+    if import_type not in ("properties", "tenants"):
+        raise HTTPException(400, "import_type must be 'properties' or 'tenants'")
+
+    try:
+        rows, fieldnames = _detect_and_parse(content, file.filename or "")
+    except Exception as exc:
+        raise HTTPException(400, f"Cannot parse file: {exc}")
+
+    required = PROPERTIES_REQUIRED if import_type == "properties" else TENANTS_REQUIRED
+    missing = required - fieldnames
+
+    if not missing:
+        return {"needs_mapping": False, "row_count": len(rows)}
+
+    headers_list = sorted(fieldnames)
+    mapping = await _map_columns_with_ai(headers_list, rows[:3], import_type)
+
+    mapped_targets = {v for v in mapping.values() if v}
+    unmapped_required = sorted(required - mapped_targets)
+
+    return {
+        "needs_mapping": True,
+        "mapping": mapping,
+        "unmapped_required": unmapped_required,
+        "row_count": len(rows),
+    }
+
+
 # ── POST /import/properties ───────────────────────────────────────────────────
 
 @router.post("/properties")
 async def import_properties(
     file: UploadFile = File(...),
+    column_mapping: str = Form(None),
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
 ):
-    """
-    Bulk-import PropertyGroup → Building → Flat hierarchy from a CSV.
-
-    Required columns: property_name, building_name, flat_number
-    Optional columns: property_address, floor_number, bedrooms, bathrooms
-
-    PropertyGroups and Buildings are deduplicated within the import (and
-    against existing DB rows).  Flats that already exist are skipped.
-    """
     content = await file.read()
     if len(content) > MAX_FILE_BYTES:
         raise HTTPException(400, "File too large (max 5 MB)")
 
     try:
-        rows, fieldnames = _parse_csv(content)
+        rows, fieldnames = _detect_and_parse(content, file.filename or "")
     except Exception as exc:
-        raise HTTPException(400, f"Invalid CSV: {exc}")
+        raise HTTPException(400, f"Invalid file: {exc}")
+
+    if column_mapping:
+        try:
+            mapping = json.loads(column_mapping)
+        except Exception:
+            raise HTTPException(400, "Invalid column_mapping JSON")
+        rows = _apply_mapping(rows, mapping)
+        fieldnames = {k for row in rows for k in row.keys()}
 
     missing = PROPERTIES_REQUIRED - fieldnames
     if missing:
@@ -74,22 +239,20 @@ async def import_properties(
     skipped: list[str] = []
     errors: list[str] = []
 
-    # In-memory caches to avoid redundant DB lookups within the same upload
-    property_cache: dict[str, str] = {}       # name.lower() → uuid
-    building_cache: dict[tuple, int] = {}     # (property_uuid, name.lower()) → int id
+    property_cache: dict[str, str] = {}
+    building_cache: dict[tuple, int] = {}
 
-    for i, row in enumerate(rows, start=2):   # row 1 = header
+    for i, row in enumerate(rows, start=2):
         try:
-            prop_name    = row.get("property_name", "")
+            prop_name     = row.get("property_name", "")
             building_name = row.get("building_name", "")
-            flat_number  = row.get("flat_number", "")
-            prop_address = row.get("property_address", "") or row.get("address", "")
+            flat_number   = row.get("flat_number", "")
+            prop_address  = row.get("property_address", "") or row.get("address", "")
 
             if not prop_name or not building_name or not flat_number:
                 errors.append(f"Row {i}: missing required value (property_name, building_name or flat_number)")
                 continue
 
-            # ── 1. Get or create PropertyGroup ────────────────────────────────
             prop_key = prop_name.lower()
             if prop_key not in property_cache:
                 existing = (
@@ -101,10 +264,7 @@ async def import_properties(
                 if existing.data:
                     property_cache[prop_key] = existing.data[0]["id"]
                 else:
-                    payload: dict = {
-                        "name": prop_name,
-                        "manager_id": user["sub"],  # required by RLS policy
-                    }
+                    payload: dict = {"name": prop_name, "manager_id": user["sub"]}
                     if prop_address:
                         payload["address"] = prop_address
                     created = db.table("properties_list").insert(payload).execute()
@@ -113,7 +273,6 @@ async def import_properties(
 
             property_uuid = property_cache[prop_key]
 
-            # ── 2. Get or create Building ─────────────────────────────────────
             b_key = (property_uuid, building_name.lower())
             if b_key not in building_cache:
                 existing = (
@@ -134,7 +293,6 @@ async def import_properties(
 
             building_id = building_cache[b_key]
 
-            # ── 3. Skip if flat already exists ────────────────────────────────
             existing_flat = (
                 db.table("flats")
                 .select("uuid")
@@ -145,16 +303,15 @@ async def import_properties(
                 skipped.append(f"Row {i}: flat {flat_number} already exists")
                 continue
 
-            # ── 4. Create Flat ────────────────────────────────────────────────
             flat_payload: dict = {
                 "building_id": building_id,
                 "flat_number": flat_number.upper(),
             }
-            for field, col in (("floor_number", "floor_number"), ("bedrooms", "bedrooms"), ("bathrooms", "bathrooms")):
+            for field in ("floor_number", "bedrooms", "bathrooms"):
                 raw = row.get(field, "")
                 if raw:
                     try:
-                        flat_payload[col] = int(raw)
+                        flat_payload[field] = int(raw)
                     except ValueError:
                         pass
 
@@ -180,27 +337,26 @@ async def import_properties(
 @router.post("/tenants")
 async def import_tenants(
     file: UploadFile = File(...),
+    column_mapping: str = Form(None),
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
 ):
-    """
-    Bulk-import Tenants from a CSV and link them to existing flats.
-
-    Required columns: name, phone, flat_number
-    Optional columns: email, lease_start_date, lease_end_date,
-                      rent_amount, rent_status, manager_notes
-
-    Already-occupied flats are skipped (not overwritten).
-    If rent_amount is provided an active rent record is created.
-    """
     content = await file.read()
     if len(content) > MAX_FILE_BYTES:
         raise HTTPException(400, "File too large (max 5 MB)")
 
     try:
-        rows, fieldnames = _parse_csv(content)
+        rows, fieldnames = _detect_and_parse(content, file.filename or "")
     except Exception as exc:
-        raise HTTPException(400, f"Invalid CSV: {exc}")
+        raise HTTPException(400, f"Invalid file: {exc}")
+
+    if column_mapping:
+        try:
+            mapping = json.loads(column_mapping)
+        except Exception:
+            raise HTTPException(400, "Invalid column_mapping JSON")
+        rows = _apply_mapping(rows, mapping)
+        fieldnames = {k for row in rows for k in row.keys()}
 
     missing = TENANTS_REQUIRED - fieldnames
     if missing:
@@ -223,7 +379,6 @@ async def import_tenants(
                 errors.append(f"Row {i}: missing required value (name, phone or flat_number)")
                 continue
 
-            # ── 1. Find flat ──────────────────────────────────────────────────
             flat_resp = (
                 db.table("flats")
                 .select("uuid, tenant_uuid")
@@ -241,14 +396,12 @@ async def import_tenants(
                 skipped.append(f"Row {i}: flat {flat_number} is already occupied")
                 continue
 
-            # ── 2. Build tenant payload ───────────────────────────────────────
             tenant_payload: dict = {"name": name, "phone": phone, "flat_uuid": flat_uuid}
             for field in ("email", "lease_start_date", "lease_end_date", "rent_status", "manager_notes"):
                 val = row.get(field, "")
                 if val:
                     tenant_payload[field] = val
 
-            # ── 3. Create tenant ──────────────────────────────────────────────
             t_resp = db.table("tenants").insert(tenant_payload).execute()
             if not t_resp.data:
                 errors.append(f"Row {i}: failed to create tenant record")
@@ -256,26 +409,24 @@ async def import_tenants(
 
             tenant_uuid = t_resp.data[0]["uuid"]
 
-            # ── 4. Bidirectionally link flat ──────────────────────────────────
             db.table("flats").update({
                 "tenant_uuid": tenant_uuid,
                 "occupied": True,
             }).eq("uuid", flat_uuid).execute()
 
-            # ── 5. Create rent record if amount provided ───────────────────────
             rent_raw = row.get("rent_amount", "")
             if rent_raw:
                 try:
                     monthly_rent = float(rent_raw)
                     effective_from = row.get("lease_start_date", "") or str(date.today())
                     db.table("rents").insert({
-                        "flat_uuid":     flat_uuid,
-                        "monthly_rent":  monthly_rent,
+                        "flat_uuid":      flat_uuid,
+                        "monthly_rent":   monthly_rent,
                         "effective_from": effective_from,
-                        "is_active":     True,
+                        "is_active":      True,
                     }).execute()
                 except (ValueError, TypeError):
-                    pass  # bad rent amount — skip silently
+                    pass
 
             created_tenants += 1
 

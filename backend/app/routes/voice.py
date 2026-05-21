@@ -2,12 +2,19 @@ from fastapi import APIRouter, Request, Depends, BackgroundTasks, HTTPException
 from supabase import Client
 from pydantic import BaseModel
 import json
+import re
 import httpx
 from datetime import datetime, timezone
+
+UUID_RE = re.compile(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+    re.IGNORECASE,
+)
 
 from app.db.session import get_db, get_service_db
 from app.ai.validator import validate_complaint
 from app.services.notifications import notify_manager_appointment_scheduled
+from app.dependencies.subscription import require_active_subscription
 
 router = APIRouter()
 
@@ -497,7 +504,8 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
 
         # Resolve property_group_id: listing → DB, then assistant_id → DB, then null
         property_group_id = None
-        listing_uuid = lead_data.get("listing_uuid") or None
+        raw_uuid = lead_data.get("listing_uuid") or ""
+        listing_uuid = raw_uuid.strip() if UUID_RE.match(raw_uuid.strip()) else None
         if listing_uuid:
             row = db.table("lease_listings").select("property_group_id").eq("uuid", listing_uuid).limit(1).execute()
             if row.data:
@@ -559,6 +567,16 @@ async def get_call_status():
     complaints and appointments.
     """
     return {"last_call_ended_at": _last_call_ended_at}
+
+
+# ── Agent info (phone numbers) ────────────────────────────────────────────────
+
+@router.get("/voice/agent-info")
+async def get_voice_agent_info(_: dict = Depends(require_active_subscription)):
+    from app.config import settings
+    return {
+        "complaint_phone_number": settings.VAPI_COMPLAINT_PHONE_NUMBER or None,
+    }
 
 
 # ── Outbound call endpoint ────────────────────────────────────────────────────

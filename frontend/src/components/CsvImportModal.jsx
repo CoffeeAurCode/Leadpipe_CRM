@@ -1,10 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
-import { X, Upload, Download, FileText, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
+import { X, Upload, Download, FileText, CheckCircle2, AlertTriangle, XCircle, Loader2, ArrowLeft, Sparkles } from 'lucide-react';
 import { cn } from '@/lib';
+import { analyzeImportFile, importPropertiesCsv, importTenantsCsv } from '../services/apiService';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-// ── Template definitions ──────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const TEMPLATES = {
     properties: {
@@ -24,6 +23,34 @@ const TEMPLATES = {
         ],
         filename: 'tenants_template.csv',
     },
+};
+
+const COLUMN_OPTIONS = {
+    properties: [
+        { value: 'property_name', label: 'property_name', required: true },
+        { value: 'building_name', label: 'building_name', required: true },
+        { value: 'flat_number', label: 'flat_number', required: true },
+        { value: 'property_address', label: 'property_address' },
+        { value: 'floor_number', label: 'floor_number' },
+        { value: 'bedrooms', label: 'bedrooms' },
+        { value: 'bathrooms', label: 'bathrooms' },
+    ],
+    tenants: [
+        { value: 'name', label: 'name', required: true },
+        { value: 'phone', label: 'phone', required: true },
+        { value: 'flat_number', label: 'flat_number', required: true },
+        { value: 'email', label: 'email' },
+        { value: 'lease_start_date', label: 'lease_start_date' },
+        { value: 'lease_end_date', label: 'lease_end_date' },
+        { value: 'rent_amount', label: 'rent_amount' },
+        { value: 'rent_status', label: 'rent_status' },
+        { value: 'manager_notes', label: 'manager_notes' },
+    ],
+};
+
+const REQUIRED_COLS = {
+    properties: new Set(['property_name', 'building_name', 'flat_number']),
+    tenants: new Set(['name', 'phone', 'flat_number']),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -74,7 +101,7 @@ function DropZone({ onFile, file }) {
         e.preventDefault();
         setDragging(false);
         const f = e.dataTransfer.files[0];
-        if (f && f.name.endsWith('.csv')) onFile(f);
+        if (f && (f.name.endsWith('.csv') || f.name.endsWith('.xlsx'))) onFile(f);
     }, [onFile]);
 
     const handleChange = (e) => {
@@ -101,7 +128,7 @@ function DropZone({ onFile, file }) {
             <input
                 ref={inputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx"
                 className="hidden"
                 onChange={handleChange}
             />
@@ -114,8 +141,8 @@ function DropZone({ onFile, file }) {
             ) : (
                 <div className="flex flex-col items-center gap-2">
                     <Upload className="w-8 h-8 text-muted-foreground" />
-                    <p className="text-sm font-medium text-foreground">Drop CSV here or <span className="text-primary">browse</span></p>
-                    <p className="text-xs text-muted-foreground">Max 5 MB, 1000 rows</p>
+                    <p className="text-sm font-medium text-foreground">Drop CSV or Excel file here or <span className="text-primary">browse</span></p>
+                    <p className="text-xs text-muted-foreground">Max 5 MB, 1000 rows — .csv and .xlsx supported</p>
                 </div>
             )}
         </div>
@@ -152,6 +179,105 @@ function PreviewTable({ headers, rows }) {
     );
 }
 
+function ColumnMappingStep({ importType, mapping, onMappingChange, onConfirm, onBack, loading }) {
+    const columns = COLUMN_OPTIONS[importType];
+    const required = REQUIRED_COLS[importType];
+    const originalHeaders = Object.keys(mapping);
+
+    const mappedTargets = new Set(Object.values(mapping).filter(Boolean));
+    const stillUnmapped = [...required].filter(r => !mappedTargets.has(r));
+
+    const handleChange = (header, newTarget) => {
+        onMappingChange({ ...mapping, [header]: newTarget || null });
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <Sparkles className="w-4 h-4 flex-shrink-0 text-amber-500 mt-0.5" />
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Your file's column names don't match the expected format. AI has suggested a mapping below — review and adjust before importing.
+                </p>
+            </div>
+
+            {stillUnmapped.length > 0 && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-500">
+                    Required columns not yet mapped: <strong>{stillUnmapped.join(', ')}</strong>. Assign them below to continue.
+                </div>
+            )}
+
+            <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-sm">
+                    <thead className="bg-secondary">
+                        <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-foreground">Your Column</th>
+                            <th className="px-3 py-2 text-left font-semibold text-foreground">Maps To</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {originalHeaders.map(header => {
+                            const currentTarget = mapping[header];
+                            const isUnmappedRequired = required.has(currentTarget) === false && required.has(header);
+                            return (
+                                <tr key={header} className="border-t border-border">
+                                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{header}</td>
+                                    <td className="px-3 py-2">
+                                        <select
+                                            value={currentTarget || ''}
+                                            onChange={e => handleChange(header, e.target.value)}
+                                            className={cn(
+                                                'w-full text-xs rounded-md border bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary',
+                                                currentTarget
+                                                    ? 'border-emerald-500/50 text-foreground'
+                                                    : 'border-border text-muted-foreground'
+                                            )}
+                                        >
+                                            <option value="">(ignore this column)</option>
+                                            {columns.map(col => (
+                                                <option key={col.value} value={col.value}>
+                                                    {col.label}{col.required ? ' *' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+
+            <p className="text-xs text-muted-foreground">* Required field</p>
+
+            <div className="flex items-center justify-between gap-3 pt-1">
+                <button
+                    onClick={onBack}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
+                </button>
+                <button
+                    onClick={() => onConfirm(mapping)}
+                    disabled={stillUnmapped.length > 0 || loading}
+                    className={cn(
+                        'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
+                        stillUnmapped.length === 0 && !loading
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20'
+                            : 'bg-secondary text-muted-foreground cursor-not-allowed'
+                    )}
+                >
+                    {loading ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" />Importing…</>
+                    ) : (
+                        <><Upload className="w-4 h-4" />Confirm & Import</>
+                    )}
+                </button>
+            </div>
+        </div>
+    );
+}
+
 function ResultPanel({ result, importType }) {
     if (!result) return null;
 
@@ -160,7 +286,6 @@ function ResultPanel({ result, importType }) {
 
     return (
         <div className="space-y-3">
-            {/* Created */}
             <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
                 {isProperties ? (
                     <div className="space-y-1">
@@ -183,7 +308,6 @@ function ResultPanel({ result, importType }) {
                 )}
             </div>
 
-            {/* Skipped */}
             {skipped?.length > 0 && (
                 <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                     <div className="flex items-start gap-2">
@@ -200,7 +324,6 @@ function ResultPanel({ result, importType }) {
                 </div>
             )}
 
-            {/* Errors */}
             {errors?.length > 0 && (
                 <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
                     <div className="flex items-start gap-2">
@@ -227,23 +350,44 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [rowCount, setRowCount] = useState(0);
+    const [analyzing, setAnalyzing] = useState(false);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [apiError, setApiError] = useState(null);
 
-    const handleTabChange = (tab) => {
-        setActiveTab(tab);
+    // Mapping step state
+    const [mappingStep, setMappingStep] = useState(false);
+    const [mapping, setMapping] = useState(null);
+
+    const resetState = () => {
         setFile(null);
         setPreview(null);
         setRowCount(0);
         setResult(null);
         setApiError(null);
+        setMappingStep(false);
+        setMapping(null);
+        setAnalyzing(false);
+    };
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        resetState();
     };
 
     const handleFile = (f) => {
         setFile(f);
         setResult(null);
         setApiError(null);
+        setMappingStep(false);
+        setMapping(null);
+
+        if (f.name.toLowerCase().endsWith('.xlsx')) {
+            setPreview(null);
+            setRowCount(0);
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
             const text = e.target.result;
@@ -254,37 +398,16 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
         reader.readAsText(f);
     };
 
-    const handleImport = async () => {
-        if (!file) return;
+    const doImport = async (columnMapping) => {
         setLoading(true);
         setResult(null);
         setApiError(null);
-
         try {
-            const { supabase } = await import('../lib/supabase');
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error('No active session');
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const endpoint = activeTab === 'properties'
-                ? `${API_BASE_URL}/import/properties`
-                : `${API_BASE_URL}/import/tenants`;
-
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${session.access_token}` },
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err.detail || `Server error ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = activeTab === 'properties'
+                ? await importPropertiesCsv(file, columnMapping)
+                : await importTenantsCsv(file, columnMapping);
             setResult(data);
+            setMappingStep(false);
             onSuccess?.();
         } catch (err) {
             setApiError(err.message || 'Import failed');
@@ -293,16 +416,35 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
         }
     };
 
-    const handleClose = () => {
-        setFile(null);
-        setPreview(null);
-        setRowCount(0);
-        setResult(null);
+    const handleAnalyzeAndImport = async () => {
+        if (!file) return;
+        setAnalyzing(true);
         setApiError(null);
+        try {
+            const analysis = await analyzeImportFile(file, activeTab);
+            if (!analysis.needs_mapping) {
+                setAnalyzing(false);
+                await doImport(null);
+            } else {
+                setMapping(analysis.mapping);
+                setMappingStep(true);
+                setAnalyzing(false);
+            }
+        } catch (err) {
+            setApiError(err.message || 'Analysis failed');
+            setAnalyzing(false);
+        }
+    };
+
+    const handleClose = () => {
+        resetState();
         onClose();
     };
 
     if (!isOpen) return null;
+
+    const isXlsx = file?.name?.toLowerCase().endsWith('.xlsx');
+    const busy = analyzing || loading;
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -310,7 +452,7 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
-                    <h2 className="text-lg font-semibold text-foreground">Import from CSV</h2>
+                    <h2 className="text-lg font-semibold text-foreground">Import from CSV or Excel</h2>
                     <button onClick={handleClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
                         <X className="w-5 h-5" />
                     </button>
@@ -319,90 +461,110 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                 {/* Scrollable body */}
                 <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-                    {/* Tabs */}
-                    <div className="flex gap-2">
-                        <Tab active={activeTab === 'properties'} onClick={() => handleTabChange('properties')}>
-                            Properties
-                        </Tab>
-                        <Tab active={activeTab === 'tenants'} onClick={() => handleTabChange('tenants')}>
-                            Tenants
-                        </Tab>
-                    </div>
+                    {/* Tabs — hidden during mapping step */}
+                    {!mappingStep && (
+                        <div className="flex gap-2">
+                            <Tab active={activeTab === 'properties'} onClick={() => handleTabChange('properties')}>
+                                Properties
+                            </Tab>
+                            <Tab active={activeTab === 'tenants'} onClick={() => handleTabChange('tenants')}>
+                                Tenants
+                            </Tab>
+                        </div>
+                    )}
 
-                    {/* Description */}
-                    <p className="text-sm text-muted-foreground">
-                        {activeTab === 'properties'
-                            ? 'Import properties, buildings, and units in one shot. One row per unit — property and building names are deduplicated automatically.'
-                            : 'Import tenants and link them to existing units by flat number. Already-occupied units are skipped.'}
-                    </p>
-
-                    {/* Drop zone */}
-                    <DropZone onFile={handleFile} file={file} />
-
-                    {/* Preview */}
-                    {preview && preview.headers.length > 0 && (
-                        <div className="space-y-2">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                Preview — first 3 rows ({rowCount} data row{rowCount !== 1 ? 's' : ''} total)
+                    {mappingStep ? (
+                        <ColumnMappingStep
+                            importType={activeTab}
+                            mapping={mapping}
+                            onMappingChange={setMapping}
+                            onConfirm={doImport}
+                            onBack={() => setMappingStep(false)}
+                            loading={loading}
+                        />
+                    ) : (
+                        <>
+                            {/* Description */}
+                            <p className="text-sm text-muted-foreground">
+                                {activeTab === 'properties'
+                                    ? 'Import properties, buildings, and units in one shot. One row per unit — property and building names are deduplicated automatically.'
+                                    : 'Import tenants and link them to existing units by flat number. Already-occupied units are skipped.'}
                             </p>
-                            <PreviewTable headers={preview.headers} rows={preview.rows} />
-                        </div>
-                    )}
 
-                    {/* Result */}
-                    {result && <ResultPanel result={result} importType={activeTab} />}
+                            {/* Drop zone */}
+                            <DropZone onFile={handleFile} file={file} />
 
-                    {/* API Error */}
-                    {apiError && (
-                        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-500">
-                            {apiError}
-                        </div>
+                            {/* Excel notice */}
+                            {isXlsx && (
+                                <p className="text-xs text-muted-foreground text-center">
+                                    Excel file detected — preview not available. Click Import to upload and analyze.
+                                </p>
+                            )}
+
+                            {/* CSV Preview */}
+                            {preview && preview.headers.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                        Preview — first 3 rows ({rowCount} data row{rowCount !== 1 ? 's' : ''} total)
+                                    </p>
+                                    <PreviewTable headers={preview.headers} rows={preview.rows} />
+                                </div>
+                            )}
+
+                            {/* Result */}
+                            {result && <ResultPanel result={result} importType={activeTab} />}
+
+                            {/* API Error */}
+                            {apiError && (
+                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-500">
+                                    {apiError}
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-border flex-shrink-0 gap-3">
-                    <button
-                        onClick={() => downloadTemplate(activeTab)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    >
-                        <Download className="w-4 h-4" />
-                        Download Template
-                    </button>
-
-                    <div className="flex items-center gap-2">
+                {/* Footer — hidden during mapping step (mapping step has its own actions) */}
+                {!mappingStep && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-border flex-shrink-0 gap-3">
                         <button
-                            onClick={handleClose}
-                            className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                            onClick={() => downloadTemplate(activeTab)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                         >
-                            {result ? 'Close' : 'Cancel'}
+                            <Download className="w-4 h-4" />
+                            Download Template
                         </button>
-                        {!result && (
+
+                        <div className="flex items-center gap-2">
                             <button
-                                onClick={handleImport}
-                                disabled={!file || loading}
-                                className={cn(
-                                    'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
-                                    file && !loading
-                                        ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20'
-                                        : 'bg-secondary text-muted-foreground cursor-not-allowed'
-                                )}
+                                onClick={handleClose}
+                                className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
                             >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Importing…
-                                    </>
-                                ) : (
-                                    <>
-                                        <Upload className="w-4 h-4" />
-                                        Import{rowCount > 0 ? ` ${rowCount} row${rowCount !== 1 ? 's' : ''}` : ''}
-                                    </>
-                                )}
+                                {result ? 'Close' : 'Cancel'}
                             </button>
-                        )}
+                            {!result && (
+                                <button
+                                    onClick={handleAnalyzeAndImport}
+                                    disabled={!file || busy}
+                                    className={cn(
+                                        'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
+                                        file && !busy
+                                            ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20'
+                                            : 'bg-secondary text-muted-foreground cursor-not-allowed'
+                                    )}
+                                >
+                                    {analyzing ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" />Analyzing…</>
+                                    ) : loading ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" />Importing…</>
+                                    ) : (
+                                        <><Upload className="w-4 h-4" />Import{rowCount > 0 ? ` ${rowCount} row${rowCount !== 1 ? 's' : ''}` : ''}</>
+                                    )}
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

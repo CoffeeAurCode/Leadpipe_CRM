@@ -465,6 +465,7 @@ Computed fields on GET (from `TenantResponse` schema):
 
 **Lease lead webhook:** `POST /voice/lease-lead-webhook`
 - Accepts `submit_lease_lead` tool calls from the lease agent
+- Validates `listing_uuid` against a UUID regex before querying Supabase — hallucinated flat numbers (e.g. `"S-106"`) are discarded and `listing_uuid` is set to `None`, letting the `assistant_id` fallback resolve `property_group_id`
 - Resolves `property_group_id` from listing UUID or assistant ID → `properties_list.vapi_lease_assistant_id`
 - Inserts row into `lease_leads`; always returns HTTP 200
 
@@ -531,8 +532,24 @@ Computed fields on GET (from `TenantResponse` schema):
 ### `/import` — `routes/import_routes.py`
 | Method | Path | Description |
 |---|---|---|
-| POST | `/import/properties` | CSV → PropertyGroup + Building + Flat hierarchy |
-| POST | `/import/tenants` | CSV → Tenants linked to existing flats |
+| POST | `/import/analyze` | Detect if uploaded file columns match schema; call `gpt-4o-mini` to semantically map non-matching columns; return `{needs_mapping, mapping, unmapped_required, row_count}` |
+| POST | `/import/properties` | CSV or XLSX → PropertyGroup + Building + Flat hierarchy; optional `column_mapping` form field (JSON) |
+| POST | `/import/tenants` | CSV or XLSX → Tenants linked to existing flats; optional `column_mapping` form field (JSON) |
+
+**Smart import flow:**
+1. Frontend calls `/import/analyze` with the file + `import_type`
+2. If `needs_mapping: false` → import directly (existing column names matched)
+3. If `needs_mapping: true` → frontend shows `ColumnMappingStep` UI with AI-suggested column mapping
+4. User confirms/edits mapping → frontend calls import endpoint with `column_mapping` JSON form field
+5. Backend applies `_apply_mapping(rows, mapping)` before the existing column-check and row-processing logic
+
+**File format support:** `.csv` (UTF-8 or UTF-8 with BOM) and `.xlsx` (Excel). Format detected by filename extension via `_detect_and_parse`. New dependency: `openpyxl>=3.1.0`.
+
+**Key helpers:**
+- `_parse_csv(content)` → `(rows, fieldnames)` — lowercases + strips all headers/values, handles BOM
+- `_parse_xlsx(content)` → `(rows, fieldnames)` — reads first sheet, skips empty rows
+- `_apply_mapping(rows, mapping)` — renames row keys per `{original: target}` dict; drops null-mapped columns
+- `_map_columns_with_ai(headers, sample_rows, import_type)` — async; calls `AsyncOpenAI` with headers + 3 sample rows + schema descriptions; sanitizes response to only allow valid target columns; falls back to `{header: None}` on any exception
 
 ---
 
@@ -701,7 +718,7 @@ class Feature(str, Enum):
 | `AddListingModal.jsx` | Create / edit a lease listing (flat selector, rent, availability, custom rules) |
 | `LeadDetailModal.jsx` | View lead details + update qualification status |
 | `BuildingInfoModal.jsx` | Building detail |
-| `CsvImportModal.jsx` | CSV bulk import UI |
+| `CsvImportModal.jsx` | Smart bulk import — accepts `.csv` and `.xlsx`; calls `/import/analyze` first; shows `ColumnMappingStep` (editable AI-suggested mapping table) when columns don't match; passes confirmed mapping to import endpoint |
 | `DateComplaintsModal.jsx` | Complaints for a selected calendar date |
 | `DailyTasksModal.jsx` | Today's appointment list |
 | `DashboardListModal.jsx` | Generic list-view modal |
@@ -776,6 +793,7 @@ class Feature(str, Enum):
 - **Leasing exports:** `getListings`, `createListing`, `updateListing`, `deleteListing`, `getLeaseLeads`, `updateLead`, `deleteLead`, `getLeasingMetrics`, `exportLeads`
 - **Image upload:** `uploadImage(file, entityType)` → `POST /upload/image`, returns `{url, path}`
 - **Outbound call:** `makeOutboundCall(customerNumber, agentType='complaint', firstMessage=null)` — `agentType` forwarded as `agent` field in request body
+- **Smart import:** `analyzeImportFile(file, importType)` → `POST /import/analyze`; `importPropertiesCsv(file, columnMapping?)` and `importTenantsCsv(file, columnMapping?)` accept optional mapping object
 
 ### `lib/supabase.js`
 - Supabase client configured with PKCE auth flow
@@ -841,6 +859,7 @@ Used after voice/chatbot actions that modify data.
 - Both agents can be triggered via outbound call; `agent` field in `POST /voice/call/outbound` selects which
 - Complaint agent is global (one assistant for all groups); lease agent is per-property-group (auto-provisioned)
 - `vapi_provisioning_status` on `properties_list` tracks provisioning state: `not_applicable` | `pending` | `active` | `failed`
+- Both assistants have `endCallFunctionEnabled: true` — agents invoke `endCall()` to hang up after goodbye; run `backend/scripts/enable_end_call.py` to apply this to any newly provisioned assistant
 
 ### Idempotency
 - Stripe webhooks: deduplicated via `stripe_events` table (`event_id` UNIQUE)

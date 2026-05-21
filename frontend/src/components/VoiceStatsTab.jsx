@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { PhoneCall, RefreshCw, TrendingUp, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
-import { fetchCallStats } from '../services/apiService';
+import { PhoneCall, RefreshCw, TrendingUp, CheckCircle, AlertTriangle, Clock, Phone } from 'lucide-react';
+import { fetchCallStats, fetchVoiceAgentInfo } from '../services/apiService';
 import { cn } from '@/lib';
 
 const DAY_OPTIONS = [
@@ -73,6 +73,7 @@ export default function VoiceStatsTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [expanded, setExpanded] = useState(null);
+    const [complaintNumber, setComplaintNumber] = useState(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -89,6 +90,12 @@ export default function VoiceStatsTab() {
     }, [days]);
 
     useEffect(() => { load(); }, [load]);
+
+    useEffect(() => {
+        fetchVoiceAgentInfo()
+            .then(info => setComplaintNumber(info.complaint_phone_number))
+            .catch(() => {});
+    }, []);
 
     const pct = (n) => data?.total ? `${Math.round((n / data.total) * 100)}%` : '—';
 
@@ -118,12 +125,27 @@ export default function VoiceStatsTab() {
                 </div>
             </div>
 
+            {/* Complaint agent phone number */}
+            <div data-tour="voice-phone" className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl w-fit">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                    <p className="text-xs text-muted-foreground">Complaint Agent — Inbound Number</p>
+                    {complaintNumber ? (
+                        <p className="text-sm font-semibold text-foreground tracking-wide">{complaintNumber}</p>
+                    ) : (
+                        <p className="text-xs text-muted-foreground italic">Set VAPI_COMPLAINT_PHONE_NUMBER in .env to display</p>
+                    )}
+                </div>
+            </div>
+
             {error && (
                 <div className="p-4 rounded-lg bg-red-500/10 border border-red-500 text-red-500 text-sm">{error}</div>
             )}
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div data-tour="voice-stats-cards" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     icon={PhoneCall}
                     label="Total Calls"
@@ -153,7 +175,7 @@ export default function VoiceStatsTab() {
             </div>
 
             {/* Bar Chart */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+            <div data-tour="voice-stats-chart" className="bg-card border border-border rounded-xl p-5 space-y-3">
                 <h2 className="text-sm font-semibold text-foreground">Call Volume</h2>
                 {loading ? (
                     <div className="h-24 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
@@ -163,7 +185,7 @@ export default function VoiceStatsTab() {
             </div>
 
             {/* Recent Calls */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div data-tour="voice-stats-recent" className="bg-card border border-border rounded-xl overflow-hidden">
                 <div className="px-5 py-4 border-b border-border">
                     <h2 className="text-sm font-semibold text-foreground">Recent Calls</h2>
                 </div>

@@ -7,12 +7,14 @@ const getStorageKey = (userId) => `crm-onboarding-checklist-${userId}`;
 
 /** Human-readable section metadata */
 const SECTION_META = {
-  dashboard:  { label: 'Dashboard',     view: 'dashboard',   description: 'Get familiar with your key metrics and charts' },
-  properties: { label: 'Properties',    view: 'properties',  description: 'Learn how to manage property groups, buildings, and units' },
-  tenants:    { label: 'Tenants',       view: 'tenants',     description: 'Explore the tenant management table' },
-  complaints: { label: 'Complaints',    view: 'complaints',  description: 'See how complaints are tracked and filtered' },
-  calendar:   { label: 'Calendar',      view: 'calendar',    description: 'View and manage appointments on the calendar' },
-  workflow:   { label: 'SMS Workflow',   view: 'workflow',    description: 'Learn how to send bulk SMS to your tenants' },
+  dashboard:    { label: 'Dashboard',      view: 'dashboard',    description: 'Get familiar with your key metrics and charts' },
+  properties:   { label: 'Properties',     view: 'properties',   description: 'Learn how to manage property groups, buildings, and units' },
+  tenants:      { label: 'Tenants',        view: 'tenants',      description: 'Explore the tenant management table' },
+  complaints:   { label: 'Complaints',     view: 'complaints',   description: 'See how complaints are tracked and filtered' },
+  calendar:     { label: 'Calendar',       view: 'calendar',     description: 'View and manage appointments on the calendar' },
+  workflow:     { label: 'SMS Workflow',   view: 'workflow',     description: 'Learn how to send bulk SMS to your tenants' },
+  leasing:      { label: 'Leasing',        view: 'leasing',      description: 'Manage listings and track leads from the lease voice agent' },
+  'voice-stats': { label: 'Voice Stats',  view: 'voice-stats',  description: 'View complaint agent call analytics and transcripts' },
 };
 
 /** Items within each section — re-exported from tour config as single source of truth */

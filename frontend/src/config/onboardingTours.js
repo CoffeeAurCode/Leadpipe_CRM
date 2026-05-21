@@ -11,6 +11,8 @@ export const SECTION_ORDER = [
   'complaints',
   'calendar',
   'workflow',
+  'leasing',
+  'voice-stats',
 ];
 
 /** Map section → the view name used by onNavigate() */
@@ -21,6 +23,8 @@ export const SECTION_VIEW = {
   complaints: 'complaints',
   calendar: 'calendar',
   workflow: 'workflow',
+  leasing: 'leasing',
+  'voice-stats': 'voice-stats',
 };
 
 /** Map section → checklist item IDs to mark complete */
@@ -31,6 +35,8 @@ export const SECTION_CHECKLIST_IDS = {
   complaints: ['complaints-tour'],
   calendar: ['calendar-tour'],
   workflow: ['workflow-tour'],
+  leasing: ['leasing-tour'],
+  'voice-stats': ['voice-stats-tour'],
 };
 
 /**
@@ -185,6 +191,66 @@ export const ALL_STEPS = [
     content: 'Pick which tenants receive the message. Use search and filters to narrow down, then check the boxes.',
     skipBeacon: true,
     section: 'workflow',
+  },
+
+  // ── Leasing ──
+  {
+    target: '[data-tour="leasing-phone"]',
+    title: 'Lease Agent Phone Number',
+    content: 'This is the number prospective tenants call to enquire about available units. Your AI lease agent answers, qualifies callers, and logs them as leads automatically.',
+    skipBeacon: true,
+    section: 'leasing',
+  },
+  {
+    target: '[data-tour="leasing-metrics"]',
+    title: 'Leasing Metrics',
+    content: 'See total calls received, qualification rate, and average call duration — all calculated automatically from the lease agent\'s call logs.',
+    skipBeacon: true,
+    section: 'leasing',
+  },
+  {
+    target: '[data-tour="leasing-listings"]',
+    title: 'Available Listings',
+    content: 'Add listings for vacant units here. The AI lease agent uses these to match callers with the right property — including rent, bedrooms, availability date, and custom rules.',
+    skipBeacon: true,
+    section: 'leasing',
+  },
+  {
+    target: '[data-tour="leasing-leads"]',
+    title: 'Lead Pipeline',
+    content: 'Every caller captured by the lease agent appears here. Filter by listing or qualification status, update a lead\'s stage, and export to CSV for follow-up.',
+    skipBeacon: true,
+    section: 'leasing',
+  },
+
+  // ── Voice Stats ──
+  {
+    target: '[data-tour="voice-phone"]',
+    title: 'Complaint Agent Number',
+    content: 'This is the inbound number your tenants call to log maintenance complaints. The AI voice agent handles the conversation and creates complaint records automatically.',
+    skipBeacon: true,
+    section: 'voice-stats',
+  },
+  {
+    target: '[data-tour="voice-stats-cards"]',
+    title: 'Call Statistics',
+    content: 'See how many calls came in, how many resulted in a resolved complaint, and how many were escalated — all filterable by the last 7, 30, or 90 days.',
+    skipBeacon: true,
+    section: 'voice-stats',
+  },
+  {
+    target: '[data-tour="voice-stats-chart"]',
+    title: 'Call Volume Trend',
+    content: 'A day-by-day bar chart of inbound call activity. Spot busy periods and track complaint volume over time at a glance.',
+    skipBeacon: true,
+    section: 'voice-stats',
+  },
+  {
+    target: '[data-tour="voice-stats-recent"]',
+    title: 'Recent Calls',
+    content: 'The latest calls in reverse chronological order. Click any row to expand the full AI-generated transcript from that call.',
+    skipBeacon: true,
+    section: 'voice-stats',
   },
 ];
 

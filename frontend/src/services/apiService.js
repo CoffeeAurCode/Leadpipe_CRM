@@ -625,6 +625,12 @@ export async function getCallStatus() {
     return await response.json();
 }
 
+export async function fetchVoiceAgentInfo() {
+    const response = await authFetch(`${API_BASE_URL}/voice/agent-info`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
 // ── Vacant / Unassigned helpers ───────────────────────────────────────────────
 
 export async function fetchVacantFlats() {
@@ -762,11 +768,29 @@ export async function uploadImage(file, entityType = 'misc') {
     return await response.json(); // { url, path }
 }
 
-// ── CSV Import ────────────────────────────────────────────────────────────────
+// ── CSV / Excel Import ────────────────────────────────────────────────────────
 
-export async function importPropertiesCsv(file) {
+export async function analyzeImportFile(file, importType) {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('import_type', importType);
+    const response = await authFetch(`${API_BASE_URL}/import/analyze`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function importPropertiesCsv(file, columnMapping = null) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (columnMapping) {
+        formData.append('column_mapping', JSON.stringify(columnMapping));
+    }
     const response = await authFetch(`${API_BASE_URL}/import/properties`, {
         method: 'POST',
         body: formData,
@@ -778,9 +802,12 @@ export async function importPropertiesCsv(file) {
     return await response.json();
 }
 
-export async function importTenantsCsv(file) {
+export async function importTenantsCsv(file, columnMapping = null) {
     const formData = new FormData();
     formData.append('file', file);
+    if (columnMapping) {
+        formData.append('column_mapping', JSON.stringify(columnMapping));
+    }
     const response = await authFetch(`${API_BASE_URL}/import/tenants`, {
         method: 'POST',
         body: formData,
