@@ -337,9 +337,27 @@ async def export_leads(
 ):
     pg_resp = db.table("properties_list").select("id").eq("manager_id", user["sub"]).execute()
     pg_ids = [str(r["id"]) for r in (pg_resp.data or [])]
-    q = db.table("lease_leads").select("*").order("created_at", desc=True)
-    if pg_ids:
-        q = q.in_("property_group_id", pg_ids)
+
+    if not pg_ids:
+        listings_resp = db.table("lease_listings").select("property_group_id").eq("manager_id", user["sub"]).execute()
+        pg_ids = list({str(r["property_group_id"]) for r in (listings_resp.data or []) if r.get("property_group_id")})
+
+    if not pg_ids:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Name", "Phone", "Email", "Bedrooms", "Budget Max", "Move-in Timeline",
+            "Occupants", "Floor Preference", "Qualification Status", "Disqualifying Reason",
+            "Notes", "Manager Notes", "Source", "Call ID", "Created At",
+        ])
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=leads.csv"},
+        )
+
+    q = db.table("lease_leads").select("*").in_("property_group_id", pg_ids).order("created_at", desc=True)
     if listing_uuid:
         q = q.eq("listing_uuid", listing_uuid)
     if qualification_status:
