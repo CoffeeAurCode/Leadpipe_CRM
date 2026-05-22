@@ -658,6 +658,13 @@ Four builder functions:
 - `submit_lease_lead` tool now includes `interested_listing_ids` (array of UUIDs) — agent must capture all listing UUIDs the caller showed interest in, not just the primary one
 - `search_available_listings` tool description updated to tell agent the response contains `listing_uuid` fields in the `listings` array
 
+**Voice & language config (all agents):**
+- Voice: ElevenLabs `eleven_turbo_v2_5`, voiceId `E4GQ42zEV1kwul03Bl16` (Wilkins bilingual voice), stability 0.6, useSpeakerBoost, optimizeStreamingLatency 1
+- Transcriber: Deepgram nova-3, `language: "multi"`, confidenceThreshold 0.4, numerals False, OpenAI gpt-4o-transcribe fallback (unchanged)
+- Speaking: waitSeconds 0.1, transcriptionEndpointingPlan onNumberSeconds 0.1, stopSpeakingPlan numWords 2, backgroundDenoisingEnabled
+- Language policy: **all agents respond in the caller's detected language** (English or Quebec French). Tool submissions are always English — French is silently translated before any tool call.
+- First messages are bilingual (English / French) so callers know both are supported
+
 ---
 
 ### `app/ai/chatbot.py` — AI Chatbot

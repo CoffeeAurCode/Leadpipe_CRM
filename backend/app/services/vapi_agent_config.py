@@ -34,12 +34,12 @@ You silently understand the caller's intent from natural speech.
 You never ask the caller to classify themselves or explain categories.
 
 [Language Policy]
-You understand calls spoken in English or French.
-You detect the caller's language automatically from their speech — never ask which language they prefer.
-REGARDLESS of the language the caller uses:
-- You ALWAYS respond in English only
-- All data submitted to any tool (descriptions, categories, flat numbers, dates) MUST be in English
-- If the caller describes an issue in French, silently translate the description into English before calling any tool
+You understand English and Quebec French.
+Detect the caller's language automatically from their speech and respond in the same language throughout the call.
+If the caller's language is unclear, politely ask which language they prefer and continue in that language.
+IMPORTANT — tool data must always be submitted in English:
+- Descriptions, categories, and notes submitted to any tool MUST be in English
+- If the caller describes an issue in French, silently translate to English before calling any tool
 - Never submit French text to submit_complaint, update_appointment, cancel_appointment, or any other tool
 - Flat numbers and ISO datetimes are language-neutral — capture them accurately regardless of language
 
@@ -279,7 +279,7 @@ TRANSCRIBER_CONFIG = {
     "provider": "deepgram",
     "model": "nova-3",
     "language": "multi",   # bilingual: auto-detects English and French
-    "numerals": False,
+    "numerals": True,     # transcribe "two" as "2" for better tool parsing
     "confidenceThreshold": 0.4,
     "fallbackPlan": {
         "transcribers": [
@@ -298,11 +298,14 @@ TRANSCRIBER_CONFIG = {
 # ---------------------------------------------------------------------------
 VOICE_CONFIG = {
     "provider": "11labs",
-    "voiceId": "1SM7GgM6IMuvQlz2BwM3",
+    "voiceId": "E4GQ42zEV1kwul03Bl16",
     "model": "eleven_turbo_v2_5",
-    "stability": 0.5,
+    "speed": 1,
+    "stability": 0.6,
     "similarityBoost": 0.75,
-    "inputMinCharacters": 5,
+    "useSpeakerBoost": True,
+    "inputMinCharacters": 15,
+    "optimizeStreamingLatency": 1,
 }
 
 
@@ -628,12 +631,11 @@ def build_assistant_config() -> dict:
             "voice-input",
         ],
         "start_speaking_plan": {
-            "waitSeconds": 0.4,
-            "smartEndpointingEnabled": "livekit",
+            "waitSeconds": 0.1,
+            "transcriptionEndpointingPlan": {"onNumberSeconds": 0.1},
         },
-        "background_speech_denoising_plan": {
-            "smartDenoisingPlan": {"enabled": True},
-        },
+        "stop_speaking_plan": {"numWords": 2},
+        "background_denoising_enabled": True,
     }
 
 
@@ -648,8 +650,10 @@ Your role is to handle tenant calls related to maintenance requests, emergencies
 You do NOT handle leasing inquiries. If someone calls about renting a unit, politely explain you can only assist existing tenants.
 
 [Language Policy]
-You understand English and French. Regardless of the caller's language, you ALWAYS respond in English.
-All data submitted to tools MUST be in English.
+You understand English and Quebec French.
+Detect the caller's language automatically from their speech and respond in the same language throughout the call.
+If the caller's language is unclear, politely ask which language they prefer and continue in that language.
+All data submitted to tools MUST be in English — translate French descriptions before calling any tool.
 
 [Style]
 Calm, professional, empathetic, concise. One question at a time. Voice-friendly.
@@ -877,10 +881,10 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
     tools = build_complaint_tools(backend_url)
     return {
         "name": "Complaint Agent (Alex)",
-        "first_message": "Hi, thanks for calling. This is Alex with the property management team. What's your flat number?",
-        "voicemail_message": "Please call back to log your maintenance request.",
-        "end_call_message": "Thank you. Have a great day.",
-        "end_call_phrases": ["goodbye", "talk to you soon"],
+        "first_message": "Hi, thanks for calling — this is Alex. What's your flat number? / Bonjour, merci d'appeler — je suis Alex. Quel est votre numéro d'appartement?",
+        "voicemail_message": "Please call back to log your maintenance request. / Veuillez rappeler pour signaler votre demande.",
+        "end_call_message": "Thank you. Have a great day. / Merci. Bonne journée.",
+        "end_call_phrases": ["goodbye", "au revoir", "talk to you soon"],
         "background_sound": "office",
         "transcriber": TRANSCRIBER_CONFIG,
         "voice": VOICE_CONFIG,
@@ -902,8 +906,12 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
             "speech-update", "status-update", "transcript", "tool-calls",
             "user-interrupted", "voice-input",
         ],
-        "start_speaking_plan": {"waitSeconds": 0.4, "smartEndpointingEnabled": "livekit"},
-        "background_speech_denoising_plan": {"smartDenoisingPlan": {"enabled": True}},
+        "start_speaking_plan": {
+            "waitSeconds": 0.1,
+            "transcriptionEndpointingPlan": {"onNumberSeconds": 0.1},
+        },
+        "stop_speaking_plan": {"numWords": 2},
+        "background_denoising_enabled": True,
     }
 
 
@@ -918,7 +926,10 @@ You handle inbound calls from prospective tenants asking about available rental 
 You do NOT handle complaints or issues for existing tenants. If someone calls about maintenance, apologise and ask them to call the maintenance line.
 
 [Language Policy]
-Always respond in English, regardless of the caller's language.
+You understand English and Quebec French.
+Detect the caller's language automatically from their speech and respond in the same language throughout the call.
+If the caller's language is unclear, politely ask which language they prefer and continue in that language.
+All data submitted to tools must remain in English (listing UUIDs, qualifying answers, names).
 
 [Style]
 Professional, friendly, helpful. One question at a time. Concise, voice-friendly responses.
@@ -1115,10 +1126,10 @@ def _build_lease_tools(backend_url: str, property_group_id: str | None = None) -
 def _lease_assistant_shell(name: str, system_prompt: str, tools: list) -> dict:
     return {
         "name": name,
-        "first_message": "Thank you for calling. I'm here to help you find a rental unit. What kind of unit are you looking for?",
-        "voicemail_message": "Please call back to inquire about available rental units.",
-        "end_call_message": "Thank you for calling. Have a great day.",
-        "end_call_phrases": ["goodbye", "talk to you soon"],
+        "first_message": "Thank you for calling! I'm here to help you find a rental unit. / Merci d'appeler! Je suis ici pour vous aider à trouver un logement.",
+        "voicemail_message": "Please call back to inquire about available units. / Veuillez rappeler pour vous renseigner sur les logements disponibles.",
+        "end_call_message": "Thank you for calling. Have a great day. / Merci d'avoir appelé. Bonne journée.",
+        "end_call_phrases": ["goodbye", "au revoir", "talk to you soon"],
         "background_sound": "office",
         "transcriber": TRANSCRIBER_CONFIG,
         "voice": VOICE_CONFIG,
@@ -1140,8 +1151,12 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list) -> dict:
             "speech-update", "status-update", "transcript", "tool-calls",
             "user-interrupted", "voice-input",
         ],
-        "start_speaking_plan": {"waitSeconds": 0.4, "smartEndpointingEnabled": "livekit"},
-        "background_speech_denoising_plan": {"smartDenoisingPlan": {"enabled": True}},
+        "start_speaking_plan": {
+            "waitSeconds": 0.1,
+            "transcriptionEndpointingPlan": {"onNumberSeconds": 0.1},
+        },
+        "stop_speaking_plan": {"numWords": 2},
+        "background_denoising_enabled": True,
     }
 
 
