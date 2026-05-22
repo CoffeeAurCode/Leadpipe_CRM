@@ -604,6 +604,13 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
             raw_interested = []
         interested_ids = [i for i in raw_interested if isinstance(i, str) and UUID_RE.match(i.strip())]
 
+        if call_id:
+            dup = db.table("lease_leads").select("id").eq("call_id", call_id).limit(1).execute()
+            if dup.data:
+                print(f"  [DUPLICATE] call_id={call_id} already exists, skipping")
+                print("=" * 60)
+                return {"status": "duplicate"}
+
         lead_payload = {
             "property_group_id": str(property_group_id) if property_group_id else None,
             "manager_id": str(manager_id) if manager_id else None,

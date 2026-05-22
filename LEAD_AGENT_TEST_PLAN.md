@@ -6,13 +6,16 @@ Before running any manual test, seed these listings under the `leadpipecrm@gmail
 property group ("Sunrise Heights") via the UI or Supabase SQL. All automated tests should
 create/clean up their own data.
 
-| ID  | Unit   | Bedrooms | Floor | Rent/mo | Available    | Custom Rules                          |
-|-----|--------|----------|-------|---------|--------------|---------------------------------------|
-| P1  | A101   | 1 BHK    | 1     | ₹20,000 | Immediately  | None                                  |
-| P2  | B202   | 2 BHK    | 2     | ₹38,000 | 2026-06-01   | None                                  |
-| P3  | C301   | 3 BHK    | 3     | ₹65,000 | Immediately  | None                                  |
-| P4  | D404   | 2 BHK    | 4     | ₹42,000 | Immediately  | No pets allowed                       |
-| P5  | E501   | 2 BHK    | 5     | ₹55,000 | Immediately  | Minimum income: 3× monthly rent       |
+| ID  | Unit   | Bedrooms | Floor | Rent/mo | Available    | Custom Rules                          | listing_uuid |
+|-----|--------|----------|-------|---------|--------------|---------------------------------------|--------------|
+| P1  | A101   | 1 BHK    | 1     | ₹20,000 | 2026-05-22   | None                                  | `06424100-448a-4196-b86e-e8c37b4cfc9a` |
+| P2  | B202   | 2 BHK    | 2     | ₹38,000 | 2026-06-01   | None                                  | `7b35994b-63cd-40e3-9c35-6ab864c22838` |
+| P3  | C301   | 3 BHK    | 3     | ₹65,000 | 2026-05-22   | None                                  | `f1e73d63-cba3-4970-aa8c-f63b49280d04` |
+| P4  | D404   | 2 BHK    | 4     | ₹42,000 | 2026-05-22   | No pets allowed                       | `729cac8f-40b0-4906-92f3-763abf72d3bb` |
+| P5  | E501   | 2 BHK    | 5     | ₹55,000 | 2026-05-22   | Minimum income: 3× monthly rent       | `096ad042-0803-4f91-b615-9d6c936cd1fd` |
+
+> **Note:** `available_from` is a DATE column — free text like "Immediately" is not valid.
+> Units available now use `CURRENT_DATE` (seeded as 2026-05-22). Re-run migration 013 on a different day and these dates will update automatically.
 
 ---
 
