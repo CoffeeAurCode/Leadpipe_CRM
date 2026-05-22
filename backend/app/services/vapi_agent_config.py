@@ -936,7 +936,9 @@ Optional: number of occupants, floor preference.
 3. Find a Listing
 If the caller mentions a specific address or unit name: call find_listing with their query.
 Otherwise: call search_available_listings with bedrooms and budget_max.
+The search response returns a JSON array in "listings"; each element contains a listing_uuid field.
 Share the matched listing details: unit number, rent, floor, availability date.
+Note which listings the caller responds positively to — you will need their listing_uuid values later.
 
 4. Qualifying Questions
 Based on the listing's custom_rules JSON, ask ONLY the enabled questions:
@@ -957,8 +959,11 @@ Call search_available_listings with relaxed or adjusted criteria. Present altern
 
 7. Capture Lead
 Always call submit_lease_lead before ending the call — even if no listing was found.
-Provide: caller_name (ask for it once), listing_uuid (if matched), bedrooms, budget_max,
-move_in_timeline, occupants, floor_preference, qualification_status, disqualifying_reason,
+Provide: caller_name (ask for it once),
+listing_uuid (the primary listing the caller wants to pursue — use the listing_uuid from search or find_listing),
+interested_listing_ids (array of listing_uuid values for every listing the caller showed interest in),
+bedrooms, budget_max, move_in_timeline, occupants, floor_preference,
+qualification_status, disqualifying_reason,
 qualifying_answers (a JSON object of question → answer pairs).
 Phone is captured from call metadata automatically — never ask the caller for their phone number.
 
@@ -1031,7 +1036,13 @@ def _build_lease_tools(backend_url: str, property_group_id: str | None = None) -
             "async": False,
             "function": {
                 "name": "api_request_tool",
-                "description": "Search available rental units by bedrooms and budget.",
+                "description": (
+                    "Search available rental units by bedrooms and budget. "
+                    "Returns {count, listings} where listings is a JSON array. "
+                    "Each element has: listing_uuid, flat_number, bedrooms, monthly_rent, "
+                    "floor_number, available_from, title. "
+                    "Store the listing_uuid of each unit the caller expresses interest in."
+                ),
             },
             "url": f"{backend_url}/leasing/search?bedrooms={{{{bedrooms}}}}&budget_max={{{{budget_max}}}}{pg_qs}",
             "method": "GET",
@@ -1049,7 +1060,7 @@ def _build_lease_tools(backend_url: str, property_group_id: str | None = None) -
                     "type": "object",
                     "properties": {
                         "count": {"type": "integer", "description": ""},
-                        "listings": {"type": "string", "description": ""},
+                        "listings": {"type": "array", "description": "Array of listing objects, each with listing_uuid"},
                     },
                 }
             },
@@ -1066,7 +1077,13 @@ def _build_lease_tools(backend_url: str, property_group_id: str | None = None) -
                     "required": ["caller_name", "qualification_status"],
                     "properties": {
                         "caller_name": {"type": "string", "description": "Caller's full name", "default": ""},
-                        "listing_uuid": {"type": "string", "description": "UUID of the matched listing (if found)", "default": ""},
+                        "listing_uuid": {"type": "string", "description": "UUID of the primary listing the caller wants to pursue (from search or find_listing response)", "default": ""},
+                        "interested_listing_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "UUIDs of all listings the caller expressed interest in during the call",
+                            "default": [],
+                        },
                         "bedrooms": {"type": "integer", "description": "Desired bedrooms", "default": 0},
                         "budget_max": {"type": "number", "description": "Maximum monthly budget", "default": 0},
                         "move_in_timeline": {"type": "string", "description": "Preferred move-in date or timeframe", "default": ""},

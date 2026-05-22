@@ -255,13 +255,17 @@ export default function LeasingTab() {
                             <table className="w-full text-sm">
                                 <thead className="bg-secondary border-b border-border">
                                     <tr>
-                                        {['Name', 'Phone', 'Budget', 'Beds', 'Move-in', 'Status', 'Actions'].map(h => (
+                                        {['Name', 'Phone', 'Budget', 'Beds', 'Listing', 'Status', 'Actions'].map(h => (
                                             <th key={h} className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border">
-                                    {filteredLeads.map(lead => (
+                                    {filteredLeads.map(lead => {
+                                        const matchedListing = lead.listing_uuid
+                                            ? listings.find(l => l.uuid === lead.listing_uuid)
+                                            : null;
+                                        return (
                                         <tr key={lead.uuid} className="hover:bg-secondary/50 transition-colors">
                                             <td className="px-4 py-3 font-medium text-foreground">{lead.caller_name}</td>
                                             <td className="px-4 py-3 text-muted-foreground">
@@ -273,7 +277,11 @@ export default function LeasingTab() {
                                             <td className="px-4 py-3 text-muted-foreground">
                                                 <span className="flex items-center gap-1"><BedDouble className="w-3 h-3" />{lead.bedrooms ?? '—'}</span>
                                             </td>
-                                            <td className="px-4 py-3 text-muted-foreground">{lead.move_in_timeline || '—'}</td>
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {matchedListing
+                                                    ? <span className="font-mono text-xs bg-secondary px-1.5 py-0.5 rounded">{matchedListing.flat_number}</span>
+                                                    : '—'}
+                                            </td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[lead.qualification_status] || ''}`}>
                                                     {lead.qualification_status.replace('_', ' ')}
@@ -288,7 +296,8 @@ export default function LeasingTab() {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -306,6 +315,7 @@ export default function LeasingTab() {
             {selectedLead && (
                 <LeadDetailModal
                     lead={selectedLead}
+                    listings={listings}
                     onClose={() => setSelectedLead(null)}
                     onUpdated={handleLeadUpdated}
                 />

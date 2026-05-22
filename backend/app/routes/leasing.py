@@ -113,24 +113,25 @@ async def search_available_listings(
         results = q.limit(5).execute()
 
         if not results.data:
-            return {"count": 0, "listings": "No listings found matching your criteria."}
+            return {"count": 0, "listings": []}
 
-        summaries = []
+        listings_out = []
         for listing in results.data:
             flat = listing.get("flats") or {}
-            summaries.append(
-                f"Unit {listing['flat_number']}: {flat.get('bedrooms', '?')} BHK, "
-                f"₹{listing['monthly_rent']}/month, Floor {flat.get('floor_number', '?')}, "
-                f"available from {listing.get('available_from') or 'immediately'}"
-            )
+            listings_out.append({
+                "listing_uuid": listing["uuid"],
+                "flat_number": listing["flat_number"],
+                "title": listing.get("title") or "",
+                "bedrooms": flat.get("bedrooms"),
+                "monthly_rent": float(listing["monthly_rent"]),
+                "floor_number": str(flat.get("floor_number") or ""),
+                "available_from": str(listing.get("available_from") or ""),
+            })
 
-        return {
-            "count": len(summaries),
-            "listings": "; ".join(summaries),
-        }
+        return {"count": len(listings_out), "listings": listings_out}
     except Exception as e:
         print(f"[ERROR] search_available_listings: {e}")
-        return {"count": 0, "listings": "Unable to search listings at this time."}
+        return {"count": 0, "listings": []}
 
 
 # ===========================================================================
@@ -236,7 +237,7 @@ async def get_leads(
 ):
     q = db.table("lease_leads").select("*").eq("manager_id", user["sub"]).order("created_at", desc=True)
     if listing_uuid:
-        q = q.eq("listing_uuid", listing_uuid)
+        q = q.or_(f"listing_uuid.eq.{listing_uuid},interested_listing_ids.cs.{{{listing_uuid}}}")
     if qualification_status:
         q = q.eq("qualification_status", qualification_status)
     resp = q.execute()

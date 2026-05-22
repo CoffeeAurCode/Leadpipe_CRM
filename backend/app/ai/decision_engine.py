@@ -17,7 +17,8 @@ def decide_next_action(data: dict) -> dict:
         - If incomplete: {"action": "ASK", "field": "field_name"}
         - If complete: {"action": "RETURN_JSON", "data": {...}}
     """
-    is_valid, invalid_fields = validate_complaint(data)
+    result = validate_complaint(data)
+    is_valid, invalid_fields = result["is_complete"], result["missing_fields"]
     
     if not is_valid:
         next_field = _get_next_missing_field(invalid_fields)

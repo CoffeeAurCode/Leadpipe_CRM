@@ -262,7 +262,8 @@ PropertyGroup (properties_list)
 | id | int PK | |
 | uuid | UUID UNIQUE | |
 | property_group_id | UUID | FK → properties_list |
-| listing_uuid | UUID | FK → lease_listings (nullable) |
+| listing_uuid | UUID | FK → lease_listings (nullable) — primary matched listing |
+| interested_listing_ids | UUID[] | All listings caller expressed interest in (including primary) |
 | caller_name | text | |
 | phone | text | |
 | email | text | |
@@ -471,7 +472,8 @@ Computed fields on GET (from `TenantResponse` schema):
   2. `call.assistantId` → `properties_list.vapi_lease_assistant_id` (works for per-group provisioned agents)
   3. `call.phoneNumberId` → `properties_list.vapi_phone_number_id` (works for inbound calls on per-group numbers)
   4. `call.assistantId == VAPI_SHARED_LEASE_ASSISTANT_ID` or `call.phoneNumberId == VAPI_SHARED_LEASE_NUMBER_ID` → picks the first property group in the DB (shared agent fallback for single-tenant MVP)
-- `search_available_listings` returns text summaries without UUIDs — the agent cannot get a `listing_uuid` from search alone; `find_listing` is the only tool that returns a UUID
+- `search_available_listings` returns a structured JSON array; each element has `listing_uuid`, `flat_number`, `bedrooms`, `monthly_rent`, `floor_number`, `available_from`, `title` — the agent can now extract `listing_uuid` from search results
+- `interested_listing_ids` (UUID array) is written from `submit_lease_lead` tool call; each entry is validated against UUID regex before insert; the agent captures all listing UUIDs the caller showed interest in
 - `property_group_id` resolution path is logged as `[pg resolution] path=<path> property_group_id=<uuid>`
 - Inserts row into `lease_leads`; always returns HTTP 200
 
@@ -499,7 +501,7 @@ Computed fields on GET (from `TenantResponse` schema):
 | Method | Path | Description |
 |---|---|---|
 | GET | `/leasing/find-listing?query=&property_group_id=` | Search listing by flat number or title; returns `{found, listing_uuid, address, bedrooms, monthly_rent, floor_number, available_from, custom_rules}` |
-| GET | `/leasing/search?bedrooms=&budget_max=&property_group_id=` | Return up to 5 matching listings as a text summary `{count, listings}` |
+| GET | `/leasing/search?bedrooms=&budget_max=&property_group_id=` | Return up to 5 matching listings as a structured JSON array `{count, listings: [{listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from, title}]}` |
 
 #### Manager CRUD (authenticated + subscription gate)
 | Method | Path | Description |
@@ -508,7 +510,7 @@ Computed fields on GET (from `TenantResponse` schema):
 | POST | `/leasing/listings` | Create listing — looks up flat, resolves property_group_id |
 | PATCH | `/leasing/listings/{listing_uuid}` | Update listing fields |
 | DELETE | `/leasing/listings/{listing_uuid}` | Hard delete |
-| GET | `/leasing/leads?listing_uuid=&qualification_status=` | List leads scoped to manager's property groups |
+| GET | `/leasing/leads?listing_uuid=&qualification_status=` | List leads scoped to manager's property groups; `listing_uuid` filter matches both `listing_uuid` and `interested_listing_ids` contains |
 | PATCH | `/leasing/leads/{lead_uuid}` | Update lead status (contacted/toured/converted/lost only for manager) |
 | DELETE | `/leasing/leads/{lead_uuid}` | Hard delete |
 | GET | `/leasing/metrics?days=30` | Aggregated call metrics: total, qualified, not_qualified, unmatched, rate, avg_duration |
@@ -633,6 +635,8 @@ Four builder functions:
 - `build_complaint_config(backend_url)` — global complaint agent (Option B, multi-group)
 - `build_lease_config_shared(backend_url)` — shared lease agent for existing property groups
 - `build_lease_config(backend_url, property_group_id, pg_name)` — per-group lease agent; injects `property_group_id` into the VAPI system prompt so the agent only searches listings for that group
+- `submit_lease_lead` tool now includes `interested_listing_ids` (array of UUIDs) — agent must capture all listing UUIDs the caller showed interest in, not just the primary one
+- `search_available_listings` tool description updated to tell agent the response contains `listing_uuid` fields in the `listings` array
 
 ---
 
@@ -705,7 +709,7 @@ class Feature(str, Enum):
 | `components/VoiceStatsTab.jsx` | Voice call analytics |
 | `components/SmsWorkflow.jsx` | Bulk SMS broadcast to tenants |
 | `components/OnboardingChecklist.jsx` | Interactive onboarding checklist |
-| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export, Refresh button (data only loads on mount; click Refresh after a call to see new leads) |
+| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export, Refresh button (data only loads on mount; click Refresh after a call to see new leads); leads table shows primary matched listing flat_number column; passes `listings` to `LeadDetailModal` |
 
 ### Modals
 | File | Purpose |
@@ -723,7 +727,7 @@ class Feature(str, Enum):
 | `AddTenantModal.jsx` | Create Tenant |
 | `AssignTenantModal.jsx` | Assign existing tenant to flat |
 | `AddListingModal.jsx` | Create / edit a lease listing (flat selector, rent, availability, custom rules) |
-| `LeadDetailModal.jsx` | View lead details + update qualification status |
+| `LeadDetailModal.jsx` | View lead details + update qualification status; accepts `listings` prop to resolve flat_number for primary listing and interested_listing_ids chips |
 | `BuildingInfoModal.jsx` | Building detail |
 | `CsvImportModal.jsx` | Smart bulk import — accepts `.csv` and `.xlsx`; calls `/import/analyze` first; shows `ColumnMappingStep` (editable AI-suggested mapping table) when columns don't match; passes confirmed mapping to import endpoint |
 | `DateComplaintsModal.jsx` | Complaints for a selected calendar date |

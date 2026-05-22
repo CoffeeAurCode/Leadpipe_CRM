@@ -599,10 +599,16 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
             except Exception:
                 qualifying_answers = {}
 
+        raw_interested = lead_data.get("interested_listing_ids") or []
+        if not isinstance(raw_interested, list):
+            raw_interested = []
+        interested_ids = [i for i in raw_interested if isinstance(i, str) and UUID_RE.match(i.strip())]
+
         lead_payload = {
             "property_group_id": str(property_group_id) if property_group_id else None,
             "manager_id": str(manager_id) if manager_id else None,
             "listing_uuid": str(listing_uuid) if listing_uuid else None,
+            "interested_listing_ids": interested_ids,
             "caller_name": lead_data.get("caller_name") or "Unknown",
             "phone": phone,
             "email": lead_data.get("email"),

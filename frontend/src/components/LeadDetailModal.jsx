@@ -14,7 +14,10 @@ const STATUS_COLORS = {
 
 const MANAGER_STATUSES = ['contacted', 'toured', 'converted', 'lost'];
 
-export default function LeadDetailModal({ lead, onClose, onUpdated }) {
+export default function LeadDetailModal({ lead, listings = [], onClose, onUpdated }) {
+    function findListing(uuid) {
+        return listings.find(l => l.uuid === uuid || String(l.uuid) === String(uuid));
+    }
     const [notes, setNotes] = useState(lead?.manager_notes || '');
     const [status, setStatus] = useState(lead?.qualification_status || '');
     const [saving, setSaving] = useState(false);
@@ -110,6 +113,43 @@ export default function LeadDetailModal({ lead, onClose, onUpdated }) {
                             )}
                         </div>
                     </section>
+
+                    {/* Matched Listings */}
+                    {(lead.listing_uuid || (lead.interested_listing_ids && lead.interested_listing_ids.length > 0)) && (
+                        <section>
+                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Matched Listings</h3>
+                            <div className="space-y-2">
+                                {lead.listing_uuid && (() => {
+                                    const primary = findListing(lead.listing_uuid);
+                                    return (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <span className="text-muted-foreground">Primary:</span>
+                                            <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
+                                                {primary ? `${primary.flat_number}${primary.monthly_rent ? ` — ₹${Number(primary.monthly_rent).toLocaleString()}/mo` : ''}` : lead.listing_uuid}
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
+                                {lead.interested_listing_ids && lead.interested_listing_ids.length > 0 && (
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <span className="text-muted-foreground shrink-0">Also interested:</span>
+                                        <div className="flex flex-wrap gap-1">
+                                            {lead.interested_listing_ids
+                                                .filter(id => id !== lead.listing_uuid)
+                                                .map(id => {
+                                                    const l = findListing(id);
+                                                    return (
+                                                        <span key={id} className="font-mono text-xs bg-secondary text-foreground px-2 py-0.5 rounded">
+                                                            {l ? l.flat_number : id}
+                                                        </span>
+                                                    );
+                                                })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    )}
 
                     {/* Qualifying Answers */}
                     {hasAnswers && (
