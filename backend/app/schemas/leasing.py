@@ -82,4 +82,4 @@ class LeadResponse(BaseModel):
     call_duration_seconds: Optional[int] = None
     manager_notes: Optional[str] = None
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None

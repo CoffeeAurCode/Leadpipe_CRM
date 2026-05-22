@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, ExternalLink, Phone, BedDouble, Banknote, PhoneCall } from 'lucide-react';
+import { Plus, Pencil, Trash2, ExternalLink, Phone, BedDouble, Banknote, PhoneCall, RefreshCw } from 'lucide-react';
 import {
     getListings, deleteListing,
     getLeaseLeads, deleteLead,
@@ -122,9 +122,17 @@ export default function LeasingTab() {
 
     return (
         <div className="space-y-8">
-            <div>
-                <h1 className="text-2xl font-bold text-foreground">Leasing</h1>
-                <p className="text-muted-foreground text-sm mt-1">Manage listings and track voice leads from the lease agent.</p>
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">Leasing</h1>
+                    <p className="text-muted-foreground text-sm mt-1">Manage listings and track voice leads from the lease agent.</p>
+                </div>
+                <button
+                    onClick={load}
+                    className="flex items-center gap-2 border border-border rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+                >
+                    <RefreshCw className="w-4 h-4" /> Refresh
+                </button>
             </div>
 
             {/* Lease agent phone numbers */}

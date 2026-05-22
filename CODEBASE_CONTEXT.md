@@ -465,8 +465,14 @@ Computed fields on GET (from `TenantResponse` schema):
 
 **Lease lead webhook:** `POST /voice/lease-lead-webhook`
 - Accepts `submit_lease_lead` tool calls from the lease agent
-- Validates `listing_uuid` against a UUID regex before querying Supabase — hallucinated flat numbers (e.g. `"S-106"`) are discarded and `listing_uuid` is set to `None`, letting the `assistant_id` fallback resolve `property_group_id`
-- Resolves `property_group_id` from listing UUID or assistant ID → `properties_list.vapi_lease_assistant_id`
+- Validates `listing_uuid` against a UUID regex before querying Supabase — hallucinated flat numbers (e.g. `"S-106"`) are discarded and `listing_uuid` is set to `None`
+- Resolves `property_group_id` via four fallback paths in order:
+  1. `listing_uuid` → `lease_listings.property_group_id` (only works if agent matched a specific listing via `find_listing`)
+  2. `call.assistantId` → `properties_list.vapi_lease_assistant_id` (works for per-group provisioned agents)
+  3. `call.phoneNumberId` → `properties_list.vapi_phone_number_id` (works for inbound calls on per-group numbers)
+  4. `call.assistantId == VAPI_SHARED_LEASE_ASSISTANT_ID` or `call.phoneNumberId == VAPI_SHARED_LEASE_NUMBER_ID` → picks the first property group in the DB (shared agent fallback for single-tenant MVP)
+- `search_available_listings` returns text summaries without UUIDs — the agent cannot get a `listing_uuid` from search alone; `find_listing` is the only tool that returns a UUID
+- `property_group_id` resolution path is logged as `[pg resolution] path=<path> property_group_id=<uuid>`
 - Inserts row into `lease_leads`; always returns HTTP 200
 
 **Outbound call:** `POST /voice/call/outbound`
@@ -609,6 +615,7 @@ get_service_db()  # service-role client (bypasses RLS) — for webhooks, admin
 - `CustomRules` — JSONB config: `max_occupants`, `income_required`, `pets_allowed`, `vegetarian_only`, `lease_term_months`, `custom_question`
 - `ListingCreate / ListingUpdate / ListingResponse`
 - `LeadUpdate / LeadResponse`
+- `LeadResponse.updated_at` is `Optional[datetime] = None` — the insert never sets this field and the DB column has no DEFAULT; making it optional prevents a Pydantic 500 on fresh rows
 
 ---
 
@@ -698,7 +705,7 @@ class Feature(str, Enum):
 | `components/VoiceStatsTab.jsx` | Voice call analytics |
 | `components/SmsWorkflow.jsx` | Bulk SMS broadcast to tenants |
 | `components/OnboardingChecklist.jsx` | Interactive onboarding checklist |
-| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export |
+| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export, Refresh button (data only loads on mount; click Refresh after a call to see new leads) |
 
 ### Modals
 | File | Purpose |
