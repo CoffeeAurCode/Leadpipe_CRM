@@ -412,6 +412,249 @@ LIMIT 5;
 
 ---
 
+## Part 5 — Second Sweep: Post-Fix Regression (Manual)
+
+Run after deploying the backend changes and re-provisioning the VAPI shared lease agent.
+Each scenario below directly targets one of the fixes made in session 2026-05-22.
+Prerequisites: migration 013 has been run, DB contains only the 5 Sunrise Heights listings.
+
+---
+
+### Sweep 2-A — Re-run Scenario C: Verify `unmatched` status and no hallucinated UUID
+**Fixes tested:** Fix 3 (no hallucinated listing_uuid), Fix 5 (unmatched when count=0)  
+**What failed before:** Agent submitted `listing_uuid=TM1_TEST_UNIT` and `status=qualified` despite no budget match.
+
+**Caller says:**
+> "2BHK, I can only pay 30,000 a month."
+
+**Expected agent behaviour:**
+1. Calls `search_available_listings` with `bedrooms=2, budget_max=30000`
+2. Gets count=0 (cheapest 2BHK is B202 at ₹38,000)
+3. Offers 1BHK A101 at ₹20,000 as alternative
+4. Caller declines
+5. Calls `submit_lease_lead` with `qualification_status=unmatched`, `listing_uuid=""` (blank)
+
+**What to check in DB:**
+- [ ] `qualification_status` = `unmatched` — NOT `qualified`
+- [ ] `listing_uuid` = null — NOT a made-up string like `TM1_TEST_UNIT`
+- [ ] `bedrooms` = 2, `budget_max` = 30000
+- [ ] `property_group_id` = `aeb9d575-42e2-439f-ad81-8e99ae6900ed` (Sunrise Heights) — NOT `0205c976`
+- [ ] `pg resolution path` in backend log = `listing_uuid` or `assistant_id` — NOT `shared_agent_fallback` to wrong group
+
+---
+
+### Sweep 2-B — Re-run Scenario D: Verify pet rule read and correct budget capture
+**Fixes tested:** Fix 3 (no hallucination), Fix 5 (correct status routing), DB cleanup (correct property group)  
+**What failed before:** Budget captured as ₹4,500 (ASR error), wrong property group, status `unmatched` instead of routing to B202.
+
+**Caller says:**
+> "2BHK, budget 45,000 rupees, moving in next week, I have a dog."
+
+> **Tip:** Say "forty-five thousand rupees" clearly and slowly to reduce ASR mis-transcription. If `budget_max=4500` still appears, it's the Deepgram ASR issue — note it and re-run with exaggerated pronunciation.
+
+**Expected agent behaviour — Branch 1 (agent routes to B202):**
+1. Calls `search_available_listings` with `bedrooms=2, budget_max=45000`
+2. Gets B202 (₹38,000, no pet rule) and D404 (₹42,000, `pets_allowed=no`)
+3. Reads `custom_rules` on D404 → asks "Do you have any pets?"
+4. Caller says yes → excludes D404, offers B202 instead
+5. `submit_lease_lead` with `listing_uuid=B202.uuid`, `qualification_status=qualified`
+
+**Expected agent behaviour — Branch 2 (caller insists on D404):**
+5. `submit_lease_lead` with `listing_uuid=D404.uuid`, `qualification_status=not_qualified`, `disqualifying_reason` mentions pets + D404
+
+**What to check in DB:**
+- [ ] `budget_max` = 45000 — NOT 4500 (watch for ASR regression)
+- [ ] `listing_uuid` = B202 UUID or D404 UUID — NOT blank, NOT invented
+- [ ] `qualification_status` = `qualified` (Branch 1) or `not_qualified` (Branch 2) — NOT `unmatched`
+- [ ] `disqualifying_reason` populated if Branch 2
+- [ ] `property_group_id` = Sunrise Heights UUID
+
+---
+
+### Sweep 2-C — Re-run Scenario E: Verify E501 is found and income rule applied
+**Fixes tested:** Fix 3, Fix 5, DB cleanup (E501 now exists in correct property group)  
+**What failed before:** Agent said "No 5th floor units available", marked `unmatched`, wrong property group. E501 was not in the DB under the correct group.
+
+**Caller says:**
+> "I want the penthouse on floor 5, budget is fine."
+
+**Expected agent behaviour:**
+1. Calls `search_available_listings` with `bedrooms=2` (or broad budget) — E501 appears at ₹55,000, floor 5
+2. OR calls `find_listing` with query "E501" / "floor 5" — returns E501
+3. Reads `custom_rules` on E501: `income_required=true`, asks the custom question: "Can you confirm monthly income of at least ₹1,65,000 (3× the monthly rent of ₹55,000)?"
+4. Caller says: "I make about 80,000 a month"
+5. `submit_lease_lead` with `listing_uuid=E501.uuid`, `qualification_status=not_qualified`, `disqualifying_reason` includes the income shortfall
+
+**What to check in DB:**
+- [ ] `listing_uuid` = `096ad042-0803-4f91-b615-9d6c936cd1fd` (E501)
+- [ ] `qualification_status` = `not_qualified` — NOT `unmatched`
+- [ ] `disqualifying_reason` mentions income (e.g. "₹80,000 below required ₹1,65,000")
+- [ ] `floor_preference` = "5th floor" or similar
+- [ ] `property_group_id` = Sunrise Heights UUID
+
+---
+
+### Sweep 2-D — Currency pronunciation check
+**Fix tested:** Fix 1 (agent says "Rupees twenty thousand", not "RS 20000")  
+**What failed before:** Agent read rent amounts as "RS" + bare digits on every call.
+
+**Run any scenario** (Scenario A is simplest). During the call, listen specifically when the agent presents rent amounts.
+
+**What to listen for:**
+- [ ] Agent says **"Rupees twenty thousand per month"** for A101 — NOT "RS 20000" or "20,000 rupees"
+- [ ] Agent says **"Rupees thirty-eight thousand"** for B202 — NOT "RS 38000"
+- [ ] Agent says **"Rupees fifty-five thousand"** for E501 — NOT "RS 55000"
+- [ ] Numbers spoken as words throughout — no raw digit strings read aloud
+
+> **Note:** This fix is in the system prompt. If "RS" still appears after re-provisioning the agent in VAPI, confirm the new assistant config was published — the old cached config may still be live.
+
+---
+
+### Sweep 2-E — Duplicate lead suppression
+**Fix tested:** Fix 2 (backend call_id deduplication), Fix 4 (prompt says EXACTLY ONCE)  
+**What failed before:** Scenario B triggered `submit_lease_lead` twice for the same call, creating two lead rows with the same `call_id`.
+
+**Caller says:**
+> "2BHK, budget up to 60,000, want a high floor if possible." (repeat Scenario B)
+
+After the call, run this query in Supabase:
+
+```sql
+SELECT call_id, COUNT(*) AS lead_count, array_agg(caller_name) AS names
+FROM   lease_leads
+WHERE  created_at > now() - interval '10 minutes'
+GROUP  BY call_id;
+```
+
+**What to check:**
+- [ ] `lead_count` = 1 for this call's `call_id` — NOT 2
+- [ ] Backend log shows `[DUPLICATE] call_id=... already exists, skipping` if a second webhook did fire
+- [ ] Only one row visible in the Leasing tab → Leads panel for this call
+
+---
+
+### Sweep 2-F — Scenario F: Wrong bedroom count (first run)
+**What was not tested in sweep 1.**
+
+**Caller says:**
+> "I need a 4BHK, budget is 2 lakh."
+
+**Expected agent behaviour:**
+1. `search_available_listings` with `bedrooms=4, budget_max=200000` → count=0
+2. Agent tells caller no 4BHK units available
+3. Offers 3BHK C301 at ₹65,000 as closest alternative
+4. Caller not interested
+5. `submit_lease_lead` with `qualification_status=unmatched`, `listing_uuid=""`, `bedrooms=4`
+
+**What to check in DB:**
+- [ ] `listing_uuid` = null
+- [ ] `qualification_status` = `unmatched`
+- [ ] `bedrooms` = 4
+- [ ] `budget_max` = 200000
+
+---
+
+### Sweep 2-G — Scenario G: Find listing by address query (first run)
+
+**Caller says:**
+> "I saw a listing for C block, third floor. Is that still available?"
+
+**Expected agent behaviour:**
+1. Calls `find_listing` with query "C301" or "C block" or "third floor"
+2. Returns C301 (3BHK, ₹65,000, floor 3)
+3. Confirms availability and walks through custom rules (none for C301)
+4. Collects requirements and `submit_lease_lead` with `listing_uuid=C301.uuid`
+
+**What to check in DB:**
+- [ ] `listing_uuid` = `f1e73d63-cba3-4970-aa8c-f63b49280d04` (C301)
+- [ ] `qualification_status` = `qualified` (no custom rules to fail)
+- [ ] Lead appears in Leasing tab
+
+---
+
+### Sweep 2-H — Scenario H: Caller hangs up — no lead inserted (first run)
+
+**Caller says:**
+> "I need a 2BHK" — then hang up immediately before agent responds.
+
+**Expected result:**
+- Webhook receives end-of-call-report with no `submit_lease_lead` tool call
+- Backend logs `[IGNORED] No submit_lease_lead tool call found`
+- `response["status"] == "ignored"`
+
+**What to check in DB:**
+```sql
+SELECT COUNT(*) FROM lease_leads WHERE created_at > now() - interval '5 minutes';
+```
+- [ ] Count unchanged — no new row inserted
+- [ ] Nothing appears in Leasing tab → Leads panel
+
+---
+
+### Sweep 2-I — Scenario I: Budget exactly at rent price — boundary test (first run)
+
+**Caller says:**
+> "2BHK, budget exactly 38,000, move in June."
+
+**Expected agent behaviour:**
+1. `search_available_listings` with `bedrooms=2, budget_max=38000`
+2. B202 at ₹38,000 appears — `lte` filter is inclusive so boundary value is included
+3. Agent presents B202, no custom rules to check
+4. `submit_lease_lead` with `listing_uuid=B202.uuid`, `qualification_status=qualified`
+
+**What to check:**
+- [ ] `listing_uuid` = `7b35994b-63cd-40e3-9c35-6ab864c22838` (B202)
+- [ ] `budget_max` = 38000
+- [ ] `qualification_status` = `qualified`
+
+---
+
+### Sweep 2-J — Scenario J: Caller pivots to 1BHK after initial decline (first run)
+
+**Caller says:**
+> "Actually, can I look at a cheaper option? Maybe a 1BHK."
+
+(Open conversation — start by asking about 2BHK, go over budget, then pivot.)
+
+**Expected agent behaviour:**
+1. Initial search for 2BHK over budget → unmatched
+2. Agent proactively offers 1BHK — or caller asks
+3. `find_listing` or `search` returns A101 (₹20,000, 1BHK, floor 1)
+4. `submit_lease_lead` with `listing_uuid=A101.uuid`, `qualification_status=qualified`
+
+**What to check:**
+- [ ] `listing_uuid` = `06424100-448a-4196-b86e-e8c37b4cfc9a` (A101)
+- [ ] `qualification_status` = `qualified`
+- [ ] Only ONE lead row per call (deduplication check — same `call_id` guard applies)
+
+---
+
+### Sweep 2 — Post-run checklist
+
+After all second-sweep scenarios are complete, run this in Supabase to review the full batch:
+
+```sql
+SELECT
+  caller_name, bedrooms, budget_max, qualification_status,
+  listing_uuid, property_group_id, call_id, created_at
+FROM   lease_leads
+WHERE  created_at > now() - interval '2 hours'
+ORDER  BY created_at DESC;
+```
+
+**Sign-off criteria for second sweep:**
+
+| Check | Expected |
+|-------|----------|
+| All leads → `property_group_id` = Sunrise Heights UUID | `aeb9d575-42e2-439f-ad81-8e99ae6900ed` |
+| No `listing_uuid` contains a non-UUID string | All values are valid UUIDs or null |
+| No `call_id` appears more than once | Deduplication holding |
+| Scenarios C, F with no match → `qualification_status=unmatched` | Not `qualified` |
+| Scenarios D, E with rule failure → `qualification_status=not_qualified` | Not `unmatched` |
+| Currency spoken as words during calls | "Rupees X thousand", not "RS XXXX" |
+
+---
+
 ## Part 4 — Tests That Will Fail Until Plan Is Implemented
 
 These scenarios CANNOT pass until `LEAD_ASSIGNMENT_PLAN.md` phases are complete.

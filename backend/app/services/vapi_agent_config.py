@@ -1168,7 +1168,7 @@ def build_lease_config(
     )
     system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block
     return _lease_assistant_shell(
-        name=f"Lease Agent — {pg_name}",
+        name=f"Lease Agent — {pg_name}"[:40],
         system_prompt=system_prompt,
         tools=tools,
     )

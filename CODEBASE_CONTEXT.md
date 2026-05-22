@@ -279,6 +279,21 @@ PropertyGroup (properties_list)
 | call_id | text | VAPI call ID |
 | call_duration_seconds | int | |
 
+#### `twilio_number_pool`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| phone_number | text UNIQUE | E.164 number bought in Twilio console |
+| vapi_phone_number_id | text UNIQUE | VAPI's internal ID for this number |
+| status | text | available / assigned |
+| assigned_property_group_id | UUID | FK → properties_list (nullable) |
+| assigned_at | timestamptz | When the number was claimed |
+| notes | text | Optional label |
+
+RLS: service-role only. Managers see their phone number via `properties_list.vapi_phone_number`.
+
+Admin script to add numbers: `python backend/scripts/add_twilio_number_to_vapi.py <E.164>`
+
 #### `subscriptions`
 | Column | Type | Notes |
 |---|---|---|
@@ -623,9 +638,14 @@ get_service_db()  # service-role client (bypasses RLS) — for webhooks, admin
 
 ### `app/services/vapi_provisioning.py`
 - `provision_vapi_for_property_group(property_group_id, pg_name, db)` — run as a FastAPI `BackgroundTask` when a `PropertyGroup` is created
-- Calls VAPI API to create a per-group lease assistant + phone number
-- Updates `properties_list` with `vapi_lease_assistant_id`, `vapi_phone_number_id`, `vapi_phone_number`, `vapi_provisioning_status`
+- **Pool-based provisioning** (replaces old VAPI-number-acquire flow):
+  1. Picks the oldest `available` row from `twilio_number_pool` (service DB, bypasses RLS)
+  2. Marks the row `assigned` (optimistic lock: `.eq("status", "available")` on the update)
+  3. Creates a per-group lease assistant via `build_lease_config()`
+  4. Links the assistant to the Twilio number via VAPI's `phone_numbers.update()`
+  5. Updates `properties_list` with `vapi_lease_assistant_id`, `vapi_phone_number_id`, `vapi_phone_number`, `vapi_provisioning_status = "active"`
 - On failure: sets `vapi_provisioning_status = "failed"` and re-raises
+- If pool is empty: fails with a clear message — run `add_twilio_number_to_vapi.py` to add numbers
 
 ---
 
@@ -871,6 +891,7 @@ Used after voice/chatbot actions that modify data.
 - Complaint agent is global (one assistant for all groups); lease agent is per-property-group (auto-provisioned)
 - `vapi_provisioning_status` on `properties_list` tracks provisioning state: `not_applicable` | `pending` | `active` | `failed`
 - Both assistants have `endCallFunctionEnabled: true` — agents invoke `endCall()` to hang up after goodbye; run `backend/scripts/enable_end_call.py` to apply this to any newly provisioned assistant
+- **Phone number source**: per-group lease agents use **Twilio-owned numbers** pre-registered in `twilio_number_pool` (not VAPI-provisioned numbers — free tier limit). Add numbers: `python backend/scripts/add_twilio_number_to_vapi.py <E.164>`
 
 ### Idempotency
 - Stripe webhooks: deduplicated via `stripe_events` table (`event_id` UNIQUE)

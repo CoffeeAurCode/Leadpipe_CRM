@@ -556,39 +556,19 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
                 property_group_id = pn_row.data[0].get("id")
                 resolution_path = "phone_number_id"
 
-        # Path 4: shared agent — phone_number_id matches VAPI_SHARED_LEASE_NUMBER_ID env var
-        # The shared assistant is not stored in properties_list, so fall back to env var comparison.
-        # For single-tenant MVP: assign to the first property group that has any listing.
+        # Path 4: unresolved — log warning, do not guess which property group
         if not property_group_id:
-            from app.config import settings
-            shared_number_id = settings.VAPI_SHARED_LEASE_NUMBER_ID
-            shared_assistant_id = settings.VAPI_SHARED_LEASE_ASSISTANT_ID
-            if (phone_number_id and shared_number_id and phone_number_id == shared_number_id) or \
-               (assistant_id and shared_assistant_id and assistant_id == shared_assistant_id):
-                first_pg = (
-                    db.table("properties_list")
-                    .select("id")
-                    .limit(1)
-                    .execute()
-                )
-                if first_pg.data:
-                    property_group_id = first_pg.data[0].get("id")
-                    resolution_path = "shared_agent_fallback"
+            print(f"  [WARN] Could not resolve property_group_id for assistant={assistant_id} phone_number_id={phone_number_id}")
+            resolution_path = "unresolved"
 
         print(f"  [pg resolution] path={resolution_path} property_group_id={property_group_id}")
 
         # Resolve manager_id from the property group row.
-        # Falls back to first manager_profiles entry — safe for single-tenant MVP.
         manager_id = None
         if property_group_id:
             pg_mgr = db.table("properties_list").select("manager_id").eq("id", str(property_group_id)).limit(1).execute()
             if pg_mgr.data:
                 manager_id = pg_mgr.data[0].get("manager_id")
-
-        if not manager_id:
-            mp = db.table("manager_profiles").select("user_id").limit(1).execute()
-            if mp.data:
-                manager_id = mp.data[0].get("user_id")
 
         print(f"  [manager resolution] manager_id={manager_id}")
 
@@ -632,8 +612,25 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
             "call_id": call_id,
         }
 
-        db.table("lease_leads").insert(lead_payload).execute()
+        result = db.table("lease_leads").insert(lead_payload).execute()
         print(f"  [SAVED] phone={phone} status={lead_payload['qualification_status']} property_group_id={property_group_id}")
+
+        if result.data and lead_payload.get("qualification_status") == "qualified" and manager_id:
+            try:
+                saved_lead = result.data[0]
+                caller_name = lead_payload.get("caller_name") or "Unknown caller"
+                db.table("notifications").insert({
+                    "manager_id": str(manager_id),
+                    "title": "New Qualified Lead",
+                    "body": f"{caller_name} is interested in leasing — review their details.",
+                    "type": "lead",
+                    "entity_id": str(saved_lead["uuid"]),
+                    "is_read": False,
+                }).execute()
+                print(f"  [NOTIFICATION] Qualified lead notification created for manager {manager_id}")
+            except Exception as notif_err:
+                print(f"  [NOTIFICATION] Failed (non-fatal): {notif_err}")
+
         print("=" * 60)
 
     except Exception as e:
@@ -673,12 +670,16 @@ class OutboundCallRequest(BaseModel):
 
 
 @router.post("/voice/call/outbound")
-async def make_outbound_call(req: OutboundCallRequest):
+async def make_outbound_call(
+    req: OutboundCallRequest,
+    user: dict = Depends(require_active_subscription),
+    svc_db: Client = Depends(get_service_db),
+):
     """
     Initiate an outbound call using either the complaint or lease agent.
-    agent="complaint" uses VAPI_ASSISTANT_ID + VAPI_NUMBER_ID (test group).
-    agent="lease" uses VAPI_SHARED_LEASE_ASSISTANT_ID + VAPI_SHARED_LEASE_NUMBER_ID
-                  (falls back to VAPI_NUMBER_ID if lease number not set).
+    agent="complaint" uses VAPI_ASSISTANT_ID + VAPI_NUMBER_ID.
+    agent="lease" uses the manager's per-group provisioned assistant; falls back to
+                  VAPI_SHARED_LEASE_ASSISTANT_ID if no active provisioned group exists.
     """
     import asyncio
     import httpx
@@ -692,10 +693,22 @@ async def make_outbound_call(req: OutboundCallRequest):
         raise HTTPException(status_code=500, detail="VAPI_NUMBER_ID env var is not configured on the server")
 
     if req.agent == "lease":
-        assistant_id = settings.VAPI_SHARED_LEASE_ASSISTANT_ID
-        phone_number_id = settings.VAPI_SHARED_LEASE_NUMBER_ID or settings.VAPI_NUMBER_ID
+        pg_row = (
+            svc_db.table("properties_list")
+            .select("vapi_lease_assistant_id, vapi_phone_number_id")
+            .eq("manager_id", user["sub"])
+            .eq("vapi_provisioning_status", "active")
+            .limit(1)
+            .execute()
+        )
+        if pg_row.data and pg_row.data[0].get("vapi_lease_assistant_id"):
+            assistant_id = pg_row.data[0]["vapi_lease_assistant_id"]
+            phone_number_id = pg_row.data[0]["vapi_phone_number_id"]
+        else:
+            assistant_id = settings.VAPI_SHARED_LEASE_ASSISTANT_ID
+            phone_number_id = settings.VAPI_SHARED_LEASE_NUMBER_ID or settings.VAPI_NUMBER_ID
         if not assistant_id:
-            raise HTTPException(status_code=500, detail="VAPI_SHARED_LEASE_ASSISTANT_ID env var is not configured on the server")
+            raise HTTPException(status_code=500, detail="No lease agent configured. Check VAPI provisioning status.")
     else:
         assistant_id = settings.VAPI_ASSISTANT_ID
         phone_number_id = settings.VAPI_NUMBER_ID

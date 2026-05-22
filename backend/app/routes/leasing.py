@@ -262,7 +262,7 @@ async def update_lead(
 
     payload["updated_at"] = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
 
-    resp = db.table("lease_leads").update(payload).eq("uuid", lead_uuid).execute()
+    resp = db.table("lease_leads").update(payload).eq("uuid", lead_uuid).eq("manager_id", user["sub"]).execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="Lead not found")
     return resp.data[0]
@@ -274,7 +274,7 @@ async def delete_lead(
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_service_db),
 ):
-    db.table("lease_leads").delete().eq("uuid", lead_uuid).execute()
+    db.table("lease_leads").delete().eq("uuid", lead_uuid).eq("manager_id", user["sub"]).execute()
     return None
 
 

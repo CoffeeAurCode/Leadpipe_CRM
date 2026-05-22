@@ -7,6 +7,7 @@ const TYPE_COLORS = {
     appointment: 'bg-blue-500/15 text-blue-400',
     complaint:   'bg-red-500/15 text-red-500',
     rent:        'bg-emerald-500/15 text-emerald-500',
+    lead:        'bg-violet-500/15 text-violet-500',
     system:      'bg-secondary text-muted-foreground',
 };
 
