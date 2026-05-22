@@ -386,3 +386,679 @@ A webhook is just a reverse API. Instead of us asking Vapi "Did the user say any
 
 **FINAL MANDATE FOR THE READER:**
 Do not simply read this and move on. Identify one of the flaws outlined above—like the internal HTTP loopback in `routes/voice.py`—and fix it today. Write a unit test for it. Observe how the system's stability increases. This is how you transition from an intern to a staff engineer.
+
+---
+
+# PART 3: ACCUMULATED WISDOM FROM 22 SESSIONS OF REAL PRODUCTION DEBUGGING
+
+> This section was written after 22 complete development sessions on this codebase. Every lesson here came from a real bug, a real production issue, or a real architectural decision that had to be made under pressure. Reading Parts 1 and 2 teaches you the theory. This part teaches you what actually happens.
+
+---
+
+## 17. Updated Architecture Assessment — Current State
+
+Parts 1 and 2 were written early in the project. The system has evolved significantly. Here is the honest current state:
+
+| Concern | Early State (Parts 1–2) | Current State |
+|---------|------------------------|---------------|
+| Authentication | None — CORS wide open | Supabase Auth + JWT validation + Subscription gate |
+| RLS | Not deployed | Fully deployed on all user-facing tables |
+| Voice webhook DB client | Anon key (wrong) | Service role key (correct — fixed after testing revealed VAPI has no JWT) |
+| Internal loopback in `voice.py` | Still present | Removed — complaint creation now calls service functions directly |
+| Frontend polling | 30s setInterval | Still present — acceptable at current scale |
+| SQLAlchemy/Supabase split brain | Present | SQLAlchemy models kept only as schema reference; all queries use Supabase SDK |
+| Production auth | Absent | Google OAuth PKCE flow across two domains |
+| Payment gate | Absent | Stripe subscription gate on all routes |
+
+**Revised maturity assessment:**
+- Engineering Maturity: 6/10 (up from 4/10 — auth, RLS, and subscription gate are production-grade)
+- Production Readiness: 6/10 (up from 3/10 — auth works, RLS works, but still no structured logging, no retry queues)
+- Maintainability: 6/10 (still no service layer, but patterns are now consistent)
+- Scalability: 3/10 (unchanged — polling + Supabase HTTP are still the ceiling)
+
+---
+
+## 18. The Four Categories of Bugs You Will Encounter
+
+After 22 sessions, every bug falls into one of four categories. Knowing the category immediately tells you where to look.
+
+### Category 1 — Infrastructure Bugs (Hardest to Anticipate)
+
+**Pattern:** Code logic is correct; the *environment assumption* is wrong.
+
+**Canonical example:** VAPI endpoints using `get_db` (anon client) instead of `get_service_db`.
+
+The code was logically sound. VAPI returns the right shape. But VAPI makes machine-to-machine calls with no user JWT. The anon Supabase client with RLS active returns 0 rows for every query because `auth.uid()` is null. The endpoint looks correct in isolation — it only breaks in the live VAPI environment.
+
+**The diagnostic question:** "Who calls this endpoint, and do they have a user JWT?"
+
+| Caller | Has JWT? | Required client |
+|--------|----------|----------------|
+| Logged-in manager (browser) | Yes | `get_authenticated_db` |
+| VAPI webhook or tool call | No | `get_service_db` |
+| Stripe webhook | No | `get_service_db` |
+| Twilio callback | No | `get_service_db` |
+| FastAPI BackgroundTask | No | `get_service_db` (pass client explicitly as an arg) |
+
+**Rule:** Write this question in every webhook/tool endpoint before you write the first line of business logic: *"Does the caller of this endpoint have a JWT?"*
+
+---
+
+### Category 2 — Platform-Specific Bugs (Windows vs Linux)
+
+**Pattern:** Works on macOS/Linux, crashes on Windows.
+
+**Canonical example:** `print(f" ✓ User confirmed")` in a FastAPI route crashed the Windows development server with `UnicodeEncodeError: 'charmap' codec can't encode character`.
+
+Windows terminal encoding defaults to `cp1252`. macOS and Linux default to UTF-8. A Unicode check mark `✓` is valid UTF-8 but not valid `cp1252`. The bug is invisible until someone runs the code on Windows.
+
+**Rule:** All server-side `print()` and log statements must use ASCII-only characters. Replace `✓` → `[OK]`, `✗` → `[FAIL]`, emoji → nothing.
+
+**Secondary rule:** When a bug appears on Windows but not Linux (or vice versa), immediately search all `print()` statements for non-ASCII characters. This is almost always the cause.
+
+---
+
+### Category 3 — Logic Bugs in Query Scoping
+
+**Pattern:** A query returns data from the wrong tenant/manager/group because a filter was not re-applied in a fallback branch.
+
+**Canonical example:** `find_listing` had a two-phase query (find by flat number, then fall back to title match). The primary query had `.eq("property_group_id", pg_id)`. The fallback branch did not. A caller on Group A's dedicated phone line could return listings from Group B.
+
+```python
+# PRIMARY — correct
+results = q.ilike("flat_number", f"%{query}%").eq("property_group_id", pg_id).execute()
+
+# FALLBACK — Bug: missing .eq("property_group_id", pg_id)
+fallback = db.table("lease_listings").select(...).ilike("title", f"%{query}%").execute()
+# ↑ Returns ALL managers' listings that match the title — data isolation failure
+```
+
+**The diagnostic question to ask after writing every query branch:** "If I were a different manager right now, would this query return MY data or someone else's?"
+
+**Rule:** Every branch that queries user-owned data — primary, fallback, or exception — must apply the same scope filters. Copy-paste the filters into every branch; don't assume they "carry over."
+
+---
+
+### Category 4 — Data Type Bugs
+
+**Pattern:** Pydantic validates successfully, but the database SDK rejects the value because Python's type doesn't serialize to what the SDK expects.
+
+**Canonical example:** Pydantic's `Decimal` type (used for `monthly_rent: Decimal`) doesn't serialize to JSON automatically. After `body.model_dump()`, the dict contains `Decimal("25000")`. The Supabase Python SDK throws `TypeError: Object of type Decimal is not JSON serializable`.
+
+**The fix pattern — apply immediately after every `model_dump()`:**
+```python
+from decimal import Decimal
+
+payload = body.model_dump(exclude_none=True)
+payload = {k: float(v) if isinstance(v, Decimal) else v for k, v in payload.items()}
+svc_db.table("lease_listings").insert(payload).execute()
+```
+
+**Why Decimal at all?** `float(1.5)` can be `1.4999999999999998` in IEEE 754 binary. `Decimal("1.5")` is exactly 1.5. Pydantic uses Decimal for financial fields to prevent rounding errors during Python-level validation. Convert to float only at the DB boundary.
+
+---
+
+## 19. The Three-Layer Status Rule
+
+This is the single most important rule for preventing silent production breakage. Any time you add a new status value (for appointments, complaints, leads, subscriptions, or any other entity), you must update **all three layers** in the same commit:
+
+```
+Layer 1: PostgreSQL CHECK constraint  (the database — the last line of defense)
+Layer 2: Pydantic Enum or validator   (the API — the first line of defense)
+Layer 3: Frontend constants / config  (the UI — what users see)
+```
+
+**How each layer fails independently:**
+
+| Missing layer | Symptom | When it breaks |
+|---------------|---------|----------------|
+| Layer 1 (DB constraint) | HTTP 500 on write — "constraint violation" | On any write to the DB |
+| Layer 2 (Pydantic) | HTTP 422 — "Input should be one of..." | On the API call |
+| Layer 3 (Frontend) | Grey fallback styling, wrong label | On render |
+
+The deceptive failure is **missing Layer 1 with correct Layer 2**: Pydantic accepts `"attended"` as valid, the data goes all the way to PostgreSQL, and then the DB rejects it. The error surface (HTTP 500) is far from the root cause (missing CHECK constraint value).
+
+**How to find the current DB constraint:**
+```sql
+-- Run in Supabase SQL Editor
+SELECT conname, consrc
+FROM pg_constraint
+WHERE conrelname = 'appointments'
+  AND contype = 'c';
+```
+
+**How to fix it:**
+```sql
+-- Cannot just ALTER the constraint — must DROP and recreate
+ALTER TABLE appointments
+    DROP CONSTRAINT IF EXISTS appointments_status_check;
+
+ALTER TABLE appointments
+    ADD CONSTRAINT appointments_status_check
+    CHECK (status IN ('scheduled', 'completed', 'cancelled', 'rescheduled', 'attended'));
+```
+
+Always save migrations as numbered SQL files in `backend/migrations/`. Never run schema changes directly without saving them.
+
+---
+
+## 20. The "All Code Paths" Mental Model
+
+This is the biggest gap between junior and senior developers. Juniors implement the happy path. Seniors find and implement all paths.
+
+**Example — appointment cancellation has four independent entry points:**
+```
+1. Calendar UI      → PATCH /appointments/{id}
+2. VAPI voice call  → POST /appointments/cancel
+3. AI chatbot tool  → execute_tool("cancel_appointment")
+4. Future path?     → (some admin endpoint, import script, etc.)
+```
+
+A notification that fires on 3 out of 4 paths is wrong. The tenant who happened to call the voice agent instead of using the UI gets no notification.
+
+**The audit process — before shipping any feature that fires side effects:**
+1. Draw every entry point that triggers the action
+2. For each entry point, trace the code path and check: does it call the side effect?
+3. For each entry point, check: does the DB query fetch the fields the side effect needs?
+
+**Concretely:** When adding SMS to `cancel_appointment` in the chatbot, the existing DB query fetched `"id, status, flat_number"`. The SMS function needs `flat_uuid` to look up the tenant. The code was added correctly, but silently failed because `flat_uuid` was not in `select()`. No error — just no SMS.
+
+**Rule:** Before writing any side-effect call (notification, analytics event, audit log), list every field that call needs. Then grep the DB query in that code path and verify each field is in `select()`.
+
+---
+
+## 21. Reading Library Source Code — The Ground Truth
+
+When a third-party library prop or function silently does nothing, the documentation is unreliable. The compiled dist is not.
+
+**The situation that exposed this:** `react-joyride` v3 renamed the event callback from `callback={fn}` to `onEvent={fn}`. Every blog post, every AI assistant, every Stack Overflow answer described v2. The tour overlay appeared and worked visually but the callback was never called — tours frozen at step 1.
+
+**The diagnostic process:**
+```bash
+# 1. Check what version is actually installed (^ in package.json means "at least this version")
+cat frontend/node_modules/react-joyride/package.json | grep '"version"'
+
+# 2. Search the compiled dist for the prop you're using
+grep -n "callback" frontend/node_modules/react-joyride/dist/index.cjs | head -5
+# → zero results = prop does not exist in this version
+
+# 3. Find the correct prop name
+grep -n "onEvent" frontend/node_modules/react-joyride/dist/index.cjs | head -5
+# → results found = this is the real prop name
+```
+
+**The rule:** When a prop silently does nothing, there are exactly three causes:
+1. The prop name changed (most common — check version, grep dist)
+2. The prop is conditional on another prop being set
+3. A JavaScript error earlier in the render cycle swallowed the prop
+
+Grep the dist before trying anything else. It takes 30 seconds and immediately rules out cause #1.
+
+---
+
+## 22. The FastAPI Route Ordering Trap
+
+FastAPI matches routes top-to-bottom. Literal segments must come before dynamic segments. Violating this creates an unreachable route — no error, the wrong handler runs silently.
+
+```python
+# ❌ WRONG ORDER — /rents/summary matches /{flat_uuid} first, flat_uuid="summary"
+@router.get("/{flat_uuid}")
+async def get_active_rent(flat_uuid: str, ...): ...
+
+@router.get("/summary")  # UNREACHABLE — never matched
+async def get_rent_summary(...): ...
+```
+
+```python
+# ✅ CORRECT ORDER — literal before dynamic
+@router.get("/summary")   # matched first when path is /rents/summary
+async def get_rent_summary(...): ...
+
+@router.get("/{flat_uuid}")  # matched for anything else
+async def get_active_rent(flat_uuid: str, ...): ...
+```
+
+**When to apply:** Any time you add a new non-parameterized route to a router that already has `/{id}` or `/{uuid}` routes.
+
+**Common traps in this codebase:** `/rents/summary` must be before `/rents/{flat_uuid}`. `/call-logs/stats` must be before the generic `GET /call-logs`.
+
+**The verification command:**
+```bash
+curl -s http://localhost:8000/openapi.json | python -c "
+import json, sys
+spec = json.load(sys.stdin)
+for path in sorted(spec['paths'].keys()):
+    print(path)
+"
+```
+If you see `summary` not in the list or see it grouped under a parameterized path, the ordering is wrong.
+
+---
+
+## 23. The Bidirectional FK Update Pattern
+
+This codebase has a bidirectional pointer between `flats` and `tenants`:
+- `flats.tenant_uuid` → points to who lives there
+- `tenants.flat_uuid` → points to where the tenant lives
+
+When assigning or unassigning, both must be updated atomically (or as close to it as possible without real transactions). Updating only one creates an inconsistent state where one record says "flat A101 has tenant X" but the tenant record says "I live in no flat."
+
+**Assign (update both — order doesn't matter):**
+```python
+db.table("flats").update({
+    "tenant_uuid": body.tenant_uuid,
+    "occupied": True,
+}).eq("uuid", flat_uuid).execute()
+
+db.table("tenants").update({
+    "flat_uuid": flat_uuid,
+}).eq("uuid", body.tenant_uuid).execute()
+```
+
+**Unassign (order matters — read first, then clear both):**
+```python
+# 1. Read first — you need tenant_uuid before you clear it
+flat = db.table("flats").select("tenant_uuid").eq("uuid", flat_uuid).execute()
+tenant_uuid = flat.data[0].get("tenant_uuid") if flat.data else None
+
+# 2. Clear tenant's flat reference
+if tenant_uuid:
+    db.table("tenants").update({"flat_uuid": None}).eq("uuid", tenant_uuid).execute()
+
+# 3. Clear flat's tenant reference
+db.table("flats").update({"tenant_uuid": None, "occupied": False}).eq("uuid", flat_uuid).execute()
+```
+
+If you clear `flat.tenant_uuid` first, you lose the reference needed to clear `tenants.flat_uuid`. Read-then-clear is the correct order for unassign.
+
+---
+
+## 24. Row Level Security — Debugging and Auditing
+
+RLS is a PostgreSQL feature that adds automatic WHERE clauses to every query based on `auth.uid()`. When RLS is misconfigured, queries silently return 0 rows or fail with "row-level security policy" errors.
+
+**The diagnostic SQL queries (run in Supabase SQL Editor):**
+
+```sql
+-- Which tables have RLS enabled?
+SELECT tablename, rowsecurity AS rls_enabled
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY tablename;
+
+-- What policies exist?
+SELECT tablename, policyname, cmd AS operation, qual AS using_expr, with_check
+FROM pg_policies
+WHERE schemaname = 'public'
+ORDER BY tablename, policyname;
+
+-- Does a specific column exist?
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'call_logs'
+ORDER BY ordinal_position;
+```
+
+**The four RLS states and what they mean:**
+
+| State | Risk | What to do |
+|-------|------|-----------|
+| `rls_on = false`, no policy | Open access — all rows visible to all users | Only acceptable for public reference tables (property_types) |
+| `rls_on = true`, no policy | **All access blocked** — even authenticated queries return 0 rows | Add INSERT/SELECT/UPDATE/DELETE policies |
+| `rls_on = true`, SELECT policy only | Users can read but not write | Intentional for subscription tables — Stripe webhook writes via service role |
+| `rls_on = true`, `auth.uid()` policy | Normal multi-tenant isolation | Correct pattern for all user data tables |
+
+**`USING` vs `WITH CHECK`:**
+- `USING` — gates which rows can be read (SELECT), modified (UPDATE), or deleted (DELETE)
+- `WITH CHECK` — gates what values can be written (INSERT, UPDATE)
+- `FOR INSERT`: only `WITH CHECK` applies (no existing row to check against)
+- `FOR SELECT`: only `USING` applies
+
+**The ownership chain pattern for deeply nested data:**
+```sql
+-- tenants policy: can only see tenants whose flat is in your building
+CREATE POLICY "managers can read own tenants"
+ON tenants FOR SELECT TO authenticated
+USING (
+    flat_uuid IN (
+        SELECT f.uuid FROM flats f
+        JOIN buildings b ON f.building_id = b.id
+        JOIN properties_list p ON b.property_id = p.id
+        WHERE p.manager_id = auth.uid()
+    )
+);
+```
+
+Walk the FK chain to the table that has `manager_id`. Every table that is >1 hop from `properties_list` needs this chain.
+
+**When RLS is wrong but tables are new:**
+New tables created in Supabase have RLS enabled with no policies. All access is blocked by default. Use the service client with manual `manager_id` filtering as a temporary workaround while you write the proper policies.
+
+---
+
+## 25. Backend Performance — The Diagnostic Sequence
+
+When a request feels slow, run through this sequence before touching code:
+
+**Step 1: Confirm it's the backend (not the network)**
+Open Chrome DevTools → Network tab → look at the request's green bar (TTFB — Time to First Byte). A large green bar is server processing time. A large blue bar is download time.
+
+**Step 2: Rule out cold starts**
+Free-tier Render services spin down after 15 minutes. A 30-second first response is a cold start, not a bug. Check if the server is on a paid plan.
+
+**Step 3: Check the DB client setup**
+This is the single most overlooked source of backend latency in this project:
+
+```python
+# SLOW — creates a new HTTP session on every request
+def get_db():
+    return create_client(url, key)  # NEW client = new connection pool = ~50-150ms overhead
+
+# FAST — singleton created once at module import time
+_client = create_client(url, key)
+def get_db():
+    return _client  # same object, ~0ms overhead
+```
+
+**Step 4: Check for N+1 queries**
+A loop containing a DB call is almost always N+1:
+```python
+# N+1 — 1 query + N queries (one per appointment)
+for apt in appointments:
+    complaint = db.table("complaints").eq("id", apt["complaint_id"]).execute()  # ← N queries
+
+# Fix — 2 queries total
+ids = [apt["complaint_id"] for apt in appointments if apt.get("complaint_id")]
+complaints = db.table("complaints").select("id, category").in_("id", ids).execute()
+complaint_map = {c["id"]: c for c in complaints.data}
+for apt in appointments:
+    apt["category"] = complaint_map.get(apt.get("complaint_id"), {}).get("category")
+```
+
+**Step 5: Check indexes**
+```sql
+SELECT tablename, indexname, indexdef
+FROM pg_indexes
+WHERE tablename IN ('complaints', 'appointments', 'tenants')
+ORDER BY tablename;
+```
+
+Run `EXPLAIN SELECT ...` on any slow query to see if it uses an index or does a seq scan.
+
+**Step 6: Check payload size**
+Does `GET /complaints` return every complaint ever with every field? `SELECT *` on large tables sends unnecessary data. Add `.select("uuid, flat_number, status, priority, created_at")` for list endpoints.
+
+---
+
+## 26. VAPI Integration — The Critical Patterns
+
+**Pattern 1: Always return HTTP 200**
+VAPI interprets any non-200 response as a server error and may retry or terminate the call. All VAPI tool endpoints must return 200, even for "not found" or "invalid" cases. Use a status field in the response body to communicate the outcome:
+
+```python
+# WRONG — raises HTTPException 404
+if not flat.data:
+    raise HTTPException(404, "Flat not found")
+
+# CORRECT — returns 200 with status field
+if not flat.data:
+    return {"status": "invalid", "property_group_id": None, "datetime": now_ist()}
+```
+
+**Pattern 2: Normalize all inputs**
+Phone numbers and flat numbers from voice calls may have inconsistent formatting. Always normalize before querying:
+
+```python
+flat_number = flat_number.strip().upper()   # "a 101" → "A 101"
+phone_number = phone_number.strip()         # "+91 98765 43210" → "+919876543210"
+```
+
+**Pattern 3: The property_group_id resolution chain**
+The complaint agent receives a call from a tenant who says their flat number. To scope the complaint to the right property group:
+
+```
+flat_number → flats.building_id → buildings.property_id → properties_list.id
+```
+
+The `verify-phone` endpoint resolves this chain and returns `property_group_id` in every response (even invalid ones — the VAPI agent schema may reference it).
+
+**Pattern 4: Infrastructure as code for agent configs**
+VAPI agent configurations are defined as Python dicts in `services/vapi_agent_config.py`. This means:
+- Configs are version-controlled
+- Different `backend_url` values work automatically per environment
+- `property_group_id` can be baked into per-group agent system prompts programmatically
+- Updates to 100 agents require a script, not 100 dashboard clicks
+
+**Pattern 5: The `{{customer.number}}` template**
+VAPI uses double-brace syntax in tool definitions for runtime values:
+```json
+"query": {
+    "phone_number": "{{customer.number}}"
+}
+```
+`customer.number` is the caller's E.164 phone number, captured by VAPI's telephony infrastructure. The agent uses this to verify the caller without asking "what's your phone number?" — which would be awkward and easily faked.
+
+---
+
+## 27. The Spec-to-Code Translation Process
+
+When implementing a feature from a product spec:
+
+**Step 1: Read with database normalization in mind**
+
+| Spec phrase | Code question |
+|-------------|--------------|
+| "Each property has custom rules" | Is this a column (JSONB), separate table, or enum? |
+| "Leads pipeline: contacted, toured, converted" | Is this a CHECK constraint or a separate table? |
+| "Same number can serve multiple properties" | One VAPI assistant or many? What routing mechanism? |
+
+**Step 2: Explore what already exists before building**
+
+For any feature, read these files in order:
+1. Backend route file — what endpoints exist?
+2. `main.py` — what routers are registered?
+3. `apiService.js` — what API calls exist?
+4. Relevant frontend components — is the UI partially built?
+5. DB schema — does the required column already exist?
+
+Missing this step is how you duplicate code that already exists or break assumptions the codebase depends on.
+
+**Step 3: Establish the correct build order**
+```
+DB schema changes → Backend routes → apiService.js → Frontend components → Navigation wiring
+```
+
+If you build frontend before backend, you're guessing at the API shape and will have to rebuild the frontend after the API shape is determined.
+
+---
+
+## 28. Integration Testing with Bash Scripts
+
+For endpoint testing against a live server, bash + curl + jq is faster to write and easier to share than pytest:
+
+```bash
+# Test structure
+echo "=== A1: verify-phone — valid phone ==="
+RESPONSE=$(curl -s -X GET \
+  "${BASE_URL}/flats/verify-phone?flat_number=${FLAT_NUMBER}&phone_number=${TENANT_PHONE}")
+
+STATUS=$(echo "$RESPONSE" | jq -r '.status')
+PG_ID=$(echo "$RESPONSE" | jq -r '.property_group_id')
+
+assert_eq "A1 - status=valid"               "$STATUS"  "valid"
+assert_ne "A1 - property_group_id non-null" "$PG_ID"   "null"
+```
+
+```bash
+# The assert helper functions
+assert_eq() {
+    local label="$1" actual="$2" expected="$3"
+    if [ "$actual" = "$expected" ]; then
+        echo "[PASS] $label"
+        PASS=$((PASS + 1))
+    else
+        echo "[FAIL] $label — expected '$expected', got '$actual'"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
+assert_ne() {
+    local label="$1" actual="$2" not_expected="$3"
+    if [ "$actual" != "$not_expected" ]; then
+        echo "[PASS] $label"
+        PASS=$((PASS + 1))
+    else
+        echo "[FAIL] $label — should not be '$not_expected'"
+        FAIL=$((FAIL + 1))
+    fi
+}
+```
+
+**The re-run checklist pattern:** After fixing bugs, write a checklist before re-running tests:
+```markdown
+## Re-run Checklist
+- [x] Bug #1 — flats.py: get_db → get_service_db in verify_phone
+- [x] Bug #2 — voice.py: Unicode → ASCII in all print statements
+- [x] Bug #3 — leasing.py: Decimal → float in INSERT and PATCH
+```
+
+When you have multiple bugs to fix across files, you WILL miss one without a written checklist. The list converts "I think I got everything" into a verifiable record.
+
+**A "SKIP" is not "PASS":** In a test report, a SKIP means "test was not run, usually because a dependency failed." A cascading skip (tests C4–C10 skipped because C3 failed) means the root cause is in the first failing test. Fix that, then re-run — the cascade often resolves itself.
+
+---
+
+## 29. Deployment — The Production Configuration Checklist
+
+The most common class of production bugs is "the code is correct but the environment is wrong." Always run through this before declaring a feature deployed:
+
+**Google OAuth:**
+```
+□ Google Console → Authorized JS Origins: the domain where signInWithOAuth() runs (NOT the backend URL)
+□ Google Console → Authorized Redirect URIs: https://<project>.supabase.co/auth/v1/callback
+□ Supabase → Auth → URL Configuration → Site URL: your production frontend URL
+□ Supabase → Auth → Redirect URLs: all valid redirect destinations (exact match, no trailing slash)
+```
+
+**Environment Variables:**
+```
+□ .env files are for local development only — never trust them in production
+□ Production values must be set in Vercel/Netlify/Render environment variable UI
+□ VITE_API_URL on Netlify must be the Render backend URL, not localhost:8000
+□ NEXT_PUBLIC_FRONTEND_URL on Vercel must be the Netlify CRM URL, not localhost:5173
+```
+
+**SPA Routing (Netlify):**
+```
+□ frontend/public/_redirects exists with: /*  /index.html  200
+□ Without this, browser refresh on any non-root URL returns Netlify's 404
+```
+
+**The exact-match requirement for Supabase redirect URLs:**
+`https://www.leadpipe.ca/auth/callback` ≠ `https://leadpipe.ca/auth/callback` (www matters) ≠ `https://www.leadpipe.ca/auth/callback/` (trailing slash matters). Run `window.location.origin` in the browser console and copy-paste that exact string into Supabase's redirect URL list.
+
+---
+
+## 30. The Systematic Debugging Method
+
+When something breaks, run this sequence before touching code:
+
+### Step 1: State the symptom precisely
+"It doesn't work" is not a symptom. These are:
+- "After clicking Next on step 1, the tooltip disappears and the overlay stays dark permanently"
+- "VAPI endpoint returns status=invalid even when the flat and phone are correct"
+- "The SMS sends on cancel via UI but not via chatbot"
+
+The precise statement reveals which layer to investigate.
+
+### Step 2: Ask "whose code is running and whose isn't?"
+Add a `console.log` or `print()` at the entry point. If it fires → the issue is logic. If it doesn't fire → the issue is connection (wrong route, wrong prop, wrong event name, wrong URL).
+
+### Step 3: Rule out the obvious
+Before reading code:
+- Is the server running? (`curl -s http://localhost:8000/health`)
+- Is the right environment active? (correct `.env`, correct npm workspace)
+- Is this a cold start? (first request after server idle)
+- Is this a Windows encoding issue? (check `print()` statements for non-ASCII)
+
+### Step 4: Fix one thing at a time
+Multiple broken things often coexist. Fix them in order from most fundamental to least:
+1. Is the callback connected at all? (wrong prop name, wrong event name)
+2. Does the data reach the function? (missing field in `select()`)
+3. Does the function execute? (missing import, wrong dependency)
+4. Does the side effect fire? (notification, refresh, analytics)
+
+If you attempt to fix all four simultaneously, you cannot tell which fix resolved which symptom.
+
+### Step 5: Verify against the original symptom
+After each fix, reproduce the exact original test case. "I think I fixed it" is not evidence. Run the action that was broken and observe the outcome.
+
+---
+
+## 31. The Most Dangerous Silent Failures
+
+These bugs produce no error — they just silently do nothing. They are the hardest to notice because the code appears to work.
+
+| Silent failure | Why it's silent | How to detect |
+|----------------|----------------|---------------|
+| SMS not sending | `notify_tenant_appointment()` catches all exceptions | Check backend logs for "notify failed" |
+| VAPI endpoint returning wrong data | RLS returns 0 rows (no error, just empty) | Check if DB client is anon vs service role |
+| `flat_uuid` not in `select()` | `.get("flat_uuid")` returns `None`, notification skipped | Audit `select()` fields vs what the call needs |
+| Chatbot tool not called | LLM chose not to call it | Check tool definition and system prompt capability description |
+| `onEvent` prop wrong name | Joyride receives unknown prop, ignores it | Grep the dist for the prop name |
+| Cache from old deployment | Browser serves stale JS | Open Network tab with "Disable cache" checked |
+| `localStorage` keyed by origin, not user | User B sees User A's state | Scope key by user ID: `key-${user.id}` |
+| Background task failing on server restart | In-process task queue — doesn't survive restarts | Use Celery/Redis for critical background work |
+
+---
+
+## 32. The Senior Dev Mindset — Principles Synthesized Across All Sessions
+
+**1. Features are never isolated.**
+A "Rent Tab" requires: backend endpoint, API service method, React component, sidebar nav item, App.jsx routing, DB migration, and possibly an RLS policy. Before writing code, draw the full map of what needs to change.
+
+**2. Your code runs in an environment, not a vacuum.**
+A function that works correctly can still fail because: the caller has no JWT, the DB table has no RLS policy, the Windows console can't encode the character you printed, or the VAPI webhook retried because your response was too slow.
+
+**3. Every early return must leave the system in a clean state.**
+If a function starts a loading state, opens an overlay, or sets a flag to `true`, every code path — including every early `return` — must reset that state. A dark Joyride overlay that persists after the tour logic exits is the canonical example.
+
+**4. The installed version is the truth, not the documentation.**
+Docs describe the version they were written for. The compiled dist file is the ground truth for what props, events, and behaviors exist in the version you actually installed. Grep the dist.
+
+**5. localStorage is per-origin, not per-user.**
+Any data that differs between users — progress, drafts, preferences — must be keyed by user ID. Unscoped keys are shared across all users on the same device.
+
+**6. Notifications must fire on all code paths or they're broken.**
+If there are four ways to cancel an appointment, the SMS must fire on all four. Three out of four is wrong. Map every entry point before shipping.
+
+**7. Use the right DB client for the right caller.**
+Authenticated users → `get_authenticated_db` (RLS enforced).
+Webhooks, VAPI, Stripe, background tasks → `get_service_db` (RLS bypassed, manual scope filtering).
+
+**8. The diagnostic question sequence:**
+   a. What is the precise symptom?
+   b. Who calls this, and do they have a JWT?
+   c. What does the DB actually return? (verify in Supabase SQL editor)
+   d. What does the server log say? (always read the stack trace before guessing)
+   e. Is this a code bug or an environment bug?
+
+**9. Build complete features, not happy-path features.**
+A feature is complete when it works across all code paths, is consistent across all layers (DB/API/frontend), handles the edge cases (already-cancelled, no phone number, null flat_uuid), and cleans up after itself (removes unused imports, keeps all three layers in sync).
+
+**10. Measure before optimizing.**
+A 2400ms green bar in DevTools tells you the problem is server-side TTFB. A 2400ms blue bar is a download size problem. An N+1 query shows as: endpoint is slow but returns small amounts of data. Check the actual numbers before writing a single line of optimization.
+
+---
+
+**FINAL MANDATE — UPDATED:**
+The original mandate said "fix the loopback in `voice.py`." That loopback has been fixed. The new mandate is broader:
+
+Before shipping any feature, ask five questions:
+1. *Who calls this, and do they have a JWT?* (infrastructure category)
+2. *What does my code do on all entry points?* (all-code-paths principle)
+3. *Are the DB constraint, Pydantic enum, and frontend constants in sync?* (three-layer rule)
+4. *Did I fetch every field my new logic needs?* (silent-failure prevention)
+5. *What happens on Windows? In production? After a server restart?* (environment assumptions)
+
+A senior engineer is not someone who writes perfect code. They are someone who asks these questions every time and doesn't ship until they have answers.
