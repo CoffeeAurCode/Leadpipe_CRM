@@ -64,7 +64,7 @@ class LeadResponse(BaseModel):
     uuid: UUID
     property_group_id: Optional[UUID] = None
     listing_uuid: Optional[UUID] = None
-    interested_listing_ids: List[UUID] = Field(default_factory=list)
+    interested_listing_ids: Optional[List[UUID]] = Field(default_factory=list)
     caller_name: str
     phone: str
     email: Optional[str] = None
@@ -77,7 +77,7 @@ class LeadResponse(BaseModel):
     disqualifying_reason: Optional[str] = None
     qualifying_answers: Any = Field(default_factory=dict)
     notes: Optional[str] = None
-    source: str
+    source: Optional[str] = "voice"
     call_id: Optional[str] = None
     call_duration_seconds: Optional[int] = None
     manager_notes: Optional[str] = None
