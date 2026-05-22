@@ -472,6 +472,14 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
         message = payload.get("message", {})
         call = message.get("call", {})
 
+        print("=" * 60)
+        print("[LEASE LEAD WEBHOOK] Incoming payload")
+        print(f"  message.type:     {message.get('type')}")
+        print(f"  call.id:          {call.get('id')}")
+        print(f"  call.assistantId: {call.get('assistantId')}")
+        print(f"  call.phoneNumberId: {call.get('phoneNumberId')}")
+        print(f"  customer.number:  {call.get('customer', {}).get('number')}")
+
         tool_calls = message.get("toolCalls", [])
         if not tool_calls:
             tool_calls = (message.get("artifact") or {}).get("toolCalls", [])
@@ -484,6 +492,8 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
                 break
 
         if not lead_tool:
+            print("  [IGNORED] No submit_lease_lead tool call found")
+            print("=" * 60)
             return {"status": "ignored"}
 
         function_args = (
@@ -498,19 +508,29 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
         else:
             lead_data = function_args or {}
 
+        print(f"  [submit_lease_lead args]")
+        for k, v in lead_data.items():
+            print(f"    {k}: {v}")
+
         phone = call.get("customer", {}).get("number", "")
         call_id = call.get("id")
         assistant_id = call.get("assistantId")
+        phone_number_id = call.get("phoneNumberId")
 
-        # Resolve property_group_id: listing → DB, then assistant_id → DB, then null
+        # Resolve property_group_id via three fallback paths
         property_group_id = None
+        resolution_path = None
+
+        # Path 1: listing_uuid → lease_listings.property_group_id
         raw_uuid = lead_data.get("listing_uuid") or ""
         listing_uuid = raw_uuid.strip() if UUID_RE.match(raw_uuid.strip()) else None
         if listing_uuid:
             row = db.table("lease_listings").select("property_group_id").eq("uuid", listing_uuid).limit(1).execute()
             if row.data:
                 property_group_id = row.data[0].get("property_group_id")
+                resolution_path = "listing_uuid"
 
+        # Path 2: assistant_id → properties_list.vapi_lease_assistant_id (per-group agents)
         if not property_group_id and assistant_id:
             pg_row = (
                 db.table("properties_list")
@@ -521,6 +541,41 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
             )
             if pg_row.data:
                 property_group_id = pg_row.data[0].get("id")
+                resolution_path = "assistant_id"
+
+        # Path 3: phoneNumberId → properties_list.vapi_phone_number_id (per-group inbound)
+        if not property_group_id and phone_number_id:
+            pn_row = (
+                db.table("properties_list")
+                .select("id")
+                .eq("vapi_phone_number_id", phone_number_id)
+                .limit(1)
+                .execute()
+            )
+            if pn_row.data:
+                property_group_id = pn_row.data[0].get("id")
+                resolution_path = "phone_number_id"
+
+        # Path 4: shared agent — phone_number_id matches VAPI_SHARED_LEASE_NUMBER_ID env var
+        # The shared assistant is not stored in properties_list, so fall back to env var comparison.
+        # For single-tenant MVP: assign to the first property group that has any listing.
+        if not property_group_id:
+            from app.config import settings
+            shared_number_id = settings.VAPI_SHARED_LEASE_NUMBER_ID
+            shared_assistant_id = settings.VAPI_SHARED_LEASE_ASSISTANT_ID
+            if (phone_number_id and shared_number_id and phone_number_id == shared_number_id) or \
+               (assistant_id and shared_assistant_id and assistant_id == shared_assistant_id):
+                first_pg = (
+                    db.table("properties_list")
+                    .select("id")
+                    .limit(1)
+                    .execute()
+                )
+                if first_pg.data:
+                    property_group_id = first_pg.data[0].get("id")
+                    resolution_path = "shared_agent_fallback"
+
+        print(f"  [pg resolution] path={resolution_path} property_group_id={property_group_id}")
 
         qualifying_answers = lead_data.get("qualifying_answers", "{}")
         if isinstance(qualifying_answers, str):
@@ -549,7 +604,8 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
         }
 
         db.table("lease_leads").insert(lead_payload).execute()
-        print(f"[LEASE LEAD] Captured: phone={phone} status={lead_payload['qualification_status']}")
+        print(f"  [SAVED] phone={phone} status={lead_payload['qualification_status']} property_group_id={property_group_id}")
+        print("=" * 60)
 
     except Exception as e:
         print(f"[ERROR] lease_lead_webhook: {e}")
