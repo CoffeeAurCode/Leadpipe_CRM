@@ -1,53 +1,50 @@
 """
 Integration tests for /leasing/leads, /leasing/metrics, /leasing/export.
 
-Covers the three failure modes from docs/plans/lease_lead_pipeline_diagnosis.md:
-  1. Primary path: properties_list has manager_id row → leads returned normally
-  2. Fallback path: properties_list.manager_id is NULL/unset → derive pg_ids from lease_listings
-  3. Schema: NULL source / interested_listing_ids must not cause 422
-  4. Export data-leak guard: no pg_ids → empty CSV, not all-leads dump
+Architecture: lease_leads now has manager_id directly on the row (same pattern
+as every other table). All three endpoints filter by manager_id = user.sub —
+no two-hop lookup through properties_list or lease_listings.
 """
 import pytest
 from tests.integration.conftest import TEST_USER
 
 PROPERTY_GROUP_ID = "aeb9d575-42e2-439f-ad81-8e99ae6900ed"
 LEAD_UUID = "22222222-2222-2222-2222-222222222222"
-
-_PG_ROW = {"id": PROPERTY_GROUP_ID}
-_LISTING_ROW = {"property_group_id": PROPERTY_GROUP_ID}
+MANAGER_UUID = "aaaaaaaa-bbbb-cccc-dddd-111111111111"
 
 _LEAD_ROW = {
     "id": 1,
     "uuid": LEAD_UUID,
     "property_group_id": PROPERTY_GROUP_ID,
+    "manager_id": MANAGER_UUID,
     "listing_uuid": None,
     "interested_listing_ids": None,
     "caller_name": "Raj",
     "phone": "+919998064026",
     "email": None,
-    "bedrooms": 2,
+    "bedrooms": 3,
     "budget_max": "25000",
-    "move_in_timeline": "1 month",
-    "occupants": 2,
+    "move_in_timeline": "By end of month",
+    "occupants": None,
     "floor_preference": None,
     "qualification_status": "qualified",
     "disqualifying_reason": None,
     "qualifying_answers": {},
     "notes": None,
-    "source": None,
-    "call_id": "call-abc-123",
+    "source": "voice",
+    "call_id": "019e4ed4-6c28-7000-867c-238be08af154",
     "call_duration_seconds": 120,
     "manager_notes": None,
-    "created_at": "2026-05-22T10:00:00",
+    "created_at": "2026-05-22T08:38:59",
     "updated_at": None,
 }
 
 
-class TestGetLeadsPrimaryPath:
-    """properties_list has a matching manager_id row — primary path."""
+class TestGetLeads:
+    """GET /leasing/leads — direct manager_id filter, no property-group indirection."""
 
-    def test_returns_leads(self, authed_client):
-        tc, _ = authed_client(properties_list=[_PG_ROW], lease_leads=[_LEAD_ROW])
+    def test_returns_leads_for_manager(self, authed_client):
+        tc, _ = authed_client(lease_leads=[_LEAD_ROW])
         resp = tc.get("/leasing/leads")
         assert resp.status_code == 200
         data = resp.json()
@@ -56,96 +53,62 @@ class TestGetLeadsPrimaryPath:
         assert data[0]["qualification_status"] == "qualified"
 
     def test_null_source_does_not_cause_422(self, authed_client):
-        """source=None must parse cleanly — Fix ab85cba5."""
-        tc, _ = authed_client(
-            properties_list=[_PG_ROW],
-            lease_leads=[{**_LEAD_ROW, "source": None}],
-        )
+        """source=None in DB row must parse cleanly."""
+        tc, _ = authed_client(lease_leads=[{**_LEAD_ROW, "source": None}])
         resp = tc.get("/leasing/leads")
         assert resp.status_code == 200
         assert resp.json()[0]["source"] is None
 
     def test_null_interested_listing_ids_does_not_cause_422(self, authed_client):
-        """interested_listing_ids=None must parse cleanly — Fix ab85cba5."""
-        tc, _ = authed_client(
-            properties_list=[_PG_ROW],
-            lease_leads=[{**_LEAD_ROW, "interested_listing_ids": None}],
-        )
+        """interested_listing_ids=None in DB row must parse cleanly."""
+        tc, _ = authed_client(lease_leads=[{**_LEAD_ROW, "interested_listing_ids": None}])
         resp = tc.get("/leasing/leads")
         assert resp.status_code == 200
         assert resp.json()[0]["interested_listing_ids"] is None
 
-    def test_budget_max_as_string_parses_correctly(self, authed_client):
-        """Supabase returns Decimal columns as strings; Pydantic must coerce them."""
-        tc, _ = authed_client(
-            properties_list=[_PG_ROW],
-            lease_leads=[{**_LEAD_ROW, "budget_max": "35000.50"}],
-        )
-        resp = tc.get("/leasing/leads")
-        assert resp.status_code == 200
-        assert float(resp.json()[0]["budget_max"]) == pytest.approx(35000.50)
-
-    def test_empty_leads_table_returns_empty_list(self, authed_client):
-        tc, _ = authed_client(properties_list=[_PG_ROW], lease_leads=[])
-        resp = tc.get("/leasing/leads")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-
-class TestGetLeadsFallbackPath:
-    """properties_list has no matching manager_id — fallback via lease_listings (Fix b428ef51)."""
-
-    def test_fallback_returns_leads_when_properties_list_empty(self, authed_client):
-        tc, _ = authed_client(
-            properties_list=[],
-            lease_listings=[_LISTING_ROW],
-            lease_leads=[_LEAD_ROW],
-        )
-        resp = tc.get("/leasing/leads")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data) == 1
-        assert data[0]["phone"] == "+919998064026"
-
-    def test_both_paths_empty_returns_empty_list(self, authed_client):
-        """Neither properties_list nor lease_listings yields pg_ids → []."""
-        tc, _ = authed_client(
-            properties_list=[],
-            lease_listings=[],
-            lease_leads=[_LEAD_ROW],
-        )
-        resp = tc.get("/leasing/leads")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    def test_fallback_deduplicates_property_group_ids(self, authed_client):
-        """Multiple listings under the same pg_id → only one entry in IN clause."""
-        tc, _ = authed_client(
-            properties_list=[],
-            lease_listings=[_LISTING_ROW, _LISTING_ROW],
-            lease_leads=[_LEAD_ROW],
-        )
+    def test_null_property_group_id_still_returns_lead(self, authed_client):
+        """Lead with NULL property_group_id must appear as long as manager_id is set."""
+        tc, _ = authed_client(lease_leads=[{**_LEAD_ROW, "property_group_id": None}])
         resp = tc.get("/leasing/leads")
         assert resp.status_code == 200
         assert len(resp.json()) == 1
 
-    def test_listing_row_without_property_group_id_is_skipped(self, authed_client):
-        """lease_listings rows with missing property_group_id must not crash."""
-        tc, _ = authed_client(
-            properties_list=[],
-            lease_listings=[{"property_group_id": None}],
-            lease_leads=[_LEAD_ROW],
-        )
+    def test_budget_max_as_string_parses_correctly(self, authed_client):
+        """Supabase returns numeric columns as strings; Pydantic must coerce them."""
+        tc, _ = authed_client(lease_leads=[{**_LEAD_ROW, "budget_max": "35000.50"}])
+        resp = tc.get("/leasing/leads")
+        assert resp.status_code == 200
+        assert float(resp.json()[0]["budget_max"]) == pytest.approx(35000.50)
+
+    def test_empty_leads_returns_empty_list(self, authed_client):
+        tc, _ = authed_client(lease_leads=[])
         resp = tc.get("/leasing/leads")
         assert resp.status_code == 200
         assert resp.json() == []
 
+    def test_filter_by_qualification_status_accepted(self, authed_client):
+        tc, _ = authed_client(lease_leads=[_LEAD_ROW])
+        resp = tc.get("/leasing/leads?qualification_status=qualified")
+        assert resp.status_code == 200
+
+    def test_filter_by_listing_uuid_accepted(self, authed_client):
+        tc, _ = authed_client(lease_leads=[_LEAD_ROW])
+        resp = tc.get("/leasing/leads?listing_uuid=11111111-1111-1111-1111-111111111111")
+        assert resp.status_code == 200
+
+    def test_manager_id_returned_in_response(self, authed_client):
+        """manager_id is now part of LeadResponse."""
+        tc, _ = authed_client(lease_leads=[_LEAD_ROW])
+        resp = tc.get("/leasing/leads")
+        assert resp.status_code == 200
+        assert resp.json()[0]["manager_id"] == MANAGER_UUID
+
 
 class TestGetMetrics:
-    """GET /leasing/metrics — same pg_id resolution logic as get_leads."""
+    """GET /leasing/metrics — same direct manager_id filter."""
 
-    def test_metrics_via_primary_path(self, authed_client):
-        tc, _ = authed_client(properties_list=[_PG_ROW], lease_leads=[_LEAD_ROW])
+    def test_returns_metrics(self, authed_client):
+        tc, _ = authed_client(lease_leads=[_LEAD_ROW])
         resp = tc.get("/leasing/metrics")
         assert resp.status_code == 200
         body = resp.json()
@@ -155,18 +118,8 @@ class TestGetMetrics:
         assert body["qualification_rate"] == 100.0
         assert body["avg_duration_seconds"] == 120
 
-    def test_metrics_via_fallback_path(self, authed_client):
-        tc, _ = authed_client(
-            properties_list=[],
-            lease_listings=[_LISTING_ROW],
-            lease_leads=[_LEAD_ROW],
-        )
-        resp = tc.get("/leasing/metrics")
-        assert resp.status_code == 200
-        assert resp.json()["total_calls"] == 1
-
-    def test_metrics_no_leads_returns_zeros(self, authed_client):
-        tc, _ = authed_client(properties_list=[_PG_ROW], lease_leads=[])
+    def test_no_leads_returns_zeros(self, authed_client):
+        tc, _ = authed_client(lease_leads=[])
         resp = tc.get("/leasing/metrics")
         assert resp.status_code == 200
         body = resp.json()
@@ -174,51 +127,54 @@ class TestGetMetrics:
         assert body["qualification_rate"] == 0
         assert body["avg_duration_seconds"] == 0
 
-    def test_metrics_days_param_accepted(self, authed_client):
-        tc, _ = authed_client(properties_list=[_PG_ROW], lease_leads=[_LEAD_ROW])
+    def test_days_param_accepted(self, authed_client):
+        tc, _ = authed_client(lease_leads=[_LEAD_ROW])
         resp = tc.get("/leasing/metrics?days=7")
         assert resp.status_code == 200
 
+    def test_multiple_leads_counted(self, authed_client):
+        qualified = {**_LEAD_ROW, "id": 1, "qualification_status": "qualified"}
+        not_qual = {
+            **_LEAD_ROW, "id": 2,
+            "uuid": "33333333-3333-3333-3333-333333333333",
+            "qualification_status": "not_qualified",
+            "call_duration_seconds": None,
+        }
+        tc, _ = authed_client(lease_leads=[qualified, not_qual])
+        resp = tc.get("/leasing/metrics")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total_calls"] == 2
+        assert body["qualified"] == 1
+        assert body["not_qualified"] == 1
+
 
 class TestExportLeads:
-    """GET /leasing/export — must have fallback and must not leak data when pg_ids is empty."""
+    """GET /leasing/export — same direct manager_id filter, returns CSV."""
 
-    def test_export_primary_path_returns_csv_with_data(self, authed_client):
-        tc, _ = authed_client(properties_list=[_PG_ROW], lease_leads=[_LEAD_ROW])
+    def test_export_returns_csv_with_data(self, authed_client):
+        tc, _ = authed_client(lease_leads=[_LEAD_ROW])
         resp = tc.get("/leasing/export")
         assert resp.status_code == 200
         assert "text/csv" in resp.headers.get("content-type", "")
         assert "Raj" in resp.text
 
-    def test_export_fallback_path_returns_csv_with_data(self, authed_client):
-        """export_leads must use the same fallback as get_leads."""
-        tc, _ = authed_client(
-            properties_list=[],
-            lease_listings=[_LISTING_ROW],
-            lease_leads=[_LEAD_ROW],
-        )
-        resp = tc.get("/leasing/export")
-        assert resp.status_code == 200
-        assert "Raj" in resp.text
-
-    def test_export_no_pg_ids_returns_empty_csv_not_all_leads(self, authed_client):
-        """
-        Data-leak guard: when no pg_ids are resolved (neither path),
-        export must return only the CSV header — not dump all leads.
-        """
-        tc, _ = authed_client(
-            properties_list=[],
-            lease_listings=[],
-            lease_leads=[_LEAD_ROW],
-        )
-        resp = tc.get("/leasing/export")
-        assert resp.status_code == 200
-        assert "Raj" not in resp.text
-
-    def test_export_csv_headers_present(self, authed_client):
-        tc, _ = authed_client(properties_list=[_PG_ROW], lease_leads=[])
+    def test_export_empty_leads_returns_headers_only(self, authed_client):
+        tc, _ = authed_client(lease_leads=[])
         resp = tc.get("/leasing/export")
         assert resp.status_code == 200
         assert "Name" in resp.text
-        assert "Phone" in resp.text
-        assert "Qualification Status" in resp.text
+        assert "Raj" not in resp.text
+
+    def test_export_csv_has_all_expected_headers(self, authed_client):
+        tc, _ = authed_client(lease_leads=[])
+        resp = tc.get("/leasing/export")
+        for header in ["Name", "Phone", "Email", "Qualification Status", "Source", "Call ID"]:
+            assert header in resp.text
+
+    def test_lead_with_null_property_group_id_appears_in_export(self, authed_client):
+        """Leads with NULL property_group_id must still export — manager_id is the filter."""
+        tc, _ = authed_client(lease_leads=[{**_LEAD_ROW, "property_group_id": None}])
+        resp = tc.get("/leasing/export")
+        assert resp.status_code == 200
+        assert "Raj" in resp.text

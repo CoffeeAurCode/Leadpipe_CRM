@@ -577,6 +577,21 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
 
         print(f"  [pg resolution] path={resolution_path} property_group_id={property_group_id}")
 
+        # Resolve manager_id from the property group row.
+        # Falls back to first manager_profiles entry — safe for single-tenant MVP.
+        manager_id = None
+        if property_group_id:
+            pg_mgr = db.table("properties_list").select("manager_id").eq("id", str(property_group_id)).limit(1).execute()
+            if pg_mgr.data:
+                manager_id = pg_mgr.data[0].get("manager_id")
+
+        if not manager_id:
+            mp = db.table("manager_profiles").select("user_id").limit(1).execute()
+            if mp.data:
+                manager_id = mp.data[0].get("user_id")
+
+        print(f"  [manager resolution] manager_id={manager_id}")
+
         qualifying_answers = lead_data.get("qualifying_answers", "{}")
         if isinstance(qualifying_answers, str):
             try:
@@ -586,6 +601,7 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
 
         lead_payload = {
             "property_group_id": str(property_group_id) if property_group_id else None,
+            "manager_id": str(manager_id) if manager_id else None,
             "listing_uuid": str(listing_uuid) if listing_uuid else None,
             "caller_name": lead_data.get("caller_name") or "Unknown",
             "phone": phone,

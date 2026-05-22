@@ -234,20 +234,7 @@ async def get_leads(
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_service_db),
 ):
-    # Get manager's property group IDs — primary path via properties_list.manager_id,
-    # fallback via lease_listings.manager_id (covers groups with unset manager_id)
-    pg_resp = db.table("properties_list").select("id").eq("manager_id", user["sub"]).execute()
-    pg_ids = [str(r["id"]) for r in (pg_resp.data or [])]
-
-    if not pg_ids:
-        listings_resp = db.table("lease_listings").select("property_group_id").eq("manager_id", user["sub"]).execute()
-        pg_ids = list({str(r["property_group_id"]) for r in (listings_resp.data or []) if r.get("property_group_id")})
-
-    q = db.table("lease_leads").select("*").order("created_at", desc=True)
-    if pg_ids:
-        q = q.in_("property_group_id", pg_ids)
-    else:
-        return []
+    q = db.table("lease_leads").select("*").eq("manager_id", user["sub"]).order("created_at", desc=True)
     if listing_uuid:
         q = q.eq("listing_uuid", listing_uuid)
     if qualification_status:
@@ -297,16 +284,9 @@ async def get_leasing_metrics(
     db: Client = Depends(get_service_db),
 ):
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-    pg_resp = db.table("properties_list").select("id").eq("manager_id", user["sub"]).execute()
-    pg_ids = [str(r["id"]) for r in (pg_resp.data or [])]
-
-    if not pg_ids:
-        listings_resp = db.table("lease_listings").select("property_group_id").eq("manager_id", user["sub"]).execute()
-        pg_ids = list({str(r["property_group_id"]) for r in (listings_resp.data or []) if r.get("property_group_id")})
-
-    q = db.table("lease_leads").select("qualification_status, call_duration_seconds").gte("created_at", since)
-    if pg_ids:
-        q = q.in_("property_group_id", pg_ids)
+    q = db.table("lease_leads").select("qualification_status, call_duration_seconds")\
+        .eq("manager_id", user["sub"])\
+        .gte("created_at", since)
     resp = q.execute()
     leads = resp.data or []
 
@@ -335,29 +315,7 @@ async def export_leads(
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_service_db),
 ):
-    pg_resp = db.table("properties_list").select("id").eq("manager_id", user["sub"]).execute()
-    pg_ids = [str(r["id"]) for r in (pg_resp.data or [])]
-
-    if not pg_ids:
-        listings_resp = db.table("lease_listings").select("property_group_id").eq("manager_id", user["sub"]).execute()
-        pg_ids = list({str(r["property_group_id"]) for r in (listings_resp.data or []) if r.get("property_group_id")})
-
-    if not pg_ids:
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow([
-            "Name", "Phone", "Email", "Bedrooms", "Budget Max", "Move-in Timeline",
-            "Occupants", "Floor Preference", "Qualification Status", "Disqualifying Reason",
-            "Notes", "Manager Notes", "Source", "Call ID", "Created At",
-        ])
-        output.seek(0)
-        return StreamingResponse(
-            iter([output.getvalue()]),
-            media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=leads.csv"},
-        )
-
-    q = db.table("lease_leads").select("*").in_("property_group_id", pg_ids).order("created_at", desc=True)
+    q = db.table("lease_leads").select("*").eq("manager_id", user["sub"]).order("created_at", desc=True)
     if listing_uuid:
         q = q.eq("listing_uuid", listing_uuid)
     if qualification_status:

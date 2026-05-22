@@ -63,6 +63,7 @@ class LeadResponse(BaseModel):
     id: int
     uuid: UUID
     property_group_id: Optional[UUID] = None
+    manager_id: Optional[UUID] = None
     listing_uuid: Optional[UUID] = None
     interested_listing_ids: Optional[List[UUID]] = Field(default_factory=list)
     caller_name: str
