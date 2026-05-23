@@ -46,12 +46,7 @@ async def find_listing(
         if property_group_id:
             q = q.eq("property_group_id", property_group_id)
         elif manager_id:
-            groups = db.table("properties_list").select("id").eq("manager_id", manager_id).execute()
-            group_ids = [g["id"] for g in groups.data] if groups.data else []
-            if group_ids:
-                q = q.in_("property_group_id", group_ids)
-            else:
-                return {"found": False}
+            q = q.eq("manager_id", manager_id)
 
         results = q.ilike("flat_number", f"%{query}%").limit(1).execute()
 
@@ -69,10 +64,7 @@ async def find_listing(
             if property_group_id:
                 fallback_q = fallback_q.eq("property_group_id", property_group_id)
             elif manager_id:
-                groups = db.table("properties_list").select("id").eq("manager_id", manager_id).execute()
-                group_ids = [g["id"] for g in groups.data] if groups.data else []
-                if group_ids:
-                    fallback_q = fallback_q.in_("property_group_id", group_ids)
+                fallback_q = fallback_q.eq("manager_id", manager_id)
             results = fallback_q.execute()
 
         if not results.data:
@@ -120,12 +112,7 @@ async def search_available_listings(
         if property_group_id:
             q = q.eq("property_group_id", property_group_id)
         elif manager_id:
-            groups = db.table("properties_list").select("id").eq("manager_id", manager_id).execute()
-            group_ids = [g["id"] for g in groups.data] if groups.data else []
-            if group_ids:
-                q = q.in_("property_group_id", group_ids)
-            else:
-                return {"count": 0, "listings": []}
+            q = q.eq("manager_id", manager_id)
         if bedrooms is not None:
             q = q.eq("flats.bedrooms", bedrooms)
         if budget_max is not None:
