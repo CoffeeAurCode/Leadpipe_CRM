@@ -135,7 +135,7 @@ async def create_property_group(
                 "vapi_provisioning_status": "pending",
             }).execute()
             from app.services.vapi_provisioning import provision_vapi_for_manager
-            background_tasks.add_task(provision_vapi_for_manager, user["sub"], db)
+            background_tasks.add_task(provision_vapi_for_manager, user["sub"], svc_db)
 
         pt = {}
         if g.get("property_type_id"):
@@ -179,7 +179,6 @@ async def get_user_vapi_config(
 async def retry_user_voice_provisioning(
     background_tasks: BackgroundTasks,
     user: dict = Depends(require_active_subscription),
-    db: Client = Depends(get_authenticated_db),
 ):
     """Retry VAPI lease provisioning for this manager account."""
     from app.db.session import get_service_db
@@ -191,7 +190,7 @@ async def retry_user_voice_provisioning(
         "vapi_provisioning_status": "pending",
     }, on_conflict="manager_id").execute()
 
-    background_tasks.add_task(provision_vapi_for_manager, user["sub"], db)
+    background_tasks.add_task(provision_vapi_for_manager, user["sub"], svc_db)
     return {"status": "provisioning_started"}
 
 

@@ -1,183 +1,117 @@
 # Session Handoff — Per-User VAPI Provisioning
 **Date:** 2026-05-23  
 **Branch:** main  
-**Last commit before this session:** `215bb2e5` (refactor: remove shared lease agent functionality)
+**Commit:** `2a29d3c2` — feat: per-manager VAPI provisioning (one number per account)
 
 ---
 
-## What Was Done This Session
+## Status: Code shipped. DB migrated. Provisioning not yet triggered.
 
-Implemented the full per-user VAPI provisioning redesign from `docs/development_plans/PLAN_PER_USER_VAPI_PROVISIONING.md`.
+---
 
-**Architecture shift:** From per-property-group (1 number per group) → per-manager (1 number per manager account, covering all their groups).
+## What Was Completed This Session
 
-### Files Changed
+### Code Changes (all committed + pushed)
 
 | File | Change |
 |---|---|
-| `backend/app/services/vapi_provisioning.py` | Full rewrite — `provision_vapi_for_manager(manager_id, db)` replaces `provision_vapi_for_property_group` |
-| `backend/app/services/vapi_agent_config.py` | `build_lease_config(backend_url, manager_id)` — removed `property_group_id`/`pg_name`; tool URLs use `?manager_id=` |
-| `backend/app/routes/property_groups.py` | `create_property_group` → only provisions on first group; removed `POST /{id}/provision-voice`; added `GET /users/me/vapi-config` and `POST /users/me/provision-voice` |
+| `backend/app/services/vapi_provisioning.py` | Full rewrite — `provision_vapi_for_manager(manager_id, db)` |
+| `backend/app/services/vapi_agent_config.py` | `build_lease_config(backend_url, manager_id)` — tool URLs use `?manager_id=` |
+| `backend/app/routes/property_groups.py` | Provisions only on first group; removed `/{id}/provision-voice`; added `GET /users/me/vapi-config` and `POST /users/me/provision-voice` |
 | `backend/app/routes/voice.py` | Lease-lead-webhook Paths 2 & 3 → `manager_vapi_config`; outbound lease → `manager_vapi_config` |
-| `backend/app/routes/leasing.py` | `/find-listing` and `/search` accept `manager_id` query param; filter across all manager's groups |
+| `backend/app/routes/leasing.py` | `/find-listing` and `/search` accept `?manager_id=` param |
 | `frontend/src/services/apiService.js` | Added `getUserVapiConfig()` and `retryUserProvisioning()` |
-| `frontend/src/components/LeasingTab.jsx` | Per-group VAPI status grid → single account-level banner |
-| `CODEBASE_CONTEXT.md` | Updated to reflect new architecture throughout |
+| `frontend/src/components/LeasingTab.jsx` | Per-group VAPI grid → single account-level banner |
+| `CODEBASE_CONTEXT.md` | Updated throughout |
+| `backend/migrations/015_per_manager_vapi.sql` | Full Phase 1 migration (committed for reference) |
+
+### DB Migration (all steps run in Supabase)
+
+| Step | What | Status |
+|---|---|---|
+| 1.1 | Created `manager_vapi_config` table with RLS | ✅ Done |
+| 1.2 | Added `assigned_manager_id` to `twilio_number_pool`; renamed `assigned_property_group_id` → `_legacy_assigned_property_group_id` | ✅ Done |
+| 1.3 | Inserted `pending` row for `leadpipecrm@gmail.com` into `manager_vapi_config` | ✅ Done |
+| 1.4 | Nulled out VAPI columns on all 10 leadpipecrm `properties_list` rows | ✅ Done |
+| 1.5 | Confirmed `+14313415768` pool row: `status=available`, `assigned_manager_id=null` | ✅ Done |
+
+**Final verified pool state:**
+```
+id: e4eee265-fd19-4760-9d55-eb8b13cb2854
+phone_number: +14313415768
+vapi_phone_number_id: 969c6812-b520-468e-8f65-5fb8ca4ee240
+status: available
+assigned_manager_id: null
+```
 
 ---
 
-## What Is NOT Done Yet — Must Do Before Deploying
+## What Still Needs to Be Done
 
-### Phase 1: Supabase SQL Migrations (run in Supabase SQL editor)
+### 1. Trigger provisioning for leadpipecrm (after Render deploy is live)
 
-These have NOT been run. The backend code will break at runtime until these are in place.
+**Option A — UI:** Log in as `leadpipecrm@gmail.com` → go to Leasing tab → the banner will show "Setting up..." or "Setup failed" → hit **Retry**.
 
-**Step 1.1 — Create `manager_vapi_config` table:**
-```sql
-CREATE TABLE manager_vapi_config (
-    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    manager_id              UUID NOT NULL UNIQUE,
-    vapi_lease_assistant_id TEXT,
-    vapi_phone_number_id    TEXT,
-    vapi_phone_number       TEXT,
-    vapi_provisioning_status TEXT NOT NULL DEFAULT 'pending',
-    pool_row_id             UUID,
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-ALTER TABLE manager_vapi_config ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "manager reads own vapi config"
-ON manager_vapi_config FOR SELECT
-USING (manager_id = auth.uid());
+**Option B — API:**
+```
+POST /property-groups/users/me/provision-voice
+Authorization: Bearer <leadpipecrm JWT>
 ```
 
-**Step 1.2 — Modify `twilio_number_pool`:**
-```sql
-ALTER TABLE twilio_number_pool
-    ADD COLUMN assigned_manager_id UUID,
-    DROP COLUMN IF EXISTS assigned_property_group_id;
-```
-> If you want to keep the old data for reference, rename instead of drop:
-> `ALTER TABLE twilio_number_pool RENAME COLUMN assigned_property_group_id TO _legacy_assigned_property_group_id;`
+This will:
+1. Claim `+14313415768` from the pool → `status=assigned`, `assigned_manager_id=28c43c77-...`
+2. Create a new VAPI assistant named `Lease Agent [28c43c77]`
+3. Link the assistant to `+14313415768` in VAPI
+4. Write `status=active` to `manager_vapi_config`
 
-**Step 1.3 — Migrate `leadpipecrm@gmail.com` existing data:**
+### 2. Verify after provisioning
 
-First check if there's any active per-group data to migrate:
+Run in Supabase SQL editor:
 ```sql
-SELECT id, name, vapi_lease_assistant_id, vapi_phone_number_id, vapi_phone_number, vapi_provisioning_status
-FROM properties_list
-WHERE manager_id = '28c43c77-8c9c-496f-8d1e-39ffa9d619e3'
-  AND vapi_provisioning_status = 'active';
-```
-
-If rows come back → migrate the first one:
-```sql
-INSERT INTO manager_vapi_config (manager_id, vapi_lease_assistant_id, vapi_phone_number_id, vapi_phone_number, vapi_provisioning_status)
-SELECT
-    manager_id,
-    vapi_lease_assistant_id,
-    vapi_phone_number_id,
-    vapi_phone_number,
-    'active'
-FROM properties_list
-WHERE manager_id = '28c43c77-8c9c-496f-8d1e-39ffa9d619e3'
-  AND vapi_provisioning_status = 'active'
-LIMIT 1;
-```
-
-If no active rows (current state after the last refactor nulled them out) → insert pending so provisioning can be triggered:
-```sql
-INSERT INTO manager_vapi_config (manager_id, vapi_provisioning_status)
-VALUES ('28c43c77-8c9c-496f-8d1e-39ffa9d619e3', 'pending')
-ON CONFLICT (manager_id) DO NOTHING;
-```
-
-**Step 1.4 — Null out per-group VAPI columns (they are now unused):**
-```sql
-UPDATE properties_list
-SET
-    vapi_lease_assistant_id  = NULL,
-    vapi_phone_number_id     = NULL,
-    vapi_phone_number        = NULL,
-    vapi_provisioning_status = 'not_applicable'
+-- Should show: status=active, phone=+14313415768
+SELECT manager_id, vapi_provisioning_status, vapi_phone_number, vapi_lease_assistant_id
+FROM manager_vapi_config
 WHERE manager_id = '28c43c77-8c9c-496f-8d1e-39ffa9d619e3';
-```
 
-**Step 1.5 — Update pool row for `+14313415768` to `available`:**
-```sql
-UPDATE twilio_number_pool
-SET
-    assigned_manager_id = NULL,
-    status = 'available'
+-- Should show: status=assigned, assigned_manager_id=28c43c77-...
+SELECT phone_number, status, assigned_manager_id, assigned_at
+FROM twilio_number_pool
 WHERE phone_number = '+14313415768';
 ```
-(Provisioning will flip it to `assigned` when it claims it.)
 
----
+### 3. Verification Checklist
 
-### Phase 4: Post-Deploy Steps
-
-After running migrations and deploying:
-
-1. **Trigger provisioning for `leadpipecrm@gmail.com`** via the API (need their bearer token):
-   ```
-   POST /property-groups/users/me/provision-voice
-   Authorization: Bearer <leadpipecrm token>
-   ```
-   Or use the Retry button in the LeasingTab UI.
-
-2. **Verify `manager_vapi_config` row:**
-   ```sql
-   SELECT * FROM manager_vapi_config WHERE manager_id = '28c43c77-8c9c-496f-8d1e-39ffa9d619e3';
-   -- Expect: vapi_provisioning_status = 'active', vapi_phone_number = '+14313415768'
-   ```
-
-3. **Verify pool row:**
-   ```sql
-   SELECT * FROM twilio_number_pool WHERE phone_number = '+14313415768';
-   -- Expect: status = 'assigned', assigned_manager_id = '28c43c77-...'
-   ```
-
-4. **Make test inbound call to `+14313415768`** — agent should show listings from ALL leadpipecrm property groups.
-
-5. **Make test outbound lease call** from the app.
-
----
-
-## Verification Checklist (from the plan)
-
-- [ ] `manager_vapi_config` for `leadpipecrm@gmail.com`: `status=active`, `vapi_phone_number=+14313415768`
-- [ ] `twilio_number_pool`: `+14313415768` row has `status=assigned`, `assigned_manager_id=28c43c77-...`
-- [ ] `properties_list` for all leadpipecrm groups: VAPI columns NULL, `vapi_provisioning_status=not_applicable`
-- [ ] Inbound call to `+14313415768` → agent can see listings from ALL 10 property groups
-- [ ] Lead captured → `manager_id=28c43c77-...`, `property_group_id` populated from `listing_uuid`
-- [ ] New user signs up → creates first group → `manager_vapi_config` pending → provisioning runs → active
+- [ ] `manager_vapi_config`: `status=active`, `vapi_phone_number=+14313415768`
+- [ ] `twilio_number_pool`: `+14313415768` → `status=assigned`, `assigned_manager_id=28c43c77-...`
+- [ ] Inbound call to `+14313415768` → agent can see listings from ALL 10 leadpipecrm property groups
+- [ ] Lead captured on that call → `manager_id=28c43c77-...`, `property_group_id` populated from `listing_uuid`
+- [ ] New user creates first property group → `manager_vapi_config` row inserted → provisioning runs → `active`
 - [ ] Same user creates second group → NO new provisioning triggered → same number shown
-- [ ] Outbound lease call → uses `manager_vapi_config` assistant
+- [ ] Outbound lease call from app → uses `manager_vapi_config` assistant
 
 ---
 
-## Key Architecture Facts for Next Session
+## Key Architecture Facts
 
 ### New table: `manager_vapi_config`
-One row per manager. Source of truth for VAPI provisioning state. RLS: managers read their own row only; all writes via service role.
+One row per manager. Source of truth for VAPI state. RLS: managers read their own row only; all writes via service role.
 
 ### `twilio_number_pool` change
-`assigned_property_group_id` column replaced by `assigned_manager_id`.
+`assigned_property_group_id` renamed to `_legacy_assigned_property_group_id`. New column: `assigned_manager_id`.
 
-### Provisioning trigger
-`create_property_group` in `property_groups.py` checks `manager_vapi_config` for an existing row. Only inserts + triggers if no row exists. `properties_list.vapi_provisioning_status` is always set to `not_applicable` for new groups — the column is unused going forward.
+### Provisioning trigger (in `property_groups.py`)
+`create_property_group` checks `manager_vapi_config` for an existing row. Only provisions on first group. `properties_list.vapi_provisioning_status` always set to `not_applicable` for new groups — that column is unused going forward.
 
-### Webhook resolution (lease-lead-webhook)
-Path 2 and Path 3 now query `manager_vapi_config`, not `properties_list`. They return `manager_id` directly. `property_group_id` is only resolved via Path 1 (listing_uuid lookup).
+### Webhook resolution (lease-lead-webhook in `voice.py`)
+- Path 1: `listing_uuid` → `lease_listings.property_group_id` (unchanged)
+- Path 2: `call.assistantId` → `manager_vapi_config.vapi_lease_assistant_id` → returns `manager_id`
+- Path 3: `call.phoneNumberId` → `manager_vapi_config.vapi_phone_number_id` → returns `manager_id`
 
 ### Leasing endpoints
-`/leasing/find-listing` and `/leasing/search` both accept `?manager_id=<UUID>`. When present, they resolve all property group IDs for that manager and filter listings across all of them.
+`/leasing/find-listing` and `/leasing/search` both accept `?manager_id=<UUID>`. Filters listings across all property groups owned by that manager (resolves group IDs internally).
 
 ### Frontend
-`LeasingTab` loads `getUserVapiConfig()` instead of `fetchPropertyGroups()` for the phone number display. Shows one banner, not a per-group grid.
+`LeasingTab` calls `getUserVapiConfig()` on load. Shows one banner: phone number (active) / spinner (pending) / retry button (failed) / instructional text (not_set_up).
 
 ---
 

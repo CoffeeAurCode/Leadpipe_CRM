@@ -153,8 +153,15 @@ export default function LeasingTab() {
                             <p className="text-sm font-semibold text-foreground tracking-wide">{vapiConfig.vapi_phone_number}</p>
                         )}
                         {vapiConfig.vapi_provisioning_status === 'pending' && (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-amber-500 mt-0.5">
+                            <span className="inline-flex items-center gap-2 text-xs text-amber-500 mt-0.5">
                                 <Loader2 className="w-3 h-3 animate-spin" /> Setting up your lease line…
+                                <button
+                                    onClick={handleRetryProvisioning}
+                                    disabled={retrying}
+                                    className="underline hover:no-underline disabled:opacity-50"
+                                >
+                                    {retrying ? 'Starting…' : 'Stuck? Trigger setup'}
+                                </button>
                             </span>
                         )}
                         {vapiConfig.vapi_provisioning_status === 'failed' && (
