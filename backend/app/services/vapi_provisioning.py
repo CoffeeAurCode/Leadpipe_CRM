@@ -64,14 +64,11 @@ def provision_vapi_for_manager(manager_id: str, db: Client) -> None:
         lease_cfg = build_lease_config(BACKEND_URL, manager_id)
         lease = client.assistants.create(**lease_cfg)
 
-        try:
-            from vapi.types import UpdatePhoneNumberDto
-            client.phone_numbers.update(
-                vapi_phone_number_id,
-                request=UpdatePhoneNumberDto(assistant_id=lease.id),
-            )
-        except ImportError:
-            client.phone_numbers.update(vapi_phone_number_id, assistant_id=lease.id)
+        from vapi.phone_numbers.types import UpdatePhoneNumbersRequestBody_Twilio
+        client.phone_numbers.update(
+            vapi_phone_number_id,
+            request=UpdatePhoneNumbersRequestBody_Twilio(assistant_id=lease.id),
+        )
 
         svc_db.table("manager_vapi_config").upsert({
             "manager_id": manager_id,
