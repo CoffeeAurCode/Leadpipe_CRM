@@ -454,6 +454,25 @@ export async function fetchPropertyBuildings(propertyId) {
     return await response.json();
 }
 
+/** Fetch the VAPI provisioning status and phone number for the current manager. */
+export async function getUserVapiConfig() {
+    const response = await authFetch(`${API_BASE_URL}/property-groups/users/me/vapi-config`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
+/** Retry VAPI lease provisioning for the current manager account. */
+export async function retryUserProvisioning() {
+    const response = await authFetch(`${API_BASE_URL}/property-groups/users/me/provision-voice`, {
+        method: 'POST',
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
 /** Delete a property group and cascade-delete all its buildings, flats, rents, and tenants. */
 export async function deletePropertyGroup(propertyId) {
     const response = await authFetch(`${API_BASE_URL}/property-groups/${propertyId}`, { method: 'DELETE' });

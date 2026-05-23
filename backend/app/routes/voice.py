@@ -517,8 +517,9 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
         assistant_id = call.get("assistantId")
         phone_number_id = call.get("phoneNumberId")
 
-        # Resolve property_group_id via three fallback paths
+        # Resolve property_group_id and manager_id via fallback paths
         property_group_id = None
+        manager_id = None
         resolution_path = None
 
         # Path 1: listing_uuid → lease_listings.property_group_id
@@ -530,42 +531,41 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
                 property_group_id = row.data[0].get("property_group_id")
                 resolution_path = "listing_uuid"
 
-        # Path 2: assistant_id → properties_list.vapi_lease_assistant_id (per-group agents)
-        if not property_group_id and assistant_id:
-            pg_row = (
-                db.table("properties_list")
-                .select("id")
+        # Path 2: assistant_id → manager_vapi_config (per-manager assistant)
+        if not manager_id and assistant_id:
+            mvc_row = (
+                db.table("manager_vapi_config")
+                .select("manager_id")
                 .eq("vapi_lease_assistant_id", assistant_id)
                 .limit(1)
                 .execute()
             )
-            if pg_row.data:
-                property_group_id = pg_row.data[0].get("id")
-                resolution_path = "assistant_id"
+            if mvc_row.data:
+                manager_id = mvc_row.data[0].get("manager_id")
+                resolution_path = "assistant_id→manager_vapi_config"
 
-        # Path 3: phoneNumberId → properties_list.vapi_phone_number_id (per-group inbound)
-        if not property_group_id and phone_number_id:
-            pn_row = (
-                db.table("properties_list")
-                .select("id")
+        # Path 3: phone_number_id → manager_vapi_config (per-manager number)
+        if not manager_id and phone_number_id:
+            mvc_row = (
+                db.table("manager_vapi_config")
+                .select("manager_id")
                 .eq("vapi_phone_number_id", phone_number_id)
                 .limit(1)
                 .execute()
             )
-            if pn_row.data:
-                property_group_id = pn_row.data[0].get("id")
-                resolution_path = "phone_number_id"
+            if mvc_row.data:
+                manager_id = mvc_row.data[0].get("manager_id")
+                resolution_path = "phone_number_id→manager_vapi_config"
 
-        # Path 4: unresolved — log warning, do not guess which property group
-        if not property_group_id:
-            print(f"  [WARN] Could not resolve property_group_id for assistant={assistant_id} phone_number_id={phone_number_id}")
+        # Path 4: unresolved
+        if not property_group_id and not manager_id:
+            print(f"  [WARN] Could not resolve manager for assistant={assistant_id} phone_number_id={phone_number_id}")
             resolution_path = "unresolved"
 
         print(f"  [pg resolution] path={resolution_path} property_group_id={property_group_id}")
 
-        # Resolve manager_id from the property group row.
-        manager_id = None
-        if property_group_id:
+        # Resolve manager_id from property group if Path 1 was used and manager_id still unknown
+        if property_group_id and not manager_id:
             pg_mgr = db.table("properties_list").select("manager_id").eq("id", str(property_group_id)).limit(1).execute()
             if pg_mgr.data:
                 manager_id = pg_mgr.data[0].get("manager_id")
@@ -693,24 +693,22 @@ async def make_outbound_call(
         raise HTTPException(status_code=500, detail="VAPI_COMPLAINT_NUMBER_ID env var is not configured on the server")
 
     if req.agent == "lease":
-        pg_row = (
-            svc_db.table("properties_list")
+        mvc_row = (
+            svc_db.table("manager_vapi_config")
             .select("vapi_lease_assistant_id, vapi_phone_number_id")
             .eq("manager_id", user["sub"])
             .eq("vapi_provisioning_status", "active")
             .limit(1)
             .execute()
         )
-        if pg_row.data and pg_row.data[0].get("vapi_lease_assistant_id"):
-            assistant_id = pg_row.data[0]["vapi_lease_assistant_id"]
-            phone_number_id = pg_row.data[0]["vapi_phone_number_id"]
+        if mvc_row.data and mvc_row.data[0].get("vapi_lease_assistant_id"):
+            assistant_id = mvc_row.data[0]["vapi_lease_assistant_id"]
+            phone_number_id = mvc_row.data[0]["vapi_phone_number_id"]
         else:
             raise HTTPException(
                 status_code=500,
                 detail="No active lease agent found for this account. Check VAPI provisioning status."
             )
-        if not assistant_id:
-            raise HTTPException(status_code=500, detail="No lease agent configured. Check VAPI provisioning status.")
     else:
         assistant_id    = settings.VAPI_COMPLAINT_ASSISTANT_ID
         phone_number_id = settings.VAPI_COMPLAINT_NUMBER_ID or settings.VAPI_NUMBER_ID

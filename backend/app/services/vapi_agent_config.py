@@ -1002,14 +1002,13 @@ submit_lease_lead — Capture the caller as a lead (always call before ending th
 _LEASE_CONTEXT_BLOCK = """\
 
 [Context — Do Not Expose]
-Property Group: {pg_name}
-Property Group ID: {property_group_id}
-All searches are scoped to this property group only.
+Manager ID: {manager_id}
+All searches are scoped to all properties managed by this account.
 """
 
 
-def _build_lease_tools(backend_url: str, property_group_id: str | None = None) -> list:
-    pg_qs = f"&property_group_id={property_group_id}" if property_group_id else ""
+def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
+    mgr_qs = f"&manager_id={manager_id}" if manager_id else ""
     return [
         {
             "type": "apiRequest",
@@ -1019,7 +1018,7 @@ def _build_lease_tools(backend_url: str, property_group_id: str | None = None) -
                 "name": "api_request_tool",
                 "description": "Find a specific rental listing by address or unit name query.",
             },
-            "url": f"{backend_url}/leasing/find-listing?query={{{{query}}}}{pg_qs}",
+            "url": f"{backend_url}/leasing/find-listing?query={{{{query}}}}{mgr_qs}",
             "method": "GET",
             "body": {
                 "type": "object",
@@ -1059,7 +1058,7 @@ def _build_lease_tools(backend_url: str, property_group_id: str | None = None) -
                     "Store the listing_uuid of each unit the caller expresses interest in."
                 ),
             },
-            "url": f"{backend_url}/leasing/search?bedrooms={{{{bedrooms}}}}&budget_max={{{{budget_max}}}}{pg_qs}",
+            "url": f"{backend_url}/leasing/search?bedrooms={{{{bedrooms}}}}&budget_max={{{{budget_max}}}}{mgr_qs}",
             "method": "GET",
             "body": {
                 "type": "object",
@@ -1161,20 +1160,13 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list) -> dict:
     }
 
 
-def build_lease_config(
-    backend_url: str,
-    property_group_id: str,
-    pg_name: str,
-) -> dict:
-    """Per-group lease agent for new property groups (pg_id hardcoded in tool URLs)."""
-    tools = _build_lease_tools(backend_url, property_group_id=property_group_id)
-    context_block = _LEASE_CONTEXT_BLOCK.format(
-        pg_name=pg_name,
-        property_group_id=property_group_id,
-    )
+def build_lease_config(backend_url: str, manager_id: str) -> dict:
+    """Per-manager lease agent — handles all listings across all property groups for this account."""
+    tools = _build_lease_tools(backend_url, manager_id=manager_id)
+    context_block = _LEASE_CONTEXT_BLOCK.format(manager_id=manager_id)
     system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block
     return _lease_assistant_shell(
-        name=f"Lease Agent — {pg_name}"[:40],
+        name=f"Lease Agent [{manager_id[:8]}]",
         system_prompt=system_prompt,
         tools=tools,
     )

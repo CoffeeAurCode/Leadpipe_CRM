@@ -18,7 +18,7 @@
 - **Stripe subscription** gate — managers must have an active subscription
 - Per-building **feature flags** (rent management, voice, SMS reminders, etc.)
 - **Onboarding tour** (react-joyride) with checklist tracked in Supabase
-- **Lease agent auto-provisioning** — all property groups are automatically assigned the shared lease agent number on first Leasing tab visit
+- **Lease agent auto-provisioning** — one Twilio number + one VAPI assistant provisioned per manager account on first property group creation; subsequent groups share the same number
 
 ---
 
@@ -280,6 +280,21 @@ PropertyGroup (properties_list)
 | call_id | text | VAPI call ID |
 | call_duration_seconds | int | |
 
+#### `manager_vapi_config`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| manager_id | UUID UNIQUE | FK → auth.users |
+| vapi_lease_assistant_id | text | Per-manager VAPI assistant ID |
+| vapi_phone_number_id | text | VAPI's internal ID for the claimed number |
+| vapi_phone_number | text | E.164 phone number for this manager's lease line |
+| vapi_provisioning_status | text | pending / active / failed / not_set_up |
+| pool_row_id | UUID | FK → twilio_number_pool |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+RLS: managers can read only their own row (`manager_id = auth.uid()`). All writes use service role.
+
 #### `twilio_number_pool`
 | Column | Type | Notes |
 |---|---|---|
@@ -287,11 +302,11 @@ PropertyGroup (properties_list)
 | phone_number | text UNIQUE | E.164 number bought in Twilio console |
 | vapi_phone_number_id | text UNIQUE | VAPI's internal ID for this number |
 | status | text | available / assigned |
-| assigned_property_group_id | UUID | FK → properties_list (nullable) |
+| assigned_manager_id | UUID | FK → auth.users (nullable) — replaces `assigned_property_group_id` |
 | assigned_at | timestamptz | When the number was claimed |
 | notes | text | Optional label |
 
-RLS: service-role only. Managers see their phone number via `properties_list.vapi_phone_number`.
+RLS: service-role only. Managers see their phone number via `manager_vapi_config.vapi_phone_number`.
 
 Admin script to add numbers: `python backend/scripts/add_twilio_number_to_vapi.py <E.164>`
 
@@ -421,10 +436,10 @@ Computed fields on GET (from `TenantResponse` schema):
 ### `/property-groups` — `routes/property_groups.py`
 | Method | Path | Description |
 |---|---|---|
-| GET | `/property-groups` | List all property groups with `vapi_provisioning_status` + `vapi_phone_number` |
-| POST | `/property-groups` | Create property group; triggers `provision_vapi_for_property_group` as BackgroundTask; sets status to `pending` |
-| POST | `/property-groups/assign-shared-agent` | **Bulk-assign the shared lease agent** to all property groups owned by this manager that are not yet `active`. Updates `vapi_lease_assistant_id`, `vapi_phone_number_id`, `vapi_phone_number`, `vapi_provisioning_status = active` in one DB call. Idempotent. Called automatically by the Leasing tab on load. |
-| POST | `/property-groups/{id}/provision-voice` | Retry VAPI provisioning for a single group (sets status back to `pending`, re-runs background task) |
+| GET | `/property-groups` | List all property groups |
+| POST | `/property-groups` | Create property group; on first group, inserts `manager_vapi_config` row with `pending` status and triggers `provision_vapi_for_manager` as BackgroundTask; subsequent groups skip provisioning |
+| GET | `/property-groups/users/me/vapi-config` | Returns `{vapi_provisioning_status, vapi_phone_number}` from `manager_vapi_config` for the current manager |
+| POST | `/property-groups/users/me/provision-voice` | Retry VAPI lease provisioning for the manager account (upserts `pending` status, re-runs background task) |
 | GET | `/property-groups/{id}/buildings` | Buildings with unit counts for a property group |
 | DELETE | `/property-groups/{id}` | Cascade-delete all buildings, flats, rents, tenants within the group |
 
@@ -484,11 +499,10 @@ Computed fields on GET (from `TenantResponse` schema):
 **Lease lead webhook:** `POST /voice/lease-lead-webhook`
 - Accepts `submit_lease_lead` tool calls from the lease agent
 - Validates `listing_uuid` against a UUID regex before querying Supabase — hallucinated flat numbers (e.g. `"S-106"`) are discarded and `listing_uuid` is set to `None`
-- Resolves `property_group_id` via four fallback paths in order:
-  1. `listing_uuid` → `lease_listings.property_group_id` (only works if agent matched a specific listing via `find_listing`)
-  2. `call.assistantId` → `properties_list.vapi_lease_assistant_id` (works for per-group provisioned agents)
-  3. `call.phoneNumberId` → `properties_list.vapi_phone_number_id` (works for inbound calls on per-group numbers)
-  4. `call.assistantId == VAPI_SHARED_LEASE_ASSISTANT_ID` or `call.phoneNumberId == VAPI_SHARED_LEASE_NUMBER_ID` → picks the first property group in the DB (shared agent fallback for single-tenant MVP)
+- Resolves `property_group_id` and `manager_id` via three fallback paths in order:
+  1. `listing_uuid` → `lease_listings.property_group_id` (resolves property_group_id; manager_id then resolved from that row)
+  2. `call.assistantId` → `manager_vapi_config.vapi_lease_assistant_id` (resolves manager_id directly; property_group_id remains None unless Path 1 also matched)
+  3. `call.phoneNumberId` → `manager_vapi_config.vapi_phone_number_id` (resolves manager_id directly)
 - `search_available_listings` returns a structured JSON array; each element has `listing_uuid`, `flat_number`, `bedrooms`, `monthly_rent`, `floor_number`, `available_from`, `title` — the agent can now extract `listing_uuid` from search results
 - `interested_listing_ids` (UUID array) is written from `submit_lease_lead` tool call; each entry is validated against UUID regex before insert; the agent captures all listing UUIDs the caller showed interest in
 - `property_group_id` resolution path is logged as `[pg resolution] path=<path> property_group_id=<uuid>`
@@ -497,7 +511,7 @@ Computed fields on GET (from `TenantResponse` schema):
 **Outbound call:** `POST /voice/call/outbound`
 - Body: `{customer_number, agent, first_message?}` — `agent` is `"complaint"` (default) or `"lease"`
 - `complaint` → uses `VAPI_COMPLAINT_ASSISTANT_ID` + `VAPI_COMPLAINT_NUMBER_ID` (complaint agent Alex on `+14382314283`)
-- `lease` → uses per-group `vapi_lease_assistant_id` + `vapi_phone_number_id` from `properties_list`; falls back to `VAPI_SHARED_LEASE_ASSISTANT_ID` + `VAPI_SHARED_LEASE_NUMBER_ID`
+- `lease` → looks up `manager_vapi_config` for this manager's `vapi_lease_assistant_id` + `vapi_phone_number_id`; raises HTTP 500 if no active config found
 - Outbound phone number default in frontend: `+1` (Canadian); accepts any E.164 number
 - Wrapped in `asyncio.to_thread` to avoid blocking the event loop
 - Returns `{call_id, status, agent}`; raises HTTP 504 on `httpx.ReadTimeout`
@@ -518,8 +532,8 @@ Computed fields on GET (from `TenantResponse` schema):
 #### VAPI Tool Endpoints (no auth, service DB, always HTTP 200)
 | Method | Path | Description |
 |---|---|---|
-| GET | `/leasing/find-listing?query=&property_group_id=` | Search listing by flat number or title; returns `{found, listing_uuid, address, bedrooms, monthly_rent, floor_number, available_from, custom_rules}` |
-| GET | `/leasing/search?bedrooms=&budget_max=&property_group_id=` | Return up to 5 matching listings as a structured JSON array `{count, listings: [{listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from, title}]}` |
+| GET | `/leasing/find-listing?query=&property_group_id=&manager_id=` | Search listing by flat number or title; `manager_id` filters across all groups owned by that manager; returns `{found, listing_uuid, address, bedrooms, monthly_rent, floor_number, available_from, custom_rules}` |
+| GET | `/leasing/search?bedrooms=&budget_max=&property_group_id=&manager_id=` | Return up to 5 matching listings; `manager_id` filters across all groups owned by that manager; returns `{count, listings: [{listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from, title}]}` |
 
 #### Manager CRUD (authenticated + subscription gate)
 | Method | Path | Description |
@@ -650,25 +664,24 @@ get_service_db()  # service-role client (bypasses RLS) — for webhooks, admin
 ---
 
 ### `app/services/vapi_provisioning.py`
-- `provision_vapi_for_property_group(property_group_id, pg_name, db)` — run as a FastAPI `BackgroundTask` when a `PropertyGroup` is created
-- **Pool-based provisioning** (replaces old VAPI-number-acquire flow):
-  1. Picks the oldest `available` row from `twilio_number_pool` (service DB, bypasses RLS)
-  2. Marks the row `assigned` (optimistic lock: `.eq("status", "available")` on the update)
-  3. Creates a per-group lease assistant via `build_lease_config()`
-  4. Links the assistant to the Twilio number via VAPI's `phone_numbers.update()`
-  5. Updates `properties_list` with `vapi_lease_assistant_id`, `vapi_phone_number_id`, `vapi_phone_number`, `vapi_provisioning_status = "active"`
-- On failure: sets `vapi_provisioning_status = "failed"` and re-raises
-- **Pool-empty fallback:** if `twilio_number_pool` has no available rows, calls `_assign_shared_agent_fallback()` instead of failing. This sets the group to use `VAPI_SHARED_LEASE_ASSISTANT_ID` + `VAPI_SHARED_LEASE_PHONE_NUMBER` and marks `vapi_provisioning_status = "active"`. New groups are therefore never left as `failed` due to pool exhaustion.
-- `_assign_shared_agent_fallback(svc_db, db, property_group_id)` — helper that writes shared agent values to `properties_list`; falls back to `failed` only if `VAPI_SHARED_LEASE_PHONE_NUMBER` is also not configured
+- `provision_vapi_for_manager(manager_id, db)` — run as a FastAPI `BackgroundTask` when a manager creates their FIRST property group
+- **Per-manager provisioning** (one number + one assistant per manager account, not per group):
+  1. Guard: exits immediately if `manager_vapi_config` already has `status = active` for this manager
+  2. Picks the oldest `available` row from `twilio_number_pool` (service DB, bypasses RLS)
+  3. Marks the row `assigned` with `assigned_manager_id` (optimistic lock)
+  4. Creates a per-manager lease assistant via `build_lease_config(backend_url, manager_id)`
+  5. Links the assistant to the Twilio number via VAPI's `phone_numbers.update()`
+  6. Upserts `manager_vapi_config` with `vapi_lease_assistant_id`, `vapi_phone_number_id`, `vapi_phone_number`, `vapi_provisioning_status = "active"`
+- On failure: upserts `manager_vapi_config` with `vapi_provisioning_status = "failed"` and re-raises
+- **Pool-empty behaviour:** if `twilio_number_pool` has no available rows, upserts `failed` status immediately — no silent fallback
 
 ---
 
 ### `app/services/vapi_agent_config.py`
-Four builder functions:
+Three builder functions:
 - `build_assistant_config()` — legacy complaint agent (existing test group)
 - `build_complaint_config(backend_url)` — global complaint agent (Option B, multi-group)
-- `build_lease_config_shared(backend_url)` — shared lease agent for existing property groups
-- `build_lease_config(backend_url, property_group_id, pg_name)` — per-group lease agent; injects `property_group_id` into the VAPI system prompt so the agent only searches listings for that group
+- `build_lease_config(backend_url, manager_id)` — per-manager lease agent; injects `manager_id` into tool URLs (`?manager_id=<UUID>`) so the agent searches listings across ALL property groups owned by this manager
 - `submit_lease_lead` tool now includes `interested_listing_ids` (array of UUIDs) — agent must capture all listing UUIDs the caller showed interest in, not just the primary one
 - `search_available_listings` tool description updated to tell agent the response contains `listing_uuid` fields in the `listings` array
 
@@ -751,7 +764,7 @@ class Feature(str, Enum):
 | `components/VoiceStatsTab.jsx` | Voice call analytics |
 | `components/SmsWorkflow.jsx` | Bulk SMS broadcast to tenants |
 | `components/OnboardingChecklist.jsx` | Interactive onboarding checklist |
-| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export, Refresh button; on every load automatically calls `POST /property-groups/assign-shared-agent` if any groups are unprovisioned, then re-fetches groups (silent, no user action needed); leads table shows primary matched listing flat_number column; passes `listings` to `LeadDetailModal` |
+| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export, Refresh button; on load calls `GET /property-groups/users/me/vapi-config` and shows one account-level lease line banner (active phone number / provisioning spinner / retry button); leads table shows primary matched listing flat_number column; passes `listings` to `LeadDetailModal` |
 
 ### Modals
 | File | Purpose |
@@ -844,7 +857,7 @@ class Feature(str, Enum):
 - `authFetch(path, options)` — adds `Authorization: Bearer <token>`, handles 401 (sign out) and 403 (redirect to pricing)
 - Exports: `fetchComplaints`, `createComplaint`, `updateComplaint`, `fetchAppointments`, `updateAppointment`, `deleteAppointment`, `fetchFlats`, `fetchTenants`, `fetchBuildings`, `sendChatMessage`, `createCheckoutSession`, `getCallStatus`, etc.
 - **Leasing exports:** `getListings`, `createListing`, `updateListing`, `deleteListing`, `getLeaseLeads`, `updateLead`, `deleteLead`, `getLeasingMetrics`, `exportLeads`
-- **Property groups:** `fetchPropertyGroups()`, `createPropertyGroup(payload)`, `assignSharedAgentToAllGroups()` → `POST /property-groups/assign-shared-agent`
+- **Property groups:** `fetchPropertyGroups()`, `createPropertyGroup(payload)`, `getUserVapiConfig()` → `GET /property-groups/users/me/vapi-config`, `retryUserProvisioning()` → `POST /property-groups/users/me/provision-voice`
 - **Image upload:** `uploadImage(file, entityType)` → `POST /upload/image`, returns `{url, path}`
 - **Outbound call:** `makeOutboundCall(customerNumber, agentType='complaint', firstMessage=null)` — `agentType` forwarded as `agent` field in request body
 - **Smart import:** `analyzeImportFile(file, importType)` → `POST /import/analyze`; `importPropertiesCsv(file, columnMapping?)` and `importTenantsCsv(file, columnMapping?)` accept optional mapping object
@@ -912,14 +925,14 @@ Used after voice/chatbot actions that modify data.
 - Two agent roles: **complaint** (maintenance intake) and **lease** (lead capture)
 - Both agents can be triggered via outbound call; `agent` field in `POST /voice/call/outbound` selects which
 - Complaint agent is global (one assistant for all groups): `VAPI_COMPLAINT_ASSISTANT_ID` on `+14382314283` (`VAPI_COMPLAINT_NUMBER_ID`)
-- Lease agent is per-property-group (auto-provisioned); all groups without a dedicated number fall back to the **shared lease agent** on `+14313415768` (`VAPI_SHARED_LEASE_NUMBER_ID`)
-- `vapi_provisioning_status` on `properties_list` tracks state: `not_applicable` | `pending` | `active` | `failed`
-- **Auto-provisioning on Leasing tab load:** `LeasingTab` calls `POST /property-groups/assign-shared-agent` if any groups are not `active`. This is transparent — users see a normal loading spinner.
-- Both assistants have `endCallFunctionEnabled: true` — agents invoke `endCall()` after goodbye; run `backend/scripts/enable_end_call.py` for newly provisioned assistants
-- **Phone number source for per-group agents**: Twilio-owned numbers from `twilio_number_pool`. When pool is empty, provisioning silently falls back to shared agent. Add pool numbers: `python backend/scripts/add_twilio_number_to_vapi.py <E.164>`
+- Lease agent is **per-manager account** (one number + one assistant per manager, not per property group). Stored in `manager_vapi_config` table.
+- `vapi_provisioning_status` in `manager_vapi_config` tracks state: `pending` | `active` | `failed` | `not_set_up` (not_set_up = no row exists yet)
+- **Provisioning trigger:** fires only when a manager creates their FIRST property group. Second, third, ... groups do NOT re-trigger provisioning.
+- **LeasingTab** calls `GET /property-groups/users/me/vapi-config` on load and displays one account-level banner (phone number, spinner, or retry button).
+- **Phone number source**: Twilio-owned numbers from `twilio_number_pool` (`assigned_manager_id` column). When pool is empty, provisioning marks `failed` — no silent fallback. Add pool numbers: `python backend/scripts/add_twilio_number_to_vapi.py <E.164>`
 - **Live phone numbers** (do not reassign):
   - `+14382314283` → complaint agent (`VAPI_COMPLAINT_NUMBER_ID`)
-  - `+14313415768` → shared lease agent (`VAPI_SHARED_LEASE_NUMBER_ID`)
+  - `+14313415768` → available for re-assignment to a manager via pool (was shared lease agent)
 - Outbound complaint call uses `VAPI_COMPLAINT_ASSISTANT_ID`/`VAPI_COMPLAINT_NUMBER_ID` (fixed 2026-05-23).
 
 ### Idempotency

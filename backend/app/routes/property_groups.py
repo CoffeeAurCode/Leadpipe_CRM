@@ -109,7 +109,7 @@ async def create_property_group(
         if "property_type_id" in payload:
             payload["property_type_id"] = str(payload["property_type_id"])
 
-        payload["vapi_provisioning_status"] = "pending"
+        payload["vapi_provisioning_status"] = "not_applicable"
         payload["manager_id"] = user["sub"]
 
         response = db.table("properties_list").insert(payload).execute()
@@ -118,11 +118,24 @@ async def create_property_group(
 
         g = response.data[0]
         pg_id = str(g["id"])
-        pg_name = g["name"]
 
-        # Provision dedicated VAPI lease assistant for this new group
-        from app.services.vapi_provisioning import provision_vapi_for_property_group
-        background_tasks.add_task(provision_vapi_for_property_group, pg_id, pg_name, db)
+        # Only provision if this manager has no existing manager_vapi_config row
+        from app.db.session import get_service_db
+        svc_db = get_service_db()
+        existing_config = (
+            svc_db.table("manager_vapi_config")
+            .select("id, vapi_provisioning_status")
+            .eq("manager_id", user["sub"])
+            .limit(1)
+            .execute()
+        )
+        if not existing_config.data:
+            svc_db.table("manager_vapi_config").insert({
+                "manager_id": user["sub"],
+                "vapi_provisioning_status": "pending",
+            }).execute()
+            from app.services.vapi_provisioning import provision_vapi_for_manager
+            background_tasks.add_task(provision_vapi_for_manager, user["sub"], db)
 
         pt = {}
         if g.get("property_type_id"):
@@ -142,23 +155,43 @@ async def create_property_group(
         raise HTTPException(status_code=500, detail=f"Error creating property group: {str(e)}")
 
 
-@router.post("/{property_id}/provision-voice", status_code=202)
-async def retry_voice_provisioning(
-    property_id: str,
+@router.get("/users/me/vapi-config")
+async def get_user_vapi_config(
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """Return the manager-level VAPI provisioning status and phone number."""
+    from app.db.session import get_service_db
+    svc_db = get_service_db()
+    row = (
+        svc_db.table("manager_vapi_config")
+        .select("vapi_provisioning_status, vapi_phone_number")
+        .eq("manager_id", user["sub"])
+        .limit(1)
+        .execute()
+    )
+    if not row.data:
+        return {"vapi_provisioning_status": "not_set_up", "vapi_phone_number": None}
+    return row.data[0]
+
+
+@router.post("/users/me/provision-voice", status_code=202)
+async def retry_user_voice_provisioning(
     background_tasks: BackgroundTasks,
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
 ):
-    """Retry VAPI lease assistant provisioning for a property group (e.g. after a failure)."""
-    pg = db.table("properties_list").select("id, name").eq("id", property_id).limit(1).execute()
-    if not pg.data:
-        raise HTTPException(status_code=404, detail="Property group not found")
+    """Retry VAPI lease provisioning for this manager account."""
+    from app.db.session import get_service_db
+    from app.services.vapi_provisioning import provision_vapi_for_manager
 
-    db.table("properties_list").update({"vapi_provisioning_status": "pending"}).eq("id", property_id).execute()
+    svc_db = get_service_db()
+    svc_db.table("manager_vapi_config").upsert({
+        "manager_id": user["sub"],
+        "vapi_provisioning_status": "pending",
+    }, on_conflict="manager_id").execute()
 
-    from app.services.vapi_provisioning import provision_vapi_for_property_group
-    background_tasks.add_task(provision_vapi_for_property_group, pg.data[0]["id"], pg.data[0]["name"], db)
-
+    background_tasks.add_task(provision_vapi_for_manager, user["sub"], db)
     return {"status": "provisioning_started"}
 
 

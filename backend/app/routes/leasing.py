@@ -26,6 +26,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 async def find_listing(
     query: str = Query(...),
     property_group_id: Optional[str] = Query(None),
+    manager_id: Optional[str] = Query(None),
     db: Client = Depends(get_service_db),
 ):
     """
@@ -44,6 +45,13 @@ async def find_listing(
         )
         if property_group_id:
             q = q.eq("property_group_id", property_group_id)
+        elif manager_id:
+            groups = db.table("properties_list").select("id").eq("manager_id", manager_id).execute()
+            group_ids = [g["id"] for g in groups.data] if groups.data else []
+            if group_ids:
+                q = q.in_("property_group_id", group_ids)
+            else:
+                return {"found": False}
 
         results = q.ilike("flat_number", f"%{query}%").limit(1).execute()
 
@@ -60,6 +68,11 @@ async def find_listing(
             )
             if property_group_id:
                 fallback_q = fallback_q.eq("property_group_id", property_group_id)
+            elif manager_id:
+                groups = db.table("properties_list").select("id").eq("manager_id", manager_id).execute()
+                group_ids = [g["id"] for g in groups.data] if groups.data else []
+                if group_ids:
+                    fallback_q = fallback_q.in_("property_group_id", group_ids)
             results = fallback_q.execute()
 
         if not results.data:
@@ -87,6 +100,7 @@ async def search_available_listings(
     bedrooms: Optional[int] = Query(None),
     budget_max: Optional[float] = Query(None),
     property_group_id: Optional[str] = Query(None),
+    manager_id: Optional[str] = Query(None),
     db: Client = Depends(get_service_db),
 ):
     """
@@ -105,6 +119,13 @@ async def search_available_listings(
         )
         if property_group_id:
             q = q.eq("property_group_id", property_group_id)
+        elif manager_id:
+            groups = db.table("properties_list").select("id").eq("manager_id", manager_id).execute()
+            group_ids = [g["id"] for g in groups.data] if groups.data else []
+            if group_ids:
+                q = q.in_("property_group_id", group_ids)
+            else:
+                return {"count": 0, "listings": []}
         if bedrooms is not None:
             q = q.eq("flats.bedrooms", bedrooms)
         if budget_max is not None:

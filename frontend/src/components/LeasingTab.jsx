@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, ExternalLink, Phone, BedDouble, Banknote, PhoneCall, RefreshCw } from 'lucide-react';
+import { Plus, Pencil, Trash2, ExternalLink, Phone, BedDouble, Banknote, PhoneCall, RefreshCw, Loader2 } from 'lucide-react';
 import {
     getListings, deleteListing,
     getLeaseLeads, deleteLead,
     getLeasingMetrics, exportLeads,
-    fetchPropertyGroups,
+    getUserVapiConfig, retryUserProvisioning,
 } from '../services/apiService';
 import AddListingModal from './AddListingModal';
 import LeadDetailModal from './LeadDetailModal';
@@ -36,18 +36,12 @@ function fmtDuration(secs) {
     return `${m}m ${s}s`;
 }
 
-const PROVISION_STATUS = {
-    active:          { label: 'Active',         cls: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
-    pending:         { label: 'Provisioning…',  cls: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
-    failed:          { label: 'Failed',          cls: 'bg-red-500/10 text-red-500 border-red-500/20' },
-    not_applicable:  { label: 'Not set up',      cls: 'bg-muted text-muted-foreground border-border' },
-};
-
 export default function LeasingTab() {
     const [listings, setListings] = useState([]);
     const [leads, setLeads] = useState([]);
     const [metrics, setMetrics] = useState(null);
-    const [propertyGroups, setPropertyGroups] = useState([]);
+    const [vapiConfig, setVapiConfig] = useState(null);
+    const [retrying, setRetrying] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const [listingFilter, setListingFilter] = useState('');
@@ -60,23 +54,34 @@ export default function LeasingTab() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [l, ld, m, pg] = await Promise.all([
+            const [l, ld, m, vc] = await Promise.all([
                 getListings(),
                 getLeaseLeads(),
                 getLeasingMetrics(),
-                fetchPropertyGroups(),
+                getUserVapiConfig(),
             ]);
             setListings(l);
             setLeads(ld);
             setMetrics(m);
-
-            setPropertyGroups(pg);
+            setVapiConfig(vc);
         } catch (e) {
             console.error('Leasing load error', e);
         } finally {
             setLoading(false);
         }
     }, []);
+
+    async function handleRetryProvisioning() {
+        setRetrying(true);
+        try {
+            await retryUserProvisioning();
+            setVapiConfig(prev => ({ ...prev, vapi_provisioning_status: 'pending' }));
+        } catch (e) {
+            console.error('Retry provisioning error', e);
+        } finally {
+            setRetrying(false);
+        }
+    }
 
     useEffect(() => { load(); }, [load]);
 
@@ -136,29 +141,38 @@ export default function LeasingTab() {
                 </button>
             </div>
 
-            {/* Lease agent phone numbers */}
-            {propertyGroups.length > 0 && (
-                <div data-tour="leasing-phone" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {propertyGroups.map(pg => {
-                        const status = PROVISION_STATUS[pg.vapi_provisioning_status] || PROVISION_STATUS.not_applicable;
-                        return (
-                            <div key={pg.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl">
-                                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                    <PhoneCall className="w-4 h-4 text-primary" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-xs text-muted-foreground truncate">{pg.name} — Lease Agent</p>
-                                    {pg.vapi_phone_number ? (
-                                        <p className="text-sm font-semibold text-foreground tracking-wide">{pg.vapi_phone_number}</p>
-                                    ) : (
-                                        <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full border mt-0.5 ${status.cls}`}>
-                                            {status.label}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
+            {/* Account-level lease line status */}
+            {vapiConfig && (
+                <div data-tour="leasing-phone" className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <PhoneCall className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground">Your Lease Line</p>
+                        {vapiConfig.vapi_provisioning_status === 'active' && vapiConfig.vapi_phone_number && (
+                            <p className="text-sm font-semibold text-foreground tracking-wide">{vapiConfig.vapi_phone_number}</p>
+                        )}
+                        {vapiConfig.vapi_provisioning_status === 'pending' && (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-amber-500 mt-0.5">
+                                <Loader2 className="w-3 h-3 animate-spin" /> Setting up your lease line…
+                            </span>
+                        )}
+                        {vapiConfig.vapi_provisioning_status === 'failed' && (
+                            <span className="inline-flex items-center gap-2 text-xs text-red-500 mt-0.5">
+                                Setup failed —
+                                <button
+                                    onClick={handleRetryProvisioning}
+                                    disabled={retrying}
+                                    className="underline hover:no-underline disabled:opacity-50"
+                                >
+                                    {retrying ? 'Retrying…' : 'Retry'}
+                                </button>
+                            </span>
+                        )}
+                        {vapiConfig.vapi_provisioning_status === 'not_set_up' && (
+                            <p className="text-xs text-muted-foreground mt-0.5">Create your first property group to activate your lease line.</p>
+                        )}
+                    </div>
                 </div>
             )}
 
