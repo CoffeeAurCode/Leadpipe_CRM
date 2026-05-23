@@ -25,7 +25,7 @@ const AGENTS = [
 
 export default function OutboundCallButton() {
     const [open, setOpen] = useState(false);
-    const [number, setNumber] = useState('+91');
+    const [number, setNumber] = useState('+1');
     const [agentId, setAgentId] = useState('complaint');
     const [status, setStatus] = useState(STATUS.IDLE);
     const [errorMsg, setErrorMsg] = useState('');
@@ -41,7 +41,7 @@ export default function OutboundCallButton() {
         setOpen(false);
         setStatus(STATUS.IDLE);
         setErrorMsg('');
-        setNumber('+91');
+        setNumber('+1');
         setAgentId('complaint');
     }
 
@@ -56,7 +56,7 @@ export default function OutboundCallButton() {
 
         if (!/^\+\d{7,15}$/.test(trimmed)) {
             setStatus(STATUS.ERROR);
-            setErrorMsg('Enter a valid number: +[country code][number], e.g. +919876543210');
+            setErrorMsg('Enter a valid number: +[country code][number], e.g. +14165551234');
             return;
         }
 
@@ -154,7 +154,7 @@ export default function OutboundCallButton() {
                                     }}
                                     onKeyDown={handleKeyDown}
                                     disabled={isCalling}
-                                    placeholder="+919876543210"
+                                    placeholder="+14165551234"
                                     className="w-full bg-background text-foreground text-sm rounded-lg px-3 py-2 border border-border focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 transition-colors font-mono"
                                 />
                             </div>
@@ -201,7 +201,7 @@ export default function OutboundCallButton() {
                                 <button
                                     onClick={() => {
                                         setStatus(STATUS.IDLE);
-                                        setNumber('+91');
+                                        setNumber('+1');
                                     }}
                                     className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
                                 >

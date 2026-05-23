@@ -5,6 +5,7 @@ import {
     getLeaseLeads, deleteLead,
     getLeasingMetrics, exportLeads,
     fetchPropertyGroups,
+    assignSharedAgentToAllGroups,
 } from '../services/apiService';
 import AddListingModal from './AddListingModal';
 import LeadDetailModal from './LeadDetailModal';
@@ -69,7 +70,20 @@ export default function LeasingTab() {
             setListings(l);
             setLeads(ld);
             setMetrics(m);
-            setPropertyGroups(pg);
+
+            const unprovisioned = pg.filter(g => g.vapi_provisioning_status !== 'active');
+            if (unprovisioned.length > 0) {
+                try {
+                    await assignSharedAgentToAllGroups();
+                    const refreshed = await fetchPropertyGroups();
+                    setPropertyGroups(refreshed);
+                } catch (e) {
+                    console.error('Auto-assign shared agent failed', e);
+                    setPropertyGroups(pg);
+                }
+            } else {
+                setPropertyGroups(pg);
+            }
         } catch (e) {
             console.error('Leasing load error', e);
         } finally {
@@ -202,7 +216,7 @@ export default function LeasingTab() {
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                    <span className="flex items-center gap-1"><Banknote className="w-3.5 h-3.5" />₹{Number(listing.monthly_rent).toLocaleString()}/mo</span>
+                                    <span className="flex items-center gap-1"><Banknote className="w-3.5 h-3.5" />${Number(listing.monthly_rent).toLocaleString('en-CA')}/mo</span>
                                     {listing.available_from && <span className="flex items-center gap-1"><ExternalLink className="w-3.5 h-3.5" />From {listing.available_from}</span>}
                                 </div>
                                 <div className="flex gap-2 pt-1">
@@ -272,7 +286,7 @@ export default function LeasingTab() {
                                                 <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</span>
                                             </td>
                                             <td className="px-4 py-3 text-muted-foreground">
-                                                {lead.budget_max ? `₹${Number(lead.budget_max).toLocaleString()}` : '—'}
+                                                {lead.budget_max ? `$${Number(lead.budget_max).toLocaleString('en-CA')}` : '—'}
                                             </td>
                                             <td className="px-4 py-3 text-muted-foreground">
                                                 <span className="flex items-center gap-1"><BedDouble className="w-3 h-3" />{lead.bedrooms ?? '—'}</span>

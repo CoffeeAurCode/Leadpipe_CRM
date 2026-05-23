@@ -85,12 +85,11 @@ The next time any manager creates a new property group, this number will be auto
 
 ### The protected numbers
 
-These three numbers are already live and must never be re-registered:
+These two numbers are already live and must never be re-registered:
 
 | Number | E.164 | Role | Env var |
 |---|---|---|---|
-| +1 (973) 490-4520 | `+19734904520` | Legacy complaint + outbound | `VAPI_NUMBER_ID` |
-| +1 (438) 231-4283 | `+14382314283` | Complaint agent inbound | `VAPI_COMPLAINT_NUMBER_ID` |
+| +1 (438) 231-4283 | `+14382314283` | Complaint agent inbound + outbound | `VAPI_COMPLAINT_NUMBER_ID` |
 | +1 (431) 341-5768 | `+14313415768` | Shared lease agent | `VAPI_SHARED_LEASE_NUMBER_ID` |
 
 ### Failure scenario A — number already registered in VAPI

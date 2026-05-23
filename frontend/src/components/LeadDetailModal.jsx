@@ -92,7 +92,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                             {lead.budget_max != null && (
                                 <div className="flex items-center gap-2 text-sm text-foreground">
                                     <Banknote className="w-4 h-4 text-muted-foreground" />
-                                    ₹{Number(lead.budget_max).toLocaleString()}/mo
+                                    ${Number(lead.budget_max).toLocaleString('en-CA')}/mo
                                 </div>
                             )}
                             {lead.move_in_timeline && (
@@ -125,7 +125,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                                         <div className="flex items-center gap-2 text-sm">
                                             <span className="text-muted-foreground">Primary:</span>
                                             <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
-                                                {primary ? `${primary.flat_number}${primary.monthly_rent ? ` — ₹${Number(primary.monthly_rent).toLocaleString()}/mo` : ''}` : lead.listing_uuid}
+                                                {primary ? `${primary.flat_number}${primary.monthly_rent ? ` — $${Number(primary.monthly_rent).toLocaleString('en-CA')}/mo` : ''}` : lead.listing_uuid}
                                             </span>
                                         </div>
                                     );

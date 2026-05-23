@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-21  
 **Status:** Active  
-**Agents:** Complaint (Alex) `+1 (973) 490-4520` · Shared Lease `+1 (518) 318-9117`  
+**Agents:** Complaint (Alex) `+1 (438) 231-4283` · Shared Lease `+1 (518) 318-9117`  
 **Production URL:** `https://tenant-management-mvp.onrender.com`  
 **Local URL:** `http://localhost:8000`
 
@@ -13,7 +13,7 @@
 | What | Value |
 |------|-------|
 | Complaint assistant ID | `9e507761-7bf7-451a-9413-8ae62ec0176f` |
-| Complaint phone | `+19734904520` |
+| Complaint phone | `+14382314283` |
 | Shared lease assistant ID | `2dba3a50-6862-400c-861a-bfc0a45d4a95` |
 | Shared lease phone | `+15183189117` |
 | Webhook URL (complaint) | `{BASE_URL}/voice/webhook` |
@@ -614,7 +614,7 @@ These require actually calling the numbers. Do these after all Phase A–D pass.
 
 | Step | Action | Expected |
 |------|--------|----------|
-| 1 | Call `+19734904520` | Alex greets you |
+| 1 | Call `+14382314283` | Alex greets you |
 | 2 | Say your flat number | Alex asks you to wait |
 | 3 | Verification passes | Alex confirms your identity silently, asks about issue |
 | 4 | Describe a plumbing leak | Alex captures category as "plumbing" |

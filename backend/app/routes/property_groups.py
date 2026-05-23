@@ -142,6 +142,56 @@ async def create_property_group(
         raise HTTPException(status_code=500, detail=f"Error creating property group: {str(e)}")
 
 
+@router.post("/assign-shared-agent", status_code=200)
+async def assign_shared_agent_to_all_groups(
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """
+    Bulk-assign the shared lease agent phone number to every property group owned
+    by this manager that is not already active.
+
+    Call this once to fix all 'Not set up' groups without consuming Twilio pool numbers.
+    Idempotent — re-running it is safe (already-active groups are skipped).
+    """
+    from app.config import settings
+    from app.db.session import get_service_db
+
+    if not settings.VAPI_SHARED_LEASE_ASSISTANT_ID:
+        raise HTTPException(status_code=500, detail="VAPI_SHARED_LEASE_ASSISTANT_ID is not configured on the server")
+    if not settings.VAPI_SHARED_LEASE_PHONE_NUMBER:
+        raise HTTPException(status_code=500, detail="VAPI_SHARED_LEASE_PHONE_NUMBER is not configured on the server")
+
+    svc_db = get_service_db()
+
+    # Find all property groups owned by this manager that are not yet active
+    groups_resp = (
+        svc_db.table("properties_list")
+        .select("id, name, vapi_provisioning_status")
+        .eq("manager_id", user["sub"])
+        .neq("vapi_provisioning_status", "active")
+        .execute()
+    )
+
+    if not groups_resp.data:
+        return {"updated": 0, "message": "All property groups are already set up."}
+
+    group_ids = [str(g["id"]) for g in groups_resp.data]
+
+    svc_db.table("properties_list").update({
+        "vapi_lease_assistant_id":  settings.VAPI_SHARED_LEASE_ASSISTANT_ID,
+        "vapi_phone_number_id":     settings.VAPI_SHARED_LEASE_NUMBER_ID,
+        "vapi_phone_number":        settings.VAPI_SHARED_LEASE_PHONE_NUMBER,
+        "vapi_provisioning_status": "active",
+    }).in_("id", group_ids).execute()
+
+    return {
+        "updated": len(group_ids),
+        "message": f"Assigned shared lease agent to {len(group_ids)} property group(s).",
+        "phone_number": settings.VAPI_SHARED_LEASE_PHONE_NUMBER,
+    }
+
+
 @router.post("/{property_id}/provision-voice", status_code=202)
 async def retry_voice_provisioning(
     property_id: str,

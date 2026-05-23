@@ -14,8 +14,7 @@ The following numbers are live and must never be reassigned:
 
 | Env Var | Number | Role |
 |---|---|---|
-| `VAPI_NUMBER_ID` | +19734904520 | Legacy complaint + outbound |
-| `VAPI_COMPLAINT_NUMBER_ID` | +14382314283 | Complaint agent inbound |
+| `VAPI_COMPLAINT_NUMBER_ID` | +14382314283 | Complaint agent inbound + outbound |
 | `VAPI_SHARED_LEASE_NUMBER_ID` | +14313415768 | Shared lease agent |
 
 ---

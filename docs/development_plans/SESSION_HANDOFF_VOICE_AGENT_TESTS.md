@@ -133,7 +133,7 @@ bash backend/scripts/test_leasing_endpoints.sh
 | D1 | Check `vapi_provisioning_status` in Supabase | Run SQL in Supabase dashboard: `SELECT id, name, vapi_provisioning_status FROM properties_list;` |
 | D2 | New property group triggers VAPI provisioning | Create PG via app UI, wait 10s, check DB |
 | D3 | Retry provisioning endpoint | `POST /property-groups/<PG_ID>/provision-voice` with JWT |
-| E1–E13 | Manual voice calls | Call `+19734904520` (complaint) or `+15183189117` (lease). Do after all code bugs fixed. |
+| E1–E13 | Manual voice calls | Call `+14382314283` (complaint) or `+15183189117` (lease). Do after all code bugs fixed. |
 
 ---
 

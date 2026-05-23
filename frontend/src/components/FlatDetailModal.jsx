@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home, Edit, IndianRupee, Trash2 } from 'lucide-react';
+import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home, Edit, DollarSign, Trash2 } from 'lucide-react';
 import { cn } from '@/lib';
 import { useEffect, useState } from 'react';
 import { fetchFlatDetails, fetchActiveRent, setRent as setRentAPI, fetchUnitSettings, deleteFlat } from '../services/apiService';
@@ -276,7 +276,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                 <div>
                                     <div className="flex items-center justify-between mb-3">
                                         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                                            <IndianRupee className="w-5 h-5 text-primary" />
+                                            <DollarSign className="w-5 h-5 text-primary" />
                                             Rent
                                         </h3>
                                         {(features.rent_management || features.rent_due_date) && (
@@ -297,7 +297,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                                     <div className="p-4 rounded-lg bg-secondary/50 border border-border">
                                                         <p className="text-sm text-muted-foreground mb-1">Monthly Rent</p>
                                                         <p className="text-2xl font-bold text-foreground">
-                                                            ₹{Number(rent.monthly_rent).toLocaleString('en-IN')}
+                                                            ${Number(rent.monthly_rent).toLocaleString('en-CA')}
                                                         </p>
                                                     </div>
                                                 )}
@@ -306,7 +306,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                                     <div className="p-4 rounded-lg bg-secondary/50 border border-border">
                                                         <p className="text-sm text-muted-foreground mb-1">Effective From</p>
                                                         <p className="text-lg font-semibold text-foreground">
-                                                            {new Date(rent.effective_from).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                            {new Date(rent.effective_from).toLocaleDateString('en-CA', { day: 'numeric', month: 'short', year: 'numeric' })}
                                                         </p>
                                                     </div>
                                                 )}
@@ -324,7 +324,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                                 {/* Amount field — only if rent_management enabled */}
                                                 {features.rent_management && (
                                                     <div>
-                                                        <label className="text-sm text-muted-foreground block mb-1">Monthly Rent (₹)</label>
+                                                        <label className="text-sm text-muted-foreground block mb-1">Monthly Rent ($)</label>
                                                         <input
                                                             type="number"
                                                             min="0"

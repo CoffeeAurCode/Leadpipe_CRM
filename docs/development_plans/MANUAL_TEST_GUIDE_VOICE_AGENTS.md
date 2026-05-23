@@ -141,12 +141,12 @@ These require actual phone calls to VAPI numbers. Do after all code fixes are co
 
 #### E1 — Complaint Agent (Inbound)
 
-**VAPI Phone Number:** `+19734904520`  
+**VAPI Phone Number:** `+14382314283`  
 **Test Flow:**
 
 | Step | Action | Expected |
 |------|--------|----------|
-| E1.1 | Call `+19734904520` from phone `+919998064026` | Agent greets and asks for flat number |
+| E1.1 | Call `+14382314283` from phone `+919998064026` | Agent greets and asks for flat number |
 | E1.2 | Say flat number `TEST 2 UNIT` | Agent verifies identity: "I can see you're the registered tenant" |
 | E1.3 | Say complaint category and description | Agent asks for appointment date |
 | E1.4 | Give appointment date | Agent confirms and says it will be created |

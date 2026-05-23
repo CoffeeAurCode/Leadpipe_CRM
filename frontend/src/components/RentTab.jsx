@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { IndianRupee, RefreshCw, Search, Filter, Edit2, Check, X } from 'lucide-react';
+import { DollarSign, RefreshCw, Search, Filter, Edit2, Check, X } from 'lucide-react';
 import { fetchRentSummary, updateTenantRentStatus, setRent } from '../services/apiService';
 import { cn } from '@/lib';
 
@@ -107,7 +107,7 @@ export default function RentTab() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <IndianRupee className="w-6 h-6 text-primary" />
+                    <DollarSign className="w-6 h-6 text-primary" />
                     <h1 className="text-2xl font-bold text-foreground">Rent Overview</h1>
                 </div>
                 <button
@@ -203,7 +203,7 @@ export default function RentTab() {
                                     <td className="px-4 py-3">
                                         {editingRent?.tenant_uuid === row.tenant_uuid ? (
                                             <div className="flex items-center gap-1">
-                                                <span className="text-muted-foreground text-xs">₹</span>
+                                                <span className="text-muted-foreground text-xs">$</span>
                                                 <input
                                                     type="number"
                                                     value={editingRent.value}
@@ -224,7 +224,7 @@ export default function RentTab() {
                                             </div>
                                         ) : (
                                             <span className="tabular-nums text-muted-foreground">
-                                                {row.monthly_rent != null ? `₹${Number(row.monthly_rent).toLocaleString()}` : '—'}
+                                                {row.monthly_rent != null ? `$${Number(row.monthly_rent).toLocaleString('en-CA')}` : '—'}
                                             </span>
                                         )}
                                     </td>

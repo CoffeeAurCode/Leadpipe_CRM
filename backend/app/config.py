@@ -30,6 +30,7 @@ class Settings:
     # Shared lease agent (existing property groups)
     VAPI_SHARED_LEASE_ASSISTANT_ID: str = os.getenv("VAPI_SHARED_LEASE_ASSISTANT_ID", "")
     VAPI_SHARED_LEASE_NUMBER_ID: str = os.getenv("VAPI_SHARED_LEASE_NUMBER_ID", "")
+    VAPI_SHARED_LEASE_PHONE_NUMBER: str = os.getenv("VAPI_SHARED_LEASE_PHONE_NUMBER", "")
     # E.164 inbound number for the complaint agent (displayed in Voice Stats tab)
     VAPI_COMPLAINT_PHONE_NUMBER: str = os.getenv("VAPI_COMPLAINT_PHONE_NUMBER", "")
     BACKEND_URL: str = os.getenv("BACKEND_URL", "https://tenant-management-mvp.onrender.com")

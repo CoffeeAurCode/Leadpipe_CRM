@@ -133,7 +133,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Monthly Rent (₹)</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Monthly Rent ($)</label>
                         <input
                             type="number"
                             value={form.monthly_rent}

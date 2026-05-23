@@ -433,6 +433,18 @@ export async function fetchPropertyGroups() {
     return await response.json();
 }
 
+/** Assign the shared lease agent phone number to all unprovisioned property groups for the current manager. */
+export async function assignSharedAgentToAllGroups() {
+    const response = await authFetch(`${API_BASE_URL}/property-groups/assign-shared-agent`, {
+        method: 'POST',
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
 /** Create a new property group. */
 export async function createPropertyGroup(payload) {
     const response = await authFetch(`${API_BASE_URL}/property-groups`, {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, UserPlus, Phone, Home, Calendar, IndianRupee } from 'lucide-react';
+import { X, UserPlus, Phone, Home, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib';
 import { createTenant, fetchVacantFlats, setRent } from '../services/apiService';
 
@@ -209,7 +209,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                 {form.flat_uuid && (
                                     <div className="space-y-1.5">
                                         <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            <IndianRupee className="w-3.5 h-3.5" /> Monthly Rent (₹)
+                                            <DollarSign className="w-3.5 h-3.5" /> Monthly Rent ($)
                                         </label>
                                         <input
                                             type="number"

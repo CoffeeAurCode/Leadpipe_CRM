@@ -307,7 +307,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                     {/* Rent and due_date are read-only — come from rents table */}
                                     <InfoRow
                                         label="Monthly Rent"
-                                        value={tenant.rent_amount != null ? `₹${Number(tenant.rent_amount).toLocaleString()}` : null}
+                                        value={tenant.rent_amount != null ? `$${Number(tenant.rent_amount).toLocaleString('en-CA')}` : null}
                                     />
                                     <InfoRow label="Due Date" value={tenant.due_date} />
                                 </section>

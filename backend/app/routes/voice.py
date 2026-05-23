@@ -677,7 +677,7 @@ async def make_outbound_call(
 ):
     """
     Initiate an outbound call using either the complaint or lease agent.
-    agent="complaint" uses VAPI_ASSISTANT_ID + VAPI_NUMBER_ID.
+    agent="complaint" uses VAPI_COMPLAINT_ASSISTANT_ID + VAPI_COMPLAINT_NUMBER_ID.
     agent="lease" uses the manager's per-group provisioned assistant; falls back to
                   VAPI_SHARED_LEASE_ASSISTANT_ID if no active provisioned group exists.
     """
@@ -689,8 +689,8 @@ async def make_outbound_call(
 
     if not settings.PRIVATE_VAPI_API:
         raise HTTPException(status_code=500, detail="PRIVATE_VAPI_API env var is not configured on the server")
-    if not settings.VAPI_NUMBER_ID:
-        raise HTTPException(status_code=500, detail="VAPI_NUMBER_ID env var is not configured on the server")
+    if req.agent == "complaint" and not settings.VAPI_COMPLAINT_NUMBER_ID:
+        raise HTTPException(status_code=500, detail="VAPI_COMPLAINT_NUMBER_ID env var is not configured on the server")
 
     if req.agent == "lease":
         pg_row = (
@@ -710,10 +710,10 @@ async def make_outbound_call(
         if not assistant_id:
             raise HTTPException(status_code=500, detail="No lease agent configured. Check VAPI provisioning status.")
     else:
-        assistant_id = settings.VAPI_ASSISTANT_ID
-        phone_number_id = settings.VAPI_NUMBER_ID
+        assistant_id    = settings.VAPI_COMPLAINT_ASSISTANT_ID
+        phone_number_id = settings.VAPI_COMPLAINT_NUMBER_ID or settings.VAPI_NUMBER_ID
         if not assistant_id:
-            raise HTTPException(status_code=500, detail="VAPI_ASSISTANT_ID env var is not configured on the server")
+            raise HTTPException(status_code=500, detail="VAPI_COMPLAINT_ASSISTANT_ID env var is not configured on the server")
 
     client = Vapi(token=settings.PRIVATE_VAPI_API)
 

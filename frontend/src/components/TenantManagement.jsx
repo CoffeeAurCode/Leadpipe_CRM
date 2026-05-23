@@ -236,7 +236,7 @@ export default function TenantManagement() {
                                         </td>
                                         <td className="px-4 py-3 text-muted-foreground tabular-nums">
                                             {tenant.rent_amount != null
-                                                ? `₹${Number(tenant.rent_amount).toLocaleString()}`
+                                                ? `$${Number(tenant.rent_amount).toLocaleString('en-CA')}`
                                                 : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-muted-foreground">
