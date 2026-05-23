@@ -89,18 +89,36 @@ async def find_listing(
 
 @router.get("/search")
 async def search_available_listings(
-    bedrooms: Optional[int] = Query(None),
-    budget_max: Optional[float] = Query(None),
+    bedrooms: Optional[str] = Query(None),
+    budget_max: Optional[str] = Query(None),
     property_group_id: Optional[str] = Query(None),
     manager_id: Optional[str] = Query(None),
     db: Client = Depends(get_service_db),
 ):
     """
     VAPI apiRequest tool — Search listings by bedrooms and budget.
-    property_group_id is optional; when absent, searches all groups.
+    Both filters are optional — omit or pass 0 to search without that filter.
     Always returns HTTP 200.
     """
     try:
+        # Parse and normalize — VAPI sends "" or "0" when the caller hasn't confirmed a preference
+        def _parse_int(v):
+            try:
+                n = int(v)
+                return n if n > 0 else None
+            except (TypeError, ValueError):
+                return None
+
+        def _parse_float(v):
+            try:
+                n = float(v)
+                return n if n > 0 else None
+            except (TypeError, ValueError):
+                return None
+
+        bedrooms_filter = _parse_int(bedrooms)
+        budget_filter = _parse_float(budget_max)
+
         q = (
             db.table("lease_listings")
             .select(
@@ -113,8 +131,8 @@ async def search_available_listings(
             q = q.eq("property_group_id", property_group_id)
         elif manager_id:
             q = q.eq("manager_id", manager_id)
-        if budget_max is not None:
-            q = q.lte("monthly_rent", budget_max)
+        if budget_filter is not None:
+            q = q.lte("monthly_rent", budget_filter)
 
         results = q.limit(20).execute()
 
@@ -124,7 +142,7 @@ async def search_available_listings(
         listings_out = []
         for listing in results.data:
             flat = listing.get("flats") or {}
-            if bedrooms is not None and flat.get("bedrooms") != bedrooms:
+            if bedrooms_filter is not None and flat.get("bedrooms") != bedrooms_filter:
                 continue
             listings_out.append({
                 "listing_uuid": listing["uuid"],

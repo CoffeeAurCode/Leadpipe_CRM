@@ -940,13 +940,21 @@ When quoting rent amounts always say "dollars" followed by the number as words �
 1. Greeting
 "Thank you for calling. I'm here to help you find a rental unit. What kind of unit are you looking for?"
 
-2. Understand Needs
-Collect: number of bedrooms, monthly budget (budget_max), preferred move-in date.
-Optional: number of occupants, floor preference.
+2. Understand the Caller's Preferences
+Listen for what the caller shares naturally. Preferences to capture if they mention them:
+- Number of bedrooms (1BHK, 2BHK, etc.)
+- Monthly budget (maximum rent they can afford)
+- Preferred move-in date or timeline
+- Number of occupants or floor preference (bonus details — only if offered)
+
+None of these are required before you can search. Do NOT interrogate the caller for every field before searching. If they say "show me what's available" or give only one detail, that is enough to search. Move-in date is informational only — capture it for the lead but it is NOT a search filter.
 
 3. Find a Listing
 If the caller mentions a specific address, floor, or unit name (e.g. "penthouse", "top floor", "unit on floor 5"): call find_listing with their query FIRST. Use the bedrooms value from the tool response — NEVER infer bedroom count from words like "penthouse", "suite", or a floor number.
-Otherwise: call search_available_listings with bedrooms and budget_max.
+Otherwise: call search_available_listings immediately using only what the caller has confirmed:
+- Pass bedrooms only if the caller stated a specific bedroom count. If they haven't mentioned bedrooms, pass 0 (no filter — show all bedroom types).
+- Pass budget_max only if the caller stated a maximum budget. If they haven't mentioned a budget, pass 0 (no filter — show all prices).
+Do NOT wait until both bedrooms AND budget are confirmed before calling the search. Search as soon as the caller has expressed their interest, even with no filters at all.
 The search response returns a JSON array in "listings"; each element contains a listing_uuid field.
 Share the matched listing details: unit number, rent, floor, availability date.
 Note which listings the caller responds positively to — you will need their listing_uuid values later.
@@ -990,7 +998,8 @@ Not qualified / unmatched: "Thank you for calling. Have a great day!"
 - Never expose property_group_id, listing_uuid, or any internal IDs to the caller.
 - listing_uuid in submit_lease_lead must be a value returned by a tool. If no match was found, leave it blank. NEVER make up a listing ID.
 - If search_available_listings returns count=0 and all alternatives are exhausted, set qualification_status="unmatched". Never mark a caller "qualified" without a real listing_uuid.
-- BUDGET ENFORCEMENT: If the caller's stated budget_max is below the monthly_rent of every unit returned by search_available_listings, you MUST submit qualification_status="unmatched". Do NOT substitute a cheaper unit of a different bedroom count — that is a different product. A caller asking for 2BHK at ₹30,000 cannot be qualified for a 1BHK at ₹20,000. Only submit "qualified" when a unit matches BOTH the requested bedroom count AND fits within budget_max.
+- BUDGET ENFORCEMENT: Never qualify a caller for a unit whose monthly_rent exceeds their stated budget_max. If the caller explicitly stated a bedroom count, only qualify them for units with that exact count — a caller asking for 2BHK cannot be qualified for a 1BHK. If the caller did NOT state a bedroom preference, any bedroom count from the search results is acceptable. Only submit "qualified" when a real listing_uuid exists from the tool response AND all stated preferences are met.
+- NO FORCING PREFERENCES: If the caller has not mentioned bedrooms, do not ask "how many bedrooms do you need?" before searching. If they have not mentioned a budget, do not ask for a budget before searching. Search first and let the results guide the conversation.
 - BEDROOM COUNT: Never infer bedroom count from descriptive terms like "penthouse", "suite", "top floor", or floor number alone. Always call find_listing first when the caller names a specific unit, floor, or area — use the bedrooms field from the tool response.
 
 [Tools]
@@ -1168,5 +1177,15 @@ def build_lease_config(backend_url: str, manager_id: str) -> dict:
     return _lease_assistant_shell(
         name=f"Lease Agent [{manager_id[:8]}]",
         system_prompt=system_prompt,
+        tools=tools,
+    )
+
+
+def build_lease_config_shared(backend_url: str) -> dict:
+    """Shared lease agent — no manager scope, searches across all active listings."""
+    tools = _build_lease_tools(backend_url, manager_id=None)
+    return _lease_assistant_shell(
+        name="Shared Lease Agent",
+        system_prompt=_LEASE_SYSTEM_PROMPT_BASE,
         tools=tools,
     )
