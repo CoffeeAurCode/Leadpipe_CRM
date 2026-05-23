@@ -72,13 +72,21 @@ export default function LeasingTab() {
     }, []);
 
     async function handleRetryProvisioning() {
+        if (retrying) return;
         setRetrying(true);
         try {
             await retryUserProvisioning();
             setVapiConfig(prev => ({ ...prev, vapi_provisioning_status: 'pending' }));
+            // Poll once after 8s to catch quick success without user having to refresh.
+            setTimeout(async () => {
+                try {
+                    const vc = await getUserVapiConfig();
+                    setVapiConfig(vc);
+                } catch (_) {}
+                setRetrying(false);
+            }, 8000);
         } catch (e) {
             console.error('Retry provisioning error', e);
-        } finally {
             setRetrying(false);
         }
     }

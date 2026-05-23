@@ -185,6 +185,17 @@ async def retry_user_voice_provisioning(
     from app.services.vapi_provisioning import provision_vapi_for_manager
 
     svc_db = get_service_db()
+
+    existing = (
+        svc_db.table("manager_vapi_config")
+        .select("vapi_provisioning_status")
+        .eq("manager_id", user["sub"])
+        .limit(1)
+        .execute()
+    )
+    if existing.data and existing.data[0]["vapi_provisioning_status"] == "active":
+        return {"status": "already_active"}
+
     svc_db.table("manager_vapi_config").upsert({
         "manager_id": user["sub"],
         "vapi_provisioning_status": "pending",
