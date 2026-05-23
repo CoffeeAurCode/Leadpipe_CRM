@@ -1,36 +1,9 @@
 import os
 from datetime import datetime, timezone
 from supabase import Client
-from app.config import settings
 from app.services.vapi_agent_config import build_lease_config
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "https://tenant-management-mvp.onrender.com")
-
-
-def _assign_shared_agent_fallback(svc_db: Client, db: Client, property_group_id: str) -> None:
-    """
-    Assign the shared lease agent to a property group when no dedicated pool number is available.
-    Both svc_db (for pool operations) and db (for properties_list update) are passed in.
-    """
-    shared_assistant_id = settings.VAPI_SHARED_LEASE_ASSISTANT_ID
-    shared_number_id    = settings.VAPI_SHARED_LEASE_NUMBER_ID
-    shared_phone        = settings.VAPI_SHARED_LEASE_PHONE_NUMBER
-
-    if not shared_assistant_id or not shared_phone:
-        print(f"[TWILIO PROVISION] Pool empty and shared agent not configured — marking group {property_group_id} as failed")
-        db.table("properties_list").update({
-            "vapi_provisioning_status": "failed",
-        }).eq("id", property_group_id).execute()
-        return
-
-    db.table("properties_list").update({
-        "vapi_lease_assistant_id":  shared_assistant_id,
-        "vapi_phone_number_id":     shared_number_id,
-        "vapi_phone_number":        shared_phone,
-        "vapi_provisioning_status": "active",
-    }).eq("id", property_group_id).execute()
-
-    print(f"[TWILIO PROVISION] Pool empty — shared agent assigned to group {property_group_id}: phone={shared_phone}")
 
 
 def provision_vapi_for_property_group(
@@ -63,8 +36,10 @@ def provision_vapi_for_property_group(
             .execute()
         )
         if not pool_resp.data:
-            # Pool is empty — fall back to shared lease agent so the group is never left as 'failed'
-            _assign_shared_agent_fallback(svc_db, db, property_group_id)
+            print(f"[TWILIO PROVISION] Pool empty — marking group {property_group_id} as failed. Add a number via add_twilio_number_to_vapi.py")
+            db.table("properties_list").update({
+                "vapi_provisioning_status": "failed",
+            }).eq("id", property_group_id).execute()
             return
 
         pool_row = pool_resp.data[0]

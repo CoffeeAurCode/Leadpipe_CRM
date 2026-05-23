@@ -7,7 +7,6 @@ Run backend/scripts/deploy_vapi_agent.py to push this config to Vapi.
 Functions:
   build_assistant_config()             — legacy complaint agent (existing test group)
   build_complaint_config(backend_url)  — new complaint agent (Option B, all groups)
-  build_lease_config_shared(backend_url) — shared lease agent (existing groups)
   build_lease_config(backend_url, property_group_id, pg_name) — per-group lease agent
 """
 
@@ -1160,16 +1159,6 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list) -> dict:
         "stop_speaking_plan": {"numWords": 2},
         "background_speech_denoising_plan": {"smartDenoisingPlan": {"enabled": True}},
     }
-
-
-def build_lease_config_shared(backend_url: str = BACKEND_URL) -> dict:
-    """Shared lease agent for existing property groups (no pg_id in tool URLs)."""
-    tools = _build_lease_tools(backend_url, property_group_id=None)
-    return _lease_assistant_shell(
-        name="Shared Lease Agent",
-        system_prompt=_LEASE_SYSTEM_PROMPT_BASE,
-        tools=tools,
-    )
 
 
 def build_lease_config(

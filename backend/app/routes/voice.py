@@ -705,8 +705,10 @@ async def make_outbound_call(
             assistant_id = pg_row.data[0]["vapi_lease_assistant_id"]
             phone_number_id = pg_row.data[0]["vapi_phone_number_id"]
         else:
-            assistant_id = settings.VAPI_SHARED_LEASE_ASSISTANT_ID
-            phone_number_id = settings.VAPI_SHARED_LEASE_NUMBER_ID or settings.VAPI_NUMBER_ID
+            raise HTTPException(
+                status_code=500,
+                detail="No active lease agent found for this account. Check VAPI provisioning status."
+            )
         if not assistant_id:
             raise HTTPException(status_code=500, detail="No lease agent configured. Check VAPI provisioning status.")
     else:

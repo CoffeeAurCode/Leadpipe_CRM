@@ -5,7 +5,6 @@ import {
     getLeaseLeads, deleteLead,
     getLeasingMetrics, exportLeads,
     fetchPropertyGroups,
-    assignSharedAgentToAllGroups,
 } from '../services/apiService';
 import AddListingModal from './AddListingModal';
 import LeadDetailModal from './LeadDetailModal';
@@ -71,19 +70,7 @@ export default function LeasingTab() {
             setLeads(ld);
             setMetrics(m);
 
-            const unprovisioned = pg.filter(g => g.vapi_provisioning_status !== 'active');
-            if (unprovisioned.length > 0) {
-                try {
-                    await assignSharedAgentToAllGroups();
-                    const refreshed = await fetchPropertyGroups();
-                    setPropertyGroups(refreshed);
-                } catch (e) {
-                    console.error('Auto-assign shared agent failed', e);
-                    setPropertyGroups(pg);
-                }
-            } else {
-                setPropertyGroups(pg);
-            }
+            setPropertyGroups(pg);
         } catch (e) {
             console.error('Leasing load error', e);
         } finally {
