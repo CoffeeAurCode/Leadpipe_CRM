@@ -24,7 +24,7 @@ class PropertyResponse(BaseModel):
     bathrooms: Optional[int] = None
     image_url: str
     flat_number: str
-    floor_number: int
+    floor_number: Optional[int] = None
     occupied: bool
     tenant_uuid: UUID | None = None
     created_at: datetime
@@ -56,7 +56,7 @@ async def get_all_properties(user: dict = Depends(require_active_subscription), 
             property_name = f"{flat.get('address', 'Building')} - Unit {flat.get('flat_number', 'N/A')}"
             
             # Generate address from building and floor
-            floor_text = f"Floor {flat.get('floor_number', 0)}"
+            floor_text = f"Floor {flat.get('floor_number', '')}" if flat.get('floor_number') is not None else ""
             address_text = f"{flat.get('address', 'Building')}, {floor_text}"
             
             # Use image_url from database or fallback to placeholder
@@ -77,8 +77,7 @@ async def get_all_properties(user: dict = Depends(require_active_subscription), 
                 "bathrooms": bathrooms,
                 "image_url": image_url,
                 "flat_number": flat.get("flat_number", "N/A"),
-                "floor_number": flat.get("floor_number", 0),
-                "floor_number": flat.get("floor_number", 0),
+                "floor_number": flat.get("floor_number"),
                 "occupied": flat.get("tenant_uuid") is not None,  # Fix: Derive strictly from tenant presence
                 "tenant_uuid": flat.get("tenant_uuid"),
                 "created_at": flat["created_at"]
@@ -87,7 +86,8 @@ async def get_all_properties(user: dict = Depends(require_active_subscription), 
         return properties
         
     except Exception as e:
+        msg = getattr(e, 'message', None) or "A database error occurred. Please try again."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching properties: {str(e)}"
+            detail=f"Error fetching properties: {msg}"
         )

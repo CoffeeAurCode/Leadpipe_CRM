@@ -308,6 +308,8 @@ RLS: managers can read only their own row (`manager_id = auth.uid()`). All write
 
 RLS: service-role only. Managers see their phone number via `manager_vapi_config.vapi_phone_number`.
 
+Unique index: `twilio_number_pool_one_per_manager ON (assigned_manager_id) WHERE assigned_manager_id IS NOT NULL` — enforces one number per manager at the DB level.
+
 Admin script to add numbers: `python backend/scripts/add_twilio_number_to_vapi.py <E.164>`
 
 #### `subscriptions`
@@ -449,6 +451,8 @@ Computed fields on GET (from `TenantResponse` schema):
 | Method | Path | Description |
 |---|---|---|
 | GET | `/properties` | Returns flats mapped as properties (name, address, bedrooms, bathrooms, image_url, occupied) |
+
+`PropertyResponse.floor_number` is `Optional[int] = None` — some flats have NULL in the DB. The dict builder uses `flat.get("floor_number") or 0` to coerce NULL → 0.
 
 ---
 
@@ -667,13 +671,15 @@ get_service_db()  # service-role client (bypasses RLS) — for webhooks, admin
 - `provision_vapi_for_manager(manager_id, db)` — run as a FastAPI `BackgroundTask` when a manager creates their FIRST property group
 - **Per-manager provisioning** (one number + one assistant per manager account, not per group):
   1. Guard: exits immediately if `manager_vapi_config` already has `status = active` for this manager
-  2. Picks the oldest `available` row from `twilio_number_pool` (service DB, bypasses RLS)
-  3. Marks the row `assigned` with `assigned_manager_id` (optimistic lock)
-  4. Creates a per-manager lease assistant via `build_lease_config(backend_url, manager_id)`
-  5. Links the assistant to the Twilio number via VAPI's `phone_numbers.update()`
-  6. Upserts `manager_vapi_config` with `vapi_lease_assistant_id`, `vapi_phone_number_id`, `vapi_phone_number`, `vapi_provisioning_status = "active"`
+  2. Race guard: checks `twilio_number_pool` for an existing row with `assigned_manager_id = manager_id` — reuses it instead of claiming a new one (prevents double-claim on rapid retries)
+  3. Else: picks the oldest `available` row from `twilio_number_pool` (service DB, bypasses RLS)
+  4. Marks the row `assigned` with `assigned_manager_id` (optimistic lock)
+  5. Creates a per-manager lease assistant via `build_lease_config(backend_url, manager_id)`
+  6. Links the assistant to the Twilio number via **`httpx.patch("https://api.vapi.ai/phone-number/{id}", json={"assistantId": ...})`** — the VAPI SDK `phone_numbers.update()` and `UpdatePhoneNumberDto` are broken in the installed version; direct HTTP patch is the only working path
+  7. Upserts `manager_vapi_config` with `vapi_lease_assistant_id`, `vapi_phone_number_id`, `vapi_phone_number`, `vapi_provisioning_status = "active"`
 - On failure: upserts `manager_vapi_config` with `vapi_provisioning_status = "failed"` and re-raises
 - **Pool-empty behaviour:** if `twilio_number_pool` has no available rows, upserts `failed` status immediately — no silent fallback
+- **Background task DB:** the task must receive `svc_db` (service-role client), NOT the request-scoped `get_authenticated_db` client — the authenticated client expires when the HTTP response is sent, before the background task completes
 
 ---
 
@@ -764,7 +770,7 @@ class Feature(str, Enum):
 | `components/VoiceStatsTab.jsx` | Voice call analytics |
 | `components/SmsWorkflow.jsx` | Bulk SMS broadcast to tenants |
 | `components/OnboardingChecklist.jsx` | Interactive onboarding checklist |
-| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export, Refresh button; on load calls `GET /property-groups/users/me/vapi-config` and shows one account-level lease line banner (active phone number / provisioning spinner / retry button); leads table shows primary matched listing flat_number column; passes `listings` to `LeadDetailModal` |
+| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export, Refresh button; on load calls `GET /property-groups/users/me/vapi-config` and shows one account-level lease line banner (active phone number / provisioning spinner / retry button); `pending` state shows "Stuck? Trigger setup" link alongside the spinner; `handleRetryProvisioning` debounced with `retrying` guard; auto-polls once after 8 s on retry click; leads table shows primary matched listing flat_number column; passes `listings` to `LeadDetailModal` |
 
 ### Modals
 | File | Purpose |
@@ -930,10 +936,14 @@ Used after voice/chatbot actions that modify data.
 - **Provisioning trigger:** fires only when a manager creates their FIRST property group. Second, third, ... groups do NOT re-trigger provisioning.
 - **LeasingTab** calls `GET /property-groups/users/me/vapi-config` on load and displays one account-level banner (phone number, spinner, or retry button).
 - **Phone number source**: Twilio-owned numbers from `twilio_number_pool` (`assigned_manager_id` column). When pool is empty, provisioning marks `failed` — no silent fallback. Add pool numbers: `python backend/scripts/add_twilio_number_to_vapi.py <E.164>`
+- **DB-level race guard**: `CREATE UNIQUE INDEX twilio_number_pool_one_per_manager ON twilio_number_pool (assigned_manager_id) WHERE assigned_manager_id IS NOT NULL` — migration `016_fix_vapi_provisioning_cleanup.sql`. Prevents two concurrent provisioning tasks from claiming two different numbers for the same manager.
+- **Retry endpoint guard**: `POST /property-groups/users/me/provision-voice` checks `manager_vapi_config.vapi_provisioning_status` first; returns early without spawning a background task if already `active`.
 - **Live phone numbers** (do not reassign):
   - `+14382314283` → complaint agent (`VAPI_COMPLAINT_NUMBER_ID`)
-  - `+14313415768` → available for re-assignment to a manager via pool (was shared lease agent)
+  - `+14313404212` → leadpipecrm manager `28c43c77` (active)
+  - `+14313415768` → available in pool (unassigned)
 - Outbound complaint call uses `VAPI_COMPLAINT_ASSISTANT_ID`/`VAPI_COMPLAINT_NUMBER_ID` (fixed 2026-05-23).
+- **Pending cleanup**: `+12494028641` assigned to orphaned manager `02672346-...` during race condition incident — run `backend/migrations/017_unassign_12494028641.sql` in Supabase SQL editor.
 
 ### Idempotency
 - Stripe webhooks: deduplicated via `stripe_events` table (`event_id` UNIQUE)

@@ -113,12 +113,10 @@ async def search_available_listings(
             q = q.eq("property_group_id", property_group_id)
         elif manager_id:
             q = q.eq("manager_id", manager_id)
-        if bedrooms is not None:
-            q = q.eq("flats.bedrooms", bedrooms)
         if budget_max is not None:
             q = q.lte("monthly_rent", budget_max)
 
-        results = q.limit(5).execute()
+        results = q.limit(20).execute()
 
         if not results.data:
             return {"count": 0, "listings": []}
@@ -126,6 +124,8 @@ async def search_available_listings(
         listings_out = []
         for listing in results.data:
             flat = listing.get("flats") or {}
+            if bedrooms is not None and flat.get("bedrooms") != bedrooms:
+                continue
             listings_out.append({
                 "listing_uuid": listing["uuid"],
                 "flat_number": listing["flat_number"],
@@ -136,6 +136,7 @@ async def search_available_listings(
                 "available_from": str(listing.get("available_from") or ""),
             })
 
+        listings_out = listings_out[:5]
         return {"count": len(listings_out), "listings": listings_out}
     except Exception as e:
         print(f"[ERROR] search_available_listings: {e}")

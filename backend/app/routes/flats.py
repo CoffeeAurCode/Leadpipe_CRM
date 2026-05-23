@@ -27,6 +27,20 @@ from uuid import uuid4
 router = APIRouter(prefix="/flats", tags=["Flats"])
 
 
+def _clean_db_error(e: Exception) -> str:
+    code = str(getattr(e, 'code', ''))
+    if '42501' in code or '42501' in str(e):
+        return "Permission denied: you are not authorized to perform this action. Please contact your administrator."
+    if '23505' in code or '23505' in str(e):
+        return "This record already exists."
+    if '23503' in code or '23503' in str(e):
+        return "A required related record does not exist."
+    msg = getattr(e, 'message', None)
+    if msg and isinstance(msg, str):
+        return msg
+    return "A database error occurred. Please try again."
+
+
 def _digits_only(phone: str) -> str:
     """Strip everything except digits from a phone string."""
     return re.sub(r"\D", "", phone)
@@ -564,7 +578,7 @@ async def create_flat(
             "occupied": False  # Default to vacant
         }
         
-        flat_response = db.table("flats").insert(flat_payload).execute()
+        flat_response = svc.table("flats").insert(flat_payload).execute()
         
         if not flat_response.data:
             # Cleanup uploaded image
@@ -645,7 +659,7 @@ async def create_flat(
                 print(f"[TENANT CREATION ERROR] {str(tenant_error)}")
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Flat created but tenant could not be added: {str(tenant_error)}"
+                    detail=f"Unit created but tenant could not be added: {_clean_db_error(tenant_error)}"
                 )
         
         # ========== STEP 6: RETURN FLAT WITH TENANT DETAILS ==========
@@ -667,7 +681,7 @@ async def create_flat(
         
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating flat: {str(e)}"
+            detail=f"Error creating unit: {_clean_db_error(e)}"
         )
 
 
