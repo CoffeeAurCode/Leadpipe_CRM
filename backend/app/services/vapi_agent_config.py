@@ -635,7 +635,7 @@ def build_assistant_config() -> dict:
             "transcriptionEndpointingPlan": {"onNumberSeconds": 0.1},
         },
         "stop_speaking_plan": {"numWords": 2},
-        "background_denoising_enabled": True,
+        "background_speech_denoising_plan": {"smartDenoisingPlan": {"enabled": True}},
     }
 
 
@@ -911,7 +911,7 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
             "transcriptionEndpointingPlan": {"onNumberSeconds": 0.1},
         },
         "stop_speaking_plan": {"numWords": 2},
-        "background_denoising_enabled": True,
+        "background_speech_denoising_plan": {"smartDenoisingPlan": {"enabled": True}},
     }
 
 
@@ -1156,7 +1156,7 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list) -> dict:
             "transcriptionEndpointingPlan": {"onNumberSeconds": 0.1},
         },
         "stop_speaking_plan": {"numWords": 2},
-        "background_denoising_enabled": True,
+        "background_speech_denoising_plan": {"smartDenoisingPlan": {"enabled": True}},
     }
 
 
