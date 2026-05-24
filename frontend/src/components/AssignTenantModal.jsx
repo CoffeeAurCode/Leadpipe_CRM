@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, UserPlus, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 import {
     fetchUnassignedTenants,
@@ -16,6 +17,7 @@ const inputCls = cn(
 );
 
 export default function AssignTenantModal({ isOpen, flatUuid, flatNumber, onClose, onSuccess }) {
+    const { t } = useTranslation();
     const [tab, setTab] = useState('existing'); // 'existing' | 'new'
     const [unassigned, setUnassigned] = useState([]);
     const [selectedUuid, setSelectedUuid] = useState('');
@@ -81,8 +83,8 @@ export default function AssignTenantModal({ isOpen, flatUuid, flatNumber, onClos
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                             <div>
-                                <h2 className="text-base font-semibold text-foreground">Assign Tenant</h2>
-                                <p className="text-xs text-muted-foreground">Flat {flatNumber}</p>
+                                <h2 className="text-base font-semibold text-foreground">{t('tenants.assignTenant')}</h2>
+                                <p className="text-xs text-muted-foreground">{t('tenants.flatLabel')} {flatNumber}</p>
                             </div>
                             <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all">
                                 <X className="w-4 h-4" />
@@ -92,8 +94,8 @@ export default function AssignTenantModal({ isOpen, flatUuid, flatNumber, onClos
                         {/* Tabs */}
                         <div className="flex border-b border-border">
                             {[
-                                { id: 'existing', label: 'Existing Tenant', icon: Users },
-                                { id: 'new', label: 'New Tenant', icon: UserPlus },
+                                { id: 'existing', label: t('tenants.existingTenant'), icon: Users },
+                                { id: 'new', label: t('tenants.newTenant'), icon: UserPlus },
                             ].map(({ id, label, icon: Icon }) => (
                                 <button
                                     key={id}
@@ -122,19 +124,19 @@ export default function AssignTenantModal({ isOpen, flatUuid, flatNumber, onClos
                             {tab === 'existing' ? (
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        Select Unassigned Tenant
+                                        {t('tenants.selectUnassigned')}
                                     </label>
                                     {loadingTenants ? (
-                                        <p className="text-sm text-muted-foreground py-2">Loading tenants…</p>
+                                        <p className="text-sm text-muted-foreground py-2">{t('tenants.loading')}</p>
                                     ) : unassigned.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground py-2">No unassigned tenants found. Create a new one instead.</p>
+                                        <p className="text-sm text-muted-foreground py-2">{t('tenants.noUnassigned')}</p>
                                     ) : (
                                         <select
                                             value={selectedUuid}
                                             onChange={e => setSelectedUuid(e.target.value)}
                                             className={cn(inputCls, 'cursor-pointer')}
                                         >
-                                            <option value="">— Select tenant —</option>
+                                            <option value="">{t('tenants.selectTenantPlaceholder')}</option>
                                             {unassigned.map(t => (
                                                 <option key={t.uuid} value={t.uuid}>
                                                     {t.name} · {t.phone}
@@ -147,7 +149,7 @@ export default function AssignTenantModal({ isOpen, flatUuid, flatNumber, onClos
                                 <>
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            Tenant Name *
+                                            {t('unit.tenantName')} *
                                         </label>
                                         <input
                                             value={newForm.name}
@@ -159,7 +161,7 @@ export default function AssignTenantModal({ isOpen, flatUuid, flatNumber, onClos
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            Phone *
+                                            {t('common.phone')} *
                                         </label>
                                         <input
                                             value={newForm.phone}
@@ -177,7 +179,7 @@ export default function AssignTenantModal({ isOpen, flatUuid, flatNumber, onClos
                                     onClick={onClose}
                                     className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
                                 >
-                                    Cancel
+                                    {t('common.cancel')}
                                 </button>
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
@@ -194,7 +196,7 @@ export default function AssignTenantModal({ isOpen, flatUuid, flatNumber, onClos
                                         ? <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
                                         : <UserPlus className="w-4 h-4" />
                                     }
-                                    {loading ? 'Assigning…' : 'Confirm'}
+                                    {loading ? t('tenants.assigning') : t('tenants.confirm')}
                                 </motion.button>
                             </div>
                         </form>

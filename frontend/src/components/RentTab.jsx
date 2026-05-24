@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DollarSign, RefreshCw, Search, Filter, Edit2, Check, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { fetchRentSummary, updateTenantRentStatus, setRent } from '../services/apiService';
 import { cn } from '@/lib';
 
@@ -30,6 +31,13 @@ function SummaryCard({ label, count }) {
 }
 
 export default function RentTab() {
+    const { t } = useTranslation();
+    const RENT_STATUS_LABELS = {
+        'On-time':  t('tenants.rentStatusOptions.onTime'),
+        'Upcoming': t('tenants.rentStatusOptions.upcoming'),
+        'Overdue':  t('tenants.rentStatusOptions.overdue'),
+        'At Risk':  t('tenants.rentStatusOptions.atRisk'),
+    };
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -108,14 +116,14 @@ export default function RentTab() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <DollarSign className="w-6 h-6 text-primary" />
-                    <h1 className="text-2xl font-bold text-foreground">Rent Overview</h1>
+                    <h1 className="text-2xl font-bold text-foreground">{t('rent.overview')}</h1>
                 </div>
                 <button
                     onClick={load}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
                 >
                     <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
-                    Refresh
+                    {t('voiceStats.refresh')}
                 </button>
             </div>
 
@@ -123,7 +131,7 @@ export default function RentTab() {
             {data?.summary && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {RENT_STATUS_OPTIONS.map(s => (
-                        <SummaryCard key={s} label={s} count={data.summary[s] ?? 0} />
+                        <SummaryCard key={s} label={RENT_STATUS_LABELS[s] || s} count={data.summary[s] ?? 0} />
                     ))}
                 </div>
             )}
@@ -145,15 +153,15 @@ export default function RentTab() {
                     onChange={e => setFilter(e.target.value)}
                     className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm text-foreground cursor-pointer"
                 >
-                    <option value="">All Statuses</option>
-                    {RENT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value="">{t('rent.allStatuses')}</option>
+                    {RENT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{RENT_STATUS_LABELS[s] || s}</option>)}
                 </select>
                 {(search || filter) && (
                     <button
                         onClick={() => { setSearch(''); setFilter(''); }}
                         className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
-                        Clear
+                        {t('tenants.clear')}
                     </button>
                 )}
             </div>
@@ -171,24 +179,24 @@ export default function RentTab() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-border bg-secondary/50">
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Flat</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tenant</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Rent / mo</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('tenants.flat')}</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('tenants.tenant')}</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('rent.moLabel')}</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('common.status')}</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('leasing.leads.actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
                                     <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
-                                        Loading rent data…
+                                        {t('rent.loading')}
                                     </td>
                                 </tr>
                             ) : rows.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
-                                        No tenants found.
+                                        {t('tenants.noTenants')}
                                     </td>
                                 </tr>
                             ) : rows.map(row => (
@@ -238,9 +246,9 @@ export default function RentTab() {
                                                 STATUS_COLORS[row.rent_status] || 'bg-secondary text-muted-foreground border-border'
                                             )}
                                         >
-                                            <option value="">— unset —</option>
+                                            <option value="">{t('rent.unset')}</option>
                                             {RENT_STATUS_OPTIONS.map(s => (
-                                                <option key={s} value={s}>{s}</option>
+                                                <option key={s} value={s}>{RENT_STATUS_LABELS[s] || s}</option>
                                             ))}
                                         </select>
                                     </td>
@@ -251,7 +259,7 @@ export default function RentTab() {
                                                 className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                                             >
                                                 <Edit2 className="w-3 h-3" />
-                                                Edit Rent
+                                                {t('rent.editRent')}
                                             </button>
                                         )}
                                     </td>

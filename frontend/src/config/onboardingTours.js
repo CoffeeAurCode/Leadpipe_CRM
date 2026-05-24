@@ -121,11 +121,11 @@ export const ALL_STEPS = [
     section: 'properties',
   },
   {
-    target: '[data-tour="fab-buttons"]',
+    target: '[data-tour="action-buttons"]',
     title: 'Quick Add',
-    content: 'Use these floating buttons to quickly add more properties, buildings, or units at any time.',
+    content: 'Use these buttons to add more properties, buildings, or units at any time.',
     skipBeacon: true,
-    placement: 'top',
+    placement: 'bottom',
     section: 'properties',
   },
 

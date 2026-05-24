@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { subDays, format, parseISO, isToday } from 'date-fns';
 import { TrendingUp, Clock, AlertCircle, CalendarCheck } from 'lucide-react';
@@ -21,6 +22,7 @@ const TIME_RANGES = [
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function BentoDashboard({ complaints, appointments = [], onComplaintUpdate, onAppointmentUpdate, onAppointmentDelete }) {
+    const { t } = useTranslation();
     const [timeRange, setTimeRange] = useState('7d');
     const [activeModal, setActiveModal] = useState(null); // { title, complaints }
     const [showDailyTasks, setShowDailyTasks] = useState(false);
@@ -61,10 +63,10 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate, onAp
     }, [filteredByTime]);
 
     const statusData = useMemo(() => [
-        { name: 'Pending',     value: filteredByTime.filter(c => c.status === STATUS.PENDING).length },
-        { name: 'In Progress', value: filteredByTime.filter(c => c.status === STATUS.IN_PROGRESS).length },
-        { name: 'Resolved',    value: filteredByTime.filter(c => c.status === STATUS.RESOLVED).length },
-    ], [filteredByTime]);
+        { name: t('complaints.status.pending'),    value: filteredByTime.filter(c => c.status === STATUS.PENDING).length },
+        { name: t('complaints.status.inProgress'), value: filteredByTime.filter(c => c.status === STATUS.IN_PROGRESS).length },
+        { name: t('complaints.status.resolved'),   value: filteredByTime.filter(c => c.status === STATUS.RESOLVED).length },
+    ], [filteredByTime, t]);
 
     const categoriesData = useMemo(() => {
         const counts = {};
@@ -113,8 +115,8 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate, onAp
                 className="flex items-center justify-between"
             >
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Tenant complaint management overview</p>
+                    <h1 className="text-2xl font-bold text-foreground">{t('nav.dashboard')}</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">{t('dashboard.subtitle')}</p>
                 </div>
                 <div className="flex gap-1 bg-secondary rounded-lg p-1">
                     {TIME_RANGES.map(r => (
@@ -137,30 +139,30 @@ function BentoDashboard({ complaints, appointments = [], onComplaintUpdate, onAp
             {/* ── KPI Row ── */}
             <div data-tour="kpi-cards" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
-                    label="Total Complaints"
+                    label={t('dashboard.kpi.totalComplaints')}
                     value={kpis.total}
                     icon={TrendingUp}
                     delay={0.05}
-                    onClick={() => openKpiModal(`Total Complaints (${timeRange})`, filteredByTime)}
+                    onClick={() => openKpiModal(t('dashboard.kpi.totalComplaintsModal', { range: timeRange }), filteredByTime)}
                 />
                 <KPICard
-                    label="Pending"
+                    label={t('complaints.status.pending')}
                     value={kpis.pending}
                     icon={Clock}
                     iconColor="text-amber-500"
                     delay={0.1}
-                    onClick={() => openKpiModal(`Pending (${timeRange})`, filteredByTime.filter(c => c.status === STATUS.PENDING))}
+                    onClick={() => openKpiModal(t('dashboard.kpi.pendingModal', { range: timeRange }), filteredByTime.filter(c => c.status === STATUS.PENDING))}
                 />
                 <KPICard
-                    label="In Progress"
+                    label={t('complaints.status.inProgress')}
                     value={kpis.inProgress}
                     icon={AlertCircle}
                     iconColor="text-blue-500"
                     delay={0.15}
-                    onClick={() => openKpiModal(`In Progress (${timeRange})`, filteredByTime.filter(c => c.status === STATUS.IN_PROGRESS))}
+                    onClick={() => openKpiModal(t('dashboard.kpi.inProgressModal', { range: timeRange }), filteredByTime.filter(c => c.status === STATUS.IN_PROGRESS))}
                 />
                 <KPICard
-                    label="Daily Tasks"
+                    label={t('dashboard.kpi.dailyTasks')}
                     value={kpis.appointmentsToday}
                     icon={CalendarCheck}
                     iconColor="text-emerald-500"

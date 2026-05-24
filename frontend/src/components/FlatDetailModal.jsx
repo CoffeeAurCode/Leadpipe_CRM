@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { X, MapPin, Bed, Bath, User, Phone, CheckCircle2, XCircle, Home, Edit, DollarSign, Trash2 } from 'lucide-react';
 import { cn } from '@/lib';
 import { useEffect, useState } from 'react';
@@ -6,6 +7,7 @@ import { fetchFlatDetails, fetchActiveRent, setRent as setRentAPI, fetchUnitSett
 import { FlatEditModal } from './FlatEditModal';
 
 function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
+    const { t } = useTranslation();
     const [flatDetails, setFlatDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [deleting, setDeleting] = useState(false);
@@ -92,7 +94,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
             }
         } catch (err) {
             console.error('Error loading flat details:', err);
-            setError('Failed to load flat details');
+            setError(t('unit.failedLoad'));
             loadRent(); // fallback
         } finally {
             setLoading(false);
@@ -118,8 +120,8 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
         const label = flatDetails?.flat_number ? `Unit #${flatDetails.flat_number}` : 'this unit';
         const isOccupied = !!flatDetails?.tenant_uuid;
         const msg = isOccupied
-            ? `Delete ${label}? The current tenant and rent record will also be removed. This cannot be undone.`
-            : `Delete ${label}? This cannot be undone.`;
+            ? t('unit.deleteConfirmOccupied', { label })
+            : t('unit.deleteConfirm', { label });
         if (!window.confirm(msg)) return;
         setDeleting(true);
         try {
@@ -127,7 +129,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
             onDelete?.(flatUuid);
             onClose();
         } catch (err) {
-            alert(err.message || 'Failed to delete unit.');
+            alert(err.message || t('unit.failedDelete'));
         } finally {
             setDeleting(false);
         }
@@ -216,19 +218,19 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                     </h2>
                                     <div className="flex items-center gap-2 mt-1 text-muted-foreground">
                                         <MapPin className="w-4 h-4" />
-                                        <span>{flatDetails.address || 'Address not specified'}</span>
+                                        <span>{flatDetails.address || t('unit.addressNotSpecified')}</span>
                                     </div>
                                     {/* Occupancy Badge */}
                                     <div className="mt-2">
                                         {!!flatDetails.tenant_uuid ? (
                                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 text-sm font-medium border border-red-500/20">
                                                 <XCircle className="w-4 h-4" />
-                                                <span>Occupied</span>
+                                                <span>{t('properties.unitStatus.occupied')}</span>
                                             </div>
                                         ) : (
                                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 text-green-500 text-sm font-medium border border-green-500/20">
                                                 <CheckCircle2 className="w-4 h-4" />
-                                                <span>Available</span>
+                                                <span>{t('unit.available')}</span>
                                             </div>
                                         )}
                                     </div>
@@ -242,7 +244,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                 <div className="p-4 rounded-lg bg-secondary/50 border border-border">
                                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                                         <Bed className="w-4 h-4 text-primary" />
-                                        <span className="text-sm">Bedrooms</span>
+                                        <span className="text-sm">{t('unit.bedrooms')}</span>
                                     </div>
                                     <p className="text-2xl font-bold text-foreground">
                                         {flatDetails.bedrooms || 'N/A'}
@@ -251,7 +253,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                 <div className="p-4 rounded-lg bg-secondary/50 border border-border">
                                     <div className="flex items-center gap-2 text-muted-foreground mb-1">
                                         <Bath className="w-4 h-4 text-primary" />
-                                        <span className="text-sm">Bathrooms</span>
+                                        <span className="text-sm">{t('unit.bathrooms')}</span>
                                     </div>
                                     <p className="text-2xl font-bold text-foreground">
                                         {flatDetails.bathrooms || 'N/A'}
@@ -262,9 +264,9 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                             {/* Floor Info */}
                             {flatDetails.floor_number !== null && flatDetails.floor_number !== undefined && (
                                 <div className="p-4 rounded-lg bg-secondary/30 border border-border">
-                                    <p className="text-sm text-muted-foreground mb-1">Floor</p>
+                                    <p className="text-sm text-muted-foreground mb-1">{t('properties.floor')}</p>
                                     <p className="text-lg font-semibold text-foreground">
-                                        Floor {flatDetails.floor_number}
+                                        {t('properties.floor')} {flatDetails.floor_number}
                                     </p>
                                 </div>
                             )}
@@ -277,14 +279,14 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                     <div className="flex items-center justify-between mb-3">
                                         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                                             <DollarSign className="w-5 h-5 text-primary" />
-                                            Rent
+                                            {t('unit.rentLabel')}
                                         </h3>
                                         {(features.rent_management || features.rent_due_date) && (
                                             <button
                                                 onClick={() => setShowRentForm(v => !v)}
                                                 className="text-sm text-primary hover:underline"
                                             >
-                                                {showRentForm ? 'Cancel' : rent ? 'Update' : 'Set Rent'}
+                                                {showRentForm ? t('unit.cancel') : rent ? t('unit.updateRent') : t('unit.setRent')}
                                             </button>
                                         )}
                                     </div>
@@ -295,7 +297,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                                 {/* Rent amount — gated by rent_management */}
                                                 {features.rent_management && (
                                                     <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                                                        <p className="text-sm text-muted-foreground mb-1">Monthly Rent</p>
+                                                        <p className="text-sm text-muted-foreground mb-1">{t('rent.monthlyRent')}</p>
                                                         <p className="text-2xl font-bold text-foreground">
                                                             ${Number(rent.monthly_rent).toLocaleString('en-CA')}
                                                         </p>
@@ -304,7 +306,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                                 {/* Due date — gated by rent_due_date */}
                                                 {features.rent_due_date && (
                                                     <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                                                        <p className="text-sm text-muted-foreground mb-1">Effective From</p>
+                                                        <p className="text-sm text-muted-foreground mb-1">{t('rent.effectiveFrom')}</p>
                                                         <p className="text-lg font-semibold text-foreground">
                                                             {new Date(rent.effective_from).toLocaleDateString('en-CA', { day: 'numeric', month: 'short', year: 'numeric' })}
                                                         </p>
@@ -313,7 +315,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                             </div>
                                         ) : (
                                             <div className="p-4 rounded-lg bg-secondary/30 border border-dashed border-border text-center">
-                                                <p className="text-muted-foreground text-sm">No rent set for this unit</p>
+                                                <p className="text-muted-foreground text-sm">{t('unit.noRentForUnit')}</p>
                                             </div>
                                         )
                                     )}
@@ -324,7 +326,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                                 {/* Amount field — only if rent_management enabled */}
                                                 {features.rent_management && (
                                                     <div>
-                                                        <label className="text-sm text-muted-foreground block mb-1">Monthly Rent ($)</label>
+                                                        <label className="text-sm text-muted-foreground block mb-1">{t('unit.monthlyRentLabel')}</label>
                                                         <input
                                                             type="number"
                                                             min="0"
@@ -340,7 +342,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                                 {/* Date field — only if rent_due_date enabled */}
                                                 {features.rent_due_date && (
                                                     <div>
-                                                        <label className="text-sm text-muted-foreground block mb-1">Effective From</label>
+                                                        <label className="text-sm text-muted-foreground block mb-1">{t('unit.effectiveFromLabel')}</label>
                                                         <input
                                                             type="date"
                                                             required={features.rent_due_date}
@@ -355,7 +357,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                                     disabled={rentSaving}
                                                     className="w-full py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
                                                 >
-                                                    {rentSaving ? 'Saving...' : 'Save Rent'}
+                                                    {rentSaving ? t('unit.rentSaving') : t('unit.saveRent')}
                                                 </button>
                                             </div>
                                         </form>
@@ -370,13 +372,13 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                 <div>
                                     <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                                         <User className="w-5 h-5 text-primary" />
-                                        Tenant Information
+                                        {t('unit.tenantInfo')}
                                     </h3>
 
                                     {flatDetails.tenant ? (
                                         <div className="space-y-3">
                                             <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                                                <p className="text-sm text-muted-foreground mb-1">Name</p>
+                                                <p className="text-sm text-muted-foreground mb-1">{t('common.name')}</p>
                                                 <p className="text-lg font-medium text-foreground">
                                                     {flatDetails.tenant.name}
                                                 </p>
@@ -385,7 +387,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                                 <div className="p-4 rounded-lg bg-secondary/50 border border-border">
                                                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                                                         <Phone className="w-4 h-4" />
-                                                        <span>Contact</span>
+                                                        <span>{t('unit.contact')}</span>
                                                     </div>
                                                     <p className="text-lg font-medium text-foreground">
                                                         {flatDetails.tenant.phone}
@@ -398,7 +400,7 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted/50 mb-3">
                                                 <User className="w-6 h-6 text-muted-foreground" />
                                             </div>
-                                            <p className="text-muted-foreground font-medium">Currently Vacant</p>
+                                            <p className="text-muted-foreground font-medium">{t('unit.currentlyVacant')}</p>
                                         </div>
                                     )}
                                 </div>
@@ -411,15 +413,15 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                     <div>
                                         <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg>
-                                            Tenant Documents
+                                            {t('unit.tenantDocs')}
                                         </h3>
                                         <div className="p-6 rounded-lg bg-secondary/30 border border-dashed border-border text-center">
-                                            <p className="text-muted-foreground font-medium">Document Storage</p>
+                                            <p className="text-muted-foreground font-medium">{t('unit.docStorage')}</p>
                                             <p className="text-sm text-muted-foreground/70 mt-1 mb-3">
-                                                Upload leases, IDs, and other important documents here.
+                                                {t('unit.docStorageHint')}
                                             </p>
                                             <button className="px-4 py-2 border border-primary text-primary rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors">
-                                                Upload Document
+                                                {t('unit.uploadDoc')}
                                             </button>
                                         </div>
                                     </div>

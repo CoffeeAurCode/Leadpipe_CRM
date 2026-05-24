@@ -2,9 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useTranslation } from 'react-i18next';
 import { sendChatMessage } from '../services/apiService';
 
 export default function Chatbot() {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
@@ -63,7 +65,7 @@ export default function Chatbot() {
                         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                                <span className="text-sm font-semibold text-foreground">Property Assistant</span>
+                                <span className="text-sm font-semibold text-foreground">{t('chatbot.propertyTitle')}</span>
                             </div>
                             <button
                                 onClick={() => setOpen(false)}
@@ -133,7 +135,7 @@ export default function Chatbot() {
                                 onChange={e => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 disabled={loading}
-                                placeholder="Ask something…"
+                                placeholder={t('chatbot.placeholder')}
                                 className="flex-1 bg-background text-foreground text-sm rounded-lg px-3 py-2 border border-border focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 transition-colors"
                             />
                             <button

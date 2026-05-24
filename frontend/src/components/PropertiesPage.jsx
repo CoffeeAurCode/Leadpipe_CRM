@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Building2, Plus, Home, Hash, Bed, Bath,
@@ -49,6 +50,7 @@ function Breadcrumb({ segments, onBack }) {
 
 /** Card for a property group (top-level estate/property) */
 function PropertyGroupCard({ property, onClick }) {
+    const { t } = useTranslation();
     const coverImage = property.image_url ||
         'https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=2574&auto=format&fit=crop';
 
@@ -76,7 +78,7 @@ function PropertyGroupCard({ property, onClick }) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-white text-xs font-medium">
                     <Building2 className="w-3.5 h-3.5" />
-                    <span>{property.building_count} {property.building_count === 1 ? 'Building' : 'Buildings'}</span>
+                    <span>{property.building_count} {t('properties.building', {count: property.building_count})}</span>
                 </div>
             </div>
 
@@ -102,6 +104,7 @@ function PropertyGroupCard({ property, onClick }) {
 
 /** Unit card — used in both drill-down view and flat Unit View */
 function UnitCard({ unit, onClick, buildingName, propertyTypeName }) {
+    const { t } = useTranslation();
     const isOccupied = !!unit.tenant_uuid;
     const flatNum = unit.flat_number;
     const floor = unit.floor_number;
@@ -127,20 +130,20 @@ function UnitCard({ unit, onClick, buildingName, propertyTypeName }) {
                     </span>
                     <div>
                         <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                            Unit {flatNum}
+                            {t('properties.unitLabel')} {flatNum}
                         </p>
                         {floor != null && (
-                            <p className="text-xs text-muted-foreground">Floor {floor}</p>
+                            <p className="text-xs text-muted-foreground">{t('properties.floor')} {floor}</p>
                         )}
                     </div>
                 </div>
                 {isOccupied ? (
                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-medium">
-                        <XCircle className="w-3 h-3" /> Occupied
+                        <XCircle className="w-3 h-3" /> {t('properties.unitStatus.occupied')}
                     </span>
                 ) : (
                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs font-medium">
-                        <CheckCircle2 className="w-3 h-3" /> Vacant
+                        <CheckCircle2 className="w-3 h-3" /> {t('properties.unitStatus.vacant')}
                     </span>
                 )}
             </div>
@@ -150,13 +153,13 @@ function UnitCard({ unit, onClick, buildingName, propertyTypeName }) {
                 {beds != null && (
                     <span className="flex items-center gap-1">
                         <Bed className="w-3.5 h-3.5 text-primary" />
-                        <span className="font-medium text-foreground">{beds}</span> Bed
+                        <span className="font-medium text-foreground">{beds}</span> {t('properties.bed')}
                     </span>
                 )}
                 {baths != null && (
                     <span className="flex items-center gap-1">
                         <Bath className="w-3.5 h-3.5 text-primary" />
-                        <span className="font-medium text-foreground">{baths}</span> Bath
+                        <span className="font-medium text-foreground">{baths}</span> {t('properties.bath')}
                     </span>
                 )}
             </div>
@@ -237,6 +240,8 @@ function PropertiesPage() {
     const [showAddUnit, setShowAddUnit] = useState(false);
     const [showCsvImport, setShowCsvImport] = useState(false);
 
+    const { t } = useTranslation();
+
     // ── Load property groups on mount ─────────────────────────────────────────
     const loadPropertyGroups = useCallback(async () => {
         try {
@@ -245,7 +250,7 @@ function PropertiesPage() {
             setPropertyGroups(data);
             setError(null);
         } catch (err) {
-            setError('Failed to load properties. Is the backend running?');
+            setError(t('properties.failedLoad'));
         } finally {
             setLoadingMain(false);
         }
@@ -370,7 +375,7 @@ function PropertiesPage() {
             setSelectedProperty(null);
             setPropertyBuildings([]);
         } catch (err) {
-            alert(err.message || 'Failed to delete property.');
+            alert(err.message || t('properties.failedDeleteProperty'));
         } finally {
             setDeletingProperty(false);
         }
@@ -390,7 +395,7 @@ function PropertiesPage() {
             setSelectedBuilding(null);
             setBuildingUnits([]);
         } catch (err) {
-            alert(err.message || 'Failed to delete building.');
+            alert(err.message || t('properties.failedDeleteBuilding'));
         } finally {
             setDeletingBuilding(false);
         }
@@ -417,7 +422,7 @@ function PropertiesPage() {
     if (loadingMain) {
         return (
             <div className="space-y-6">
-                <PageHeader subtitle="Loading..." />
+                <PageHeader subtitle={t('common.loading')} />
                 <div className="flex items-center justify-center h-64">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
                 </div>
@@ -444,7 +449,7 @@ function PropertiesPage() {
 
         const breadcrumbSegments = selectedProperty
             ? [selectedProperty.name, selectedBuilding.name]
-            : ['Buildings', selectedBuilding.name];
+            : [t('properties.buildings'), selectedBuilding.name];
 
         return (
             <div className="space-y-5">
@@ -457,22 +462,30 @@ function PropertiesPage() {
                     <div>
                         <h2 className="text-2xl font-bold text-foreground">{selectedBuilding.name}</h2>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                            {totalUnits} {totalUnits === 1 ? 'unit' : 'units'} ·{' '}
-                            <span className="text-green-500">{vacantCount} vacant</span> ·{' '}
-                            <span className="text-red-400">{occupiedCount} occupied</span>
+                            {totalUnits} {t('properties.unit', {count: totalUnits})} ·{' '}
+                            <span className="text-green-500">{vacantCount} {t('properties.vacant')}</span> ·{' '}
+                            <span className="text-red-400">{occupiedCount} {t('properties.occupied')}</span>
                             {selectedBuilding.property_type_name && (
                                 <> · <span className="text-primary">{selectedBuilding.property_type_name}</span></>
                             )}
                         </p>
                     </div>
-                    <button
-                        onClick={handleDeleteBuilding}
-                        disabled={deletingBuilding}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-60 flex-shrink-0"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                        {deletingBuilding ? 'Deleting…' : 'Delete Building'}
-                    </button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                            onClick={() => setShowAddUnit(true)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                        >
+                            <Plus className="w-4 h-4" /> {t('properties.addUnit')}
+                        </button>
+                        <button
+                            onClick={handleDeleteBuilding}
+                            disabled={deletingBuilding}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-60"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            {deletingBuilding ? t('properties.deleting') : t('properties.deleteBuilding')}
+                        </button>
+                    </div>
                 </div>
 
                 {loadingDrill ? (
@@ -482,8 +495,8 @@ function PropertiesPage() {
                 ) : buildingUnits.length === 0 ? (
                     <EmptyState
                         icon={Home}
-                        title="No units in this building"
-                        subtitle='Use "Add Unit" below to add units to this building'
+                        title={t('properties.noUnits')}
+                        subtitle={t('properties.noUnitsHint')}
                     />
                 ) : (
                     <CardGrid columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -494,8 +507,6 @@ function PropertiesPage() {
                         ))}
                     </CardGrid>
                 )}
-
-                <FAB icon={Plus} label="Add Unit" onClick={() => setShowAddUnit(true)} />
 
                 {selectedFlatUuid && (
                     <FlatDetailModal
@@ -510,6 +521,16 @@ function PropertiesPage() {
                     onClose={() => setShowAddUnit(false)}
                     onSuccess={handleUnitAdded}
                     initialBuildingId={selectedBuilding?.id ?? null}
+                    initialAddress={(() => {
+                        if (!selectedBuilding) return null;
+                        const prop = propertyGroups.find(p => p.id === selectedBuilding.property_id);
+                        return [
+                            selectedBuilding.name,
+                            selectedBuilding.address,
+                            prop?.name,
+                            prop?.address,
+                        ].filter(Boolean).join(', ') || null;
+                    })()}
                 />
             </div>
         );
@@ -520,7 +541,7 @@ function PropertiesPage() {
         return (
             <div className="space-y-5">
                 <Breadcrumb
-                    segments={['Properties', selectedProperty.name]}
+                    segments={[t('nav.properties'), selectedProperty.name]}
                     onBack={backFromProperty}
                 />
 
@@ -528,18 +549,26 @@ function PropertiesPage() {
                     <div>
                         <h2 className="text-2xl font-bold text-foreground">{selectedProperty.name}</h2>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                            {selectedProperty.building_count} {selectedProperty.building_count === 1 ? 'building' : 'buildings'}
+                            {selectedProperty.building_count} {t('properties.building', {count: selectedProperty.building_count})}
                             {selectedProperty.address && <> · {selectedProperty.address}</>}
                         </p>
                     </div>
-                    <button
-                        onClick={handleDeleteProperty}
-                        disabled={deletingProperty}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-60 flex-shrink-0"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                        {deletingProperty ? 'Deleting…' : 'Delete Property'}
-                    </button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                            onClick={() => setShowAddBuilding(true)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                        >
+                            <Building2 className="w-4 h-4" /> {t('properties.addBuilding')}
+                        </button>
+                        <button
+                            onClick={handleDeleteProperty}
+                            disabled={deletingProperty}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-60"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            {deletingProperty ? t('properties.deleting') : t('properties.deleteProperty')}
+                        </button>
+                    </div>
                 </div>
 
                 {loadingDrill ? (
@@ -549,8 +578,8 @@ function PropertiesPage() {
                 ) : propertyBuildings.length === 0 ? (
                     <EmptyState
                         icon={Building2}
-                        title="No buildings in this property"
-                        subtitle='Use "Add Building" to add a building and link it to this property'
+                        title={t('properties.noBuildings')}
+                        subtitle={t('properties.noBuildingsHint')}
                     />
                 ) : (
                     <CardGrid>
@@ -566,8 +595,6 @@ function PropertiesPage() {
                         ))}
                     </CardGrid>
                 )}
-
-                <FAB icon={Building2} label="Add Building" onClick={() => setShowAddBuilding(true)} />
 
                 <BuildingInfoModal building={infoBuilding} onClose={() => setInfoBuilding(null)} />
                 <AddBuildingModal
@@ -597,13 +624,45 @@ function PropertiesPage() {
                 <PageHeader
                     subtitle={
                         viewMode === 'properties'
-                            ? `${propertyGroups.length} ${propertyGroups.length === 1 ? 'property' : 'properties'}`
+                            ? `${propertyGroups.length} ${t('properties.property', {count: propertyGroups.length})}`
                             : viewMode === 'units'
-                                ? `${allUnits.length} total units across ${buildings.length} buildings`
-                                : `${buildings.length} ${buildings.length === 1 ? 'building' : 'buildings'}`
+                                ? t('properties.subtitleUnits', {unitCount: allUnits.length, buildingCount: buildings.length})
+                                : `${buildings.length} ${t('properties.building', {count: buildings.length})}`
                     }
                 />
                 <div data-tour="view-switcher"><ViewSwitcher activeView={viewMode} onChange={handleViewSwitch} /></div>
+            </div>
+
+            {/* Action bar — below tabs */}
+            <div data-tour="action-buttons" className="flex items-center gap-2 flex-wrap">
+                {viewMode === 'properties' && (
+                    <button
+                        onClick={() => setShowAddProperty(true)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                        <Layers className="w-4 h-4" /> {t('properties.addProperty')}
+                    </button>
+                )}
+                {viewMode === 'buildings' && (
+                    <button
+                        onClick={() => setShowAddBuilding(true)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                        <Building2 className="w-4 h-4" /> {t('properties.addBuilding')}
+                    </button>
+                )}
+                <button
+                    onClick={() => setShowAddUnit(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+                >
+                    <Plus className="w-4 h-4" /> {t('properties.addUnit')}
+                </button>
+                <button
+                    onClick={() => setShowCsvImport(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+                >
+                    <Upload className="w-4 h-4" /> {t('properties.importCsv')}
+                </button>
             </div>
 
             <AnimatePresence mode="wait">
@@ -613,8 +672,8 @@ function PropertiesPage() {
                         {propertyGroups.length === 0 ? (
                             <EmptyState
                                 icon={Layers}
-                                title="No properties yet"
-                                subtitle='Click "Add Property" below to create your first property estate'
+                                title={t('properties.noProperties')}
+                                subtitle={t('properties.noPropertiesHint')}
                             />
                         ) : (
                             <div data-tour="property-list">
@@ -634,7 +693,7 @@ function PropertiesPage() {
                 {viewMode === 'buildings' && (
                     <motion.div key="buildings" {...fadeSlide} className="space-y-5">
                         {buildings.length === 0 ? (
-                            <EmptyState icon={Building2} title="No buildings yet" />
+                            <EmptyState icon={Building2} title={t('properties.noBuildings')} />
                         ) : (
                             <CardGrid>
                                 {buildings.map(b => (
@@ -658,8 +717,8 @@ function PropertiesPage() {
                         {allUnits.length === 0 ? (
                             <EmptyState
                                 icon={Home}
-                                title="No units found"
-                                subtitle="Add units via the Add Unit button"
+                                title={t('properties.noUnitsFound')}
+                                subtitle={t('properties.noUnitsFoundHint')}
                             />
                         ) : (
                             <CardGrid columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -681,18 +740,6 @@ function PropertiesPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {/* Floating Action Buttons */}
-            <div data-tour="fab-buttons" className="fixed bottom-8 left-8 flex flex-col gap-3 z-50">
-                {viewMode === 'properties' && (
-                    <FAB icon={Layers} label="Add Property" onClick={() => setShowAddProperty(true)} />
-                )}
-                {(viewMode === 'buildings') && (
-                    <FAB icon={Building2} label="Add Building" onClick={() => setShowAddBuilding(true)} />
-                )}
-                <FAB icon={Plus} label="Add Unit" onClick={() => setShowAddUnit(true)} secondary />
-                <FAB icon={Upload} label="Import CSV" onClick={() => setShowCsvImport(true)} secondary />
-            </div>
 
             {/* ── Modals ── */}
             {selectedFlatUuid && (
@@ -744,27 +791,6 @@ function PageHeader({ subtitle }) {
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">{subtitle}</p>
         </div>
-    );
-}
-
-function FAB({ icon: Icon, label, onClick, secondary = false }) {
-    return (
-        <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onClick}
-            className={cn(
-                'flex items-center gap-2 pl-4 pr-5 py-3 rounded-full shadow-xl transition-all group',
-                secondary
-                    ? 'bg-card border border-border hover:border-primary text-foreground'
-                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            )}
-        >
-            <Icon className="w-5 h-5" />
-            <span className="text-sm font-medium">{label}</span>
-        </motion.button>
     );
 }
 

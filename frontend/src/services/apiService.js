@@ -389,6 +389,13 @@ export async function fetchBuildings() {
     return await response.json();
 }
 
+/** Fetch a single building by ID. */
+export async function fetchBuildingById(buildingId) {
+    const response = await authFetch(`${API_BASE_URL}/buildings/${buildingId}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
 /** Fetch all units (flats) belonging to a specific building. */
 export async function fetchBuildingUnits(buildingId) {
     const response = await authFetch(`${API_BASE_URL}/buildings/${buildingId}/units`);

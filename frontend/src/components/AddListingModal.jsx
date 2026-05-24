@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
 import { createListing, updateListing, fetchVacantFlats } from '../services/apiService';
 
@@ -12,6 +13,7 @@ const DEFAULT_RULES = {
 };
 
 export default function AddListingModal({ isOpen, onClose, onSuccess, listing = null }) {
+    const { t } = useTranslation();
     const isEdit = Boolean(listing);
     const [vacantFlats, setVacantFlats] = useState([]);
     const [rulesOpen, setRulesOpen] = useState(false);
@@ -63,7 +65,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
         e.preventDefault();
         setError('');
         if (!form.monthly_rent || isNaN(Number(form.monthly_rent))) {
-            setError('Monthly rent must be a valid number.');
+            setError(t('leasing.listings.rentError'));
             return;
         }
         setSaving(true);
@@ -83,7 +85,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
             }
             onSuccess(result);
         } catch (err) {
-            setError(err.message || 'Failed to save listing.');
+            setError(err.message || t('leasing.listings.failedSave'));
         } finally {
             setSaving(false);
         }
@@ -96,7 +98,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
             <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between p-5 border-b border-border">
                     <h2 className="text-lg font-semibold text-foreground">
-                        {isEdit ? 'Edit Listing' : 'Add Listing'}
+                        {isEdit ? t('leasing.listings.editTitle') : t('leasing.listings.add')}
                     </h2>
                     <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
                         <X className="w-5 h-5" />
@@ -106,23 +108,23 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                 <form onSubmit={handleSubmit} className="p-5 space-y-4">
                     {!isEdit && (
                         <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Unit (Vacant Flat)</label>
+                            <label className="block text-sm font-medium text-foreground mb-1">{t('leasing.listings.vacantFlat')}</label>
                             <select
                                 value={form.flat_uuid}
                                 onChange={e => set('flat_uuid', e.target.value)}
                                 required
                                 className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                             >
-                                <option value="">Select a vacant flat</option>
+                                <option value="">{t('leasing.listings.selectVacant')}</option>
                                 {vacantFlats.map(f => (
-                                    <option key={f.uuid} value={f.uuid}>{f.flat_number} — {f.address || 'No address'}</option>
+                                    <option key={f.uuid} value={f.uuid}>{f.flat_number} — {f.address || t('leasing.listings.noAddress')}</option>
                                 ))}
                             </select>
                         </div>
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Title (optional)</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">{t('leasing.listings.titleLabel')}</label>
                         <input
                             type="text"
                             value={form.title}
@@ -133,7 +135,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Monthly Rent ($)</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">{t('leasing.listings.monthlyRentLabel')}</label>
                         <input
                             type="number"
                             value={form.monthly_rent}
@@ -145,7 +147,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Available From</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">{t('leasing.listings.availableFrom')}</label>
                         <input
                             type="date"
                             value={form.available_from}
@@ -155,7 +157,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">{t('common.description')}</label>
                         <textarea
                             value={form.description}
                             onChange={e => set('description', e.target.value)}
@@ -172,7 +174,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                             onChange={e => set('is_active', e.target.checked)}
                             className="w-4 h-4"
                         />
-                        <label htmlFor="is_active" className="text-sm text-foreground">Active (visible to voice agent)</label>
+                        <label htmlFor="is_active" className="text-sm text-foreground">{t('leasing.listings.activeHint')}</label>
                     </div>
 
                     {/* Qualifying Rules collapsible */}
@@ -182,7 +184,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                             onClick={() => setRulesOpen(o => !o)}
                             className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-foreground bg-secondary"
                         >
-                            Qualifying Rules
+                            {t('leasing.listings.qualifyingRules')}
                             {rulesOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </button>
                         {rulesOpen && (
@@ -190,41 +192,41 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                                 <div className="flex items-center gap-2">
                                     <input type="checkbox" id="income_required" checked={form.custom_rules.income_required}
                                         onChange={e => setRule('income_required', e.target.checked)} className="w-4 h-4" />
-                                    <label htmlFor="income_required" className="text-sm text-foreground">Income verification required</label>
+                                    <label htmlFor="income_required" className="text-sm text-foreground">{t('leasing.listings.incomeRequired')}</label>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <input type="checkbox" id="vegetarian_only" checked={form.custom_rules.vegetarian_only}
                                         onChange={e => setRule('vegetarian_only', e.target.checked)} className="w-4 h-4" />
-                                    <label htmlFor="vegetarian_only" className="text-sm text-foreground">Vegetarian household only</label>
+                                    <label htmlFor="vegetarian_only" className="text-sm text-foreground">{t('leasing.listings.vegetarianOnly')}</label>
                                 </div>
                                 <div>
-                                    <label className="block text-sm text-foreground mb-1">Pets allowed</label>
+                                    <label className="block text-sm text-foreground mb-1">{t('leasing.listings.petsAllowed')}</label>
                                     <select value={form.custom_rules.pets_allowed}
                                         onChange={e => setRule('pets_allowed', e.target.value)}
                                         className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground">
-                                        <option value="yes">Yes</option>
-                                        <option value="no">No</option>
-                                        <option value="small_only">Small pets only</option>
+                                        <option value="yes">{t('common.yes')}</option>
+                                        <option value="no">{t('common.no')}</option>
+                                        <option value="small_only">{t('leasing.listings.petsSmallOnly')}</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm text-foreground mb-1">Max occupants</label>
+                                    <label className="block text-sm text-foreground mb-1">{t('leasing.listings.maxOccupants')}</label>
                                     <input type="number" min={1} value={form.custom_rules.max_occupants ?? ''}
                                         onChange={e => setRule('max_occupants', e.target.value ? Number(e.target.value) : null)}
-                                        placeholder="No limit"
+                                        placeholder={t('leasing.listings.noLimit')}
                                         className="w-28 bg-background border border-border rounded px-2 py-1 text-sm text-foreground" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm text-foreground mb-1">Lease term (months)</label>
+                                    <label className="block text-sm text-foreground mb-1">{t('leasing.listings.leaseTerm')}</label>
                                     <input type="number" min={1} value={form.custom_rules.lease_term_months ?? ''}
                                         onChange={e => setRule('lease_term_months', e.target.value ? Number(e.target.value) : null)}
                                         className="w-28 bg-background border border-border rounded px-2 py-1 text-sm text-foreground" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm text-foreground mb-1">Custom question</label>
+                                    <label className="block text-sm text-foreground mb-1">{t('leasing.listings.customQuestion')}</label>
                                     <input type="text" value={form.custom_rules.custom_question}
                                         onChange={e => setRule('custom_question', e.target.value)}
-                                        placeholder="Optional qualifying question"
+                                        placeholder={t('leasing.listings.customQuestionPlaceholder')}
                                         className="w-full bg-background border border-border rounded px-2 py-1 text-sm text-foreground" />
                                 </div>
                             </div>
@@ -236,11 +238,11 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                     <div className="flex gap-3 pt-2">
                         <button type="button" onClick={onClose}
                             className="flex-1 border border-border rounded-lg py-2 text-sm text-foreground hover:bg-secondary transition-colors">
-                            Cancel
+                            {t('common.cancel')}
                         </button>
                         <button type="submit" disabled={saving}
                             className="flex-1 bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
-                            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Listing'}
+                            {saving ? t('leasing.listings.saving') : isEdit ? t('settings.saveChanges') : t('leasing.listings.create')}
                         </button>
                     </div>
                 </form>

@@ -1,14 +1,17 @@
-import { useState } from 'react';
-import { X, Upload, UserPlus, Home, Building } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Upload, UserPlus, Home, Building, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../lib';
 import { createProperty } from '../services/apiService';
 
-export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId = null }) {
+export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId = null, initialAddress = null }) {
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [assignTenant, setAssignTenant] = useState(false);
+    const [addressAutoFilled, setAddressAutoFilled] = useState(false);
 
     const [formData, setFormData] = useState({
         flat_number: '',
@@ -20,6 +23,13 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
         tenant_phone: '',
         image: null
     });
+
+    useEffect(() => {
+        if (isOpen && initialAddress) {
+            setFormData(prev => ({ ...prev, address: initialAddress }));
+            setAddressAutoFilled(true);
+        }
+    }, [isOpen, initialAddress]);
 
     const resetForm = () => {
         setFormData({
@@ -34,6 +44,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
         });
         setImagePreview(null);
         setAssignTenant(false);
+        setAddressAutoFilled(false);
         setError(null);
     };
 
@@ -84,7 +95,6 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                 formDataToSend.append('tenant_phone', formData.tenant_phone.trim());
             }
 
-            // 🔑 Critical FK: auto-link the unit to the parent building (from hierarchical context)
             if (initialBuildingId) {
                 formDataToSend.append('building_id', initialBuildingId);
             }
@@ -125,7 +135,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                 <div className="flex items-center justify-between p-6 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
                     <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
                         <Building className="w-6 h-6 text-primary" />
-                        Add Unit
+                        {t('unit.title')}
                     </h2>
                     <button onClick={handleClose}
                         className="p-2 rounded-lg hover:bg-secondary transition-colors">
@@ -150,13 +160,13 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                         <div className="space-y-4">
                             <h3 className="font-semibold text-lg flex items-center gap-2">
                                 <Home className="w-5 h-5 text-primary" />
-                                Unit Details
+                                {t('unit.details')}
                             </h3>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-2">
-                                        Flat Number <span className="text-red-500">*</span>
+                                        {t('unit.flatNumber')} <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
@@ -168,17 +178,26 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Building Address</label>
+                                    <label className="block text-sm font-medium mb-2">{t('unit.address')}</label>
                                     <input
                                         type="text"
                                         value={formData.address}
-                                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, address: e.target.value });
+                                            setAddressAutoFilled(false);
+                                        }}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        placeholder="Building A"
+                                        placeholder="123 Main St, Building A"
                                     />
+                                    {addressAutoFilled && (
+                                        <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
+                                            <Info className="w-3 h-3" />
+                                            {t('unit.addressAutoFilled')}
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Floor Number</label>
+                                    <label className="block text-sm font-medium mb-2">{t('unit.floorNumber')}</label>
                                     <input
                                         type="number"
                                         value={formData.floor_number}
@@ -189,24 +208,24 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Bedrooms</label>
+                                    <label className="block text-sm font-medium mb-2">{t('unit.bedrooms')}</label>
                                     <select
                                         value={formData.bedrooms}
                                         onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                        <option value="">Select</option>
+                                        <option value="">{t('common.select')}</option>
                                         {[1, 2, 3, 4, 5].map(n => (
                                             <option key={n} value={n}>{n} BHK</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Bathrooms</label>
+                                    <label className="block text-sm font-medium mb-2">{t('unit.bathrooms')}</label>
                                     <select
                                         value={formData.bathrooms}
                                         onChange={(e) => setFormData({ ...formData, bathrooms: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                        <option value="">Select</option>
+                                        <option value="">{t('common.select')}</option>
                                         {[1, 2, 3, 4, 5].map(n => (
                                             <option key={n} value={n}>{n} Bath{n !== 1 ? 's' : ''}</option>
                                         ))}
@@ -218,7 +237,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                             <div>
                                 <label className="block text-sm font-medium mb-2 flex items-center gap-2">
                                     <Upload className="w-4 h-4" />
-                                    Property Image (Optional)
+                                    {t('unit.propertyImage')}
                                 </label>
                                 <input
                                     type="file"
@@ -249,7 +268,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                 />
                                 <UserPlus className="w-4 h-4 text-primary" />
                                 <span className="font-semibold group-hover:text-primary transition-colors">
-                                    Assign Tenant
+                                    {t('unit.assignTenant')}
                                 </span>
                             </label>
 
@@ -262,7 +281,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                         className="grid grid-cols-2 gap-4 pl-6 overflow-hidden">
                                         <div>
                                             <label className="block text-sm font-medium mb-2">
-                                                Tenant Name <span className="text-red-500">*</span>
+                                                {t('unit.tenantName')} <span className="text-red-500">*</span>
                                             </label>
                                             <input
                                                 type="text"
@@ -275,7 +294,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium mb-2">
-                                                Phone Number <span className="text-red-500">*</span>
+                                                {t('unit.phoneNumber')} <span className="text-red-500">*</span>
                                             </label>
                                             <input
                                                 type="tel"
@@ -291,7 +310,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                             </AnimatePresence>
                         </div>
 
-                    </div>{/* end scrollable body */}
+                    </div>
 
                     {/* Sticky footer */}
                     <div className="flex justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-shrink-0">
@@ -300,7 +319,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                             onClick={handleClose}
                             disabled={loading}
                             className="px-5 py-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors font-medium disabled:opacity-50">
-                            Cancel
+                            {t('unit.cancel')}
                         </button>
                         <button
                             type="submit"
@@ -309,12 +328,12 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                             {loading ? (
                                 <>
                                     <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                                    Creating...
+                                    {t('unit.creating')}
                                 </>
                             ) : (
                                 <>
                                     <Building className="w-4 h-4" />
-                                    Create Property
+                                    {t('unit.create')}
                                 </>
                             )}
                         </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, CheckCheck, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../services/apiService';
 
@@ -22,6 +23,7 @@ function timeAgo(dateStr) {
 }
 
 export default function NotificationPanel() {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -101,7 +103,7 @@ export default function NotificationPanel() {
                     <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                         <div className="flex items-center gap-2">
                             <Bell className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-semibold text-foreground">Notifications</span>
+                            <span className="text-sm font-semibold text-foreground">{t('notifications.title')}</span>
                             {unreadCount > 0 && (
                                 <span className="px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 text-xs font-medium">
                                     {unreadCount} new
@@ -113,7 +115,7 @@ export default function NotificationPanel() {
                                 <button
                                     onClick={handleMarkAllRead}
                                     className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                                    title="Mark all as read"
+                                    title={t('notifications.markAllRead')}
                                 >
                                     <CheckCheck className="w-4 h-4" />
                                 </button>
@@ -131,7 +133,7 @@ export default function NotificationPanel() {
                     <ul className="max-h-96 overflow-y-auto divide-y divide-border">
                         {notifications.length === 0 ? (
                             <li className="px-4 py-8 text-center text-muted-foreground text-sm">
-                                No notifications yet
+                                {t('notifications.empty')}
                             </li>
                         ) : notifications.map(n => (
                             <li

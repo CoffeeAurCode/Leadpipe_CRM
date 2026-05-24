@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Building2, MapPin, Tag } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 import { createPropertyGroup, fetchPropertyTypes } from '../services/apiService';
 import ImageUploadField from './ImageUploadField';
@@ -23,23 +24,14 @@ function FieldGroup({ label, icon: Icon, children }) {
     );
 }
 
-/**
- * AddPropertyGroupModal
- * Simple form to create a new top-level property entity.
- *
- * Props:
- *  - isOpen: boolean
- *  - onClose: () => void
- *  - onSuccess: (newPropertyGroup) => void
- */
 function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
+    const { t } = useTranslation();
     const [form, setForm] = useState({ name: '', description: '', address: '', image_url: '', property_type_id: '' });
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
     const [error, setError] = useState('');
 
-    // Load property types once
     useEffect(() => {
         if (!isOpen) return;
         fetchPropertyTypes()
@@ -59,7 +51,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!form.name.trim()) { setError('Property name is required.'); return; }
+        if (!form.name.trim()) { setError(t('propertyGroup.nameRequired')); return; }
         setLoading(true);
         setError('');
         try {
@@ -73,7 +65,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
             onSuccess?.(created);
             handleClose();
         } catch (err) {
-            setError(err.message || 'Failed to create property. Please try again.');
+            setError(err.message || t('propertyGroup.failed'));
         } finally {
             setLoading(false);
         }
@@ -110,7 +102,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     <Building2 className="w-5 h-5 text-primary" />
                                 </span>
                                 <div>
-                                    <h2 className="text-base font-semibold text-foreground">Add Property</h2>
+                                    <h2 className="text-base font-semibold text-foreground">{t('propertyGroup.title')}</h2>
                                     <p className="text-xs text-muted-foreground">Create a top-level property estate</p>
                                 </div>
                             </div>
@@ -132,7 +124,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     </div>
                                 )}
 
-                                <FieldGroup label="Property Name *" icon={Building2}>
+                                <FieldGroup label={`${t('propertyGroup.name')} *`} icon={Building2}>
                                     <input
                                         name="name"
                                         value={form.name}
@@ -143,7 +135,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     />
                                 </FieldGroup>
 
-                                <FieldGroup label="Description">
+                                <FieldGroup label={t('propertyGroup.description')}>
                                     <textarea
                                         name="description"
                                         value={form.description}
@@ -154,7 +146,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     />
                                 </FieldGroup>
 
-                                <FieldGroup label="Address" icon={MapPin}>
+                                <FieldGroup label={t('propertyGroup.address')} icon={MapPin}>
                                     <input
                                         name="address"
                                         value={form.address}
@@ -164,8 +156,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     />
                                 </FieldGroup>
 
-                                {/* Property Type */}
-                                <FieldGroup label="Property Type" icon={Tag}>
+                                <FieldGroup label={t('propertyGroup.propertyType')} icon={Tag}>
                                     <select
                                         name="property_type_id"
                                         value={form.property_type_id}
@@ -188,16 +179,16 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     onUploadStart={() => setUploadingImage(true)}
                                     onUploadComplete={(url) => { setUploadingImage(false); setForm(prev => ({ ...prev, image_url: url })); }}
                                 />
-                            </div>{/* end scrollable body */}
+                            </div>
 
-                            {/* Sticky footer — always visible */}
+                            {/* Sticky footer */}
                             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-shrink-0">
                                 <button
                                     type="button"
                                     onClick={handleClose}
                                     className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
                                 >
-                                    Cancel
+                                    {t('propertyGroup.cancel')}
                                 </button>
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
@@ -215,7 +206,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     ) : (
                                         <Building2 className="w-4 h-4" />
                                     )}
-                                    {loading ? 'Creating...' : uploadingImage ? 'Uploading image...' : 'Create Property'}
+                                    {loading ? t('propertyGroup.creating') : uploadingImage ? t('propertyGroup.uploadingImage') : t('propertyGroup.create')}
                                 </motion.button>
                             </div>
                         </form>

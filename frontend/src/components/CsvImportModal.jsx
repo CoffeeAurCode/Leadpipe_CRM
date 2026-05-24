@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Upload, Download, FileText, CheckCircle2, AlertTriangle, XCircle, Loader2, ArrowLeft, Sparkles } from 'lucide-react';
 import { cn } from '@/lib';
 import { analyzeImportFile, importPropertiesCsv, importTenantsCsv } from '../services/apiService';
@@ -94,6 +95,7 @@ function Tab({ active, onClick, children }) {
 }
 
 function DropZone({ onFile, file }) {
+    const { t } = useTranslation();
     const inputRef = useRef(null);
     const [dragging, setDragging] = useState(false);
 
@@ -136,13 +138,13 @@ function DropZone({ onFile, file }) {
                 <div className="flex flex-col items-center gap-2">
                     <FileText className="w-8 h-8 text-emerald-500" />
                     <p className="text-sm font-medium text-foreground">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB — click to change</p>
+                    <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB — {t('import.clickToChange')}</p>
                 </div>
             ) : (
                 <div className="flex flex-col items-center gap-2">
                     <Upload className="w-8 h-8 text-muted-foreground" />
-                    <p className="text-sm font-medium text-foreground">Drop CSV or Excel file here or <span className="text-primary">browse</span></p>
-                    <p className="text-xs text-muted-foreground">Max 5 MB, 1000 rows — .csv and .xlsx supported</p>
+                    <p className="text-sm font-medium text-foreground">{t('import.dropHerePre')} <span className="text-primary">{t('import.browse')}</span></p>
+                    <p className="text-xs text-muted-foreground">{t('import.maxSize')}</p>
                 </div>
             )}
         </div>
@@ -180,6 +182,7 @@ function PreviewTable({ headers, rows }) {
 }
 
 function ColumnMappingStep({ importType, mapping, onMappingChange, onConfirm, onBack, loading }) {
+    const { t } = useTranslation();
     const columns = COLUMN_OPTIONS[importType];
     const required = REQUIRED_COLS[importType];
     const originalHeaders = Object.keys(mapping);
@@ -196,13 +199,13 @@ function ColumnMappingStep({ importType, mapping, onMappingChange, onConfirm, on
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                 <Sparkles className="w-4 h-4 flex-shrink-0 text-amber-500 mt-0.5" />
                 <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Your file's column names don't match the expected format. AI has suggested a mapping below — review and adjust before importing.
+                    {t('import.aiMappingWarning')}
                 </p>
             </div>
 
             {stillUnmapped.length > 0 && (
                 <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-500">
-                    Required columns not yet mapped: <strong>{stillUnmapped.join(', ')}</strong>. Assign them below to continue.
+                    {t('import.requiredNotMapped', { columns: stillUnmapped.join(', ') })}
                 </div>
             )}
 
@@ -210,14 +213,13 @@ function ColumnMappingStep({ importType, mapping, onMappingChange, onConfirm, on
                 <table className="w-full text-sm">
                     <thead className="bg-secondary">
                         <tr>
-                            <th className="px-3 py-2 text-left font-semibold text-foreground">Your Column</th>
-                            <th className="px-3 py-2 text-left font-semibold text-foreground">Maps To</th>
+                            <th className="px-3 py-2 text-left font-semibold text-foreground">{t('import.yourColumn')}</th>
+                            <th className="px-3 py-2 text-left font-semibold text-foreground">{t('import.mapsTo')}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {originalHeaders.map(header => {
                             const currentTarget = mapping[header];
-                            const isUnmappedRequired = required.has(currentTarget) === false && required.has(header);
                             return (
                                 <tr key={header} className="border-t border-border">
                                     <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{header}</td>
@@ -232,7 +234,7 @@ function ColumnMappingStep({ importType, mapping, onMappingChange, onConfirm, on
                                                     : 'border-border text-muted-foreground'
                                             )}
                                         >
-                                            <option value="">(ignore this column)</option>
+                                            <option value="">{t('import.ignoreColumn')}</option>
                                             {columns.map(col => (
                                                 <option key={col.value} value={col.value}>
                                                     {col.label}{col.required ? ' *' : ''}
@@ -247,7 +249,7 @@ function ColumnMappingStep({ importType, mapping, onMappingChange, onConfirm, on
                 </table>
             </div>
 
-            <p className="text-xs text-muted-foreground">* Required field</p>
+            <p className="text-xs text-muted-foreground">{t('import.requiredField')}</p>
 
             <div className="flex items-center justify-between gap-3 pt-1">
                 <button
@@ -255,7 +257,7 @@ function ColumnMappingStep({ importType, mapping, onMappingChange, onConfirm, on
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4" />
-                    Back
+                    {t('common.back')}
                 </button>
                 <button
                     onClick={() => onConfirm(mapping)}
@@ -268,9 +270,9 @@ function ColumnMappingStep({ importType, mapping, onMappingChange, onConfirm, on
                     )}
                 >
                     {loading ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" />Importing…</>
+                        <><Loader2 className="w-4 h-4 animate-spin" />{t('import.importing')}</>
                     ) : (
-                        <><Upload className="w-4 h-4" />Confirm & Import</>
+                        <><Upload className="w-4 h-4" />{t('import.confirmAndImport')}</>
                     )}
                 </button>
             </div>
@@ -279,6 +281,7 @@ function ColumnMappingStep({ importType, mapping, onMappingChange, onConfirm, on
 }
 
 function ResultPanel({ result, importType }) {
+    const { t } = useTranslation();
     if (!result) return null;
 
     const isProperties = importType === 'properties';
@@ -313,7 +316,7 @@ function ResultPanel({ result, importType }) {
                     <div className="flex items-start gap-2">
                         <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-500 mt-0.5" />
                         <div>
-                            <p className="text-sm font-medium text-amber-600 dark:text-amber-400">{skipped.length} row{skipped.length > 1 ? 's' : ''} skipped</p>
+                            <p className="text-sm font-medium text-amber-600 dark:text-amber-400">{t('import.rowsSkipped', { count: skipped.length })}</p>
                             <ul className="mt-1 space-y-0.5">
                                 {skipped.map((s, i) => (
                                     <li key={i} className="text-xs text-muted-foreground">{s}</li>
@@ -329,7 +332,7 @@ function ResultPanel({ result, importType }) {
                     <div className="flex items-start gap-2">
                         <XCircle className="w-4 h-4 flex-shrink-0 text-red-500 mt-0.5" />
                         <div>
-                            <p className="text-sm font-medium text-red-500">{errors.length} error{errors.length > 1 ? 's' : ''}</p>
+                            <p className="text-sm font-medium text-red-500">{t('import.errorsFound', { count: errors.length })}</p>
                             <ul className="mt-1 space-y-0.5">
                                 {errors.map((e, i) => (
                                     <li key={i} className="text-xs text-muted-foreground">{e}</li>
@@ -346,6 +349,7 @@ function ResultPanel({ result, importType }) {
 // ── Main Modal ────────────────────────────────────────────────────────────────
 
 export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properties', onSuccess }) {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState(defaultTab);
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
@@ -452,7 +456,7 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
-                    <h2 className="text-lg font-semibold text-foreground">Import from CSV or Excel</h2>
+                    <h2 className="text-lg font-semibold text-foreground">{t('import.modalTitle')}</h2>
                     <button onClick={handleClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
                         <X className="w-5 h-5" />
                     </button>
@@ -465,10 +469,10 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                     {!mappingStep && (
                         <div className="flex gap-2">
                             <Tab active={activeTab === 'properties'} onClick={() => handleTabChange('properties')}>
-                                Properties
+                                {t('import.propertiesTab')}
                             </Tab>
                             <Tab active={activeTab === 'tenants'} onClick={() => handleTabChange('tenants')}>
-                                Tenants
+                                {t('import.tenantsTab')}
                             </Tab>
                         </div>
                     )}
@@ -486,9 +490,7 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                         <>
                             {/* Description */}
                             <p className="text-sm text-muted-foreground">
-                                {activeTab === 'properties'
-                                    ? 'Import properties, buildings, and units in one shot. One row per unit — property and building names are deduplicated automatically.'
-                                    : 'Import tenants and link them to existing units by flat number. Already-occupied units are skipped.'}
+                                {activeTab === 'properties' ? t('import.propertiesDesc') : t('import.tenantsDesc')}
                             </p>
 
                             {/* Drop zone */}
@@ -497,7 +499,7 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                             {/* Excel notice */}
                             {isXlsx && (
                                 <p className="text-xs text-muted-foreground text-center">
-                                    Excel file detected — preview not available. Click Import to upload and analyze.
+                                    {t('import.excelNotice')}
                                 </p>
                             )}
 
@@ -505,7 +507,7 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                             {preview && preview.headers.length > 0 && (
                                 <div className="space-y-2">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        Preview — first 3 rows ({rowCount} data row{rowCount !== 1 ? 's' : ''} total)
+                                        {t('import.previewLabel', { count: rowCount })}
                                     </p>
                                     <PreviewTable headers={preview.headers} rows={preview.rows} />
                                 </div>
@@ -532,7 +534,7 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                         >
                             <Download className="w-4 h-4" />
-                            Download Template
+                            {t('import.downloadTemplate')}
                         </button>
 
                         <div className="flex items-center gap-2">
@@ -540,7 +542,7 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                                 onClick={handleClose}
                                 className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
                             >
-                                {result ? 'Close' : 'Cancel'}
+                                {result ? t('import.close') : t('import.cancel')}
                             </button>
                             {!result && (
                                 <button
@@ -554,11 +556,13 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                                     )}
                                 >
                                     {analyzing ? (
-                                        <><Loader2 className="w-4 h-4 animate-spin" />Analyzing…</>
+                                        <><Loader2 className="w-4 h-4 animate-spin" />{t('import.analyzing')}</>
                                     ) : loading ? (
-                                        <><Loader2 className="w-4 h-4 animate-spin" />Importing…</>
+                                        <><Loader2 className="w-4 h-4 animate-spin" />{t('import.importing')}</>
+                                    ) : rowCount > 0 ? (
+                                        <><Upload className="w-4 h-4" />{t('import.importWithRows', { count: rowCount })}</>
                                     ) : (
-                                        <><Upload className="w-4 h-4" />Import{rowCount > 0 ? ` ${rowCount} row${rowCount !== 1 ? 's' : ''}` : ''}</>
+                                        <><Upload className="w-4 h-4" />{t('import.confirm')}</>
                                     )}
                                 </button>
                             )}

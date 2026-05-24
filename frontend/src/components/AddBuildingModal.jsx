@@ -1,21 +1,13 @@
 import { useState, useEffect } from 'react';
 import { X, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 import { fetchPropertyTypes, createBuilding } from '../services/apiService';
 import ImageUploadField from './ImageUploadField';
 
-/**
- * AddBuildingModal
- * Form to create a new building with a name, description, address, image URL, and property type.
- *
- * Props:
- *  - isOpen: bool
- *  - onClose: () => void
- *  - onSuccess: (newBuilding) => void
- *  - initialPropertyId: string | null  — when set, auto-links building to this property
- */
 function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null }) {
+    const { t } = useTranslation();
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -28,12 +20,11 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
         property_type_id: '',
     });
 
-    // Load property types once when modal opens
     useEffect(() => {
         if (isOpen && propertyTypes.length === 0) {
             fetchPropertyTypes()
                 .then(setPropertyTypes)
-                .catch(() => { }); // Non-critical
+                .catch(() => { });
         }
     }, [isOpen]);
 
@@ -47,7 +38,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
 
     const handleSubmit = async e => {
         e.preventDefault();
-        if (!form.name.trim()) { setError('Building name is required.'); return; }
+        if (!form.name.trim()) { setError(t('building.nameRequired')); return; }
         setLoading(true);
         setError(null);
         try {
@@ -56,7 +47,6 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
             if (form.address) payload.address = form.address.trim();
             if (form.image_url) payload.image_url = form.image_url.trim();
             if (form.property_type_id) payload.property_type_id = form.property_type_id;
-            // 🔑 The critical FK: always link to the parent property when context is known
             if (initialPropertyId) payload.property_id = initialPropertyId;
 
             const newBuilding = await createBuilding(payload);
@@ -64,7 +54,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
             onSuccess(newBuilding);
             onClose();
         } catch (err) {
-            setError(err.message || 'Failed to create building.');
+            setError(err.message || t('building.failed'));
         } finally {
             setLoading(false);
         }
@@ -89,7 +79,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                 <div className="flex items-center justify-between p-6 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
                     <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                         <Building2 className="w-5 h-5 text-primary" />
-                        Add Building
+                        {t('building.title')}
                     </h2>
                     <button onClick={handleClose} className="p-2 rounded-lg hover:bg-secondary transition-colors">
                         <X className="w-4 h-4" />
@@ -97,19 +87,16 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-                    {/* Scrollable body */}
                     <div className="overflow-y-auto flex-1 p-6 space-y-4">
-                        {/* Error */}
                         {error && (
                             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">
                                 {error}
                             </div>
                         )}
 
-                        {/* Name */}
                         <div>
                             <label className="block text-sm font-medium mb-1.5">
-                                Building Name <span className="text-red-500">*</span>
+                                {t('building.name')} <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
@@ -121,24 +108,22 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                             />
                         </div>
 
-                        {/* Property Type */}
                         <div>
-                            <label className="block text-sm font-medium mb-1.5">Property Type</label>
+                            <label className="block text-sm font-medium mb-1.5">{t('building.propertyType')}</label>
                             <select
                                 value={form.property_type_id}
                                 onChange={e => setForm({ ...form, property_type_id: e.target.value })}
                                 className={inputClass}
                             >
-                                <option value="">Select type</option>
+                                <option value="">{t('common.selectType')}</option>
                                 {propertyTypes.map(pt => (
                                     <option key={pt.id} value={pt.id}>{pt.name}</option>
                                 ))}
                             </select>
                         </div>
 
-                        {/* Description */}
                         <div>
-                            <label className="block text-sm font-medium mb-1.5">Description</label>
+                            <label className="block text-sm font-medium mb-1.5">{t('building.description')}</label>
                             <textarea
                                 rows={2}
                                 value={form.description}
@@ -148,9 +133,8 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                             />
                         </div>
 
-                        {/* Address */}
                         <div>
-                            <label className="block text-sm font-medium mb-1.5">Address</label>
+                            <label className="block text-sm font-medium mb-1.5">{t('building.address')}</label>
                             <input
                                 type="text"
                                 value={form.address}
@@ -160,7 +144,6 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                             />
                         </div>
 
-                        {/* Image Upload */}
                         <ImageUploadField
                             entityType="building"
                             label="Cover Image"
@@ -168,9 +151,9 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                             onUploadStart={() => setUploadingImage(true)}
                             onUploadComplete={(url) => { setUploadingImage(false); setForm(prev => ({ ...prev, image_url: url })); }}
                         />
-                    </div>{/* end scrollable body */}
+                    </div>
 
-                    {/* Sticky footer — always visible */}
+                    {/* Sticky footer */}
                     <div className="flex justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-shrink-0">
                         <button
                             type="button"
@@ -178,7 +161,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                             disabled={loading}
                             className="px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors font-medium disabled:opacity-50 text-sm"
                         >
-                            Cancel
+                            {t('building.cancel')}
                         </button>
                         <button
                             type="submit"
@@ -188,17 +171,17 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                             {loading ? (
                                 <>
                                     <div className="w-3.5 h-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                                    Creating...
+                                    {t('building.creating')}
                                 </>
                             ) : uploadingImage ? (
                                 <>
                                     <div className="w-3.5 h-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                                    Uploading image...
+                                    {t('building.uploadingImage')}
                                 </>
                             ) : (
                                 <>
                                     <Building2 className="w-3.5 h-3.5" />
-                                    Create Building
+                                    {t('building.create')}
                                 </>
                             )}
                         </button>

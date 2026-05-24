@@ -1,25 +1,21 @@
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 
-/**
- * ViewSwitcher — Segmented control for the 3 property page views.
- * Props:
- *  - activeView: 'properties' | 'buildings' | 'units'
- *  - onChange: (view) => void
- */
-const VIEWS = [
-    { id: 'properties', label: 'Properties' },
-    { id: 'buildings', label: 'Buildings' },
-    { id: 'units', label: 'Units' },
-];
-
 function ViewSwitcher({ activeView, onChange }) {
+    const { t } = useTranslation();
+    const views = [
+        { id: 'properties', label: t('properties.viewSwitcher.properties') },
+        { id: 'buildings', label: t('properties.viewSwitcher.buildings') },
+        { id: 'units', label: t('properties.viewSwitcher.units') },
+    ];
+
     return (
         <div
             className="inline-flex items-center gap-1 p-1 rounded-xl bg-secondary border border-border"
             role="tablist"
             aria-label="Property view switcher"
         >
-            {VIEWS.map(view => (
+            {views.map(view => (
                 <button
                     key={view.id}
                     role="tab"

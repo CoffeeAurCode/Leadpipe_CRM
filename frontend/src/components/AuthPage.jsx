@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import Logo from './icon.svg';
 
 export default function AuthPage() {
+    const { t } = useTranslation();
     const [mode, setMode] = useState('login'); // 'login' | 'signup'
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -21,7 +23,7 @@ export default function AuthPage() {
 
         try {
             if (mode === 'signup') {
-                if (!name) { setError('Name is required'); setLoading(false); return; }
+                if (!name) { setError(t('auth.nameRequired')); setLoading(false); return; }
 
                 const { data, error: signUpError } = await supabase.auth.signUp({
                     email,
@@ -30,7 +32,6 @@ export default function AuthPage() {
 
                 if (signUpError) { setError(signUpError.message); setLoading(false); return; }
 
-                // Create manager profile
                 if (data.user) {
                     const { error: profileError } = await supabase
                         .from('manager_profiles')
@@ -45,8 +46,7 @@ export default function AuthPage() {
                     }
                 }
 
-                // Session is set automatically by onAuthStateChange → AuthGate takes over
-                setMessage('Account created! Redirecting...');
+                setMessage(t('auth.accountCreated'));
             } else {
                 const { error: signInError } = await supabase.auth.signInWithPassword({
                     email,
@@ -54,10 +54,9 @@ export default function AuthPage() {
                 });
 
                 if (signInError) { setError(signInError.message); setLoading(false); return; }
-                // Session is set automatically by onAuthStateChange → AuthGate takes over
             }
         } catch {
-            setError('An unexpected error occurred');
+            setError(t('auth.unexpectedError'));
             setLoading(false);
         }
     };
@@ -75,7 +74,6 @@ export default function AuthPage() {
             setError(error.message);
             setGoogleLoading(false);
         }
-        // On success the page redirects — no need to reset loading
     };
 
     return (
@@ -85,12 +83,10 @@ export default function AuthPage() {
                 <div className="flex flex-col items-center mb-8">
                     <img src={Logo} alt="LeadPipe" className="w-14 h-14 mb-3" />
                     <h1 className="text-2xl font-semibold text-foreground">
-                        {mode === 'login' ? 'Sign in to LeadPipe' : 'Create your account'}
+                        {mode === 'login' ? t('auth.signIn') : t('auth.createAccount')}
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        {mode === 'login'
-                            ? 'Enter your credentials to continue'
-                            : 'Get started with your free trial'}
+                        {mode === 'login' ? t('auth.signInSubtitle') : t('auth.createSubtitle')}
                     </p>
                 </div>
 
@@ -110,7 +106,7 @@ export default function AuthPage() {
                             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                         </svg>
                     )}
-                    {googleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+                    {googleLoading ? t('auth.connectingGoogle') : t('auth.continueGoogle')}
                 </button>
 
                 {/* Divider */}
@@ -119,7 +115,7 @@ export default function AuthPage() {
                         <div className="w-full border-t border-border" />
                     </div>
                     <div className="relative flex justify-center text-xs">
-                        <span className="bg-background px-2 text-muted-foreground uppercase">or</span>
+                        <span className="bg-background px-2 text-muted-foreground uppercase">{t('auth.or')}</span>
                     </div>
                 </div>
 
@@ -128,7 +124,7 @@ export default function AuthPage() {
                     {mode === 'signup' && (
                         <>
                             <div>
-                                <label className="block text-sm font-medium text-foreground mb-1.5">Full Name</label>
+                                <label className="block text-sm font-medium text-foreground mb-1.5">{t('auth.fullName')}</label>
                                 <input
                                     type="text"
                                     value={name}
@@ -139,7 +135,7 @@ export default function AuthPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-foreground mb-1.5">Phone</label>
+                                <label className="block text-sm font-medium text-foreground mb-1.5">{t('auth.phone')}</label>
                                 <input
                                     type="tel"
                                     value={phone}
@@ -152,7 +148,7 @@ export default function AuthPage() {
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+                        <label className="block text-sm font-medium text-foreground mb-1.5">{t('auth.email')}</label>
                         <input
                             type="email"
                             value={email}
@@ -164,7 +160,7 @@ export default function AuthPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
+                        <label className="block text-sm font-medium text-foreground mb-1.5">{t('auth.password')}</label>
                         <input
                             type="password"
                             value={password}
@@ -194,20 +190,20 @@ export default function AuthPage() {
                         className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         {loading
-                            ? (mode === 'login' ? 'Signing in...' : 'Creating account...')
-                            : (mode === 'login' ? 'Sign In' : 'Create Account')
+                            ? (mode === 'login' ? t('auth.signingIn') : t('auth.creating'))
+                            : (mode === 'login' ? t('auth.signInBtn') : t('auth.createBtn'))
                         }
                     </button>
                 </form>
 
                 {/* Toggle */}
                 <p className="text-center text-sm text-muted-foreground mt-6">
-                    {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+                    {mode === 'login' ? t('auth.noAccount') + ' ' : t('auth.haveAccount') + ' '}
                     <button
                         onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null); setMessage(null); }}
                         className="text-primary hover:underline font-medium"
                     >
-                        {mode === 'login' ? 'Sign Up' : 'Sign In'}
+                        {mode === 'login' ? t('auth.signUp') : t('auth.signInBtn')}
                     </button>
                 </p>
             </div>

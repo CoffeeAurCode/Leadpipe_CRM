@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Users, ChevronUp, ChevronDown, Filter, RefreshCw, UserPlus, Upload } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { fetchTenants } from '../services/apiService';
 import TenantProfile from './TenantProfile';
 import AddTenantModal from './AddTenantModal';
 import CsvImportModal from './CsvImportModal';
 import { cn } from '@/lib';
 
-const RENT_STATUS_OPTIONS = ['On-time', 'Upcoming', 'Overdue', 'At Risk'];
-const LEASE_STATUS_OPTIONS = ['Active', 'Expiring Soon', 'Expired', 'No Lease'];
+const RENT_STATUS_VALUES = ['On-time', 'Upcoming', 'Overdue', 'At Risk'];
+const LEASE_STATUS_VALUES = ['Active', 'Expiring Soon', 'Expired', 'No Lease'];
 
 const RENT_STATUS_COLORS = {
     'On-time':  'bg-emerald-500/15 text-emerald-500',
@@ -31,6 +32,21 @@ function SortIcon({ field, sortBy, sortOrder }) {
 }
 
 export default function TenantManagement() {
+    const { t } = useTranslation();
+
+    const RENT_STATUS_LABELS = {
+        'On-time':  t('tenants.rentStatusOptions.onTime'),
+        'Upcoming': t('tenants.rentStatusOptions.upcoming'),
+        'Overdue':  t('tenants.rentStatusOptions.overdue'),
+        'At Risk':  t('tenants.rentStatusOptions.atRisk'),
+    };
+
+    const LEASE_STATUS_LABELS = {
+        'Active':        t('tenants.leaseStatusOptions.active'),
+        'Expiring Soon': t('tenants.leaseStatusOptions.expiringSoon'),
+        'Expired':       t('tenants.leaseStatusOptions.expired'),
+        'No Lease':      t('tenants.leaseStatusOptions.noLease'),
+    };
     const [tenants, setTenants] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -54,12 +70,12 @@ export default function TenantManagement() {
             setTenants(data);
             setError(null);
         } catch (err) {
-            setError('Failed to load tenants. Check that the backend is running.');
+            setError(t('tenants.failedToLoad'));
             console.error(err);
         } finally {
             setLoading(false);
         }
-    }, [rentStatus, leaseStatus, sortBy, sortOrder]);
+    }, [rentStatus, leaseStatus, sortBy, sortOrder, t]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -98,7 +114,7 @@ export default function TenantManagement() {
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                     <Users className="w-6 h-6 text-primary" />
-                    <h1 className="text-2xl font-bold text-foreground">Tenant Management</h1>
+                    <h1 className="text-2xl font-bold text-foreground">{t('tenants.title')}</h1>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -106,21 +122,21 @@ export default function TenantManagement() {
                         className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground border border-border hover:border-primary/50 hover:text-foreground hover:bg-secondary transition-colors"
                     >
                         <Upload className="w-4 h-4" />
-                        <span className="hidden sm:inline">Import CSV</span>
+                        <span className="hidden sm:inline">{t('tenants.importCsv')}</span>
                     </button>
                     <button
                         onClick={() => setAddModalOpen(true)}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
                     >
                         <UserPlus className="w-4 h-4" />
-                        <span className="hidden sm:inline">Add Tenant</span>
+                        <span className="hidden sm:inline">{t('tenants.addTenant')}</span>
                     </button>
                     <button
                         onClick={load}
                         className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
                     >
                         <RefreshCw className="w-4 h-4" />
-                        Refresh
+                        {t('tenants.refresh')}
                     </button>
                 </div>
             </div>
@@ -133,23 +149,23 @@ export default function TenantManagement() {
                     onChange={e => setRentStatus(e.target.value)}
                     className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm text-foreground"
                 >
-                    <option value="">All Rent Statuses</option>
-                    {RENT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value="">{t('tenants.allRentStatuses')}</option>
+                    {RENT_STATUS_VALUES.map(s => <option key={s} value={s}>{RENT_STATUS_LABELS[s]}</option>)}
                 </select>
                 <select
                     value={leaseStatus}
                     onChange={e => setLeaseStatus(e.target.value)}
                     className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm text-foreground"
                 >
-                    <option value="">All Lease Statuses</option>
-                    {LEASE_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value="">{t('tenants.allLeaseStatuses')}</option>
+                    {LEASE_STATUS_VALUES.map(s => <option key={s} value={s}>{LEASE_STATUS_LABELS[s]}</option>)}
                 </select>
                 {hasFilters && (
                     <button
                         onClick={clearFilters}
                         className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
-                        Clear
+                        {t('tenants.clear')}
                     </button>
                 )}
             </div>
@@ -167,35 +183,35 @@ export default function TenantManagement() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-border bg-secondary/50">
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tenant</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Flat</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tenancy</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Lease Status</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('tenants.tenant')}</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('tenants.flat')}</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('tenants.tenancy')}</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('tenants.leaseStatus')}</th>
                                 <th
                                     className="px-4 py-3 text-left font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none"
                                     onClick={() => toggleSort('lease_end_date')}
                                 >
                                     <span className="flex items-center gap-1">
-                                        Lease End
+                                        {t('tenants.leaseEnd')}
                                         <SortIcon field="lease_end_date" sortBy={sortBy} sortOrder={sortOrder} />
                                     </span>
                                 </th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Rent Status</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Rent</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Due Date</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('tenants.rentStatus')}</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('tenants.rent')}</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('tenants.dueDate')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
                                     <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                                        Loading tenants…
+                                        {t('tenants.loading')}
                                     </td>
                                 </tr>
                             ) : tenants.length === 0 ? (
                                 <tr>
                                     <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                                        No tenants found.
+                                        {t('tenants.noTenants')}
                                     </td>
                                 </tr>
                             ) : (
@@ -214,13 +230,13 @@ export default function TenantManagement() {
                                         </td>
                                         <td className="px-4 py-3 text-muted-foreground">
                                             {tenant.tenancy_duration_months != null
-                                                ? `${tenant.tenancy_duration_months} mo`
+                                                ? `${tenant.tenancy_duration_months} ${t('tenants.mo')}`
                                                 : '—'}
                                         </td>
                                         <td className="px-4 py-3">
                                             {tenant.lease_status ? (
                                                 <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', LEASE_STATUS_COLORS[tenant.lease_status])}>
-                                                    {tenant.lease_status}
+                                                    {LEASE_STATUS_LABELS[tenant.lease_status] || tenant.lease_status}
                                                 </span>
                                             ) : '—'}
                                         </td>
@@ -230,7 +246,7 @@ export default function TenantManagement() {
                                         <td className="px-4 py-3">
                                             {tenant.rent_status ? (
                                                 <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', RENT_STATUS_COLORS[tenant.rent_status] || 'bg-secondary text-muted-foreground')}>
-                                                    {tenant.rent_status}
+                                                    {RENT_STATUS_LABELS[tenant.rent_status] || tenant.rent_status}
                                                 </span>
                                             ) : '—'}
                                         </td>

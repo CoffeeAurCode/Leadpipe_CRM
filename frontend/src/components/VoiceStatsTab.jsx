@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PhoneCall, RefreshCw, TrendingUp, CheckCircle, AlertTriangle, Clock, Phone } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { fetchCallStats, fetchVoiceAgentInfo } from '../services/apiService';
 import { cn } from '@/lib';
 
@@ -68,6 +69,7 @@ const OUTCOME_COLOR = {
 };
 
 export default function VoiceStatsTab() {
+    const { t } = useTranslation();
     const [days, setDays] = useState(30);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -105,7 +107,7 @@ export default function VoiceStatsTab() {
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                     <PhoneCall className="w-6 h-6 text-primary" />
-                    <h1 className="text-2xl font-bold text-foreground">Voice Agent Stats</h1>
+                    <h1 className="text-2xl font-bold text-foreground">{t('voiceStats.title')}</h1>
                 </div>
                 <div className="flex items-center gap-2">
                     <select
@@ -120,7 +122,7 @@ export default function VoiceStatsTab() {
                         className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
                     >
                         <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
-                        Refresh
+                        {t('voiceStats.refresh')}
                     </button>
                 </div>
             </div>
@@ -131,7 +133,7 @@ export default function VoiceStatsTab() {
                     <Phone className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                    <p className="text-xs text-muted-foreground">Complaint Agent — Inbound Number</p>
+                    <p className="text-xs text-muted-foreground">{t('voiceStats.complaintAgent')}</p>
                     {complaintNumber ? (
                         <p className="text-sm font-semibold text-foreground tracking-wide">{complaintNumber}</p>
                     ) : (
@@ -148,27 +150,27 @@ export default function VoiceStatsTab() {
             <div data-tour="voice-stats-cards" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     icon={PhoneCall}
-                    label="Total Calls"
+                    label={t('voiceStats.totalCalls')}
                     value={loading ? '…' : data?.total ?? 0}
                     color={{ border: 'border-border', text: 'text-primary' }}
                 />
                 <StatCard
                     icon={CheckCircle}
-                    label="Resolved"
+                    label={t('voiceStats.resolved')}
                     value={loading ? '…' : data?.resolved ?? 0}
                     sub={data ? pct(data.resolved) : ''}
                     color={{ border: 'border-emerald-500/20', text: 'text-emerald-500' }}
                 />
                 <StatCard
                     icon={AlertTriangle}
-                    label="Escalated"
+                    label={t('voiceStats.escalated')}
                     value={loading ? '…' : data?.escalated ?? 0}
                     sub={data ? pct(data.escalated) : ''}
                     color={{ border: 'border-red-500/20', text: 'text-red-500' }}
                 />
                 <StatCard
                     icon={TrendingUp}
-                    label="Other"
+                    label={t('voiceStats.other')}
                     value={loading ? '…' : data ? data.total - data.resolved - data.escalated : 0}
                     color={{ border: 'border-border', text: 'text-muted-foreground' }}
                 />
@@ -176,7 +178,7 @@ export default function VoiceStatsTab() {
 
             {/* Bar Chart */}
             <div data-tour="voice-stats-chart" className="bg-card border border-border rounded-xl p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-foreground">Call Volume</h2>
+                <h2 className="text-sm font-semibold text-foreground">{t('voiceStats.callVolume')}</h2>
                 {loading ? (
                     <div className="h-24 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
                 ) : (
@@ -187,12 +189,12 @@ export default function VoiceStatsTab() {
             {/* Recent Calls */}
             <div data-tour="voice-stats-recent" className="bg-card border border-border rounded-xl overflow-hidden">
                 <div className="px-5 py-4 border-b border-border">
-                    <h2 className="text-sm font-semibold text-foreground">Recent Calls</h2>
+                    <h2 className="text-sm font-semibold text-foreground">{t('voiceStats.recentCalls')}</h2>
                 </div>
                 {loading ? (
                     <p className="px-5 py-8 text-center text-muted-foreground text-sm">Loading…</p>
                 ) : !data?.recent?.length ? (
-                    <p className="px-5 py-8 text-center text-muted-foreground text-sm">No recent calls found.</p>
+                    <p className="px-5 py-8 text-center text-muted-foreground text-sm">{t('voiceStats.noRecentCallsFound')}</p>
                 ) : (
                     <ul>
                         {data.recent.map((log, i) => (

@@ -1,16 +1,35 @@
 import { useState, useRef, useEffect } from 'react';
 import { RefreshCw, LogOut, Settings, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 import ThemeToggle from './ThemeToggle';
 import NotificationPanel from './NotificationPanel';
 import { useAuth } from '../context/AuthContext';
 
+function LanguageToggle() {
+    const { i18n, t } = useTranslation();
+    const toggle = () => {
+        const next = i18n.language === 'en' ? 'fr-CA' : 'en';
+        i18n.changeLanguage(next);
+        localStorage.setItem('lang', next);
+    };
+    return (
+        <button
+            onClick={toggle}
+            className="px-3 py-1.5 rounded-lg border border-border text-sm font-semibold hover:bg-secondary transition-colors text-foreground"
+            aria-label="Toggle language"
+        >
+            {t('lang.toggle')}
+        </button>
+    );
+}
+
 function ProfileMenu({ onNavigate }) {
     const { user, signOut } = useAuth();
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
 
-    // Close on outside click
     useEffect(() => {
         if (!open) return;
         const handler = (e) => {
@@ -42,7 +61,6 @@ function ProfileMenu({ onNavigate }) {
                 )}
                 aria-label="Profile menu"
             >
-                {/* Avatar circle */}
                 <div className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0 select-none">
                     {initials}
                 </div>
@@ -53,7 +71,6 @@ function ProfileMenu({ onNavigate }) {
 
             {open && (
                 <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-xl z-50 py-2 overflow-hidden">
-                    {/* Account info */}
                     <div className="px-4 py-3 border-b border-border">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
@@ -66,21 +83,20 @@ function ProfileMenu({ onNavigate }) {
                         </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="py-1">
                         <button
                             onClick={() => { setOpen(false); onNavigate?.('settings'); }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors"
                         >
                             <Settings className="w-4 h-4 text-muted-foreground" />
-                            Settings
+                            {t('topbar.settings')}
                         </button>
                         <button
                             onClick={() => { setOpen(false); signOut(); }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
                         >
                             <LogOut className="w-4 h-4" />
-                            Sign out
+                            {t('topbar.signOut')}
                         </button>
                     </div>
                 </div>
@@ -90,21 +106,18 @@ function ProfileMenu({ onNavigate }) {
 }
 
 function TopBar({ onRefresh, onNavigate }) {
+    const { t } = useTranslation();
     return (
         <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 transition-colors duration-200">
             <div>
-                <h2 className="text-lg lg:text-xl font-semibold text-foreground">Welcome back!</h2>
-                <p className="text-xs lg:text-sm text-muted-foreground">Manage your tenant complaints efficiently</p>
+                <h2 className="text-lg lg:text-xl font-semibold text-foreground">{t('topbar.welcome')}</h2>
+                <p className="text-xs lg:text-sm text-muted-foreground">{t('topbar.subtitle')}</p>
             </div>
 
             <div className="flex items-center gap-2">
-                {/* Notification Bell */}
                 <NotificationPanel />
-
-                {/* Theme Toggle */}
                 <ThemeToggle />
-
-                {/* Refresh Button */}
+                <LanguageToggle />
                 <button
                     onClick={onRefresh}
                     className={cn(
@@ -115,10 +128,8 @@ function TopBar({ onRefresh, onNavigate }) {
                     )}
                 >
                     <RefreshCw className="w-4 h-4" />
-                    <span className="hidden lg:inline font-medium">Refresh</span>
+                    <span className="hidden lg:inline font-medium">{t('topbar.refresh')}</span>
                 </button>
-
-                {/* Profile / Account menu */}
                 <ProfileMenu onNavigate={onNavigate} />
             </div>
         </header>

@@ -1,21 +1,14 @@
 import { Building2, Home, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 
-/**
- * PropertyGroupCard
- * Displays a virtual "property" derived by grouping flats that share the same address.
- *
- * Props:
- *  - group: { name: string, units: FlatRecord[] }
- *  - onClick: (group) => void
- */
 function PropertyGroupCard({ group, onClick }) {
+    const { t } = useTranslation();
     const totalUnits = group.units.length;
     const occupiedCount = group.units.filter(u => !!u.tenant_uuid).length;
     const vacantCount = totalUnits - occupiedCount;
 
-    // Pick a representative image (first unit with a real image_url, else placeholder)
     const coverImage =
         group.units.find(u => u.image_url && !u.image_url.includes('placeholder'))?.image_url ||
         'https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=2574&auto=format&fit=crop';
@@ -42,13 +35,12 @@ function PropertyGroupCard({ group, onClick }) {
                             'https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=2574&auto=format&fit=crop';
                     }}
                 />
-                {/* Overlay gradient */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
                 {/* Unit count pill */}
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-white text-xs font-medium">
                     <Home className="w-3.5 h-3.5" />
-                    <span>{totalUnits} {totalUnits === 1 ? 'Unit' : 'Units'}</span>
+                    <span>{totalUnits} {totalUnits === 1 ? t('properties.unitLabel') : t('properties.units')}</span>
                 </div>
             </div>
 
@@ -70,13 +62,13 @@ function PropertyGroupCard({ group, onClick }) {
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <XCircle className="w-3.5 h-3.5 text-red-400" />
                         <span className="font-medium text-foreground">{occupiedCount}</span>
-                        <span>Occupied</span>
+                        <span>{t('properties.unitStatus.occupied')}</span>
                     </div>
                     <div className="w-px h-4 bg-border" />
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
                         <span className="font-medium text-foreground">{vacantCount}</span>
-                        <span>Vacant</span>
+                        <span>{t('properties.unitStatus.vacant')}</span>
                     </div>
                 </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, UserPlus, Phone, Home, Calendar, DollarSign } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 import { createTenant, fetchVacantFlats, setRent } from '../services/apiService';
 
@@ -25,6 +26,13 @@ const EMPTY_FORM = {
 };
 
 export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
+    const { t } = useTranslation();
+    const RENT_STATUS_LABELS = {
+        'On-time':  t('tenants.rentStatusOptions.onTime'),
+        'Upcoming': t('tenants.rentStatusOptions.upcoming'),
+        'Overdue':  t('tenants.rentStatusOptions.overdue'),
+        'At Risk':  t('tenants.rentStatusOptions.atRisk'),
+    };
     const [form, setForm] = useState(EMPTY_FORM);
     const [vacantFlats, setVacantFlats] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -103,8 +111,8 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                     <UserPlus className="w-5 h-5 text-primary" />
                                 </span>
                                 <div>
-                                    <h2 className="text-base font-semibold text-foreground">Add Tenant</h2>
-                                    <p className="text-xs text-muted-foreground">Create a new tenant record</p>
+                                    <h2 className="text-base font-semibold text-foreground">{t('tenants.addTenant')}</h2>
+                                    <p className="text-xs text-muted-foreground">{t('tenants.createRecord')}</p>
                                 </div>
                             </div>
                             <button
@@ -127,7 +135,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                 {/* Name */}
                                 <div className="space-y-1.5">
                                     <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        <UserPlus className="w-3.5 h-3.5" /> Tenant Name *
+                                        <UserPlus className="w-3.5 h-3.5" /> {t('unit.tenantName')} *
                                     </label>
                                     <input
                                         name="name"
@@ -142,7 +150,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                 {/* Phone */}
                                 <div className="space-y-1.5">
                                     <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        <Phone className="w-3.5 h-3.5" /> Phone Number *
+                                        <Phone className="w-3.5 h-3.5" /> {t('unit.phoneNumber')} *
                                     </label>
                                     <input
                                         name="phone"
@@ -156,7 +164,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                 {/* Flat Assignment */}
                                 <div className="space-y-1.5">
                                     <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        <Home className="w-3.5 h-3.5" /> Assign to Flat (optional)
+                                        <Home className="w-3.5 h-3.5" /> {t('tenants.assignToFlat')}
                                     </label>
                                     <select
                                         name="flat_uuid"
@@ -165,7 +173,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                         className={cn(inputCls, 'cursor-pointer')}
                                         disabled={loadingFlats}
                                     >
-                                        <option value="">— No flat assigned —</option>
+                                        <option value="">{t('tenants.noFlatAssigned')}</option>
                                         {vacantFlats.map(f => (
                                             <option key={f.uuid} value={f.uuid}>
                                                 {f.flat_number}{f.address ? ` · ${f.address}` : ''}
@@ -173,7 +181,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                         ))}
                                     </select>
                                     {loadingFlats && (
-                                        <p className="text-xs text-muted-foreground">Loading vacant flats…</p>
+                                        <p className="text-xs text-muted-foreground">{t('tenants.loadingFlats')}</p>
                                     )}
                                 </div>
 
@@ -181,7 +189,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            <Calendar className="w-3.5 h-3.5" /> Lease Start
+                                            <Calendar className="w-3.5 h-3.5" /> {t('tenants.leaseStart')}
                                         </label>
                                         <input
                                             type="date"
@@ -193,7 +201,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            <Calendar className="w-3.5 h-3.5" /> Lease End
+                                            <Calendar className="w-3.5 h-3.5" /> {t('tenants.leaseEnd')}
                                         </label>
                                         <input
                                             type="date"
@@ -209,7 +217,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                 {form.flat_uuid && (
                                     <div className="space-y-1.5">
                                         <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            <DollarSign className="w-3.5 h-3.5" /> Monthly Rent ($)
+                                            <DollarSign className="w-3.5 h-3.5" /> {t('unit.monthlyRentLabel')}
                                         </label>
                                         <input
                                             type="number"
@@ -226,7 +234,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                 {/* Rent Status */}
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        Rent Status
+                                        {t('tenants.rentStatus')}
                                     </label>
                                     <select
                                         name="rent_status"
@@ -235,7 +243,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                         className={cn(inputCls, 'cursor-pointer')}
                                     >
                                         {RENT_STATUS_OPTIONS.map(s => (
-                                            <option key={s} value={s}>{s}</option>
+                                            <option key={s} value={s}>{RENT_STATUS_LABELS[s] || s}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -243,7 +251,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                 {/* Manager Notes */}
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        Manager Notes
+                                        {t('leasing.leads.managerNotes')}
                                     </label>
                                     <textarea
                                         name="manager_notes"
@@ -263,7 +271,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                     onClick={onClose}
                                     className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
                                 >
-                                    Cancel
+                                    {t('common.cancel')}
                                 </button>
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
@@ -280,7 +288,7 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                         ? <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
                                         : <UserPlus className="w-4 h-4" />
                                     }
-                                    {loading ? 'Adding…' : 'Add Tenant'}
+                                    {loading ? t('tenants.adding') : t('tenants.addTenant')}
                                 </motion.button>
                             </div>
                         </form>

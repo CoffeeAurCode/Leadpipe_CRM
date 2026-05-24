@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import QuickFilters from './QuickFilters';
 import CompactComplaintCard from './CompactComplaintCard';
 import ComplaintModal from './ComplaintModal';
 
 export default function ComplaintsPage({ complaints = [], onComplaintUpdate }) {
+    const { t } = useTranslation();
     const [filters, setFilters] = useState({ status: 'all', priority: 'all' });
     const [selectedComplaint, setSelectedComplaint] = useState(null);
 
@@ -24,11 +26,11 @@ export default function ComplaintsPage({ complaints = [], onComplaintUpdate }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
             >
-                <h1 className="text-2xl font-bold text-foreground">Complaints</h1>
+                <h1 className="text-2xl font-bold text-foreground">{t('complaints.title')}</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">
                     {filters.status !== 'all' || filters.priority !== 'all'
-                        ? `${filteredComplaints.length} filtered`
-                        : `${complaints.length} total`} complaint{complaints.length !== 1 ? 's' : ''}
+                        ? `${filteredComplaints.length} ${t('complaints.filtered')}`
+                        : `${complaints.length} ${t('complaints.total')}`} {complaints.length !== 1 ? t('complaints.complaint_other') : t('complaints.complaint')}
                 </p>
             </motion.div>
 
@@ -53,7 +55,7 @@ export default function ComplaintsPage({ complaints = [], onComplaintUpdate }) {
                 ))}
                 {filteredComplaints.length === 0 && (
                     <div className="col-span-3 flex items-center justify-center h-32 rounded-lg border border-border bg-card">
-                        <p className="text-muted-foreground text-sm">No complaints match the current filters</p>
+                        <p className="text-muted-foreground text-sm">{t('complaints.noMatch')}</p>
                     </div>
                 )}
             </motion.div>

@@ -68,6 +68,44 @@ async def find_listing(
             results = fallback_q.execute()
 
         if not results.data:
+            # Third fallback: search by flat address
+            all_q = (
+                db.table("lease_listings")
+                .select(
+                    "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
+                    "flats!inner(bedrooms, floor_number, address)"
+                )
+                .eq("is_active", True)
+                .limit(20)
+            )
+            if property_group_id:
+                all_q = all_q.eq("property_group_id", property_group_id)
+            elif manager_id:
+                all_q = all_q.eq("manager_id", manager_id)
+            all_results = all_q.execute()
+            query_lower = query.lower()
+            matched = [
+                r for r in (all_results.data or [])
+                if query_lower in (r.get("flats") or {}).get("address", "").lower()
+            ]
+            if matched:
+                results_data = [matched[0]]
+            else:
+                return {"found": False}
+            listing = results_data[0]
+            flat = listing.get("flats") or {}
+            return {
+                "found": True,
+                "listing_uuid": listing["uuid"],
+                "address": flat.get("address"),
+                "bedrooms": flat.get("bedrooms"),
+                "monthly_rent": float(listing["monthly_rent"]),
+                "floor_number": str(flat.get("floor_number") or ""),
+                "available_from": str(listing.get("available_from") or ""),
+                "custom_rules": json.dumps(listing.get("custom_rules") or {}),
+            }
+
+        if not results.data:
             return {"found": False}
 
         listing = results.data[0]
@@ -91,6 +129,7 @@ async def find_listing(
 async def search_available_listings(
     bedrooms: Optional[str] = Query(None),
     budget_max: Optional[str] = Query(None),
+    address: Optional[str] = Query(None),
     property_group_id: Optional[str] = Query(None),
     manager_id: Optional[str] = Query(None),
     db: Client = Depends(get_service_db),
@@ -139,10 +178,13 @@ async def search_available_listings(
         if not results.data:
             return {"count": 0, "listings": []}
 
+        address_lower = address.lower() if address else None
         listings_out = []
         for listing in results.data:
             flat = listing.get("flats") or {}
             if bedrooms_filter is not None and flat.get("bedrooms") != bedrooms_filter:
+                continue
+            if address_lower and address_lower not in (flat.get("address") or "").lower():
                 continue
             listings_out.append({
                 "listing_uuid": listing["uuid"],

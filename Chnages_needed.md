@@ -1,0 +1,3 @@
+have the website in two languages english and qubec french, and have a toggle to switch between the two languages
+when adding unit, change the building address box to  address box, and by default for units in a building, fill in the address using the building name and building address(in which the unit is) and the property name and property address(in which the unit is), and for independent units user can fill in the address of the unit, and the lease agent can filter through units in the leasing list through the whole detail address or parts of address of units
+shift the add property, add unit, add building and import csv button to somewhere here(reference pic "C:\Users\BIT\Downloads\WhatsApp Image 2026-05-24 at 11.42.17.jpeg" )

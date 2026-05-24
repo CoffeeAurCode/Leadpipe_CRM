@@ -950,10 +950,11 @@ Listen for what the caller shares naturally. Preferences to capture if they ment
 None of these are required before you can search. Do NOT interrogate the caller for every field before searching. If they say "show me what's available" or give only one detail, that is enough to search. Move-in date is informational only — capture it for the lead but it is NOT a search filter.
 
 3. Find a Listing
-If the caller mentions a specific address, floor, or unit name (e.g. "penthouse", "top floor", "unit on floor 5"): call find_listing with their query FIRST. Use the bedrooms value from the tool response — NEVER infer bedroom count from words like "penthouse", "suite", or a floor number.
+If the caller mentions a specific address, street, neighbourhood, building name, floor, or unit name (e.g. "penthouse", "top floor", "unit on Maple Street", "something near the park"): call find_listing with their query FIRST. Use the bedrooms value from the tool response — NEVER infer bedroom count from words like "penthouse", "suite", or a floor number.
 Otherwise: call search_available_listings immediately using only what the caller has confirmed:
 - Pass bedrooms only if the caller stated a specific bedroom count. If they haven't mentioned bedrooms, pass 0 (no filter — show all bedroom types).
 - Pass budget_max only if the caller stated a maximum budget. If they haven't mentioned a budget, pass 0 (no filter — show all prices).
+- Pass address if the caller mentioned a street, neighbourhood, or building name. Leave it empty otherwise.
 Do NOT wait until both bedrooms AND budget are confirmed before calling the search. Search as soon as the caller has expressed their interest, even with no filters at all.
 The search response returns a JSON array in "listings"; each element contains a listing_uuid field.
 Share the matched listing details: unit number, rent, floor, availability date.
@@ -1003,8 +1004,8 @@ Not qualified / unmatched: "Thank you for calling. Have a great day!"
 - BEDROOM COUNT: Never infer bedroom count from descriptive terms like "penthouse", "suite", "top floor", or floor number alone. Always call find_listing first when the caller names a specific unit, floor, or area — use the bedrooms field from the tool response.
 
 [Tools]
-find_listing — Find a specific listing by address or unit query.
-search_available_listings — Browse available units by bedrooms and budget.
+find_listing — Find a specific listing by flat number, unit name, or any part of the address (street, building, neighbourhood).
+search_available_listings — Browse available units by bedrooms, budget, and/or address keyword.
 submit_lease_lead — Capture the caller as a lead (always call before ending the call).
 """
 
@@ -1025,7 +1026,11 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "async": False,
             "function": {
                 "name": "api_request_tool",
-                "description": "Find a specific rental listing by address or unit name query.",
+                "description": (
+                    "Find a specific rental listing by flat/unit number, listing title, "
+                    "or any part of the unit's address (street name, building name, neighbourhood, etc.). "
+                    "Use this when the caller mentions a specific address, location, floor, or unit name."
+                ),
             },
             "url": f"{backend_url}/leasing/find-listing?query={{{{query}}}}{mgr_qs}",
             "method": "GET",
@@ -1033,7 +1038,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                 "type": "object",
                 "required": ["query"],
                 "properties": {
-                    "query": {"type": "string", "description": "Search query — address, unit number, or area name", "default": ""},
+                    "query": {"type": "string", "description": "Search query — flat number, unit name, street name, building name, or neighbourhood", "default": ""},
                 },
             },
             "messages": [{"type": "request-start", "blocking": False}],
@@ -1060,21 +1065,23 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "function": {
                 "name": "api_request_tool",
                 "description": (
-                    "Search available rental units by bedrooms and budget. "
+                    "Search available rental units by bedrooms, budget, and/or address. "
                     "Returns {count, listings} where listings is a JSON array. "
                     "Each element has: listing_uuid, flat_number, bedrooms, monthly_rent, "
                     "floor_number, available_from, title. "
-                    "Store the listing_uuid of each unit the caller expresses interest in."
+                    "Store the listing_uuid of each unit the caller expresses interest in. "
+                    "Pass address when the caller mentions a street, neighbourhood, or building name to narrow results."
                 ),
             },
-            "url": f"{backend_url}/leasing/search?bedrooms={{{{bedrooms}}}}&budget_max={{{{budget_max}}}}{mgr_qs}",
+            "url": f"{backend_url}/leasing/search?bedrooms={{{{bedrooms}}}}&budget_max={{{{budget_max}}}}&address={{{{address}}}}{mgr_qs}",
             "method": "GET",
             "body": {
                 "type": "object",
                 "required": [],
                 "properties": {
-                    "bedrooms": {"type": "integer", "description": "Number of bedrooms", "default": ""},
-                    "budget_max": {"type": "number", "description": "Maximum monthly budget", "default": ""},
+                    "bedrooms": {"type": "integer", "description": "Number of bedrooms (0 = no filter)", "default": ""},
+                    "budget_max": {"type": "number", "description": "Maximum monthly budget (0 = no filter)", "default": ""},
+                    "address": {"type": "string", "description": "Partial address string to filter by location (street, neighbourhood, building name). Leave empty if caller has not mentioned a location.", "default": ""},
                 },
             },
             "messages": [{"type": "request-start", "blocking": False}],

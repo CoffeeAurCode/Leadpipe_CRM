@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Pencil, Trash2, ExternalLink, Phone, BedDouble, Banknote, PhoneCall, RefreshCw, Loader2 } from 'lucide-react';
 import {
     getListings, deleteListing,
@@ -37,6 +38,7 @@ function fmtDuration(secs) {
 }
 
 export default function LeasingTab() {
+    const { t } = useTranslation();
     const [listings, setListings] = useState([]);
     const [leads, setLeads] = useState([]);
     const [metrics, setMetrics] = useState(null);
@@ -94,13 +96,13 @@ export default function LeasingTab() {
     useEffect(() => { load(); }, [load]);
 
     async function handleDeleteListing(uuid) {
-        if (!confirm('Delete this listing?')) return;
+        if (!confirm(t('leasing.listings.confirmDelete'))) return;
         await deleteListing(uuid);
         setListings(prev => prev.filter(l => l.uuid !== uuid));
     }
 
     async function handleDeleteLead(uuid) {
-        if (!confirm('Delete this lead?')) return;
+        if (!confirm(t('leasing.leads.confirmDelete'))) return;
         await deleteLead(uuid);
         setLeads(prev => prev.filter(l => l.uuid !== uuid));
     }
@@ -129,7 +131,7 @@ export default function LeasingTab() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <p className="text-muted-foreground text-sm">Loading leasing data…</p>
+                <p className="text-muted-foreground text-sm">{t('leasing.loading')}</p>
             </div>
         );
     }
@@ -138,14 +140,14 @@ export default function LeasingTab() {
         <div className="space-y-8">
             <div className="flex items-start justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">Leasing</h1>
-                    <p className="text-muted-foreground text-sm mt-1">Manage listings and track voice leads from the lease agent.</p>
+                    <h1 className="text-2xl font-bold text-foreground">{t('leasing.title')}</h1>
+                    <p className="text-muted-foreground text-sm mt-1">{t('leasing.subtitle')}</p>
                 </div>
                 <button
                     onClick={load}
                     className="flex items-center gap-2 border border-border rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
                 >
-                    <RefreshCw className="w-4 h-4" /> Refresh
+                    <RefreshCw className="w-4 h-4" /> {t('leasing.refresh')}
                 </button>
             </div>
 
@@ -156,36 +158,36 @@ export default function LeasingTab() {
                         <PhoneCall className="w-4 h-4 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="text-xs text-muted-foreground">Your Lease Line</p>
+                        <p className="text-xs text-muted-foreground">{t('leasing.leaseLine')}</p>
                         {vapiConfig.vapi_provisioning_status === 'active' && vapiConfig.vapi_phone_number && (
                             <p className="text-sm font-semibold text-foreground tracking-wide">{vapiConfig.vapi_phone_number}</p>
                         )}
                         {vapiConfig.vapi_provisioning_status === 'pending' && (
                             <span className="inline-flex items-center gap-2 text-xs text-amber-500 mt-0.5">
-                                <Loader2 className="w-3 h-3 animate-spin" /> Setting up your lease line…
+                                <Loader2 className="w-3 h-3 animate-spin" /> {t('leasing.settingUp')}
                                 <button
                                     onClick={handleRetryProvisioning}
                                     disabled={retrying}
                                     className="underline hover:no-underline disabled:opacity-50"
                                 >
-                                    {retrying ? 'Starting…' : 'Stuck? Trigger setup'}
+                                    {retrying ? t('leasing.starting') : t('leasing.stuck')}
                                 </button>
                             </span>
                         )}
                         {vapiConfig.vapi_provisioning_status === 'failed' && (
                             <span className="inline-flex items-center gap-2 text-xs text-red-500 mt-0.5">
-                                Setup failed —
+                                {t('leasing.setupFailed')}
                                 <button
                                     onClick={handleRetryProvisioning}
                                     disabled={retrying}
                                     className="underline hover:no-underline disabled:opacity-50"
                                 >
-                                    {retrying ? 'Retrying…' : 'Retry'}
+                                    {retrying ? t('leasing.retrying') : t('leasing.retry')}
                                 </button>
                             </span>
                         )}
                         {vapiConfig.vapi_provisioning_status === 'not_set_up' && (
-                            <p className="text-xs text-muted-foreground mt-0.5">Create your first property group to activate your lease line.</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{t('leasing.activateHint')}</p>
                         )}
                     </div>
                 </div>
@@ -194,29 +196,29 @@ export default function LeasingTab() {
             {/* Metrics */}
             {metrics && (
                 <div data-tour="leasing-metrics" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <MetricCard label="Total Calls" value={metrics.total_calls} />
-                    <MetricCard label="Qualified" value={metrics.qualified} />
-                    <MetricCard label="Not Qualified" value={metrics.not_qualified} />
-                    <MetricCard label="Qual Rate" value={`${metrics.qualification_rate}%`} />
-                    <MetricCard label="Avg Duration" value={fmtDuration(metrics.avg_duration_seconds)} />
+                    <MetricCard label={t('leasing.metrics.totalCalls')} value={metrics.total_calls} />
+                    <MetricCard label={t('leasing.metrics.qualified')} value={metrics.qualified} />
+                    <MetricCard label={t('leasing.metrics.notQualified')} value={metrics.not_qualified} />
+                    <MetricCard label={t('leasing.metrics.qualRate')} value={`${metrics.qualification_rate}%`} />
+                    <MetricCard label={t('leasing.metrics.avgDuration')} value={fmtDuration(metrics.avg_duration_seconds)} />
                 </div>
             )}
 
             {/* Listings */}
             <section data-tour="leasing-listings">
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-foreground">Available Listings</h2>
+                    <h2 className="text-lg font-semibold text-foreground">{t('leasing.listings.title')}</h2>
                     <button
                         onClick={() => { setEditListing(null); setShowAddListing(true); }}
                         className="flex items-center gap-2 bg-primary text-primary-foreground px-3 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                     >
-                        <Plus className="w-4 h-4" /> Add Listing
+                        <Plus className="w-4 h-4" /> {t('leasing.listings.add')}
                     </button>
                 </div>
 
                 {listings.length === 0 ? (
                     <div className="bg-card border border-border rounded-xl p-8 text-center">
-                        <p className="text-muted-foreground text-sm">No listings yet. Add one to make it available to the lease voice agent.</p>
+                        <p className="text-muted-foreground text-sm">{t('leasing.listings.empty')}</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -228,21 +230,21 @@ export default function LeasingTab() {
                                         {listing.title && <p className="text-xs text-muted-foreground">{listing.title}</p>}
                                     </div>
                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${listing.is_active ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'}`}>
-                                        {listing.is_active ? 'Active' : 'Inactive'}
+                                        {listing.is_active ? t('leasing.listings.active') : t('leasing.listings.inactive')}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                     <span className="flex items-center gap-1"><Banknote className="w-3.5 h-3.5" />${Number(listing.monthly_rent).toLocaleString('en-CA')}/mo</span>
-                                    {listing.available_from && <span className="flex items-center gap-1"><ExternalLink className="w-3.5 h-3.5" />From {listing.available_from}</span>}
+                                    {listing.available_from && <span className="flex items-center gap-1"><ExternalLink className="w-3.5 h-3.5" />{t('leasing.listings.from')} {listing.available_from}</span>}
                                 </div>
                                 <div className="flex gap-2 pt-1">
                                     <button onClick={() => { setEditListing(listing); setShowAddListing(true); }}
                                         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1 transition-colors">
-                                        <Pencil className="w-3 h-3" /> Edit
+                                        <Pencil className="w-3 h-3" /> {t('leasing.listings.edit')}
                                     </button>
                                     <button onClick={() => handleDeleteListing(listing.uuid)}
                                         className="flex items-center gap-1 text-xs text-red-500 hover:text-red-400 border border-red-500/20 rounded px-2 py-1 transition-colors">
-                                        <Trash2 className="w-3 h-3" /> Delete
+                                        <Trash2 className="w-3 h-3" /> {t('leasing.listings.delete')}
                                     </button>
                                 </div>
                             </div>
@@ -254,30 +256,30 @@ export default function LeasingTab() {
             {/* Leads */}
             <section data-tour="leasing-leads">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                    <h2 className="text-lg font-semibold text-foreground">Leads</h2>
+                    <h2 className="text-lg font-semibold text-foreground">{t('leasing.leads.title')}</h2>
                     <div className="flex flex-wrap items-center gap-2">
                         <select value={listingFilter} onChange={e => setListingFilter(e.target.value)}
                             className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground">
-                            <option value="">All Listings</option>
+                            <option value="">{t('leasing.leads.allListings')}</option>
                             {listings.map(l => <option key={l.uuid} value={l.uuid}>{l.flat_number}</option>)}
                         </select>
                         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                             className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground">
-                            <option value="">All Status</option>
+                            <option value="">{t('leasing.leads.allStatuses')}</option>
                             {['qualified','not_qualified','unmatched','contacted','toured','converted','lost'].map(s => (
-                                <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                                <option key={s} value={s}>{t(`leasing.leads.statuses.${s}`)}</option>
                             ))}
                         </select>
                         <button onClick={() => exportLeads({ listing_uuid: listingFilter, qualification_status: statusFilter })}
                             className="border border-border rounded-lg px-3 py-1.5 text-sm text-foreground hover:bg-secondary transition-colors">
-                            Export CSV
+                            {t('leasing.leads.exportCsv')}
                         </button>
                     </div>
                 </div>
 
                 {filteredLeads.length === 0 ? (
                     <div className="bg-card border border-border rounded-xl p-8 text-center">
-                        <p className="text-muted-foreground text-sm">No leads yet. Once a caller dials the lease number and the voice agent captures their info, it will appear here.</p>
+                        <p className="text-muted-foreground text-sm">{t('leasing.leads.noLeads')}</p>
                     </div>
                 ) : (
                     <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -285,7 +287,15 @@ export default function LeasingTab() {
                             <table className="w-full text-sm">
                                 <thead className="bg-secondary border-b border-border">
                                     <tr>
-                                        {['Name', 'Phone', 'Budget', 'Beds', 'Listing', 'Status', 'Actions'].map(h => (
+                                        {[
+                                            t('leasing.leads.name'),
+                                            t('common.phone'),
+                                            t('leasing.leads.budget'),
+                                            t('leasing.leads.beds'),
+                                            t('leasing.leads.listing'),
+                                            t('leasing.leads.status'),
+                                            t('leasing.leads.actions'),
+                                        ].map(h => (
                                             <th key={h} className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">{h}</th>
                                         ))}
                                     </tr>
@@ -314,15 +324,15 @@ export default function LeasingTab() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[lead.qualification_status] || ''}`}>
-                                                    {lead.qualification_status.replace('_', ' ')}
+                                                    {t(`leasing.leads.statuses.${lead.qualification_status}`, { defaultValue: lead.qualification_status.replace('_', ' ') })}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
                                                     <button onClick={() => setSelectedLead(lead)}
-                                                        className="text-xs text-primary hover:underline">View</button>
+                                                        className="text-xs text-primary hover:underline">{t('common.view')}</button>
                                                     <button onClick={() => handleDeleteLead(lead.uuid)}
-                                                        className="text-xs text-red-500 hover:underline">Delete</button>
+                                                        className="text-xs text-red-500 hover:underline">{t('common.delete')}</button>
                                                 </div>
                                             </td>
                                         </tr>

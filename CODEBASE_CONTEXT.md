@@ -312,6 +312,11 @@ Unique index: `twilio_number_pool_one_per_manager ON (assigned_manager_id) WHERE
 
 Admin script to add numbers: `python backend/scripts/add_twilio_number_to_vapi.py <E.164>`
 
+**Deploy/update scripts** (`backend/scripts/`):
+- `update_shared_agents.py` — push latest config to complaint agent + shared lease agent
+- `update_lease_agents.py` — push latest `vapi_agent_config.py` to **all active per-manager lease assistants** (iterates `manager_vapi_config` rows); always uses hardcoded production URL to avoid localhost override from `.env`
+- `reprovision_existing_groups.py` — provision new per-manager agents for property groups that don't have one yet (status != active)
+
 #### `subscriptions`
 | Column | Type | Notes |
 |---|---|---|
@@ -398,15 +403,19 @@ Computed fields on GET (from `TenantResponse` schema):
 | POST | `/flats/verify-phone` | **VAPI endpoint** — verifies caller phone matches tenant; returns `{status: valid/invalid/vacant}` |
 | POST | `/flats/identify-caller` | VAPI — identify caller by phone number |
 | POST | `/flats` | Create flat |
-| GET | `/flats` | List flats (optional `?building_id=`) |
-| GET | `/flats/{uuid}` | Single flat with tenant details |
-| PATCH | `/flats/{uuid}` | Update flat |
-| DELETE | `/flats/{uuid}` | Delete flat |
-| POST | `/flats/{uuid}/upload-image` | Upload cover image → Supabase Storage |
-| POST | `/flats/{uuid}/assign-tenant` | Assign existing tenant to flat |
-| POST | `/flats/{uuid}/unassign-tenant` | Remove tenant from flat |
+| GET | `/flats` | List flats (optional `?vacant=true`) |
+| GET | `/flats/{uuid}/details` | Single flat with tenant details |
+| GET | `/flats/{flat_number}` | Flat by flat number |
+| PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT) |
+| DELETE | `/flats/{flat_uuid}` | Delete flat (cascade-deletes tenant + rent record) |
+| PATCH | `/flats/{flat_uuid}/assign-tenant` | Assign existing tenant to flat (bidirectional link) |
+| PATCH | `/flats/{flat_uuid}/unassign-tenant` | Remove tenant from flat (bidirectional unlink) |
 
 **VAPI rules:** Always returns HTTP 200. Inputs normalized with `.strip().upper()`.
+
+**RLS / flat creation:** `POST /flats` uses `svc` (service-role client) for the actual `flats` INSERT — the Supabase RLS INSERT policy rejects the anon client for some manager accounts. All ownership/subscription checks run first with the authenticated `db` client.
+
+**Error messages:** `_clean_db_error(e)` helper maps PostgreSQL error codes to plain English before returning `detail` strings — `42501` → permission denied, `23505` → already exists, `23503` → missing related record. Raw Supabase exception dicts never reach the frontend.
 
 ---
 
@@ -452,7 +461,7 @@ Computed fields on GET (from `TenantResponse` schema):
 |---|---|---|
 | GET | `/properties` | Returns flats mapped as properties (name, address, bedrooms, bathrooms, image_url, occupied) |
 
-`PropertyResponse.floor_number` is `Optional[int] = None` — some flats have NULL in the DB. The dict builder uses `flat.get("floor_number") or 0` to coerce NULL → 0.
+`PropertyResponse.floor_number` is `Optional[int] = None` — some flats have NULL floor_number in the DB; using `int` causes a `ResponseValidationError` 500. The dict builder passes `flat.get("floor_number")` (no fallback) so null flows through cleanly.
 
 ---
 
@@ -538,6 +547,8 @@ Computed fields on GET (from `TenantResponse` schema):
 |---|---|---|
 | GET | `/leasing/find-listing?query=&property_group_id=&manager_id=` | Search listing by flat number or title; `manager_id` filters across all groups owned by that manager; returns `{found, listing_uuid, address, bedrooms, monthly_rent, floor_number, available_from, custom_rules}` |
 | GET | `/leasing/search?bedrooms=&budget_max=&property_group_id=&manager_id=` | Return up to 5 matching listings; `manager_id` filters across all groups owned by that manager; returns `{count, listings: [{listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from, title}]}` |
+
+**`/leasing/search` filter behaviour:** `bedrooms` and `budget_max` are accepted as `Optional[str]` (not int/float) because VAPI sends `""` when the caller hasn't confirmed a preference — FastAPI would 422 on empty-string int. Internal `_parse_int` / `_parse_float` helpers treat `""` and `0` as **no filter**. `budget_max` is applied as a DB-level `lte` filter; `bedrooms` is applied as a Python post-fetch filter (PostgREST embedded-resource `eq` on joined tables is unreliable with `!inner`). Fetches up to 20 rows before Python filtering, returns top 5.
 
 #### Manager CRUD (authenticated + subscription gate)
 | Method | Path | Description |
@@ -684,12 +695,19 @@ get_service_db()  # service-role client (bypasses RLS) — for webhooks, admin
 ---
 
 ### `app/services/vapi_agent_config.py`
-Three builder functions:
+Four builder functions:
 - `build_assistant_config()` — legacy complaint agent (existing test group)
 - `build_complaint_config(backend_url)` — global complaint agent (Option B, multi-group)
 - `build_lease_config(backend_url, manager_id)` — per-manager lease agent; injects `manager_id` into tool URLs (`?manager_id=<UUID>`) so the agent searches listings across ALL property groups owned by this manager
-- `submit_lease_lead` tool now includes `interested_listing_ids` (array of UUIDs) — agent must capture all listing UUIDs the caller showed interest in, not just the primary one
-- `search_available_listings` tool description updated to tell agent the response contains `listing_uuid` fields in the `listings` array
+- `build_lease_config_shared(backend_url)` — shared lease agent with no manager scope (used by `update_shared_agents.py` and `setup_vapi_agents.py`)
+- `submit_lease_lead` tool includes `interested_listing_ids` (array of UUIDs) — agent captures all listing UUIDs the caller showed interest in, not just the primary one
+- `search_available_listings` tool description tells agent the response contains `listing_uuid` fields in the `listings` array
+
+**Lease agent conversation behaviour (updated 2026-05-24):**
+- Step 2 now lists bedrooms / budget / move-in as **optional** preferences to capture — none are required before searching
+- Step 3 instructs agent to call `search_available_listings` immediately with only confirmed filters; pass `0` for bedrooms or budget_max that haven't been confirmed (backend treats `0` as no filter)
+- `NO FORCING PREFERENCES` rule: agent must not demand bedrooms or budget before searching — search first, let results guide the conversation
+- Budget enforcement: only enforces bedroom-count match when the caller **explicitly stated** a bedroom count; if no preference was given, any unit from search results is acceptable
 
 **Voice & language config (all agents):**
 - Voice: ElevenLabs `eleven_turbo_v2_5`, voiceId `E4GQ42zEV1kwul03Bl16` (Wilkins bilingual voice), stability 0.6, useSpeakerBoost, optimizeStreamingLatency 1
@@ -918,11 +936,12 @@ window.dispatchEvent(new Event('refresh-appointments'))
 ```
 Used after voice/chatbot actions that modify data.
 
-### Flat Creation Duplicate Checks
+### Flat Creation
 - Flat number uniqueness is enforced at DB level (UNIQUE constraint)
 - Before inserting a tenant during flat creation, the route checks `tenants.phone` for uniqueness
 - If the phone already exists, returns HTTP 400 with a message distinguishing "already assigned to a flat" vs "unassigned — use Assign Existing Tenant"
 - Image uploaded to Storage is cleaned up if any subsequent check fails (no orphaned files)
+- **The `flats` INSERT uses `svc` (service-role client), not `db`** — some manager accounts have RLS INSERT policies that reject the anon client. Ownership is validated first via `require_active_subscription` and duplicate checks. Do not revert this to `db.table("flats").insert()`.
 
 ### VAPI Voice Webhook DB Client
 - `POST /voice/webhook` uses `get_service_db` (not `get_authenticated_db`) — inbound calls carry no user JWT

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Phone, Mail, BedDouble, Calendar, Banknote, MessageSquare } from 'lucide-react';
 import { updateLead } from '../services/apiService';
 
@@ -15,6 +16,7 @@ const STATUS_COLORS = {
 const MANAGER_STATUSES = ['contacted', 'toured', 'converted', 'lost'];
 
 export default function LeadDetailModal({ lead, listings = [], onClose, onUpdated }) {
+    const { t } = useTranslation();
     function findListing(uuid) {
         return listings.find(l => l.uuid === uuid || String(l.uuid) === String(uuid));
     }
@@ -40,7 +42,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
             const updated = await updateLead(lead.uuid, payload);
             onUpdated(updated);
         } catch (err) {
-            setError(err.message || 'Failed to save.');
+            setError(err.message || t('leasing.leads.failedSaveNote'));
         } finally {
             setSaving(false);
         }
@@ -53,7 +55,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                     <div>
                         <h2 className="text-lg font-semibold text-foreground">{lead.caller_name}</h2>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border mt-1 ${STATUS_COLORS[lead.qualification_status] || ''}`}>
-                            {lead.qualification_status.replace('_', ' ')}
+                            {t(`leasing.leads.statuses.${lead.qualification_status}`, { defaultValue: lead.qualification_status.replace('_', ' ') })}
                         </span>
                     </div>
                     <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -64,7 +66,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                 <div className="p-5 space-y-5">
                     {/* Contact */}
                     <section>
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Contact</h3>
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('leasing.leads.contact')}</h3>
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 text-sm text-foreground">
                                 <Phone className="w-4 h-4 text-muted-foreground" />
@@ -81,7 +83,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
 
                     {/* Preferences */}
                     <section>
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Preferences</h3>
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('leasing.leads.preferences')}</h3>
                         <div className="grid grid-cols-2 gap-3">
                             {lead.bedrooms != null && (
                                 <div className="flex items-center gap-2 text-sm text-foreground">
@@ -103,12 +105,12 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                             )}
                             {lead.floor_preference && (
                                 <div className="text-sm text-foreground text-muted-foreground">
-                                    Floor: {lead.floor_preference}
+                                    {t('leasing.leads.floorPref')}: {lead.floor_preference}
                                 </div>
                             )}
                             {lead.occupants != null && (
                                 <div className="text-sm text-foreground text-muted-foreground">
-                                    Occupants: {lead.occupants}
+                                    {t('leasing.leads.occupants')}: {lead.occupants}
                                 </div>
                             )}
                         </div>
@@ -117,13 +119,13 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                     {/* Matched Listings */}
                     {(lead.listing_uuid || (lead.interested_listing_ids && lead.interested_listing_ids.length > 0)) && (
                         <section>
-                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Matched Listings</h3>
+                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('leasing.leads.matchedListings')}</h3>
                             <div className="space-y-2">
                                 {lead.listing_uuid && (() => {
                                     const primary = findListing(lead.listing_uuid);
                                     return (
                                         <div className="flex items-center gap-2 text-sm">
-                                            <span className="text-muted-foreground">Primary:</span>
+                                            <span className="text-muted-foreground">{t('leasing.leads.primary')}:</span>
                                             <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
                                                 {primary ? `${primary.flat_number}${primary.monthly_rent ? ` — $${Number(primary.monthly_rent).toLocaleString('en-CA')}/mo` : ''}` : lead.listing_uuid}
                                             </span>
@@ -132,7 +134,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                                 })()}
                                 {lead.interested_listing_ids && lead.interested_listing_ids.length > 0 && (
                                     <div className="flex items-start gap-2 text-sm">
-                                        <span className="text-muted-foreground shrink-0">Also interested:</span>
+                                        <span className="text-muted-foreground shrink-0">{t('leasing.leads.alsoInterested')}:</span>
                                         <div className="flex flex-wrap gap-1">
                                             {lead.interested_listing_ids
                                                 .filter(id => id !== lead.listing_uuid)
@@ -154,7 +156,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                     {/* Qualifying Answers */}
                     {hasAnswers && (
                         <section>
-                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Qualifying Answers</h3>
+                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('leasing.leads.qualifyingAnswers')}</h3>
                             <div className="space-y-2">
                                 {Object.entries(qualifyingAnswers).map(([q, a]) => (
                                     <div key={q} className="text-sm">
@@ -169,39 +171,39 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                     {/* Disqualifying reason */}
                     {lead.disqualifying_reason && (
                         <section>
-                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Disqualified Because</h3>
+                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t('leasing.leads.disqualifiedBecause')}</h3>
                             <p className="text-sm text-red-500">{lead.disqualifying_reason}</p>
                         </section>
                     )}
 
                     {/* Call info */}
                     <section>
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Call Info</h3>
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('leasing.leads.callInfo')}</h3>
                         <div className="text-sm text-muted-foreground space-y-1">
-                            {lead.call_id && <div>Call ID: <span className="font-mono text-xs">{lead.call_id}</span></div>}
+                            {lead.call_id && <div>{t('leasing.leads.callId')}: <span className="font-mono text-xs">{lead.call_id}</span></div>}
                             {lead.call_duration_seconds != null && (
-                                <div>Duration: {Math.floor(lead.call_duration_seconds / 60)}m {lead.call_duration_seconds % 60}s</div>
+                                <div>{t('leasing.leads.duration')}: {Math.floor(lead.call_duration_seconds / 60)}m {lead.call_duration_seconds % 60}s</div>
                             )}
-                            <div>Received: {new Date(lead.created_at).toLocaleString()}</div>
+                            <div>{t('leasing.leads.received')}: {new Date(lead.created_at).toLocaleString()}</div>
                         </div>
                     </section>
 
                     {/* Status pipeline */}
                     <section>
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Pipeline Status</h3>
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('leasing.leads.pipelineStatus')}</h3>
                         {isVoiceSet ? (
                             <div className="space-y-2">
                                 <p className="text-xs text-muted-foreground">
-                                    Voice set this to <strong>{lead.qualification_status.replace('_', ' ')}</strong>. Move it forward:
+                                    {t('leasing.leads.voiceSetStatus', { status: t(`leasing.leads.statuses.${lead.qualification_status}`, { defaultValue: lead.qualification_status.replace('_', ' ') }) })}
                                 </p>
                                 <select
                                     value={status}
                                     onChange={e => setStatus(e.target.value)}
                                     className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                                 >
-                                    <option value={lead.qualification_status}>{lead.qualification_status.replace('_', ' ')} (current)</option>
+                                    <option value={lead.qualification_status}>{t(`leasing.leads.statuses.${lead.qualification_status}`, { defaultValue: lead.qualification_status.replace('_', ' ') })} {t('leasing.leads.current')}</option>
                                     {MANAGER_STATUSES.map(s => (
-                                        <option key={s} value={s}>{s}</option>
+                                        <option key={s} value={s}>{t(`leasing.leads.statuses.${s}`, { defaultValue: s })}</option>
                                     ))}
                                 </select>
                             </div>
@@ -212,7 +214,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                                 className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                             >
                                 {MANAGER_STATUSES.map(s => (
-                                    <option key={s} value={s}>{s}</option>
+                                    <option key={s} value={s}>{t(`leasing.leads.statuses.${s}`, { defaultValue: s })}</option>
                                 ))}
                             </select>
                         )}
@@ -221,13 +223,13 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                     {/* Manager Notes */}
                     <section>
                         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
-                            <MessageSquare className="w-3.5 h-3.5" /> Manager Notes
+                            <MessageSquare className="w-3.5 h-3.5" /> {t('leasing.leads.managerNotes')}
                         </h3>
                         <textarea
                             value={notes}
                             onChange={e => setNotes(e.target.value)}
                             rows={3}
-                            placeholder="Add private notes about this lead…"
+                            placeholder={t('leasing.leads.notesPlaceholder')}
                             className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground resize-none"
                         />
                     </section>
@@ -237,11 +239,11 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                     <div className="flex gap-3 pt-1">
                         <button onClick={onClose}
                             className="flex-1 border border-border rounded-lg py-2 text-sm text-foreground hover:bg-secondary transition-colors">
-                            Cancel
+                            {t('common.cancel')}
                         </button>
                         <button onClick={handleSave} disabled={saving}
                             className="flex-1 bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
-                            {saving ? 'Saving…' : 'Save'}
+                            {saving ? t('leasing.listings.saving') : t('common.save')}
                         </button>
                     </div>
                 </div>

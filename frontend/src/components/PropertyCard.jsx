@@ -1,9 +1,10 @@
 import { Bed, Bath, MapPin, CheckCircle2, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 
-// rent prop is optional — passed in only when already fetched (e.g. from detail view)
-// PropertyCard does NOT fetch rent itself to avoid N+1 API calls on list load
 function PropertyCard({ property, onClick, rent }) {
+    const { t } = useTranslation();
+
     return (
         <div
             className={cn(
@@ -26,12 +27,12 @@ function PropertyCard({ property, onClick, rent }) {
                     {!!property.tenant_uuid ? (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/90 text-white text-xs font-medium">
                             <XCircle className="w-3 h-3" />
-                            <span>Occupied</span>
+                            <span>{t('properties.unitStatus.occupied')}</span>
                         </div>
                     ) : (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/90 text-white text-xs font-medium">
                             <CheckCircle2 className="w-3 h-3" />
-                            <span>Available</span>
+                            <span>{t('unit.available')}</span>
                         </div>
                     )}
                 </div>
@@ -55,20 +56,19 @@ function PropertyCard({ property, onClick, rent }) {
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <Bed className="w-4 h-4 text-primary" />
                         <span className="font-medium text-foreground">{property.bedrooms}</span>
-                        <span>Bed{property.bedrooms !== 1 ? 's' : ''}</span>
+                        <span>{property.bedrooms !== 1 ? t('properties.beds') : t('properties.bed')}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <Bath className="w-4 h-4 text-primary" />
                         <span className="font-medium text-foreground">{property.bathrooms ?? 0}</span>
-                        <span>Bath{(property.bathrooms ?? 0) !== 1 ? 's' : ''}</span>
+                        <span>{(property.bathrooms ?? 0) !== 1 ? t('properties.baths') : t('properties.bath')}</span>
                     </div>
                 </div>
-
 
                 {/* Flat Number Badge */}
                 <div>
                     <span className="inline-block px-2 py-1 text-xs font-medium rounded-md bg-secondary text-foreground">
-                        Unit #{property.flat_number}
+                        {t('properties.unitLabel')} #{property.flat_number}
                     </span>
                 </div>
             </div>

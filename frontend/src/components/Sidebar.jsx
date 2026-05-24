@@ -1,4 +1,5 @@
 import { Home, Building2, Settings, Users, MessageSquareMore, CalendarDays, ClipboardList, LogOut, Sparkles, DollarSign, PhoneCall, KeyRound } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 import { useAuth } from '../context/AuthContext';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -7,17 +8,19 @@ import Logo from './icon.svg';
 function Sidebar({ currentView, onNavigate }) {
     const { user, signOut } = useAuth();
     const { isChecklistComplete } = useOnboarding();
+    const { t } = useTranslation();
+
     const navItems = [
-        { id: 'dashboard', icon: Home, label: 'Dashboard' },
-        { id: 'tenants', icon: Users, label: 'Tenants' },
-        { id: 'properties', icon: Building2, label: 'Properties' },
-        { id: 'rent', icon: DollarSign, label: 'Rent' },
-        { id: 'calendar', icon: CalendarDays, label: 'Calendar' },
-        { id: 'complaints', icon: ClipboardList, label: 'Complaints' },
-        { id: 'voice-stats', icon: PhoneCall, label: 'Voice Stats' },
-        { id: 'leasing', icon: KeyRound, label: 'Leasing' },
-        { id: 'workflow', icon: MessageSquareMore, label: 'SMS Workflow' },
-        { id: 'settings', icon: Settings, label: 'Settings' },
+        { id: 'dashboard',   icon: Home,               label: t('nav.dashboard') },
+        { id: 'tenants',     icon: Users,              label: t('nav.tenants') },
+        { id: 'properties',  icon: Building2,          label: t('nav.properties') },
+        { id: 'rent',        icon: DollarSign,         label: t('nav.rent') },
+        { id: 'calendar',    icon: CalendarDays,       label: t('nav.calendar') },
+        { id: 'complaints',  icon: ClipboardList,      label: t('nav.complaints') },
+        { id: 'voice-stats', icon: PhoneCall,          label: t('nav.voiceStats') },
+        { id: 'leasing',     icon: KeyRound,           label: t('nav.leasing') },
+        { id: 'workflow',    icon: MessageSquareMore,  label: t('nav.smsWorkflow') },
+        { id: 'settings',    icon: Settings,           label: t('nav.settings') },
     ];
 
     return (
@@ -68,7 +71,7 @@ function Sidebar({ currentView, onNavigate }) {
                         )}
                     >
                         <Sparkles className="w-5 h-5 flex-shrink-0" />
-                        <span className="hidden lg:inline font-medium">Get Started</span>
+                        <span className="hidden lg:inline font-medium">{t('nav.getStarted')}</span>
                     </button>
                 </div>
             )}
@@ -83,7 +86,7 @@ function Sidebar({ currentView, onNavigate }) {
                     className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all duration-200"
                 >
                     <LogOut className="w-5 h-5 flex-shrink-0" />
-                    <span className="hidden lg:inline font-medium">Logout</span>
+                    <span className="hidden lg:inline font-medium">{t('nav.logout')}</span>
                 </button>
             </div>
         </aside>
@@ -91,4 +94,3 @@ function Sidebar({ currentView, onNavigate }) {
 }
 
 export default Sidebar;
-
