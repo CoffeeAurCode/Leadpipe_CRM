@@ -1200,44 +1200,33 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             },
         },
         {
-            "type": "function",
+            "type": "apiRequest",
+            "name": "submit_lease_lead",
             "async": True,
             "function": {
-                "name": "submit_lease_lead",
-                "strict": True,
-                "description": "Capture the prospective tenant as a lead before ending the call.",
-                "parameters": {
-                    "type": "object",
-                    "required": ["caller_name", "qualification_status"],
-                    "properties": {
-                        "caller_name": {"type": "string", "description": "Caller's full name", "default": ""},
-                        "listing_uuid": {"type": "string", "description": "UUID of the primary listing the caller wants to pursue (from search or find_listing response)", "default": ""},
-                        "interested_listing_ids": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "UUIDs of all listings the caller expressed interest in during the call",
-                            "default": [],
-                        },
-                        "bedrooms": {"type": "integer", "description": "Desired bedrooms (pass 0 if not stated)", "default": 0},
-                        "budget_max": {"type": "number", "description": "Maximum monthly budget (pass 0 if not stated)", "default": 0},
-                        "address_preference": {"type": "string", "description": "Building name, street, or neighbourhood the caller asked about — copy exactly what was passed to find_listing or search_available_listings as the address/query parameter", "default": ""},
-                        "move_in_timeline": {"type": "string", "description": "Preferred move-in date or timeframe", "default": ""},
-                        "occupants": {"type": "integer", "description": "Number of occupants", "default": 0},
-                        "floor_preference": {"type": "string", "description": "Floor preference if mentioned", "default": ""},
-                        "qualification_status": {
-                            "type": "string",
-                            "description": "Outcome of qualifying questions",
-                            "enum": ["qualified", "not_qualified", "unmatched"],
-                            "default": "unmatched",
-                        },
-                        "disqualifying_reason": {"type": "string", "description": "Reason for not_qualified status", "default": ""},
-                        "qualifying_answers": {"type": "string", "description": "JSON string of qualifying question → answer pairs", "default": "{}"},
-                    },
-                },
+                "name": "api_request_tool",
+                "description": "Capture the prospective tenant as a lead before ending the call. Always call this exactly once before ending.",
             },
-            "server": {
-                "url": f"{backend_url}/voice/lease-lead-webhook",
-                "timeoutSeconds": 20,
+            "url": f"{backend_url}/voice/lease-lead-direct?call_id={{{{call.id}}}}&phone={{{{customer.number}}}}",
+            "method": "POST",
+            "body": {
+                "type": "object",
+                "required": ["caller_name", "qualification_status"],
+                "properties": {
+                    "caller_name": {"type": "string", "description": "Caller's full name", "default": ""},
+                    "listing_uuid": {"type": "string", "description": "UUID of the primary listing from search results (leave blank if none found)", "default": ""},
+                    "interested_listing_ids": {"type": "array", "items": {"type": "string"}, "description": "UUIDs of all listings the caller expressed interest in", "default": []},
+                    "bedrooms": {"type": "integer", "description": "Desired bedrooms (0 if not stated)", "default": 0},
+                    "budget_max": {"type": "number", "description": "Max monthly budget (0 if not stated)", "default": 0},
+                    "address_preference": {"type": "string", "description": "Building/street the caller asked about", "default": ""},
+                    "move_in_timeline": {"type": "string", "description": "Preferred move-in date or timeframe", "default": ""},
+                    "occupants": {"type": "integer", "description": "Number of occupants", "default": 0},
+                    "floor_preference": {"type": "string", "description": "Floor preference if mentioned", "default": ""},
+                    "qualification_status": {"type": "string", "description": "qualified / not_qualified / unmatched", "default": "unmatched"},
+                    "disqualifying_reason": {"type": "string", "description": "Reason for not_qualified", "default": ""},
+                    "qualifying_answers": {"type": "string", "description": "JSON string of question→answer pairs", "default": "{}"},
+                    "notes": {"type": "string", "description": "Any additional notes", "default": ""},
+                },
             },
             "messages": [
                 {
@@ -1246,14 +1235,16 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "role": "assistant",
                     "endCallAfterSpoken": False,
                 },
-                {
-                    "type": "request-response-delayed",
-                    "content": "Still working on it, just another moment.",
-                    "timingMilliseconds": 3000,
-                    "role": "assistant",
-                    "endCallAfterSpoken": False,
-                },
             ],
+            "variableExtractionPlan": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "string"},
+                        "caller_name": {"type": "string"},
+                    },
+                }
+            },
         },
     ]
 

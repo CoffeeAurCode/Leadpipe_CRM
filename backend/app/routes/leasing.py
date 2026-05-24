@@ -35,97 +35,77 @@ async def find_listing(
     Always returns HTTP 200.
     """
     try:
-        q = (
-            db.table("lease_listings")
-            .select(
-                "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
-                "flats!inner(bedrooms, floor_number, address)"
-            )
-            .eq("is_active", True)
-        )
-        if property_group_id:
-            q = q.eq("property_group_id", property_group_id)
-        elif manager_id:
-            q = q.eq("manager_id", manager_id)
-
-        results = q.ilike("flat_number", f"%{query}%").limit(20).execute()
-
-        if not results.data:
-            fallback_q = (
+        def _build_base_q(db, property_group_id, manager_id):
+            q = (
                 db.table("lease_listings")
                 .select(
                     "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
-                    "flats!inner(bedrooms, floor_number, address)"
+                    "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
                 )
                 .eq("is_active", True)
-                .ilike("title", f"%{query}%")
-                .limit(20)
             )
             if property_group_id:
-                fallback_q = fallback_q.eq("property_group_id", property_group_id)
+                q = q.eq("property_group_id", property_group_id)
             elif manager_id:
-                fallback_q = fallback_q.eq("manager_id", manager_id)
-            results = fallback_q.execute()
+                q = q.eq("manager_id", manager_id)
+            return q
 
-        if not results.data:
-            # Third fallback: search by flat address — return ALL matching units
-            all_q = (
-                db.table("lease_listings")
-                .select(
-                    "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
-                    "flats!inner(bedrooms, floor_number, address)"
-                )
-                .eq("is_active", True)
-                .limit(20)
-            )
-            if property_group_id:
-                all_q = all_q.eq("property_group_id", property_group_id)
-            elif manager_id:
-                all_q = all_q.eq("manager_id", manager_id)
-            all_results = all_q.execute()
-            query_lower = query.lower()
-            matched = [
-                r for r in (all_results.data or [])
-                if query_lower in (r.get("flats") or {}).get("address", "").lower()
-            ]
-            if not matched:
-                return {"found": False, "count": 0, "listings": []}
-            listings_out = []
-            for l in matched:
-                flat = l.get("flats") or {}
-                listings_out.append({
-                    "listing_uuid": l["uuid"],
-                    "flat_number": l["flat_number"],
-                    "title": l.get("title") or "",
-                    "address": flat.get("address"),
-                    "bedrooms": flat.get("bedrooms"),
-                    "monthly_rent": float(l["monthly_rent"]),
-                    "floor_number": str(flat.get("floor_number") or ""),
-                    "available_from": str(l.get("available_from") or ""),
-                    "custom_rules": json.dumps(l.get("custom_rules") or {}),
-                })
+        def _to_listing_out(l):
+            flat = l.get("flats") or {}
+            building = flat.get("buildings") or {}
+            return {
+                "listing_uuid": l["uuid"],
+                "flat_number": l["flat_number"],
+                "title": l.get("title") or "",
+                "address": " ".join(filter(None, [
+                    flat.get("address") or "",
+                    building.get("name") or "",
+                    building.get("address") or "",
+                ])).strip(),
+                "bedrooms": flat.get("bedrooms"),
+                "monthly_rent": float(l["monthly_rent"]),
+                "floor_number": str(flat.get("floor_number") or ""),
+                "available_from": str(l.get("available_from") or ""),
+                "custom_rules": json.dumps(l.get("custom_rules") or {}),
+            }
+
+        # Path 1: exact flat_number match
+        results = _build_base_q(db, property_group_id, manager_id).ilike("flat_number", f"%{query}%").limit(20).execute()
+        if results.data:
+            listings_out = [_to_listing_out(r) for r in results.data]
             return {"found": True, "count": len(listings_out), "listings": listings_out}
 
-        listing = results.data[0]
-        flat = listing.get("flats") or {}
-        return {
-            "found": True,
-            "count": 1,
-            "listings": [{
-                "listing_uuid": listing["uuid"],
-                "flat_number": listing["flat_number"],
-                "title": listing.get("title") or "",
-                "address": flat.get("address"),
-                "bedrooms": flat.get("bedrooms"),
-                "monthly_rent": float(listing["monthly_rent"]),
-                "floor_number": str(flat.get("floor_number") or ""),
-                "available_from": str(listing.get("available_from") or ""),
-                "custom_rules": json.dumps(listing.get("custom_rules") or {}),
-            }],
-        }
+        # Path 2: listing title match
+        results = _build_base_q(db, property_group_id, manager_id).ilike("title", f"%{query}%").limit(20).execute()
+        if results.data:
+            listings_out = [_to_listing_out(r) for r in results.data]
+            return {"found": True, "count": len(listings_out), "listings": listings_out}
+
+        # Path 3: building name / flat address match (Python-side filter, includes buildings.name)
+        all_results = _build_base_q(db, property_group_id, manager_id).limit(20).execute()
+        query_lower = query.lower()
+        matched = []
+        for r in (all_results.data or []):
+            flat = r.get("flats") or {}
+            building = flat.get("buildings") or {}
+            haystack = " ".join(filter(None, [
+                flat.get("address") or "",
+                building.get("name") or "",
+                building.get("address") or "",
+                r.get("title") or "",
+            ])).lower()
+            if query_lower in haystack:
+                matched.append(r)
+
+        if not matched:
+            return {"found": False, "count": 0, "listings": []}
+
+        listings_out = [_to_listing_out(r) for r in matched]
+        return {"found": True, "count": len(listings_out), "listings": listings_out}
+
     except Exception as e:
         print(f"[ERROR] find_listing: {e}")
-        return {"found": False}
+        return {"found": False, "count": 0, "listings": []}
 
 
 @router.get("/search")
@@ -165,7 +145,7 @@ async def search_available_listings(
             db.table("lease_listings")
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
-                "flats!inner(bedrooms, floor_number, address)"
+                "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
             )
             .eq("is_active", True)
         )
@@ -187,8 +167,15 @@ async def search_available_listings(
             flat = listing.get("flats") or {}
             if bedrooms_filter is not None and flat.get("bedrooms") != bedrooms_filter:
                 continue
-            if address_lower and address_lower not in (flat.get("address") or "").lower():
-                continue
+            if address_lower:
+                building = flat.get("buildings") or {}
+                haystack = " ".join(filter(None, [
+                    flat.get("address") or "",
+                    building.get("name") or "",
+                    building.get("address") or "",
+                ])).lower()
+                if address_lower not in haystack:
+                    continue
             listings_out.append({
                 "listing_uuid": listing["uuid"],
                 "flat_number": listing["flat_number"],
@@ -199,7 +186,7 @@ async def search_available_listings(
                 "available_from": str(listing.get("available_from") or ""),
             })
 
-        listings_out = listings_out[:5]
+        listings_out = listings_out[:20]
         return {"count": len(listings_out), "listings": listings_out}
     except Exception as e:
         print(f"[ERROR] search_available_listings: {e}")
