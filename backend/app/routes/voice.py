@@ -579,6 +579,10 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
             except Exception:
                 qualifying_answers = {}
 
+        address_preference = (lead_data.get("address_preference") or "").strip()
+        if address_preference:
+            qualifying_answers["address_preference"] = address_preference
+
         raw_interested = lead_data.get("interested_listing_ids") or []
         if not isinstance(raw_interested, list):
             raw_interested = []
