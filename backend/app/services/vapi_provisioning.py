@@ -19,7 +19,7 @@ def provision_vapi_for_manager(manager_id: str, db: Client) -> None:
     try:
         existing = (
             svc_db.table("manager_vapi_config")
-            .select("id, vapi_provisioning_status")
+            .select("id, vapi_provisioning_status, vapi_lease_assistant_id")
             .eq("manager_id", manager_id)
             .limit(1)
             .execute()
@@ -27,6 +27,8 @@ def provision_vapi_for_manager(manager_id: str, db: Client) -> None:
         if existing.data and existing.data[0].get("vapi_provisioning_status") == "active":
             print(f"[VAPI PROVISION] Manager {manager_id} already active, skipping")
             return
+
+        existing_assistant_id = existing.data[0].get("vapi_lease_assistant_id") if existing.data else None
 
         # Guard: if this manager already claimed a pool row, don't claim another.
         # Handles concurrent retries landing here simultaneously.
@@ -70,7 +72,11 @@ def provision_vapi_for_manager(manager_id: str, db: Client) -> None:
         phone_number = pool_row["phone_number"]
 
         lease_cfg = build_lease_config(BACKEND_URL, manager_id)
-        lease = client.assistants.create(**lease_cfg)
+        if existing_assistant_id:
+            print(f"[VAPI PROVISION] Updating existing assistant {existing_assistant_id} (no duplicate)")
+            lease = client.assistants.update(id=existing_assistant_id, **lease_cfg)
+        else:
+            lease = client.assistants.create(**lease_cfg)
 
         # VAPI's update endpoint rejects any `provider` field in the body.
         # The SDK discriminated-union types always include it, so call the REST API directly.
