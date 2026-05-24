@@ -39,6 +39,19 @@ def _strip_tool_role(tools: list) -> list:
 
 
 def patch_assistant(assistant_id: str, new_config: dict, label: str):
+    headers = {
+        "Authorization": f"Bearer {VAPI_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # GET current state before patching
+    get_resp = httpx.get(f"{VAPI_API_BASE}/assistant/{assistant_id}", headers=headers, timeout=30)
+    if get_resp.status_code == 200:
+        current = get_resp.json()
+        print(f"  [BEFORE] serverMessages = {current.get('serverMessages', 'NOT_PRESENT')}")
+    else:
+        print(f"  [WARN] Could not GET assistant: {get_resp.status_code}")
+
     model_block = new_config.get("model", {})
     payload = {
         "model": {
@@ -46,23 +59,27 @@ def patch_assistant(assistant_id: str, new_config: dict, label: str):
             "model": model_block.get("model", "gpt-4o-mini"),
             "messages": model_block.get("messages", []),
             "tools": _strip_tool_role(model_block.get("tools", [])),
-        }
+            "maxTokens": model_block.get("maxTokens", 1024),
+            "temperature": model_block.get("temperature", 0.7),
+        },
+        "serverMessages": ["end-of-call-report"],
     }
     if "server" in new_config:
         payload["server"] = new_config["server"]
-    if "server_messages" in new_config:
-        payload["serverMessages"] = new_config["server_messages"]
+
     resp = httpx.patch(
         f"{VAPI_API_BASE}/assistant/{assistant_id}",
-        headers={
-            "Authorization": f"Bearer {VAPI_TOKEN}",
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         json=payload,
         timeout=30,
     )
     if resp.status_code == 200:
-        print(f"  [OK] {label} — assistant {assistant_id} updated")
+        updated = resp.json()
+        print(f"  [AFTER]  serverMessages = {updated.get('serverMessages', 'NOT_PRESENT')}")
+        if updated.get("serverMessages") == ["end-of-call-report"]:
+            print(f"  [OK] {label} — serverMessages confirmed fixed")
+        else:
+            print(f"  [WARN] {label} — serverMessages did NOT apply correctly — fix via VAPI dashboard manually")
     else:
         print(f"  [FAIL] {label} — {resp.status_code}: {resp.text[:300]}")
 

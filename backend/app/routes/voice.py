@@ -656,9 +656,19 @@ async def lease_eoc_webhook(request: Request, db: Client = Depends(get_service_d
         global _last_call_ended_at
         payload = await request.json()
         message = payload.get("message", {})
+        msg_type = message.get("type")
 
-        if message.get("type") != "end-of-call-report":
-            return {"status": "ignored"}
+        # For any tool-call events VAPI routes here, return a neutral tool result
+        # so VAPI does not treat the tool as failed.
+        if msg_type not in ("end-of-call-report", None):
+            tool_calls = message.get("toolCalls") or []
+            if tool_calls:
+                results = [
+                    {"toolCallId": tc.get("id", ""), "result": "ok"}
+                    for tc in tool_calls
+                ]
+                return {"results": results}
+            return {"status": "ok"}
 
         call = message.get("call", {})
         call_id = call.get("id")
