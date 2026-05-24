@@ -1223,7 +1223,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
     ]
 
 
-def _lease_assistant_shell(name: str, system_prompt: str, tools: list) -> dict:
+def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_url: str = BACKEND_URL) -> dict:
     return {
         "name": name,
         "first_message": "Thank you for calling! I'm here to help you find a rental unit. / Merci d'appeler! Je suis ici pour vous aider à trouver un logement.",
@@ -1240,6 +1240,10 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list) -> dict:
             "maxTokens": 300,
             "temperature": 0.7,
             "tools": tools,
+        },
+        "server": {
+            "url": f"{backend_url}/voice/lease-eoc-webhook",
+            "timeoutSeconds": 20,
         },
         "server_messages": [
             "conversation-update", "end-of-call-report", "function-call",
@@ -1269,6 +1273,7 @@ def build_lease_config(backend_url: str, manager_id: str) -> dict:
         name=f"Lease Agent [{manager_id[:8]}]",
         system_prompt=system_prompt,
         tools=tools,
+        backend_url=backend_url,
     )
 
 
@@ -1279,4 +1284,5 @@ def build_lease_config_shared(backend_url: str) -> dict:
         name="Shared Lease Agent",
         system_prompt=_LEASE_SYSTEM_PROMPT_BASE,
         tools=tools,
+        backend_url=backend_url,
     )

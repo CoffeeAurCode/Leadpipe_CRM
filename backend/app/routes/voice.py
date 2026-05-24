@@ -643,6 +643,93 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
     return {"status": "processed"}
 
 
+# ── Lease end-of-call-report fallback ────────────────────────────────────────
+
+@router.post("/voice/lease-eoc-webhook")
+async def lease_eoc_webhook(request: Request, db: Client = Depends(get_service_db)):
+    """
+    Fallback for the lease agent's end-of-call-report.
+    If submit_lease_lead was never called during the call, creates a partial
+    unmatched lead so the manager still sees that a call happened.
+    """
+    try:
+        global _last_call_ended_at
+        payload = await request.json()
+        message = payload.get("message", {})
+
+        if message.get("type") != "end-of-call-report":
+            return {"status": "ignored"}
+
+        call = message.get("call", {})
+        call_id = call.get("id")
+        assistant_id = call.get("assistantId")
+        phone_number_id = call.get("phoneNumberId")
+        phone = call.get("customer", {}).get("number", "")
+
+        if not call_id:
+            return {"status": "ignored", "reason": "no_call_id"}
+
+        _last_call_ended_at = datetime.now(timezone.utc).isoformat()
+
+        existing = db.table("lease_leads").select("id").eq("call_id", call_id).limit(1).execute()
+        if existing.data:
+            return {"status": "ignored", "reason": "lead_already_exists"}
+
+        artifact = message.get("artifact", {})
+        transcript = artifact.get("transcript", "")
+
+        manager_id = None
+        if assistant_id:
+            mvc_row = (
+                db.table("manager_vapi_config")
+                .select("manager_id")
+                .eq("vapi_lease_assistant_id", assistant_id)
+                .limit(1)
+                .execute()
+            )
+            if mvc_row.data:
+                manager_id = mvc_row.data[0].get("manager_id")
+
+        if not manager_id and phone_number_id:
+            mvc_row = (
+                db.table("manager_vapi_config")
+                .select("manager_id")
+                .eq("vapi_phone_number_id", phone_number_id)
+                .limit(1)
+                .execute()
+            )
+            if mvc_row.data:
+                manager_id = mvc_row.data[0].get("manager_id")
+
+        notes = (
+            "[Incomplete call — lead captured from end-of-call fallback]\n\nTranscript:\n"
+            + transcript[:2000]
+            if transcript
+            else "[Incomplete call — no transcript available]"
+        )
+
+        lead_payload = {
+            "manager_id": str(manager_id) if manager_id else None,
+            "property_group_id": None,
+            "listing_uuid": None,
+            "interested_listing_ids": [],
+            "caller_name": "Unknown",
+            "phone": phone,
+            "qualification_status": "unmatched",
+            "source": "voice",
+            "call_id": call_id,
+            "notes": notes,
+        }
+
+        db.table("lease_leads").insert(lead_payload).execute()
+        print(f"[LEASE EOC] Partial lead saved for call_id={call_id} phone={phone} manager={manager_id}")
+
+    except Exception as e:
+        print(f"[ERROR] lease_eoc_webhook: {e}")
+
+    return {"status": "processed"}
+
+
 # ── Call status polling endpoint ──────────────────────────────────────────────
 
 @router.get("/voice/call-status")

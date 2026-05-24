@@ -48,6 +48,8 @@ def patch_assistant(assistant_id: str, new_config: dict, label: str):
             "tools": _strip_tool_role(model_block.get("tools", [])),
         }
     }
+    if "server" in new_config:
+        payload["server"] = new_config["server"]
     resp = httpx.patch(
         f"{VAPI_API_BASE}/assistant/{assistant_id}",
         headers={
