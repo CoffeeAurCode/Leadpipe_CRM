@@ -1,113 +1,102 @@
-# Lease Agent — Diagnosis (2026-05-24)
+# Lease Agent — Diagnosis (2026-05-24, updated)
 
-## Symptom
-Outbound lease call placed at 14:43:01. Agent never called `find_listing` or
-`search_available_listings`. No search endpoints appeared in backend logs. Caller
-name not taken. No lead created.
-
----
-
-## Root Cause 1 — Render restart mid-call (environment)
-
-**Evidence from logs:**
-```
-14:43:01  POST /voice/call/outbound  200 OK   ← call placed
-14:43:10  Shutting down                        ← Render restarts (9 s later)
-14:43:14  Back up
-14:44:54  GET /voice/call-status               ← last poll (call still alive)
-```
-
-**What happened:**
-`apiRequest` tools (`find_listing`, `search_available_listings`) are HTTP calls
-our VAPI agent makes directly to the backend. Call timeline:
-
-| Time offset | Event |
-|---|---|
-| +0 s  | Call placed via API |
-| +4 s  | Call connects, VAPI agent speaks greeting |
-| +7 s  | User speaks their preference |
-| +9 s  | **Server shuts down** — backend unreachable |
-| +9–13 s | VAPI tries first tool call → connection refused |
-| +13 s | Server back — but LLM already received an error and moved on |
-
-VAPI does not retry a failed `apiRequest` call. The LLM received a connection
-error as the tool result, likely responded with an apology, and the conversation
-continued but no further tool calls were made.
-
-Zero `/leasing/find-listing` or `/leasing/search` requests in the logs confirms
-the tools never reached the backend.
-
-**Fix:** Not a code change — test when Render is stable (no active deployments).
-Wait at least 2 minutes after a deploy before placing a test call.
+## Symptoms Reported
+- Agent said "availability system is offline"
+- No lead was added to the database
+- Search tools not reaching the backend
 
 ---
 
-## Root Cause 2 — `find_listing` variableExtractionPlan stale (code bug)
+## Root Cause 1 — `server_messages` now routes function/tool events to EOC handler (CODE BUG — FIXED)
 
-**Background:** Last session changed `find_listing` from returning flat fields
-(`listing_uuid`, `address`, etc. at the top level) to returning:
-```json
-{ "found": true, "count": 5, "listings": [ { "listing_uuid": "...", ... } ] }
+**Background:** This session we added `server.url → /voice/lease-eoc-webhook` to the lease assistant.
+Before that, `server_messages` listed many event types but had nowhere to send them (no server URL).
+After the change, VAPI started routing ALL listed events to our EOC handler, including:
+
+```
+"function-call"    ← VAPI sends function calls here for execution
+"tool-calls"       ← VAPI sends tool-call notifications here
 ```
 
-**The bug:** `variableExtractionPlan` in `vapi_agent_config.py` was not updated.
-It still expected top-level fields:
-```python
-"listing_uuid": {"type": "string"},   # no longer top-level
-"address":      {"type": "string"},   # no longer top-level
-"bedrooms":     {"type": "integer"},  # no longer top-level
-...
-```
+Our handler returns `{"status": "ignored"}` for anything that isn't `end-of-call-report`.
+For `function-call` and `tool-calls`, VAPI expects an execution result. Receiving `"ignored"`
+caused VAPI to treat the tool call as failed — blocking tool execution entirely.
 
-VAPI tries to extract these variables from the response and finds nothing (they
-are now inside the `listings` array). The LLM still receives the full JSON body
-and can read it, but VAPI cannot surface the structured variables for template
-references.
+**Evidence:** Server was healthy at 15:09:38 (all GET requests returning 200 OK), yet ZERO
+hits to `/leasing/find-listing` or `/leasing/search` appeared in logs. Tool calls were being
+swallowed by the EOC handler, never reaching the search endpoints.
 
-**Fix:** Updated `variableExtractionPlan` to match the new shape — see
-`LEASE_AGENT_FIX_PLAN.md`.
+**Fix applied:** Reduced `server_messages` in `_lease_assistant_shell` to only
+`["end-of-call-report"]`. VAPI now only sends EOC events to our server. Tool execution
+flows are completely unaffected (apiRequest tools call their URL directly; `submit_lease_lead`
+has its own dedicated server URL `/voice/lease-lead-webhook`).
 
 ---
 
-## Root Cause 3 — `search_available_listings` variableExtractionPlan incomplete
+## Root Cause 2 — Lease agent system prompt had no error handling (PROMPT BUG — FIXED)
 
-The `listings` field in the extraction plan had no `items` schema:
-```python
-"listings": {"type": "array", "description": "..."}
-```
+The lease agent system prompt had no `[Error Handling]` section. When any tool failed,
+the LLM was left to improvise. GPT-5.2 improvised with "availability system is offline"
+and then gave up — no retry, no lead capture.
 
-VAPI could not extract the individual listing objects (including `listing_uuid`)
-from the array. Same impact as Root Cause 2 — LLM reads the JSON but VAPI
-variables are empty.
+The complaint agent has `[Error Handling & Fallbacks]` but the lease agent never did.
 
-**Fix:** Added full `items` schema with all listing fields.
+**Fix applied:** Added `[Error Handling]` block to the lease agent system prompt:
+- Retry search tools once on failure
+- If second attempt also fails: capture lead with `qualification_status="unmatched"` and
+  notes about the technical issue, then end politely
+- `submit_lease_lead` MUST be called before ending, even on tool failure
 
 ---
 
-## Root Cause 4 — EOC webhook not received after first test
+## Root Cause 3 — Render deployment cycle (environment — not fixable in code)
 
-After we added `server.url → /voice/lease-eoc-webhook`, no POST to that endpoint
-appeared in the first test log. Three explanations:
+Render's zero-downtime deploy shuts down the OLD server after the NEW server goes live.
+In this log the pattern was:
 
-1. **The call ended during the 4-second restart window** (14:43:10–14:43:14) —
-   VAPI sent the `end-of-call-report` but the server was down. VAPI does not
-   retry server events.
-2. **VAPI propagation delay** — The VAPI assistant was patched seconds before
-   the test. VAPI may take up to 60 seconds to apply a server URL change.
-3. **The call was still live** — The polling ran until 14:44:54 with no EOC
-   event, which means the call may have been held open (user didn't hang up
-   cleanly or VAPI kept the session).
+```
+14:42:11  New server live
+14:43:10  Old server shut down   ← 9 seconds gap
+14:57:35  New server live
+14:58:35  Old server shut down   ← 60 seconds gap
+```
 
-**Fix:** No code change needed. Future calls will use the EOC fallback correctly
-now that the server URL is active and the server is stable.
+A call placed at 14:43:01 (9 seconds before old server dies) could have had its first
+tool call land during the changeover. The new error handling in the prompt (Root Cause 2
+fix) now makes the agent retry once and gracefully capture a partial lead if tools keep failing.
+
+---
+
+## Root Cause 4 — 400 errors at 15:01 (VAPI rejected outbound calls)
+
+```
+15:01:13  POST /voice/call/outbound  400 Bad Request
+15:01:22  POST /voice/call/outbound  400 Bad Request
+```
+
+VAPI returned 400 for both attempts. Our backend re-raises VAPI's status code.
+VAPI 400 reasons: invalid E.164 phone number, assistant not provisioned for outbound,
+or phone number ID not active. The user fixed this by 15:09:38 (likely corrected phone format).
+Nothing to fix in code.
+
+---
+
+## Root Cause 5 — EOC webhook code not yet deployed
+
+The `POST /voice/lease-eoc-webhook` endpoint was added to `voice.py` in this session.
+VAPI was patched to point to that URL. But the endpoint only exists on Render after the
+code is pushed and deployed. Until then VAPI gets a 404 for EOC events and doesn't retry.
+
+**Fix:** Push and deploy the current code to Render.
 
 ---
 
 ## Summary Table
 
-| # | Issue | Type | Fixed? |
+| # | Issue | Type | Status |
 |---|---|---|---|
-| 1 | Render restart killed tool calls mid-call | Environment | Test on stable server |
-| 2 | `find_listing` variableExtractionPlan stale | Code bug | ✅ Fixed + VAPI patched |
-| 3 | `search_available_listings` items schema missing | Code bug | ✅ Fixed + VAPI patched |
-| 4 | EOC webhook missed on first test | Timing | ✅ Will work on next stable call |
+| 1 | `server_messages` routing tool events to EOC handler — broke all tool execution | Code bug | ✅ Fixed, VAPI patched |
+| 2 | No `[Error Handling]` in lease agent prompt — LLM gave up on tool failure | Prompt bug | ✅ Fixed, VAPI patched |
+| 3 | Render deploy cycle kills in-flight tool calls | Environment | Mitigated by retry logic |
+| 4 | VAPI 400 errors for outbound calls | User input (phone format) | Self-resolved |
+| 5 | `lease_eoc_webhook` endpoint not deployed | Deploy required | Deploy code to Render |

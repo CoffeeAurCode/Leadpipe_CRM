@@ -1053,6 +1053,16 @@ Not qualified / unmatched: "Thank you for calling. Have a great day!"
 - NO FORCING PREFERENCES: If the caller has not mentioned bedrooms, do not ask "how many bedrooms do you need?" before searching. If they have not mentioned a budget, do not ask for a budget before searching. Search first and let the results guide the conversation.
 - BEDROOM COUNT: Never infer bedroom count from descriptive terms like "penthouse", "suite", "top floor", or floor number alone. Always call find_listing first when the caller names a specific unit, floor, or area — use the bedrooms field from each listing in the tool response.
 
+[Error Handling]
+If find_listing or search_available_listings returns an error or fails to respond:
+- Say: "Give me just one moment, I'm having a brief connection issue."
+- Retry the same tool call once with identical parameters.
+- If it fails a second time: say "I'm sorry, I'm unable to search our listings right now. Our team will follow up with you directly."
+- Then IMMEDIATELY call submit_lease_lead with qualification_status="unmatched", notes="Search tool unavailable during call", and whatever caller preferences were already collected.
+- Do NOT end the call without calling submit_lease_lead.
+
+If submit_lease_lead fails or times out: do not retry — the system will capture the call from the transcript. End the call politely.
+
 [Tools]
 find_listing — Find listings by flat number, unit name, or any part of the address (building, street, neighbourhood). Returns a listings array — present ALL results when multiple units match.
 search_available_listings — Browse available units by bedrooms, budget, and/or address keyword.
@@ -1270,11 +1280,7 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
             "url": f"{backend_url}/voice/lease-eoc-webhook",
             "timeoutSeconds": 20,
         },
-        "server_messages": [
-            "conversation-update", "end-of-call-report", "function-call",
-            "hang", "speech-update", "status-update", "tool-calls",
-            "transfer-destination-request", "user-interrupted", "assistant.started",
-        ],
+        "server_messages": ["end-of-call-report"],
         "client_messages": [
             "conversation-update", "function-call", "hang", "model-output",
             "speech-update", "status-update", "transcript", "tool-calls",
