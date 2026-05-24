@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Clock } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -14,13 +15,13 @@ const STATUS_STYLES = {
 };
 
 export default function DailyTasksModal({ appointments, onClose, onAppointmentUpdate, onAppointmentDelete }) {
+    const { t } = useTranslation();
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const today = new Date();
     const dateLabel = format(today, 'EEEE, MMMM d');
 
     const handleUpdate = async (id, updates) => {
         if (onAppointmentUpdate) await onAppointmentUpdate(id, updates);
-        // update the selected appointment locally so the detail modal reflects the change
         setSelectedAppointment(prev => prev ? { ...prev, ...updates } : prev);
     };
 
@@ -45,9 +46,9 @@ export default function DailyTasksModal({ appointments, onClose, onAppointmentUp
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
                         <div>
-                            <h2 className="text-lg font-semibold text-foreground">Daily Tasks</h2>
+                            <h2 className="text-lg font-semibold text-foreground">{t('dashboard.kpi.dailyTasks')}</h2>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                                {dateLabel} · {appointments.length} appointment{appointments.length !== 1 ? 's' : ''}
+                                {dateLabel} · {t('appt.appointment', { count: appointments.length })}
                             </p>
                         </div>
                         <button
@@ -62,7 +63,7 @@ export default function DailyTasksModal({ appointments, onClose, onAppointmentUp
                     <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
                         {appointments.length === 0 ? (
                             <p className="text-center text-muted-foreground text-sm py-8">
-                                No appointments scheduled for today.
+                                {t('appt.noToday')}
                             </p>
                         ) : (
                             appointments.map((appt) => {
@@ -89,8 +90,8 @@ export default function DailyTasksModal({ appointments, onClose, onAppointmentUp
                                             </div>
                                             <p className="text-sm text-foreground font-medium">
                                                 {appt.complaint_category
-                                                    ? `Fix ${appt.complaint_category} Issue`
-                                                    : 'Scheduled Visit'}
+                                                    ? t('appt.fix', { category: appt.complaint_category })
+                                                    : t('appt.visit')}
                                             </p>
                                             {appt.notes && (
                                                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{appt.notes}</p>
@@ -120,13 +121,12 @@ export default function DailyTasksModal({ appointments, onClose, onAppointmentUp
                             onClick={onClose}
                             className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors"
                         >
-                            Close
+                            {t('common.close')}
                         </button>
                     </div>
                 </motion.div>
             </div>
 
-            {/* Appointment detail modal — rendered outside the list modal so it sits on top */}
             <AnimatePresence>
                 {selectedAppointment && (
                     <AppointmentDetailModal

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { X, MapPin, Calendar, User } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -6,6 +7,7 @@ import StatusDropdown from './StatusDropdown';
 import { cn } from '@/lib';
 
 function ComplaintModal({ complaint, onClose, onUpdate }) {
+    const { t } = useTranslation();
     return (
         <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
@@ -22,7 +24,7 @@ function ComplaintModal({ complaint, onClose, onUpdate }) {
                 <div className="flex items-start justify-between p-6 border-b border-border">
                     <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                            <h2 className="text-2xl font-bold text-foreground">Complaint Details</h2>
+                            <h2 className="text-2xl font-bold text-foreground">{t('complaint.details')}</h2>
                             <PriorityBadge priority={complaint.priority} />
                         </div>
                         <p className="text-sm text-muted-foreground">ID: #{complaint.id}</p>
@@ -37,21 +39,19 @@ function ComplaintModal({ complaint, onClose, onUpdate }) {
 
                 {/* Content */}
                 <div className="p-6 space-y-6">
-                    {/* Summary */}
                     {(complaint.summary || complaint.description) && (
                         <div>
-                            <h3 className="text-sm font-medium text-muted-foreground mb-2">Summary</h3>
-                            <p className="text-foreground">{complaint.summary || complaint.description || 'No summary available'}</p>
+                            <h3 className="text-sm font-medium text-muted-foreground mb-2">{t('complaint.summary')}</h3>
+                            <p className="text-foreground">{complaint.summary || complaint.description || t('complaint.noSummary')}</p>
                         </div>
                     )}
 
-                    {/* Details Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {(complaint.location || complaint.flat_number) && (
                             <div className="flex items-start gap-3 p-4 rounded-lg bg-secondary">
                                 <MapPin className="w-5 h-5 text-primary mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Location</p>
+                                    <p className="text-sm font-medium text-muted-foreground">{t('complaint.location')}</p>
                                     <p className="text-foreground">{complaint.location || complaint.flat_number}</p>
                                 </div>
                             </div>
@@ -60,7 +60,7 @@ function ComplaintModal({ complaint, onClose, onUpdate }) {
                         <div className="flex items-start gap-3 p-4 rounded-lg bg-secondary">
                             <Calendar className="w-5 h-5 text-primary mt-0.5" />
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">Created</p>
+                                <p className="text-sm font-medium text-muted-foreground">{t('complaint.created')}</p>
                                 <p className="text-foreground">
                                     {format(parseISO(complaint.created_at), 'MMM d, yyyy h:mm a')}
                                 </p>
@@ -71,16 +71,16 @@ function ComplaintModal({ complaint, onClose, onUpdate }) {
                             <div className="flex items-start gap-3 p-4 rounded-lg bg-secondary">
                                 <User className="w-5 h-5 text-primary mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Tenant</p>
+                                    <p className="text-sm font-medium text-muted-foreground">{t('complaint.tenant')}</p>
                                     <p className="text-foreground">{complaint.tenant_name}</p>
                                 </div>
                             </div>
                         )}
 
                         <div className="flex items-start gap-3 p-4 rounded-lg bg-secondary">
-                            <div className="w-5 h-5" /> {/* Spacer for alignment */}
+                            <div className="w-5 h-5" />
                             <div className="flex-1">
-                                <p className="text-sm font-medium text-muted-foreground mb-2">Status</p>
+                                <p className="text-sm font-medium text-muted-foreground mb-2">{t('complaint.status')}</p>
                                 <StatusDropdown
                                     currentStatus={complaint.status}
                                     onStatusChange={(newStatus) => onUpdate({ ...complaint, status: newStatus })}
@@ -89,10 +89,9 @@ function ComplaintModal({ complaint, onClose, onUpdate }) {
                         </div>
                     </div>
 
-                    {/* Description (if different from summary) */}
                     {complaint.description && complaint.summary && complaint.description !== complaint.summary && (
                         <div>
-                            <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
+                            <h3 className="text-sm font-medium text-muted-foreground mb-2">{t('common.description')}</h3>
                             <p className="text-foreground whitespace-pre-wrap">{complaint.description}</p>
                         </div>
                     )}
@@ -104,7 +103,7 @@ function ComplaintModal({ complaint, onClose, onUpdate }) {
                         onClick={onClose}
                         className="px-4 py-2 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
                     >
-                        Close
+                        {t('common.close')}
                     </button>
                 </div>
             </motion.div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
 import AuthPage from './components/AuthPage';
@@ -25,23 +26,27 @@ const RentTab          = lazy(() => import('./components/RentTab'));
 const VoiceStatsTab    = lazy(() => import('./components/VoiceStatsTab'));
 const LeasingTab       = lazy(() => import('./components/LeasingTab'));
 
-const PageFallback = () => (
-    <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground text-sm">Loading...</p>
-    </div>
-);
+const PageFallback = () => {
+    const { t } = useTranslation();
+    return (
+        <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground text-sm">{t('app.loading')}</p>
+        </div>
+    );
+};
 import { fetchComplaints, updateComplaint, fetchAppointments, updateAppointment, deleteAppointment, getCallStatus } from './services/apiService';
 import { format, subDays, addDays } from 'date-fns';
 
 function AuthGate({ children }) {
     const { session, loading } = useAuth();
+    const { t } = useTranslation();
 
     if (loading) {
         return (
             <div className="flex items-center justify-center h-screen bg-background">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
-                    <p className="text-muted-foreground text-sm">Checking authentication...</p>
+                    <p className="text-muted-foreground text-sm">{t('app.checkingAuth')}</p>
                 </div>
             </div>
         );
@@ -60,6 +65,7 @@ function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { user } = useAuth();
+    const { t } = useTranslation();
     const { isChecklistComplete, dbTourCompleted } = useOnboarding();
     const [currentView, setCurrentView] = useState(() => {
         // Optimistic fast-load based on localStorage but scoped to the user
@@ -127,7 +133,7 @@ function Dashboard() {
             setComplaints(data);
             setError(null);
         } catch (err) {
-            setError('Failed to load complaints. Please check if the backend is running.');
+            setError(t('properties.failedLoad'));
             console.error(err);
         } finally {
             setLoading(false);
@@ -241,7 +247,7 @@ function Dashboard() {
 
                             {loading && complaints.length === 0 ? (
                                 <div className="flex items-center justify-center h-full">
-                                    <p className="text-muted-foreground">Loading complaints...</p>
+                                    <p className="text-muted-foreground">{t('app.loadingComplaints')}</p>
                                 </div>
                             ) : (
                                 <Suspense fallback={<PageFallback />}>

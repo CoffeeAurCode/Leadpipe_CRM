@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -5,6 +6,7 @@ import PriorityBadge from '../PriorityBadge';
 import { cn } from '@/lib';
 
 export default function DashboardListModal({ title, complaints, onClose }) {
+    const { t } = useTranslation();
     return (
         <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
@@ -22,7 +24,7 @@ export default function DashboardListModal({ title, complaints, onClose }) {
                     <div>
                         <h2 className="text-lg font-semibold text-foreground">{title}</h2>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            {complaints.length} complaint{complaints.length !== 1 ? 's' : ''}
+                            {t('dashModal.complaint', { count: complaints.length })}
                         </p>
                     </div>
                     <button
@@ -36,7 +38,7 @@ export default function DashboardListModal({ title, complaints, onClose }) {
                 {/* List */}
                 <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
                     {complaints.length === 0 ? (
-                        <p className="text-center text-muted-foreground text-sm py-8">No complaints to show.</p>
+                        <p className="text-center text-muted-foreground text-sm py-8">{t('dashModal.noComplaints')}</p>
                     ) : (
                         complaints.map((c) => (
                             <div
@@ -49,7 +51,7 @@ export default function DashboardListModal({ title, complaints, onClose }) {
                                         <PriorityBadge priority={c.priority} />
                                     </div>
                                     <p className="text-sm text-foreground font-medium truncate">
-                                        {c.summary || c.description || 'No description'}
+                                        {c.summary || c.description || t('dashModal.noDescription')}
                                     </p>
                                     <div className="flex items-center gap-3 mt-1">
                                         {(c.flat_number || c.location) && (
@@ -83,7 +85,7 @@ export default function DashboardListModal({ title, complaints, onClose }) {
                         onClick={onClose}
                         className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors"
                     >
-                        Close
+                        {t('common.close')}
                     </button>
                 </div>
             </motion.div>

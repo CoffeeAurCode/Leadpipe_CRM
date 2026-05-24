@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function TrendsChart({ data }) {
+    const { t } = useTranslation();
     return (
         <div className="bg-card border border-border rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4">Complaints Over Time</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-4">{t('charts.complaintsOverTime')}</h3>
             <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />

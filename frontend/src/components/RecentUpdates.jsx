@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next';
 import { Clock } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import PriorityBadge from './PriorityBadge';
 
 function RecentUpdates({ complaints, onComplaintClick }) {
+    const { t } = useTranslation();
     return (
         <div className="bg-card border border-border rounded-lg p-6 h-full">
             <div className="flex items-center gap-2 mb-4">
                 <Clock className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">Recent Activity</h3>
+                <h3 className="text-lg font-semibold text-foreground">{t('recentUpdates.title')}</h3>
             </div>
 
             <div className="space-y-3 overflow-y-auto max-h-96 pr-2">
@@ -19,7 +21,7 @@ function RecentUpdates({ complaints, onComplaintClick }) {
                     >
                         <div className="flex items-start justify-between gap-2 mb-1">
                             <p className="text-sm font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                                {complaint.summary || complaint.flat_number || 'No summary'}
+                                {complaint.summary || complaint.flat_number || t('recentUpdates.noSummary')}
                             </p>
                             <PriorityBadge priority={complaint.priority} />
                         </div>
@@ -30,7 +32,7 @@ function RecentUpdates({ complaints, onComplaintClick }) {
                 ))}
 
                 {complaints.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-8">No recent updates</p>
+                    <p className="text-sm text-muted-foreground text-center py-8">{t('recentUpdates.empty')}</p>
                 )}
             </div>
         </div>

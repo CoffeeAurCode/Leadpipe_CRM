@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneCall, PhoneOff, X } from 'lucide-react';
 import { makeOutboundCall } from '../services/apiService';
@@ -10,26 +11,27 @@ const STATUS = {
     ERROR: 'error',
 };
 
-const AGENTS = [
-    {
-        id: 'complaint',
-        label: 'Complaint',
-        description: 'Runs the maintenance complaint + appointment workflow.',
-    },
-    {
-        id: 'lease',
-        label: 'Lease',
-        description: 'Runs the leasing inquiry + lead capture workflow.',
-    },
-];
-
 export default function OutboundCallButton() {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [number, setNumber] = useState('+1');
     const [agentId, setAgentId] = useState('complaint');
     const [status, setStatus] = useState(STATUS.IDLE);
     const [errorMsg, setErrorMsg] = useState('');
     const inputRef = useRef(null);
+
+    const AGENTS = [
+        {
+            id: 'complaint',
+            label: t('outbound.complaintLabel'),
+            description: t('outbound.complaintDesc'),
+        },
+        {
+            id: 'lease',
+            label: t('outbound.leaseLabel'),
+            description: t('outbound.leaseDesc'),
+        },
+    ];
 
     useEffect(() => {
         if (open) {
@@ -56,7 +58,7 @@ export default function OutboundCallButton() {
 
         if (!/^\+\d{7,15}$/.test(trimmed)) {
             setStatus(STATUS.ERROR);
-            setErrorMsg('Enter a valid number: +[country code][number], e.g. +14165551234');
+            setErrorMsg(t('outbound.invalidNumber'));
             return;
         }
 
@@ -69,7 +71,7 @@ export default function OutboundCallButton() {
             setStatus(STATUS.SUCCESS);
         } catch (err) {
             setStatus(STATUS.ERROR);
-            setErrorMsg(err.message || 'Call failed. Check the number and try again.');
+            setErrorMsg(err.message || t('outbound.failed'));
         }
     }
 
@@ -96,7 +98,7 @@ export default function OutboundCallButton() {
                         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                             <div className="flex items-center gap-2">
                                 <Phone className="w-4 h-4 text-primary" />
-                                <span className="text-sm font-semibold text-foreground">Outbound Call</span>
+                                <span className="text-sm font-semibold text-foreground">{t('outbound.title')}</span>
                             </div>
                             <button
                                 onClick={handleClose}
@@ -110,7 +112,7 @@ export default function OutboundCallButton() {
                         <div className="px-4 py-4 space-y-3">
                             {/* Agent selector */}
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-foreground">Agent</label>
+                                <label className="text-xs font-medium text-foreground">{t('outbound.agent')}</label>
                                 <div className="flex rounded-lg border border-border overflow-hidden">
                                     {AGENTS.map(agent => (
                                         <button
@@ -139,7 +141,7 @@ export default function OutboundCallButton() {
                             {/* Phone number input */}
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-foreground">
-                                    Phone Number (E.164)
+                                    {t('outbound.phone')}
                                 </label>
                                 <input
                                     ref={inputRef}
@@ -165,7 +167,7 @@ export default function OutboundCallButton() {
                             )}
                             {status === STATUS.SUCCESS && (
                                 <p className="text-xs text-green-500">
-                                    Call initiated — {selectedAgent?.label} agent is dialling.
+                                    {t('outbound.success', { agent: selectedAgent?.label })}
                                 </p>
                             )}
 
@@ -182,17 +184,17 @@ export default function OutboundCallButton() {
                                             transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
                                             className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
                                         />
-                                        Calling…
+                                        {t('outbound.calling')}
                                     </>
                                 ) : status === STATUS.SUCCESS ? (
                                     <>
                                         <PhoneCall className="w-4 h-4" />
-                                        Call Placed
+                                        {t('outbound.placed')}
                                     </>
                                 ) : (
                                     <>
                                         <Phone className="w-4 h-4" />
-                                        Call
+                                        {t('outbound.call')}
                                     </>
                                 )}
                             </button>
@@ -205,7 +207,7 @@ export default function OutboundCallButton() {
                                     }}
                                     className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
                                 >
-                                    Make another call
+                                    {t('outbound.anotherCall')}
                                 </button>
                             )}
                         </div>
@@ -218,7 +220,7 @@ export default function OutboundCallButton() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleToggle}
-                title="Make outbound call"
+                title={t('outbound.title')}
                 className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-colors ${
                     open
                         ? 'bg-red-500 text-white'

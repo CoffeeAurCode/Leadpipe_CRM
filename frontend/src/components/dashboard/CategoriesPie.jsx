@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const COLORS = [
@@ -11,14 +12,15 @@ const COLORS = [
 ];
 
 export default function CategoriesPie({ data }) {
+    const { t } = useTranslation();
     const total = data.reduce((s, d) => s + d.value, 0);
 
     return (
         <div className="bg-card border border-border rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-1">Complaint Categories</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-1">{t('charts.complaintCategories')}</h3>
             {total === 0 ? (
                 <div className="flex items-center justify-center h-[220px] text-sm text-muted-foreground">
-                    No data for this period
+                    {t('charts.noData')}
                 </div>
             ) : (
                 <ResponsiveContainer width="100%" height={220}>

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     startOfMonth, eachDayOfInterval, endOfMonth,
@@ -10,9 +11,6 @@ import AppointmentDetailModal from './AppointmentDetailModal';
 import ComplaintModal from './ComplaintModal';
 import './CalendarView.css';
 
-// ── Status colour maps ────────────────────────────────────────────────────────
-
-// For mini-cards inside calendar cells (border-l-2 + subtle bg)
 const MINI_STATUS = {
     scheduled:    'border-blue-500   bg-blue-50   text-blue-700',
     in_progress:  'border-orange-500 bg-orange-50 text-orange-700',
@@ -25,7 +23,6 @@ const MINI_STATUS = {
     pending:      'border-amber-500  bg-amber-50  text-amber-700',
 };
 
-// For left border of panel event cards
 const PANEL_BORDER = {
     scheduled:    'border-l-blue-500',
     in_progress:  'border-l-orange-500',
@@ -38,7 +35,6 @@ const PANEL_BORDER = {
     pending:      'border-l-amber-500',
 };
 
-// For status badge pills inside the panel
 const BADGE_CLASSES = {
     scheduled:    'bg-blue-100   text-blue-700',
     in_progress:  'bg-orange-100 text-orange-700',
@@ -58,20 +54,8 @@ function getMiniClasses(status)  { return MINI_STATUS[normalize(status)]  || 'bo
 function getPanelBorder(status)  { return PANEL_BORDER[normalize(status)] || 'border-l-gray-400'; }
 function getBadgeClasses(status) { return BADGE_CLASSES[normalize(status)] || 'bg-gray-100 text-gray-600'; }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_VISIBLE = 2;
-
-const LEGEND = [
-    { label: 'Scheduled',   color: 'bg-blue-500' },
-    { label: 'In Progress', color: 'bg-orange-500' },
-    { label: 'Completed',   color: 'bg-green-500' },
-    { label: 'Attended',    color: 'bg-purple-500' },
-    { label: 'Cancelled',   color: 'bg-red-500' },
-];
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function CalendarView({
     complaints = [],
@@ -80,21 +64,27 @@ export default function CalendarView({
     onAppointmentUpdate,
     onAppointmentDelete,
 }) {
+    const { t } = useTranslation();
     const [currentDate, setCurrentDate]   = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [hoveredDate, setHoveredDate]   = useState(null);
-    const [activeEvent, setActiveEvent]   = useState(null); // event clicked in panel
+    const [activeEvent, setActiveEvent]   = useState(null);
 
-    // Month days array
+    const LEGEND = [
+        { label: t('calendar.legend.scheduled'),  color: 'bg-blue-500' },
+        { label: t('calendar.legend.inProgress'), color: 'bg-orange-500' },
+        { label: t('calendar.legend.completed'),  color: 'bg-green-500' },
+        { label: t('calendar.legend.attended'),   color: 'bg-purple-500' },
+        { label: t('calendar.legend.cancelled'),  color: 'bg-red-500' },
+    ];
+
     const monthDays = useMemo(() => eachDayOfInterval({
         start: startOfMonth(currentDate),
         end:   endOfMonth(currentDate),
     }), [currentDate]);
 
-    // How many blank cells before day 1
     const startOffset = useMemo(() => startOfMonth(currentDate).getDay(), [currentDate]);
 
-    // Merge appointments + complaints for a given day
     function getEventsForDate(date) {
         const appts = appointments.filter(a => {
             try { return a.appointment_date && isSameDay(parseISO(a.appointment_date), date); }
@@ -109,13 +99,11 @@ export default function CalendarView({
         return [...appts, ...comps];
     }
 
-    // Events for the open panel
     const panelEvents = useMemo(
         () => (selectedDate ? getEventsForDate(selectedDate) : []),
         [selectedDate, appointments, complaints]
     );
 
-    // Navigation
     const goToPrev  = () => { setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); setSelectedDate(null); };
     const goToNext  = () => { setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); setSelectedDate(null); };
     const goToToday = () => { setCurrentDate(new Date()); setSelectedDate(null); };
@@ -135,7 +123,7 @@ export default function CalendarView({
                         onClick={goToToday}
                         className="px-3 py-1.5 text-sm font-medium border border-border rounded-lg hover:bg-secondary transition-colors text-foreground"
                     >
-                        Today
+                        {t('calendar.today')}
                     </button>
                     <button onClick={goToPrev} className="p-1.5 border border-border rounded-lg hover:bg-secondary transition-colors">
                         <ChevronLeft className="w-4 h-4 text-foreground" />
@@ -148,20 +136,18 @@ export default function CalendarView({
 
             {/* ── Control Bar ── */}
             <div className="flex items-center justify-between flex-wrap gap-3">
-                {/* View label */}
                 <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
                     <span className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground shadow-sm">
-                        Month
+                        {t('calendar.month')}
                     </span>
                 </div>
 
-                {/* Filter placeholders */}
                 <div className="flex items-center gap-2">
                     <select className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-                        <option>All Properties</option>
+                        <option>{t('calendar.allProperties')}</option>
                     </select>
                     <select className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-                        <option>All Types</option>
+                        <option>{t('calendar.allTypes')}</option>
                     </select>
                 </div>
             </div>
@@ -190,7 +176,6 @@ export default function CalendarView({
 
                 {/* Day cells */}
                 <div className="grid grid-cols-7 gap-px bg-border p-px">
-                    {/* Empty offset cells */}
                     {Array.from({ length: startOffset }).map((_, i) => (
                         <div key={`empty-${i}`} className="bg-card min-h-[90px]" />
                     ))}
@@ -215,7 +200,6 @@ export default function CalendarView({
                                 onMouseEnter={() => events.length > 0 && setHoveredDate(day)}
                                 onMouseLeave={() => setHoveredDate(null)}
                             >
-                                {/* Day number */}
                                 <div className={cn(
                                     'w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold mb-1',
                                     isTodayDay
@@ -227,7 +211,6 @@ export default function CalendarView({
                                     {format(day, 'd')}
                                 </div>
 
-                                {/* Event mini-cards */}
                                 {visible.map((evt, idx) => (
                                     <div
                                         key={`${evt._type}-${evt.id}-${idx}`}
@@ -243,14 +226,12 @@ export default function CalendarView({
                                     </div>
                                 ))}
 
-                                {/* Overflow badge */}
                                 {overflow > 0 && (
                                     <div className="text-[10px] text-muted-foreground font-medium px-1">
-                                        +{overflow} more
+                                        {t('calendar.more', { count: overflow })}
                                     </div>
                                 )}
 
-                                {/* Hover tooltip — opaque bg-card */}
                                 {isHovered && !isSelected && events.length > 0 && (
                                     <div className="absolute bottom-full left-0 mb-1 z-20 w-52 bg-card border border-border rounded-lg shadow-xl p-2.5 pointer-events-none">
                                         <p className="text-xs font-semibold text-foreground mb-1.5">{format(day, 'MMM d')}</p>
@@ -259,14 +240,14 @@ export default function CalendarView({
                                                 <span>{evt._type === 'appointment' ? '📅' : '💬'}</span>
                                                 <span>
                                                     {evt._type === 'appointment'
-                                                        ? `${format(parseISO(evt.appointment_date), 'HH:mm')} · Flat ${evt.flat_number || '?'}`
-                                                        : `#${evt.id} · Flat ${evt.flat_number || '?'} · ${evt.category || 'complaint'}`
+                                                        ? `${format(parseISO(evt.appointment_date), 'HH:mm')} · ${t('calendar.flat')} ${evt.flat_number || '?'}`
+                                                        : `#${evt.id} · ${t('calendar.flat')} ${evt.flat_number || '?'} · ${evt.category || t('calendar.complaint').toLowerCase()}`
                                                     }
                                                 </span>
                                             </div>
                                         ))}
                                         {events.length > 5 && (
-                                            <div className="text-[10px] text-muted-foreground mt-1">+{events.length - 5} more</div>
+                                            <div className="text-[10px] text-muted-foreground mt-1">{t('calendar.more', { count: events.length - 5 })}</div>
                                         )}
                                     </div>
                                 )}
@@ -280,7 +261,6 @@ export default function CalendarView({
             <AnimatePresence>
                 {selectedDate && (
                     <>
-                        {/* Backdrop */}
                         <motion.div
                             key="backdrop"
                             className="fixed inset-0 bg-black/25 z-30"
@@ -291,7 +271,6 @@ export default function CalendarView({
                             onClick={closePanel}
                         />
 
-                        {/* Panel */}
                         <motion.div
                             key="panel"
                             className="fixed right-0 top-0 h-screen w-96 bg-card border-l border-border shadow-2xl z-40 flex flex-col"
@@ -323,15 +302,15 @@ export default function CalendarView({
                                 {panelEvents.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center h-52 text-center">
                                         <div className="text-5xl mb-3 select-none">📭</div>
-                                        <p className="text-sm font-semibold text-foreground">No events on this day</p>
+                                        <p className="text-sm font-semibold text-foreground">{t('calendar.noEvents')}</p>
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            No appointments or complaints recorded
+                                            {t('calendar.noEventsDesc')}
                                         </p>
                                     </div>
                                 ) : (
                                     <>
                                         <p className="text-xs text-muted-foreground font-medium">
-                                            {panelEvents.length} event{panelEvents.length !== 1 ? 's' : ''} — click a card to view or edit
+                                            {t('calendar.events', { count: panelEvents.length })}
                                         </p>
                                         {panelEvents.map((evt, idx) => (
                                             <div
@@ -347,14 +326,14 @@ export default function CalendarView({
                                                     <>
                                                         <div className="flex items-center justify-between mb-1.5">
                                                             <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                                                                Appointment
+                                                                {t('calendar.appointment')}
                                                             </span>
                                                             <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize', getBadgeClasses(evt.status))}>
                                                                 {evt.status}
                                                             </span>
                                                         </div>
                                                         <p className="text-sm font-semibold text-foreground">
-                                                            {format(parseISO(evt.appointment_date), 'h:mm a')} · Flat {evt.flat_number || 'N/A'}
+                                                            {format(parseISO(evt.appointment_date), 'h:mm a')} · {t('calendar.flat')} {evt.flat_number || 'N/A'}
                                                         </p>
                                                         {(evt.complaint_category || evt.category) && (
                                                             <p className="text-xs text-muted-foreground mt-1">
@@ -371,14 +350,14 @@ export default function CalendarView({
                                                     <>
                                                         <div className="flex items-center justify-between mb-1.5">
                                                             <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                                                                Complaint #{evt.id}
+                                                                {t('calendar.complaint')} #{evt.id}
                                                             </span>
                                                             <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize', getBadgeClasses(evt.status))}>
                                                                 {evt.status}
                                                             </span>
                                                         </div>
                                                         <p className="text-sm font-semibold text-foreground">
-                                                            Flat {evt.flat_number || 'N/A'}
+                                                            {t('calendar.flat')} {evt.flat_number || 'N/A'}
                                                         </p>
                                                         {evt.category && (
                                                             <p className="text-xs text-muted-foreground mt-1">{evt.category}</p>
