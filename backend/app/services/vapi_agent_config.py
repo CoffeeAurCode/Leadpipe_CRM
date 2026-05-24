@@ -1109,13 +1109,24 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "type": "object",
                     "properties": {
                         "found": {"type": "boolean", "description": ""},
-                        "listing_uuid": {"type": "string", "description": ""},
-                        "address": {"type": "string", "description": ""},
-                        "monthly_rent": {"type": "number", "description": ""},
-                        "bedrooms": {"type": "integer", "description": ""},
-                        "floor_number": {"type": "string", "description": ""},
-                        "available_from": {"type": "string", "description": ""},
-                        "custom_rules": {"type": "string", "description": ""},
+                        "count": {"type": "integer", "description": ""},
+                        "listings": {
+                            "type": "array",
+                            "description": "All matching listings",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "listing_uuid": {"type": "string"},
+                                    "flat_number": {"type": "string"},
+                                    "address": {"type": "string"},
+                                    "bedrooms": {"type": "integer"},
+                                    "monthly_rent": {"type": "number"},
+                                    "floor_number": {"type": "string"},
+                                    "available_from": {"type": "string"},
+                                    "custom_rules": {"type": "string"},
+                                },
+                            },
+                        },
                     },
                 }
             },
@@ -1159,7 +1170,21 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "type": "object",
                     "properties": {
                         "count": {"type": "integer", "description": ""},
-                        "listings": {"type": "array", "description": "Array of listing objects, each with listing_uuid"},
+                        "listings": {
+                            "type": "array",
+                            "description": "Available listings matching the filters",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "listing_uuid": {"type": "string"},
+                                    "flat_number": {"type": "string"},
+                                    "bedrooms": {"type": "integer"},
+                                    "monthly_rent": {"type": "number"},
+                                    "floor_number": {"type": "string"},
+                                    "available_from": {"type": "string"},
+                                },
+                            },
+                        },
                     },
                 }
             },
