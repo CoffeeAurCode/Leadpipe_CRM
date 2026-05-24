@@ -1005,8 +1005,8 @@ Otherwise: call search_available_listings immediately using only what the caller
 - Pass budget_max only if the caller stated a maximum budget. If they haven't mentioned a budget, pass 0 (no filter — show all prices).
 - Pass address if the caller mentioned a street, neighbourhood, or building name. Leave it empty otherwise.
 Do NOT wait until both bedrooms AND budget are confirmed before calling the search. Search as soon as the caller has expressed their interest, even with no filters at all.
-The search response returns a JSON array in "listings"; each element contains a listing_uuid field.
-Share the matched listing details: unit number, rent, floor, availability date.
+Both find_listing and search_available_listings return {found, count, listings} where listings is a JSON array; each element has listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from.
+When count > 1, present ALL listings to the caller — never silently show only the first one. Read out each unit's flat number, bedrooms, rent, and availability.
 Note which listings the caller responds positively to — you will need their listing_uuid values later.
 
 4. Qualifying Questions
@@ -1050,10 +1050,10 @@ Not qualified / unmatched: "Thank you for calling. Have a great day!"
 - If search_available_listings returns count=0 and all alternatives are exhausted, set qualification_status="unmatched". Never mark a caller "qualified" without a real listing_uuid.
 - BUDGET ENFORCEMENT: Never qualify a caller for a unit whose monthly_rent exceeds their stated budget_max. If the caller explicitly stated a bedroom count, only qualify them for units with that exact count — a caller asking for 2BHK cannot be qualified for a 1BHK. If the caller did NOT state a bedroom preference, any bedroom count from the search results is acceptable. Only submit "qualified" when a real listing_uuid exists from the tool response AND all stated preferences are met.
 - NO FORCING PREFERENCES: If the caller has not mentioned bedrooms, do not ask "how many bedrooms do you need?" before searching. If they have not mentioned a budget, do not ask for a budget before searching. Search first and let the results guide the conversation.
-- BEDROOM COUNT: Never infer bedroom count from descriptive terms like "penthouse", "suite", "top floor", or floor number alone. Always call find_listing first when the caller names a specific unit, floor, or area — use the bedrooms field from the tool response.
+- BEDROOM COUNT: Never infer bedroom count from descriptive terms like "penthouse", "suite", "top floor", or floor number alone. Always call find_listing first when the caller names a specific unit, floor, or area — use the bedrooms field from each listing in the tool response.
 
 [Tools]
-find_listing — Find a specific listing by flat number, unit name, or any part of the address (street, building, neighbourhood).
+find_listing — Find listings by flat number, unit name, or any part of the address (building, street, neighbourhood). Returns a listings array — present ALL results when multiple units match.
 search_available_listings — Browse available units by bedrooms, budget, and/or address keyword.
 submit_lease_lead — Capture the caller as a lead (always call before ending the call).
 """
@@ -1076,9 +1076,14 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "function": {
                 "name": "api_request_tool",
                 "description": (
-                    "Find a specific rental listing by flat/unit number, listing title, "
+                    "Find rental listings by flat/unit number, listing title, "
                     "or any part of the unit's address (street name, building name, neighbourhood, etc.). "
-                    "Use this when the caller mentions a specific address, location, floor, or unit name."
+                    "Use this when the caller mentions a specific address, location, floor, or unit name. "
+                    "Returns {found, count, listings} where listings is a JSON array. "
+                    "Each element has: listing_uuid, flat_number, title, address, bedrooms, monthly_rent, "
+                    "floor_number, available_from, custom_rules. "
+                    "When multiple units match a building name, ALL matching units are returned — "
+                    "present all of them to the caller, not just the first one."
                 ),
             },
             "url": f"{backend_url}/leasing/find-listing?query={{{{query}}}}{mgr_qs}",

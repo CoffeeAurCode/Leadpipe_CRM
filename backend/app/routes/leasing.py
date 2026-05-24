@@ -68,7 +68,7 @@ async def find_listing(
             results = fallback_q.execute()
 
         if not results.data:
-            # Third fallback: search by flat address
+            # Third fallback: search by flat address — return ALL matching units
             all_q = (
                 db.table("lease_listings")
                 .select(
@@ -88,37 +88,40 @@ async def find_listing(
                 r for r in (all_results.data or [])
                 if query_lower in (r.get("flats") or {}).get("address", "").lower()
             ]
-            if matched:
-                results_data = [matched[0]]
-            else:
-                return {"found": False}
-            listing = results_data[0]
-            flat = listing.get("flats") or {}
-            return {
-                "found": True,
+            if not matched:
+                return {"found": False, "count": 0, "listings": []}
+            listings_out = []
+            for l in matched:
+                flat = l.get("flats") or {}
+                listings_out.append({
+                    "listing_uuid": l["uuid"],
+                    "flat_number": l["flat_number"],
+                    "title": l.get("title") or "",
+                    "address": flat.get("address"),
+                    "bedrooms": flat.get("bedrooms"),
+                    "monthly_rent": float(l["monthly_rent"]),
+                    "floor_number": str(flat.get("floor_number") or ""),
+                    "available_from": str(l.get("available_from") or ""),
+                    "custom_rules": json.dumps(l.get("custom_rules") or {}),
+                })
+            return {"found": True, "count": len(listings_out), "listings": listings_out}
+
+        listing = results.data[0]
+        flat = listing.get("flats") or {}
+        return {
+            "found": True,
+            "count": 1,
+            "listings": [{
                 "listing_uuid": listing["uuid"],
+                "flat_number": listing["flat_number"],
+                "title": listing.get("title") or "",
                 "address": flat.get("address"),
                 "bedrooms": flat.get("bedrooms"),
                 "monthly_rent": float(listing["monthly_rent"]),
                 "floor_number": str(flat.get("floor_number") or ""),
                 "available_from": str(listing.get("available_from") or ""),
                 "custom_rules": json.dumps(listing.get("custom_rules") or {}),
-            }
-
-        if not results.data:
-            return {"found": False}
-
-        listing = results.data[0]
-        flat = listing.get("flats") or {}
-        return {
-            "found": True,
-            "listing_uuid": listing["uuid"],
-            "address": flat.get("address"),
-            "bedrooms": flat.get("bedrooms"),
-            "monthly_rent": float(listing["monthly_rent"]),
-            "floor_number": str(flat.get("floor_number") or ""),
-            "available_from": str(listing.get("available_from") or ""),
-            "custom_rules": json.dumps(listing.get("custom_rules") or {}),
+            }],
         }
     except Exception as e:
         print(f"[ERROR] find_listing: {e}")
