@@ -48,7 +48,7 @@ async def find_listing(
         elif manager_id:
             q = q.eq("manager_id", manager_id)
 
-        results = q.ilike("flat_number", f"%{query}%").limit(1).execute()
+        results = q.ilike("flat_number", f"%{query}%").limit(20).execute()
 
         if not results.data:
             fallback_q = (
@@ -59,7 +59,7 @@ async def find_listing(
                 )
                 .eq("is_active", True)
                 .ilike("title", f"%{query}%")
-                .limit(1)
+                .limit(20)
             )
             if property_group_id:
                 fallback_q = fallback_q.eq("property_group_id", property_group_id)

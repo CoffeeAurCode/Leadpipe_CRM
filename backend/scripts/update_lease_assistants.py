@@ -50,6 +50,8 @@ def patch_assistant(assistant_id: str, new_config: dict, label: str):
     }
     if "server" in new_config:
         payload["server"] = new_config["server"]
+    if "server_messages" in new_config:
+        payload["serverMessages"] = new_config["server_messages"]
     resp = httpx.patch(
         f"{VAPI_API_BASE}/assistant/{assistant_id}",
         headers={
