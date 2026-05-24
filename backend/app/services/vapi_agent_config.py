@@ -1005,8 +1005,8 @@ Otherwise: call search_available_listings immediately using only what the caller
 - Pass budget_max only if the caller stated a maximum budget. If they haven't mentioned a budget, pass 0 (no filter — show all prices).
 - Pass address if the caller mentioned a street, neighbourhood, or building name. Leave it empty otherwise.
 Do NOT wait until both bedrooms AND budget are confirmed before calling the search. Search as soon as the caller has expressed their interest, even with no filters at all.
-The search response returns a JSON array in "listings"; each element contains a listing_uuid field.
-Share the matched listing details: unit number, rent, floor, availability date.
+Both find_listing and search_available_listings return {found, count, listings} where listings is a JSON array; each element has listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from.
+When count > 1, present ALL listings to the caller — never silently show only the first one. Read out each unit's flat number, bedrooms, rent, and availability.
 Note which listings the caller responds positively to — you will need their listing_uuid values later.
 
 4. Qualifying Questions
@@ -1031,6 +1031,7 @@ Always call submit_lease_lead EXACTLY ONCE before ending the call — even if no
 Provide: caller_name (ask for it once),
 listing_uuid (the primary listing the caller wants to pursue — copy the EXACT listing_uuid string returned by find_listing or search_available_listings; leave blank if no listing was found — NEVER invent or guess a UUID),
 interested_listing_ids (array of listing_uuid values for every listing the caller showed interest in),
+address_preference (the building name, street, or neighbourhood the caller asked about — copy exactly what you passed as query to find_listing or as address to search_available_listings; leave blank if no location was mentioned),
 bedrooms, budget_max, move_in_timeline, occupants, floor_preference,
 qualification_status, disqualifying_reason,
 qualifying_answers (a JSON object of question → answer pairs).
@@ -1050,10 +1051,20 @@ Not qualified / unmatched: "Thank you for calling. Have a great day!"
 - If search_available_listings returns count=0 and all alternatives are exhausted, set qualification_status="unmatched". Never mark a caller "qualified" without a real listing_uuid.
 - BUDGET ENFORCEMENT: Never qualify a caller for a unit whose monthly_rent exceeds their stated budget_max. If the caller explicitly stated a bedroom count, only qualify them for units with that exact count — a caller asking for 2BHK cannot be qualified for a 1BHK. If the caller did NOT state a bedroom preference, any bedroom count from the search results is acceptable. Only submit "qualified" when a real listing_uuid exists from the tool response AND all stated preferences are met.
 - NO FORCING PREFERENCES: If the caller has not mentioned bedrooms, do not ask "how many bedrooms do you need?" before searching. If they have not mentioned a budget, do not ask for a budget before searching. Search first and let the results guide the conversation.
-- BEDROOM COUNT: Never infer bedroom count from descriptive terms like "penthouse", "suite", "top floor", or floor number alone. Always call find_listing first when the caller names a specific unit, floor, or area — use the bedrooms field from the tool response.
+- BEDROOM COUNT: Never infer bedroom count from descriptive terms like "penthouse", "suite", "top floor", or floor number alone. Always call find_listing first when the caller names a specific unit, floor, or area — use the bedrooms field from each listing in the tool response.
+
+[Error Handling]
+If find_listing or search_available_listings returns an error or fails to respond:
+- Say: "Give me just one moment, I'm having a brief connection issue."
+- Retry the same tool call once with identical parameters.
+- If it fails a second time: say "I'm sorry, I'm unable to search our listings right now. Our team will follow up with you directly."
+- Then IMMEDIATELY call submit_lease_lead with qualification_status="unmatched", notes="Search tool unavailable during call", and whatever caller preferences were already collected.
+- Do NOT end the call without calling submit_lease_lead.
+
+If submit_lease_lead fails or times out: do not retry — the system will capture the call from the transcript. End the call politely.
 
 [Tools]
-find_listing — Find a specific listing by flat number, unit name, or any part of the address (street, building, neighbourhood).
+find_listing — Find listings by flat number, unit name, or any part of the address (building, street, neighbourhood). Returns a listings array — present ALL results when multiple units match.
 search_available_listings — Browse available units by bedrooms, budget, and/or address keyword.
 submit_lease_lead — Capture the caller as a lead (always call before ending the call).
 """
@@ -1076,9 +1087,14 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "function": {
                 "name": "api_request_tool",
                 "description": (
-                    "Find a specific rental listing by flat/unit number, listing title, "
+                    "Find rental listings by flat/unit number, listing title, "
                     "or any part of the unit's address (street name, building name, neighbourhood, etc.). "
-                    "Use this when the caller mentions a specific address, location, floor, or unit name."
+                    "Use this when the caller mentions a specific address, location, floor, or unit name. "
+                    "Returns {found, count, listings} where listings is a JSON array. "
+                    "Each element has: listing_uuid, flat_number, title, address, bedrooms, monthly_rent, "
+                    "floor_number, available_from, custom_rules. "
+                    "When multiple units match a building name, ALL matching units are returned — "
+                    "present all of them to the caller, not just the first one."
                 ),
             },
             "url": f"{backend_url}/leasing/find-listing?query={{{{query}}}}{mgr_qs}",
@@ -1103,13 +1119,24 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "type": "object",
                     "properties": {
                         "found": {"type": "boolean", "description": ""},
-                        "listing_uuid": {"type": "string", "description": ""},
-                        "address": {"type": "string", "description": ""},
-                        "monthly_rent": {"type": "number", "description": ""},
-                        "bedrooms": {"type": "integer", "description": ""},
-                        "floor_number": {"type": "string", "description": ""},
-                        "available_from": {"type": "string", "description": ""},
-                        "custom_rules": {"type": "string", "description": ""},
+                        "count": {"type": "integer", "description": ""},
+                        "listings": {
+                            "type": "array",
+                            "description": "All matching listings",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "listing_uuid": {"type": "string"},
+                                    "flat_number": {"type": "string"},
+                                    "address": {"type": "string"},
+                                    "bedrooms": {"type": "integer"},
+                                    "monthly_rent": {"type": "number"},
+                                    "floor_number": {"type": "string"},
+                                    "available_from": {"type": "string"},
+                                    "custom_rules": {"type": "string"},
+                                },
+                            },
+                        },
                     },
                 }
             },
@@ -1153,49 +1180,53 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "type": "object",
                     "properties": {
                         "count": {"type": "integer", "description": ""},
-                        "listings": {"type": "array", "description": "Array of listing objects, each with listing_uuid"},
+                        "listings": {
+                            "type": "array",
+                            "description": "Available listings matching the filters",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "listing_uuid": {"type": "string"},
+                                    "flat_number": {"type": "string"},
+                                    "bedrooms": {"type": "integer"},
+                                    "monthly_rent": {"type": "number"},
+                                    "floor_number": {"type": "string"},
+                                    "available_from": {"type": "string"},
+                                },
+                            },
+                        },
                     },
                 }
             },
         },
         {
-            "type": "function",
+            "type": "apiRequest",
+            "name": "submit_lease_lead",
             "async": True,
             "function": {
-                "name": "submit_lease_lead",
-                "strict": True,
-                "description": "Capture the prospective tenant as a lead before ending the call.",
-                "parameters": {
-                    "type": "object",
-                    "required": ["caller_name", "qualification_status"],
-                    "properties": {
-                        "caller_name": {"type": "string", "description": "Caller's full name", "default": ""},
-                        "listing_uuid": {"type": "string", "description": "UUID of the primary listing the caller wants to pursue (from search or find_listing response)", "default": ""},
-                        "interested_listing_ids": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "UUIDs of all listings the caller expressed interest in during the call",
-                            "default": [],
-                        },
-                        "bedrooms": {"type": "integer", "description": "Desired bedrooms", "default": 0},
-                        "budget_max": {"type": "number", "description": "Maximum monthly budget", "default": 0},
-                        "move_in_timeline": {"type": "string", "description": "Preferred move-in date or timeframe", "default": ""},
-                        "occupants": {"type": "integer", "description": "Number of occupants", "default": 0},
-                        "floor_preference": {"type": "string", "description": "Floor preference if mentioned", "default": ""},
-                        "qualification_status": {
-                            "type": "string",
-                            "description": "Outcome of qualifying questions",
-                            "enum": ["qualified", "not_qualified", "unmatched"],
-                            "default": "unmatched",
-                        },
-                        "disqualifying_reason": {"type": "string", "description": "Reason for not_qualified status", "default": ""},
-                        "qualifying_answers": {"type": "string", "description": "JSON string of qualifying question → answer pairs", "default": "{}"},
-                    },
-                },
+                "name": "api_request_tool",
+                "description": "Capture the prospective tenant as a lead before ending the call. Always call this exactly once before ending.",
             },
-            "server": {
-                "url": f"{backend_url}/voice/lease-lead-webhook",
-                "timeoutSeconds": 20,
+            "url": f"{backend_url}/voice/lease-lead-direct?call_id={{{{call.id}}}}&phone={{{{customer.number}}}}",
+            "method": "POST",
+            "body": {
+                "type": "object",
+                "required": ["caller_name", "qualification_status"],
+                "properties": {
+                    "caller_name": {"type": "string", "description": "Caller's full name", "default": ""},
+                    "listing_uuid": {"type": "string", "description": "UUID of the primary listing from search results (leave blank if none found)", "default": ""},
+                    "interested_listing_ids": {"type": "array", "items": {"type": "string"}, "description": "UUIDs of all listings the caller expressed interest in", "default": []},
+                    "bedrooms": {"type": "integer", "description": "Desired bedrooms (0 if not stated)", "default": 0},
+                    "budget_max": {"type": "number", "description": "Max monthly budget (0 if not stated)", "default": 0},
+                    "address_preference": {"type": "string", "description": "Building/street the caller asked about", "default": ""},
+                    "move_in_timeline": {"type": "string", "description": "Preferred move-in date or timeframe", "default": ""},
+                    "occupants": {"type": "integer", "description": "Number of occupants", "default": 0},
+                    "floor_preference": {"type": "string", "description": "Floor preference if mentioned", "default": ""},
+                    "qualification_status": {"type": "string", "description": "qualified / not_qualified / unmatched", "default": "unmatched"},
+                    "disqualifying_reason": {"type": "string", "description": "Reason for not_qualified", "default": ""},
+                    "qualifying_answers": {"type": "string", "description": "JSON string of question→answer pairs", "default": "{}"},
+                    "notes": {"type": "string", "description": "Any additional notes", "default": ""},
+                },
             },
             "messages": [
                 {
@@ -1204,19 +1235,21 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "role": "assistant",
                     "endCallAfterSpoken": False,
                 },
-                {
-                    "type": "request-response-delayed",
-                    "content": "Still working on it, just another moment.",
-                    "timingMilliseconds": 3000,
-                    "role": "assistant",
-                    "endCallAfterSpoken": False,
-                },
             ],
+            "variableExtractionPlan": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "string"},
+                        "caller_name": {"type": "string"},
+                    },
+                }
+            },
         },
     ]
 
 
-def _lease_assistant_shell(name: str, system_prompt: str, tools: list) -> dict:
+def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_url: str = BACKEND_URL) -> dict:
     return {
         "name": name,
         "first_message": "Thank you for calling! I'm here to help you find a rental unit. / Merci d'appeler! Je suis ici pour vous aider à trouver un logement.",
@@ -1234,11 +1267,11 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list) -> dict:
             "temperature": 0.7,
             "tools": tools,
         },
-        "server_messages": [
-            "conversation-update", "end-of-call-report", "function-call",
-            "hang", "speech-update", "status-update", "tool-calls",
-            "transfer-destination-request", "user-interrupted", "assistant.started",
-        ],
+        "server": {
+            "url": f"{backend_url}/voice/lease-eoc-webhook",
+            "timeoutSeconds": 20,
+        },
+        "server_messages": ["end-of-call-report"],
         "client_messages": [
             "conversation-update", "function-call", "hang", "model-output",
             "speech-update", "status-update", "transcript", "tool-calls",
@@ -1262,6 +1295,7 @@ def build_lease_config(backend_url: str, manager_id: str) -> dict:
         name=f"Lease Agent [{manager_id[:8]}]",
         system_prompt=system_prompt,
         tools=tools,
+        backend_url=backend_url,
     )
 
 
@@ -1272,4 +1306,5 @@ def build_lease_config_shared(backend_url: str) -> dict:
         name="Shared Lease Agent",
         system_prompt=_LEASE_SYSTEM_PROMPT_BASE,
         tools=tools,
+        backend_url=backend_url,
     )

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Phone, Mail, BedDouble, Calendar, Banknote, MessageSquare } from 'lucide-react';
+import { X, Phone, Mail, BedDouble, Calendar, Banknote, MessageSquare, MapPin } from 'lucide-react';
 import { updateLead } from '../services/apiService';
 
 const STATUS_COLORS = {
@@ -29,7 +29,11 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
 
     const isVoiceSet = ['qualified', 'not_qualified', 'unmatched'].includes(lead.qualification_status);
     const qualifyingAnswers = lead.qualifying_answers || {};
-    const hasAnswers = Object.keys(qualifyingAnswers).length > 0;
+    const addressPref = qualifyingAnswers.address_preference || '';
+    const displayAnswers = Object.fromEntries(
+        Object.entries(qualifyingAnswers).filter(([k]) => k !== 'address_preference')
+    );
+    const hasAnswers = Object.keys(displayAnswers).length > 0;
 
     async function handleSave() {
         setSaving(true);
@@ -85,16 +89,22 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                     <section>
                         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('leasing.leads.preferences')}</h3>
                         <div className="grid grid-cols-2 gap-3">
-                            {lead.bedrooms != null && (
+                            {addressPref && (
+                                <div className="flex items-center gap-2 text-sm text-foreground col-span-2">
+                                    <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                                    {addressPref}
+                                </div>
+                            )}
+                            {lead.bedrooms != null && lead.bedrooms > 0 && (
                                 <div className="flex items-center gap-2 text-sm text-foreground">
                                     <BedDouble className="w-4 h-4 text-muted-foreground" />
                                     {lead.bedrooms} BHK
                                 </div>
                             )}
-                            {lead.budget_max != null && (
+                            {lead.budget_max != null && Number(lead.budget_max) > 0 && (
                                 <div className="flex items-center gap-2 text-sm text-foreground">
                                     <Banknote className="w-4 h-4 text-muted-foreground" />
-                                    ${Number(lead.budget_max).toLocaleString('en-CA')}/mo
+                                    ₹{Number(lead.budget_max).toLocaleString('en-IN')}/mo
                                 </div>
                             )}
                             {lead.move_in_timeline && (
@@ -108,7 +118,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                                     {t('leasing.leads.floorPref')}: {lead.floor_preference}
                                 </div>
                             )}
-                            {lead.occupants != null && (
+                            {lead.occupants != null && lead.occupants > 0 && (
                                 <div className="text-sm text-foreground text-muted-foreground">
                                     {t('leasing.leads.occupants')}: {lead.occupants}
                                 </div>
@@ -158,7 +168,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                         <section>
                             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('leasing.leads.qualifyingAnswers')}</h3>
                             <div className="space-y-2">
-                                {Object.entries(qualifyingAnswers).map(([q, a]) => (
+                                {Object.entries(displayAnswers).map(([q, a]) => (
                                     <div key={q} className="text-sm">
                                         <span className="text-muted-foreground">{q}: </span>
                                         <span className="text-foreground">{String(a)}</span>

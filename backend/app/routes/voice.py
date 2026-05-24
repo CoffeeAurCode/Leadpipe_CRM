@@ -579,6 +579,10 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
             except Exception:
                 qualifying_answers = {}
 
+        address_preference = (lead_data.get("address_preference") or "").strip()
+        if address_preference:
+            qualifying_answers["address_preference"] = address_preference
+
         raw_interested = lead_data.get("interested_listing_ids") or []
         if not isinstance(raw_interested, list):
             raw_interested = []
@@ -637,6 +641,204 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
         print(f"[ERROR] lease_lead_webhook: {e}")
 
     return {"status": "processed"}
+
+
+# ── Lease end-of-call-report fallback ────────────────────────────────────────
+
+@router.post("/voice/lease-eoc-webhook")
+async def lease_eoc_webhook(request: Request, db: Client = Depends(get_service_db)):
+    """
+    Fallback for the lease agent's end-of-call-report.
+    If submit_lease_lead was never called during the call, creates a partial
+    unmatched lead so the manager still sees that a call happened.
+    """
+    try:
+        global _last_call_ended_at
+        payload = await request.json()
+        message = payload.get("message", {})
+        msg_type = message.get("type")
+
+        # For any tool-call events VAPI routes here, return a neutral tool result
+        # so VAPI does not treat the tool as failed.
+        if msg_type not in ("end-of-call-report", None):
+            tool_calls = message.get("toolCalls") or []
+            if tool_calls:
+                results = [
+                    {"toolCallId": tc.get("id", ""), "result": "ok"}
+                    for tc in tool_calls
+                ]
+                return {"results": results}
+            return {"status": "ok"}
+
+        call = message.get("call", {})
+        call_id = call.get("id")
+        assistant_id = call.get("assistantId")
+        phone_number_id = call.get("phoneNumberId")
+        phone = call.get("customer", {}).get("number", "")
+
+        if not call_id:
+            return {"status": "ignored", "reason": "no_call_id"}
+
+        _last_call_ended_at = datetime.now(timezone.utc).isoformat()
+
+        existing = db.table("lease_leads").select("id").eq("call_id", call_id).limit(1).execute()
+        if existing.data:
+            return {"status": "ignored", "reason": "lead_already_exists"}
+
+        artifact = message.get("artifact", {})
+        transcript = artifact.get("transcript", "")
+
+        manager_id = None
+        if assistant_id:
+            mvc_row = (
+                db.table("manager_vapi_config")
+                .select("manager_id")
+                .eq("vapi_lease_assistant_id", assistant_id)
+                .limit(1)
+                .execute()
+            )
+            if mvc_row.data:
+                manager_id = mvc_row.data[0].get("manager_id")
+
+        if not manager_id and phone_number_id:
+            mvc_row = (
+                db.table("manager_vapi_config")
+                .select("manager_id")
+                .eq("vapi_phone_number_id", phone_number_id)
+                .limit(1)
+                .execute()
+            )
+            if mvc_row.data:
+                manager_id = mvc_row.data[0].get("manager_id")
+
+        notes = (
+            "[Incomplete call — lead captured from end-of-call fallback]\n\nTranscript:\n"
+            + transcript[:2000]
+            if transcript
+            else "[Incomplete call — no transcript available]"
+        )
+
+        lead_payload = {
+            "manager_id": str(manager_id) if manager_id else None,
+            "property_group_id": None,
+            "listing_uuid": None,
+            "interested_listing_ids": [],
+            "caller_name": "Unknown",
+            "phone": phone,
+            "qualification_status": "unmatched",
+            "source": "voice",
+            "call_id": call_id,
+            "notes": notes,
+        }
+
+        db.table("lease_leads").insert(lead_payload).execute()
+        print(f"[LEASE EOC] Partial lead saved for call_id={call_id} phone={phone} manager={manager_id}")
+
+    except Exception as e:
+        print(f"[ERROR] lease_eoc_webhook: {e}")
+
+    return {"status": "processed"}
+
+
+# ── Lease lead direct (apiRequest version) ────────────────────────────────
+
+@router.post("/voice/lease-lead-direct")
+async def lease_lead_direct(
+    request: Request,
+    call_id: str | None = None,
+    phone: str | None = None,
+    db: Client = Depends(get_service_db),
+):
+    """
+    apiRequest version of submit_lease_lead.
+    VAPI posts the lead fields as a flat JSON body.
+    Query params: call_id, phone (from VAPI template variables).
+    Always returns HTTP 200.
+    """
+    try:
+        lead_data = await request.json()
+        print(f"[LEASE LEAD DIRECT] call_id={call_id} phone={phone} data={lead_data}")
+
+        if call_id:
+            dup = db.table("lease_leads").select("id").eq("call_id", call_id).limit(1).execute()
+            if dup.data:
+                print(f"  [DUPLICATE] call_id={call_id} already exists")
+                return {"status": "duplicate"}
+
+        raw_uuid = (lead_data.get("listing_uuid") or "").strip()
+        listing_uuid = raw_uuid if UUID_RE.match(raw_uuid) else None
+
+        manager_id = None
+        property_group_id = None
+
+        if listing_uuid:
+            row = db.table("lease_listings").select("property_group_id, manager_id").eq("uuid", listing_uuid).limit(1).execute()
+            if row.data:
+                property_group_id = row.data[0].get("property_group_id")
+                manager_id = row.data[0].get("manager_id")
+
+        qualifying_answers = lead_data.get("qualifying_answers", "{}")
+        if isinstance(qualifying_answers, str):
+            try:
+                qualifying_answers = json.loads(qualifying_answers)
+            except Exception:
+                qualifying_answers = {}
+
+        address_preference = (lead_data.get("address_preference") or "").strip()
+        if address_preference:
+            qualifying_answers["address_preference"] = address_preference
+
+        raw_interested = lead_data.get("interested_listing_ids") or []
+        if not isinstance(raw_interested, list):
+            raw_interested = []
+        interested_ids = [i for i in raw_interested if isinstance(i, str) and UUID_RE.match(i.strip())]
+
+        lead_payload = {
+            "property_group_id": str(property_group_id) if property_group_id else None,
+            "manager_id": str(manager_id) if manager_id else None,
+            "listing_uuid": listing_uuid,
+            "interested_listing_ids": interested_ids,
+            "caller_name": lead_data.get("caller_name") or "Unknown",
+            "phone": phone or "",
+            "bedrooms": lead_data.get("bedrooms") or None,
+            "budget_max": lead_data.get("budget_max") or None,
+            "move_in_timeline": lead_data.get("move_in_timeline"),
+            "occupants": lead_data.get("occupants") or None,
+            "floor_preference": lead_data.get("floor_preference"),
+            "qualification_status": lead_data.get("qualification_status") or "unmatched",
+            "disqualifying_reason": lead_data.get("disqualifying_reason"),
+            "qualifying_answers": qualifying_answers,
+            "notes": lead_data.get("notes"),
+            "source": "voice",
+            "call_id": call_id,
+        }
+
+        result = db.table("lease_leads").insert(lead_payload).execute()
+        print(f"  [SAVED] phone={phone} status={lead_payload['qualification_status']}")
+
+        global _last_call_ended_at
+        _last_call_ended_at = datetime.now(timezone.utc).isoformat()
+
+        if result.data and lead_payload.get("qualification_status") == "qualified" and manager_id:
+            try:
+                saved_lead = result.data[0]
+                caller_name = lead_payload.get("caller_name") or "Unknown caller"
+                db.table("notifications").insert({
+                    "manager_id": str(manager_id),
+                    "title": "New Qualified Lead",
+                    "body": f"{caller_name} is interested in leasing — review their details.",
+                    "type": "lead",
+                    "entity_id": str(saved_lead["uuid"]),
+                    "is_read": False,
+                }).execute()
+            except Exception as notif_err:
+                print(f"  [NOTIFICATION] Failed (non-fatal): {notif_err}")
+
+        return {"status": "saved", "caller_name": lead_payload["caller_name"]}
+
+    except Exception as e:
+        print(f"[ERROR] lease_lead_direct: {e}")
+        return {"status": "error"}
 
 
 # ── Call status polling endpoint ──────────────────────────────────────────────
