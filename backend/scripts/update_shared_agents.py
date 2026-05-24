@@ -40,13 +40,16 @@ def check_env():
         sys.exit(1)
 
 
-def update_assistant(client: Vapi, label: str, assistant_id: str, cfg: dict):
+def update_assistant(client: Vapi, label: str, assistant_id: str, cfg: dict, expected_server_messages: list):
     print(f"\n[{label}]")
     print(f"  assistant_id : {assistant_id}")
     try:
         result = client.assistants.update(id=assistant_id, **cfg)
-        print(f"  OK  name={result.name}  id={result.id}")
-        print(f"  voice voiceId={cfg['voice']['voiceId']}")
+        actual = getattr(result, "server_messages", None)
+        if actual != expected_server_messages:
+            print(f"  [FAIL] serverMessages = {actual} — expected {expected_server_messages}")
+            sys.exit(1)
+        print(f"  [OK]  name={result.name}  serverMessages={actual}")
     except ApiError as e:
         print(f"  FAILED {e.status_code}: {e.body}")
         sys.exit(1)
@@ -70,6 +73,7 @@ def main():
         "Complaint agent (+14382314283)",
         COMPLAINT_ASSISTANT_ID,
         build_complaint_config(BACKEND_URL),
+        expected_server_messages=["end-of-call-report", "tool-calls"],
     )
 
     update_assistant(
@@ -77,6 +81,7 @@ def main():
         "Shared lease agent (+14313415768)",
         LEASE_ASSISTANT_ID,
         build_lease_config_shared(BACKEND_URL),
+        expected_server_messages=["end-of-call-report"],
     )
 
     print("\n" + "=" * 60)

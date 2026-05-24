@@ -467,6 +467,7 @@ async def lease_lead_webhook(request: Request, db: Client = Depends(get_service_
     VAPI function tool webhook — processes submit_lease_lead calls from the lease agent.
     Always returns HTTP 200 (async tool; VAPI does not wait for the result).
     """
+    print("[DEPRECATED] lease_lead_webhook called — submit_lease_lead should use /voice/lease-lead-direct now")
     try:
         payload = await request.json()
         message = payload.get("message", {})

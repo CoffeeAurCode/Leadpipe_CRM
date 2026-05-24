@@ -605,18 +605,8 @@ def build_assistant_config() -> dict:
             "temperature": 0.7,
             "tools": tools,
         },
-        "server_messages": [
-            "conversation-update",
-            "end-of-call-report",
-            "function-call",
-            "hang",
-            "speech-update",
-            "status-update",
-            "tool-calls",
-            "transfer-destination-request",
-            "user-interrupted",
-            "assistant.started",
-        ],
+        # IMPORTANT: Complaint agent → /voice/webhook → handles tool-calls + end-of-call-report.
+        "server_messages": ["end-of-call-report", "tool-calls"],
         "client_messages": [
             "conversation-update",
             "function-call",
@@ -944,11 +934,8 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
             "temperature": 0.7,
             "tools": tools,
         },
-        "server_messages": [
-            "conversation-update", "end-of-call-report", "function-call",
-            "hang", "speech-update", "status-update", "tool-calls",
-            "transfer-destination-request", "user-interrupted", "assistant.started",
-        ],
+        # IMPORTANT: Complaint agent → /voice/webhook → handles tool-calls + end-of-call-report.
+        "server_messages": ["end-of-call-report", "tool-calls"],
         "client_messages": [
             "conversation-update", "function-call", "hang", "model-output",
             "speech-update", "status-update", "transcript", "tool-calls",
