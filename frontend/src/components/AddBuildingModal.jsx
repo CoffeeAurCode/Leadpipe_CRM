@@ -146,7 +146,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
 
                         <ImageUploadField
                             entityType="building"
-                            label="Cover Image"
+                            label={t('imageUpload.coverImage')}
                             disabled={loading}
                             onUploadStart={() => setUploadingImage(true)}
                             onUploadComplete={(url) => { setUploadingImage(false); setForm(prev => ({ ...prev, image_url: url })); }}

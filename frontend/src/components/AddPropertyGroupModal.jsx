@@ -174,7 +174,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
 
                                 <ImageUploadField
                                     entityType="property"
-                                    label="Cover Image"
+                                    label={t('imageUpload.coverImage')}
                                     disabled={loading}
                                     onUploadStart={() => setUploadingImage(true)}
                                     onUploadComplete={(url) => { setUploadingImage(false); setForm(prev => ({ ...prev, image_url: url })); }}

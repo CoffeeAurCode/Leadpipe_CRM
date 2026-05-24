@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     MessageSquareMore, RefreshCw, Send, ChevronUp, ChevronDown,
     ChevronsUpDown, Search, LayoutTemplate, X, Plus, Pencil, Trash2, Check,
@@ -64,6 +65,13 @@ function buildPreview(message) {
 
 const RENT_STATUS_ORDER = { 'On-time': 0, Upcoming: 1, 'At Risk': 2, Overdue: 3 };
 
+const RENT_STATUS_KEY_MAP = {
+    'On-time': 'onTime',
+    'Upcoming': 'upcoming',
+    'Overdue': 'overdue',
+    'At Risk': 'atRisk',
+};
+
 function sortTenants(tenants, field, dir) {
     if (!field) return tenants;
     return [...tenants].sort((a, b) => {
@@ -94,10 +102,13 @@ const STATUS_STYLES = {
 };
 
 function RentStatusBadge({ status }) {
+    const { t } = useTranslation();
     if (!status) return <span className="text-muted-foreground">—</span>;
+    const key = RENT_STATUS_KEY_MAP[status];
+    const label = key ? t(`tenants.rentStatusOptions.${key}`) : status;
     return (
         <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', STATUS_STYLES[status] ?? 'bg-secondary text-foreground')}>
-            {status}
+            {label}
         </span>
     );
 }
@@ -114,6 +125,7 @@ function SortIcon({ field, sortField, sortDir }) {
 // ── Templates Modal ───────────────────────────────────────────────────────────
 
 function TemplatesModal({ templates, onClose, onSave }) {
+    const { t } = useTranslation();
     const [list, setList] = useState(templates);
     const [editing, setEditing] = useState(null); // { id, name, body } | null
     const [isNew, setIsNew] = useState(false);
@@ -163,7 +175,7 @@ function TemplatesModal({ templates, onClose, onSave }) {
             >
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-                    <h2 className="text-lg font-semibold text-foreground">Manage Templates</h2>
+                    <h2 className="text-lg font-semibold text-foreground">{t('sms.manageTemplates')}</h2>
                     <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary transition-colors">
                         <X className="w-4 h-4 text-muted-foreground" />
                     </button>
@@ -179,13 +191,13 @@ function TemplatesModal({ templates, onClose, onSave }) {
                                         autoFocus
                                         value={editing.name}
                                         onChange={e => setEditing(prev => ({ ...prev, name: e.target.value }))}
-                                        placeholder="Template name"
+                                        placeholder={t('sms.templateName')}
                                         className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                                     />
                                     <textarea
                                         value={editing.body}
                                         onChange={e => setEditing(prev => ({ ...prev, body: e.target.value }))}
-                                        placeholder="Message body…"
+                                        placeholder={t('sms.messageBody')}
                                         rows={3}
                                         className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
                                     />
@@ -195,13 +207,13 @@ function TemplatesModal({ templates, onClose, onSave }) {
                                             disabled={!editing.name.trim() || !editing.body.trim()}
                                             className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground disabled:opacity-50"
                                         >
-                                            <Check className="w-3 h-3" /> Save
+                                            <Check className="w-3 h-3" /> {t('common.save')}
                                         </button>
                                         <button
                                             onClick={cancelEdit}
                                             className="px-3 py-1.5 rounded-md text-xs font-medium bg-secondary text-foreground"
                                         >
-                                            Cancel
+                                            {t('common.cancel')}
                                         </button>
                                     </div>
                                 </div>
@@ -264,13 +276,13 @@ function TemplatesModal({ templates, onClose, onSave }) {
                         disabled={isNew || (editing !== null)}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
                     >
-                        <Plus className="w-4 h-4" /> New Template
+                        <Plus className="w-4 h-4" /> {t('sms.newTemplate')}
                     </button>
                     <button
                         onClick={handleSave}
                         className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
                     >
-                        Save Changes
+                        {t('sms.saveChanges')}
                     </button>
                 </div>
             </div>
@@ -283,6 +295,7 @@ function TemplatesModal({ templates, onClose, onSave }) {
 const RENT_STATUS_OPTIONS = ['On-time', 'Upcoming', 'Overdue', 'At Risk'];
 
 export default function SmsWorkflow() {
+    const { t } = useTranslation();
     const [tenants, setTenants] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
@@ -313,7 +326,7 @@ export default function SmsWorkflow() {
             setTenants(data);
             setSelectedUuids(new Set());
         } catch (err) {
-            setLoadError('Failed to load tenants. Check that the backend is running.');
+            setLoadError(t('sms.failedLoad'));
             console.error(err);
         } finally {
             setLoading(false);
@@ -347,12 +360,12 @@ export default function SmsWorkflow() {
             const failed = data.results.filter(r => !r.success).length;
             const succeeded = data.results.filter(r => r.success).length;
             if (failed === 0) {
-                setBanner({ type: 'success', text: `SMS sent successfully to ${succeeded} tenant(s).` });
+                setBanner({ type: 'success', text: t('sms.smsSentSuccess', { count: succeeded }) });
             } else {
-                setBanner({ type: 'error', text: `Failed to send SMS to ${failed} tenant(s).` });
+                setBanner({ type: 'error', text: t('sms.smsSentFailed', { count: failed }) });
             }
         } catch (err) {
-            setBanner({ type: 'error', text: 'Request failed. Check that the backend is running.' });
+            setBanner({ type: 'error', text: t('sms.requestFailed') });
             console.error(err);
         } finally {
             setSending(false);
@@ -411,14 +424,14 @@ export default function SmsWorkflow() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <MessageSquareMore className="w-6 h-6 text-primary" />
-                    <h1 className="text-2xl font-bold text-foreground">SMS Workflow</h1>
+                    <h1 className="text-2xl font-bold text-foreground">{t('sms.title')}</h1>
                 </div>
                 <button
                     onClick={() => setShowTemplatesModal(true)}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium text-foreground hover:border-primary hover:text-primary transition-all duration-200 shadow-sm"
                 >
                     <LayoutTemplate className="w-4 h-4" />
-                    Manage Templates
+                    {t('sms.manageTemplates')}
                 </button>
             </div>
 
@@ -445,19 +458,19 @@ export default function SmsWorkflow() {
                     {/* Template selector */}
                     <div className="space-y-1.5">
                         <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            Load Template
+                            {t('sms.loadTemplate')}
                         </label>
                         <select
                             value={selectedTemplateId}
                             onChange={e => {
                                 const id = e.target.value;
-                                const tpl = templates.find(t => t.id === id);
+                                const tpl = templates.find(tmpl => tmpl.id === id);
                                 if (tpl) setMessage(tpl.body);
                                 setSelectedTemplateId('');
                             }}
                             className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                         >
-                            <option value="" disabled>Select a template…</option>
+                            <option value="" disabled>{t('sms.selectTemplate')}</option>
                             {templates.map(t => (
                                 <option key={t.id} value={t.id}>{t.name}</option>
                             ))}
@@ -467,7 +480,7 @@ export default function SmsWorkflow() {
                     {/* Variable chips */}
                     <div className="space-y-1.5">
                         <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            Insert Variable
+                            {t('sms.insertVariable')}
                         </label>
                         <div className="flex flex-wrap gap-2">
                             {VARIABLES.map(({ token }) => (
@@ -485,19 +498,19 @@ export default function SmsWorkflow() {
                     {/* Textarea */}
                     <div className="space-y-1.5">
                         <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            Message
+                            {t('sms.message')}
                         </label>
                         <textarea
                             ref={textareaRef}
                             value={message}
                             onChange={e => setMessage(e.target.value)}
-                            placeholder="Type your SMS message here, or load a template above…"
+                            placeholder={t('sms.typePlaceholder')}
                             rows={5}
                             className="w-full bg-background border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary transition-shadow"
                         />
                         <div className="flex items-center justify-between">
                             <span className="text-xs text-muted-foreground">
-                                {message.length} character{message.length !== 1 ? 's' : ''}
+                                {t('sms.charCount', { count: message.length })}
                             </span>
                             <button
                                 onClick={handleSend}
@@ -510,7 +523,7 @@ export default function SmsWorkflow() {
                                 )}
                             >
                                 <Send className="w-4 h-4" />
-                                {sending ? 'Sending…' : `Send SMS${selectedUuids.size > 0 ? ` (${selectedUuids.size})` : ''}`}
+                                {sending ? t('sms.sending') : selectedUuids.size > 0 ? t('sms.sendSmsCount', { count: selectedUuids.size }) : t('sms.sendSmsBtn')}
                             </button>
                         </div>
                     </div>
@@ -519,7 +532,7 @@ export default function SmsWorkflow() {
                 {/* Live Preview */}
                 <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col">
                     <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-                        Live Preview
+                        {t('sms.livePreview')}
                     </label>
                     <div className="flex-1 flex flex-col items-center justify-center">
                         {/* Phone mockup */}
@@ -535,13 +548,13 @@ export default function SmsWorkflow() {
                                         />
                                     ) : (
                                         <span className="text-muted-foreground italic text-xs">
-                                            Your message preview will appear here…
+                                            {t('sms.previewPlaceholder')}
                                         </span>
                                     )}
                                 </div>
                             </div>
                             <p className="text-center text-xs text-muted-foreground mt-2 opacity-60">
-                                Sample values shown
+                                {t('sms.sampleValues')}
                             </p>
                         </div>
                     </div>
@@ -554,8 +567,8 @@ export default function SmsWorkflow() {
                 <div data-tour="sms-recipients" className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 border-b border-border gap-3">
                     <span className="text-sm font-medium text-foreground shrink-0">
                         {selectedUuids.size > 0
-                            ? `${selectedUuids.size} tenant(s) selected`
-                            : 'Select tenants to message'}
+                            ? t('sms.selectedTenants', { count: selectedUuids.size })
+                            : t('sms.selectTenants')}
                     </span>
                     <div className="flex items-center gap-2 flex-wrap">
                         {/* Search */}
@@ -565,7 +578,7 @@ export default function SmsWorkflow() {
                                 type="text"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                placeholder="Search name or flat…"
+                                placeholder={t('sms.searchPlaceholder')}
                                 className="pl-8 pr-3 py-1.5 text-sm bg-secondary border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary w-44"
                             />
                         </div>
@@ -575,10 +588,11 @@ export default function SmsWorkflow() {
                             onChange={e => setRentStatusFilter(e.target.value)}
                             className="text-sm bg-secondary border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         >
-                            <option value="">All Statuses</option>
-                            {RENT_STATUS_OPTIONS.map(s => (
-                                <option key={s} value={s}>{s}</option>
-                            ))}
+                            <option value="">{t('sms.allStatuses')}</option>
+                            {RENT_STATUS_OPTIONS.map(s => {
+                                const k = RENT_STATUS_KEY_MAP[s];
+                                return <option key={s} value={s}>{k ? t(`tenants.rentStatusOptions.${k}`) : s}</option>;
+                            })}
                         </select>
                         <button
                             onClick={() => load(rentStatusFilter)}
@@ -595,7 +609,7 @@ export default function SmsWorkflow() {
                 )}
 
                 {loading ? (
-                    <div className="px-5 py-8 text-center text-muted-foreground text-sm">Loading tenants…</div>
+                    <div className="px-5 py-8 text-center text-muted-foreground text-sm">{t('tenants.loading')}</div>
                 ) : (
                     <table className="w-full text-sm">
                         <thead className="bg-secondary/50">
@@ -610,8 +624,8 @@ export default function SmsWorkflow() {
                                 </th>
                                 {/* Sortable column headers */}
                                 {[
-                                    { key: 'name', label: 'Name' },
-                                    { key: 'flat', label: 'Flat' },
+                                    { key: 'name', label: t('sms.name') },
+                                    { key: 'flat', label: t('sms.flat') },
                                 ].map(col => (
                                     <th
                                         key={col.key}
@@ -624,13 +638,13 @@ export default function SmsWorkflow() {
                                         </span>
                                     </th>
                                 ))}
-                                <th className="px-5 py-3 text-left text-muted-foreground font-medium">Phone</th>
+                                <th className="px-5 py-3 text-left text-muted-foreground font-medium">{t('sms.phone')}</th>
                                 <th
                                     className="px-5 py-3 text-left text-muted-foreground font-medium cursor-pointer select-none hover:text-foreground transition-colors"
                                     onClick={() => handleSortToggle('rent_status')}
                                 >
                                     <span className="flex items-center gap-1">
-                                        Rent Status
+                                        {t('sms.rentStatus')}
                                         <SortIcon field="rent_status" sortField={sortField} sortDir={sortDir} />
                                     </span>
                                 </th>
@@ -640,7 +654,7 @@ export default function SmsWorkflow() {
                             {displayTenants.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-5 py-8 text-center text-muted-foreground">
-                                        {searchQuery ? 'No tenants match your search.' : 'No tenants found.'}
+                                        {searchQuery ? t('sms.noMatch') : t('sms.noTenants')}
                                     </td>
                                 </tr>
                             )}

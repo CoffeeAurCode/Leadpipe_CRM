@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Save, UserPlus, UserMinus, User, Home, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib';
 import { updateFlat } from '../services/apiService';
 
 export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
-
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState("details");
@@ -109,7 +110,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
     };
 
     const handleRemoveTenant = async () => {
-        if (!confirm("Are you sure you want to remove this tenant? This action cannot be undone.")) return;
+        if (!confirm(t('unit.removeTenantConfirm'))) return;
 
         setLoading(true);
         setError(null);
@@ -141,7 +142,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border">
-                    <h2 className="text-2xl font-bold text-foreground">Edit Flat {flat.flat_number}</h2>
+                    <h2 className="text-2xl font-bold text-foreground">{t('unit.editTitle', { number: flat.flat_number })}</h2>
                     <button
                         onClick={onClose}
                         className="p-2 rounded-lg hover:bg-secondary transition-colors"
@@ -163,7 +164,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                         : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                                 )}
                             >
-                                Flat Details
+                                {t('unit.details')}
                             </button>
                         )}
                         {f.tenant_details && (
@@ -176,7 +177,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                         : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                                 )}
                             >
-                                Tenant ({hasTenant ? 'Occupied' : 'Vacant'})
+                                {hasTenant ? t('unit.tenantTabOccupied') : t('unit.tenantTabVacant')}
                             </button>
                         )}
                     </div>
@@ -197,7 +198,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                         <div className="space-y-4">
                             <div>
                                 <label htmlFor="address" className="block text-sm font-medium text-foreground mb-2">
-                                    Building / Address
+                                    {t('unit.buildingAddress')}
                                 </label>
                                 <input
                                     id="address"
@@ -210,7 +211,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label htmlFor="floor" className="block text-sm font-medium text-foreground mb-2">
-                                        Floor Number
+                                        {t('unit.floorNumber')}
                                     </label>
                                     <input
                                         id="floor"
@@ -222,7 +223,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                 </div>
                                 <div>
                                     <label htmlFor="bedrooms" className="block text-sm font-medium text-foreground mb-2">
-                                        Bedrooms
+                                        {t('unit.bedrooms')}
                                     </label>
                                     <select
                                         id="bedrooms"
@@ -230,7 +231,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                         onChange={(e) => setFlatData({ ...flatData, bedrooms: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                                     >
-                                        <option value="">Select</option>
+                                        <option value="">{t('common.select')}</option>
                                         {[1, 2, 3, 4, 5].map(num => (
                                             <option key={num} value={String(num)}>{num} BHK</option>
                                         ))}
@@ -238,7 +239,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                 </div>
                                 <div>
                                     <label htmlFor="bathrooms" className="block text-sm font-medium text-foreground mb-2">
-                                        Bathrooms
+                                        {t('unit.bathrooms')}
                                     </label>
                                     <select
                                         id="bathrooms"
@@ -246,7 +247,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                         onChange={(e) => setFlatData({ ...flatData, bathrooms: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                                     >
-                                        <option value="">Select</option>
+                                        <option value="">{t('common.select')}</option>
                                         {[1, 2, 3, 4, 5].map(num => (
                                             <option key={num} value={String(num)}>{num} Bath</option>
                                         ))}
@@ -258,14 +259,14 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                     onClick={onClose}
                                     className="px-4 py-2 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
                                 >
-                                    Cancel
+                                    {t('common.cancel')}
                                 </button>
                                 <button
                                     onClick={handleSaveFlatDetails}
                                     disabled={loading}
                                     className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {loading ? 'Saving...' : 'Save Changes'}
+                                    {loading ? t('unit.rentSaving') : t('unit.saveChanges')}
                                 </button>
                             </div>
                         </div>
@@ -278,7 +279,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                     <div className="space-y-4">
                                         <div>
                                             <label htmlFor="t-name" className="block text-sm font-medium text-foreground mb-2">
-                                                Tenant Name
+                                                {t('unit.tenantName')}
                                             </label>
                                             <input
                                                 id="t-name"
@@ -290,7 +291,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                         </div>
                                         <div>
                                             <label htmlFor="t-phone" className="block text-sm font-medium text-foreground mb-2">
-                                                Phone Number
+                                                {t('unit.phoneNumber')}
                                             </label>
                                             <input
                                                 id="t-phone"
@@ -308,14 +309,14 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                             className="px-4 py-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                         >
                                             <UserMinus className="w-4 h-4" />
-                                            Vacate Flat
+                                            {t('unit.vacateFlat')}
                                         </button>
                                         <button
                                             onClick={handleUpdateTenant}
                                             disabled={loading}
                                             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            {loading ? 'Updating...' : 'Update Tenant'}
+                                            {loading ? t('unit.rentSaving') : t('unit.updateTenant')}
                                         </button>
                                     </div>
                                 </>
@@ -324,12 +325,12 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                 <>
                                     <div className="bg-secondary/50 p-4 rounded-lg mb-4 text-sm text-muted-foreground flex items-center gap-2">
                                         <Home className="w-4 h-4" />
-                                        This flat is currently vacant. Add a tenant to mark it as occupied.
+                                        {t('unit.vacantHint')}
                                     </div>
                                     <div className="space-y-4">
                                         <div>
                                             <label htmlFor="new-name" className="block text-sm font-medium text-foreground mb-2">
-                                                Tenant Name
+                                                {t('unit.tenantName')}
                                             </label>
                                             <input
                                                 id="new-name"
@@ -342,7 +343,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                         </div>
                                         <div>
                                             <label htmlFor="new-phone" className="block text-sm font-medium text-foreground mb-2">
-                                                Phone Number
+                                                {t('unit.phoneNumber')}
                                             </label>
                                             <input
                                                 id="new-phone"
@@ -359,7 +360,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                             onClick={onClose}
                                             className="px-4 py-2 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
                                         >
-                                            Cancel
+                                            {t('common.cancel')}
                                         </button>
                                         <button
                                             onClick={handleAddTenant}
@@ -367,7 +368,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                         >
                                             <UserPlus className="w-4 h-4" />
-                                            Add Tenant
+                                            {t('unit.addTenantBtn')}
                                         </button>
                                     </div>
                                 </>

@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { XMarkIcon, CalendarIcon, MapPinIcon, ClockIcon, PencilIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { format, parseISO } from 'date-fns';
 import { useState, useRef, useEffect } from 'react';
@@ -6,6 +7,7 @@ import { APPOINTMENT_STATUS, APPOINTMENT_STATUS_CONFIG, getAppointmentStatusConf
 import './AppointmentDetailModal.css';
 
 export default function AppointmentDetailModal({ appointment, isOpen, onClose, onUpdate }) {
+    const { t } = useTranslation();
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({ appointment_date: '', notes: '' });
     const [currentStatus, setCurrentStatus] = useState(appointment?.status || APPOINTMENT_STATUS.SCHEDULED);
@@ -44,7 +46,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
         } catch (error) {
             console.error('Failed to update appointment status:', error);
             setCurrentStatus(prevStatus); // revert on error
-            alert('Failed to update status. Please try again.');
+            alert(t('appt.failedStatus'));
         } finally {
             setStatusLoading(false);
         }
@@ -62,7 +64,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
             onClose();
         } catch (error) {
             console.error('Failed to update appointment:', error);
-            alert('Failed to update appointment');
+            alert(t('appt.failedUpdate'));
         }
     };
 
@@ -99,11 +101,11 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                 <div>
                                     <h2 className="modal-title">
                                         {hasComplaint
-                                            ? `Fix ${appointment.complaint_category} Issue`
-                                            : 'Scheduled Visit'
+                                            ? t('appt.fix', { category: appointment.complaint_category })
+                                            : t('appt.visit')
                                         }
                                     </h2>
-                                    <p className="modal-subtitle">Appointment #{appointment.id}</p>
+                                    <p className="modal-subtitle">{t('appt.id', { id: appointment.id })}</p>
                                 </div>
                             </div>
                             <button className="close-button" onClick={onClose}>
@@ -117,13 +119,13 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                 <>
                                     {/* Appointment Details */}
                                     <div className="detail-section">
-                                        <h3 className="section-title">Appointment Details</h3>
+                                        <h3 className="section-title">{t('appt.details')}</h3>
 
                                         <div className="detail-grid">
                                             <div className="detail-item">
                                                 <MapPinIcon className="detail-icon" />
                                                 <div>
-                                                    <div className="detail-label">Flat Number</div>
+                                                    <div className="detail-label">{t('appt.flatNumber')}</div>
                                                     <div className="detail-value">{appointment.flat_number}</div>
                                                 </div>
                                             </div>
@@ -131,7 +133,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                             <div className="detail-item">
                                                 <CalendarIcon className="detail-icon" />
                                                 <div>
-                                                    <div className="detail-label">Date</div>
+                                                    <div className="detail-label">{t('appt.date')}</div>
                                                     <div className="detail-value">
                                                         {format(parseISO(appointment.appointment_date), 'EEEE, MMMM d, yyyy')}
                                                     </div>
@@ -141,7 +143,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                             <div className="detail-item">
                                                 <ClockIcon className="detail-icon" />
                                                 <div>
-                                                    <div className="detail-label">Time</div>
+                                                    <div className="detail-label">{t('appt.time')}</div>
                                                     <div className="detail-value">
                                                         {format(parseISO(appointment.appointment_date), 'h:mm a')}
                                                     </div>
@@ -152,15 +154,15 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                             <div className="detail-item">
                                                 <div className="status-icon">●</div>
                                                 <div style={{ flex: 1 }}>
-                                                    <div className="detail-label">Status</div>
+                                                    <div className="detail-label">{t('appt.status')}</div>
                                                     <div className="appt-status-wrapper" ref={dropdownRef}>
                                                         <button
                                                             className={`appt-status-btn ${statusConfig.text} ${statusConfig.bg} ${statusConfig.border}`}
                                                             onClick={() => setStatusDropdownOpen(o => !o)}
                                                             disabled={statusLoading}
-                                                            title="Click to change status"
+                                                            title={t('appt.status')}
                                                         >
-                                                            {statusLoading ? 'Updating…' : statusConfig.label}
+                                                            {statusLoading ? t('appt.updating') : t(`appointment.status.${currentStatus}`, { defaultValue: statusConfig.label })}
                                                             <ChevronDownIcon className="appt-chevron" />
                                                         </button>
 
@@ -173,7 +175,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                                                         onClick={() => handleStatusChange(value)}
                                                                     >
                                                                         <span className={`appt-status-dot ${cfg.text}`}>●</span>
-                                                                        {cfg.label}
+                                                                        {t(`appointment.status.${value}`, { defaultValue: cfg.label })}
                                                                     </button>
                                                                 ))}
                                                             </div>
@@ -185,7 +187,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
 
                                         {appointment.notes && (
                                             <div className="notes-section">
-                                                <div className="detail-label">Notes</div>
+                                                <div className="detail-label">{t('appt.notes')}</div>
                                                 <p className="notes-text">{appointment.notes}</p>
                                             </div>
                                         )}
@@ -200,7 +202,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                             transition={{ delay: 0.1 }}
                                         >
                                             <h3 className="section-title complaint-title">
-                                                Related Complaint
+                                                {t('appt.relatedComplaint')}
                                             </h3>
 
                                             <div className="complaint-card">
@@ -224,10 +226,10 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                             ) : (
                                 /* Edit Form */
                                 <div className="edit-form">
-                                    <h3 className="section-title">Edit Appointment</h3>
+                                    <h3 className="section-title">{t('appt.editTitle')}</h3>
 
                                     <div className="form-group">
-                                        <label className="form-label">Date & Time</label>
+                                        <label className="form-label">{t('complaint.dateTime')}</label>
                                         <input
                                             type="datetime-local"
                                             className="form-input"
@@ -240,22 +242,22 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                     </div>
 
                                     <div className="form-group">
-                                        <label className="form-label">Notes</label>
+                                        <label className="form-label">{t('appt.notes')}</label>
                                         <textarea
                                             className="form-textarea"
                                             rows="3"
                                             value={editData.notes}
                                             onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-                                            placeholder="Add any notes or special instructions..."
+                                            placeholder={t('appt.addNotes')}
                                         />
                                     </div>
 
                                     <div className="form-actions">
                                         <button className="btn-secondary" onClick={() => setIsEditing(false)}>
-                                            Cancel
+                                            {t('common.cancel')}
                                         </button>
                                         <button className="btn-primary" onClick={handleSaveEdit}>
-                                            Save Changes
+                                            {t('appt.saveChanges')}
                                         </button>
                                     </div>
                                 </div>
@@ -268,10 +270,10 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                 <div className="footer-right">
                                     <button className="btn-edit" onClick={handleEditClick}>
                                         <PencilIcon className="btn-icon" />
-                                        Edit
+                                        {t('appt.editBtn')}
                                     </button>
                                     <button className="btn-close" onClick={onClose}>
-                                        Close
+                                        {t('appt.closeBtn')}
                                     </button>
                                 </div>
                             </div>

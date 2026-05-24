@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib';
@@ -32,6 +33,7 @@ function ImageUploadField({
     label = 'Cover Image',
     disabled = false,
 }) {
+    const { t } = useTranslation();
     const [preview, setPreview] = useState(currentImageUrl || null);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
@@ -41,10 +43,10 @@ function ImageUploadField({
     // Validate file before touching the server
     const validate = (file) => {
         if (!ALLOWED_TYPES.includes(file.type)) {
-            return 'Only JPG, PNG, and WebP images are allowed.';
+            return t('imageUpload.invalidType');
         }
         if (file.size > MAX_SIZE_BYTES) {
-            return `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max: ${MAX_SIZE_MB} MB.`;
+            return t('imageUpload.tooLarge', { size: (file.size / 1024 / 1024).toFixed(1), max: MAX_SIZE_MB });
         }
         return null;
     };
@@ -71,7 +73,7 @@ function ImageUploadField({
             // Replace blob URL with permanent Supabase URL
             setPreview(url);
         } catch (err) {
-            setError(err.message || 'Upload failed. Please try again.');
+            setError(err.message || t('imageUpload.failed'));
             // Revert preview to whatever was there before (currentImageUrl or nothing)
             setPreview(currentImageUrl || null);
             onUploadComplete(''); // clear in parent so old URL isn't accidentally submitted
@@ -145,7 +147,7 @@ function ImageUploadField({
                             <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                                 <span className="text-white text-xs font-medium bg-black/50 px-3 py-1.5 rounded-full flex items-center gap-1.5">
                                     <Upload className="w-3.5 h-3.5" />
-                                    Replace
+                                    {t('imageUpload.replace')}
                                 </span>
                             </div>
                             {/* Clear button */}
@@ -162,7 +164,7 @@ function ImageUploadField({
                             {uploading && (
                                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                                     <Loader2 className="w-6 h-6 text-white animate-spin" />
-                                    <span className="ml-2 text-white text-sm font-medium">Uploading…</span>
+                                    <span className="ml-2 text-white text-sm font-medium">{t('imageUpload.uploading')}</span>
                                 </div>
                             )}
                         </motion.div>
@@ -178,17 +180,17 @@ function ImageUploadField({
                             {uploading ? (
                                 <>
                                     <Loader2 className="w-7 h-7 text-primary animate-spin" />
-                                    <span className="text-sm text-muted-foreground">Uploading…</span>
+                                    <span className="text-sm text-muted-foreground">{t('imageUpload.uploading')}</span>
                                 </>
                             ) : (
                                 <>
                                     <Upload className={cn('w-7 h-7 transition-colors', isDragging ? 'text-primary' : 'text-muted-foreground')} />
                                     <div className="text-center">
                                         <p className="text-sm font-medium text-foreground">
-                                            {isDragging ? 'Drop to upload' : 'Click or drag to upload'}
+                                            {isDragging ? t('imageUpload.dropToUpload') : t('imageUpload.clickOrDrag')}
                                         </p>
                                         <p className="text-xs text-muted-foreground mt-0.5">
-                                            JPG, PNG, WebP · max {MAX_SIZE_MB} MB
+                                            {t('imageUpload.formats', { max: MAX_SIZE_MB })}
                                         </p>
                                     </div>
                                 </>

@@ -722,7 +722,14 @@ def build_complaint_tools(backend_url: str) -> list:
                     "flat_number": {"type": "string", "description": "Flat number provided by the caller", "default": ""},
                 },
             },
-            "messages": [{"type": "request-start", "blocking": False}],
+            "messages": [
+                {
+                    "type": "request-start",
+                    "content": "One moment while I verify that. / Un instant, je vérifie ça.",
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                }
+            ],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -753,7 +760,14 @@ def build_complaint_tools(backend_url: str) -> list:
                     "datetime": {"type": "string", "description": "YYYY-MM-DDTHH:MM:SS", "default": ""},
                 },
             },
-            "messages": [{"type": "request-start", "blocking": False}],
+            "messages": [
+                {
+                    "type": "request-start",
+                    "content": "Let me check that time slot. / Laissez-moi vérifier ce créneau.",
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                }
+            ],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -779,7 +793,14 @@ def build_complaint_tools(backend_url: str) -> list:
                     "flat_number": {"type": "string", "description": "Flat number", "default": ""},
                 },
             },
-            "messages": [{"type": "request-start", "blocking": False}],
+            "messages": [
+                {
+                    "type": "request-start",
+                    "content": "Give me a second to pull up your appointments. / Un instant, je récupère vos rendez-vous.",
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                }
+            ],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -817,7 +838,14 @@ def build_complaint_tools(backend_url: str) -> list:
                     "new_appointment_date": {"type": "string", "description": "YYYY-MM-DDTHH:MM:SS", "default": ""},
                 },
             },
-            "messages": [{"type": "request-start", "blocking": False}],
+            "messages": [
+                {
+                    "type": "request-start",
+                    "content": "Just a moment while I update that. / Un instant pendant que je mets ça à jour.",
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                }
+            ],
         },
         {
             "type": "apiRequest",
@@ -841,7 +869,14 @@ def build_complaint_tools(backend_url: str) -> list:
                     "flat_number": {"type": "string", "description": "Flat number", "default": ""},
                 },
             },
-            "messages": [{"type": "request-start", "blocking": False}],
+            "messages": [
+                {
+                    "type": "request-start",
+                    "content": "One moment while I cancel that for you. / Un instant, j'annule ça pour vous.",
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                }
+            ],
         },
         {
             "type": "function",
@@ -871,7 +906,21 @@ def build_complaint_tools(backend_url: str) -> list:
                 "url": f"{backend_url}/voice/webhook",
                 "timeoutSeconds": 20,
             },
-            "messages": [{"type": "request-start", "blocking": False}],
+            "messages": [
+                {
+                    "type": "request-start",
+                    "content": "Let me get that logged for you right away. / Je l'enregistre pour vous tout de suite.",
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                },
+                {
+                    "type": "request-response-delayed",
+                    "content": "Still working on it, just another moment.",
+                    "timingMilliseconds": 3000,
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                },
+            ],
         },
     ]
 
@@ -1041,7 +1090,14 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "query": {"type": "string", "description": "Search query — flat number, unit name, street name, building name, or neighbourhood", "default": ""},
                 },
             },
-            "messages": [{"type": "request-start", "blocking": False}],
+            "messages": [
+                {
+                    "type": "request-start",
+                    "content": "Give me a second to look that up. / Un instant, je cherche ça.",
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                }
+            ],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1084,7 +1140,14 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "address": {"type": "string", "description": "Partial address string to filter by location (street, neighbourhood, building name). Leave empty if caller has not mentioned a location.", "default": ""},
                 },
             },
-            "messages": [{"type": "request-start", "blocking": False}],
+            "messages": [
+                {
+                    "type": "request-start",
+                    "content": "Let me search our available units for you. / Laissez-moi chercher les unités disponibles.",
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                }
+            ],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1134,7 +1197,21 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                 "url": f"{backend_url}/voice/lease-lead-webhook",
                 "timeoutSeconds": 20,
             },
-            "messages": [{"type": "request-start", "blocking": False}],
+            "messages": [
+                {
+                    "type": "request-start",
+                    "content": "Just a moment while I save your information. / Un instant pendant que j'enregistre vos informations.",
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                },
+                {
+                    "type": "request-response-delayed",
+                    "content": "Still working on it, just another moment.",
+                    "timingMilliseconds": 3000,
+                    "role": "assistant",
+                    "endCallAfterSpoken": False,
+                },
+            ],
         },
     ]
 

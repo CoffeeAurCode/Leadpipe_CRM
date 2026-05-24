@@ -134,7 +134,17 @@
     "effectiveFromLabel": "En vigueur à partir du",
     "setRent": "Définir le loyer",
     "updateRent": "Mettre à jour",
-    "failedDelete": "Impossible de supprimer l'unité."
+    "failedDelete": "Impossible de supprimer l'unité.",
+    "editTitle": "Modifier l'unité {{number}}",
+    "tenantTabOccupied": "Locataire (Occupée)",
+    "tenantTabVacant": "Locataire (Libre)",
+    "buildingAddress": "Bâtiment / Adresse",
+    "removeTenantConfirm": "Voulez-vous vraiment retirer ce locataire? Cette action est irréversible.",
+    "vacateFlat": "Libérer l'unité",
+    "updateTenant": "Mettre à jour le locataire",
+    "vacantHint": "Cette unité est actuellement vacante. Ajoutez un locataire pour la marquer comme occupée.",
+    "addTenantBtn": "Ajouter un locataire",
+    "saveChanges": "Enregistrer les modifications"
   },
   "building": {
     "title": "Ajouter un bâtiment",
@@ -148,7 +158,8 @@
     "creating": "Création en cours...",
     "nameRequired": "Le nom du bâtiment est obligatoire.",
     "failed": "Impossible de créer le bâtiment.",
-    "uploadingImage": "Téléchargement..."
+    "uploadingImage": "Téléchargement...",
+    "totalUnits": "Total des unités"
   },
   "propertyGroup": {
     "title": "Ajouter une propriété",
@@ -692,6 +703,17 @@
     "success": "Appel lancé — l'agent {{agent}} compose.",
     "failed": "Échec de l'appel. Vérifiez le numéro et réessayez.",
     "anotherCall": "Passer un autre appel"
+  },
+  "imageUpload": {
+    "coverImage": "Image de couverture",
+    "replace": "Remplacer",
+    "dropToUpload": "Déposer pour téléverser",
+    "clickOrDrag": "Cliquez ou glissez pour téléverser",
+    "formats": "JPG, PNG, WebP · max {{max}} Mo",
+    "uploading": "Téléversement…",
+    "invalidType": "Seules les images JPG, PNG et WebP sont acceptées.",
+    "tooLarge": "Fichier trop volumineux ({{size}} Mo). Max : {{max}} Mo.",
+    "failed": "Téléversement échoué. Veuillez réessayer."
   },
   "recentUpdates": {
     "title": "Activité récente",

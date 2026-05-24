@@ -134,7 +134,17 @@
     "effectiveFromLabel": "Effective From",
     "setRent": "Set Rent",
     "updateRent": "Update",
-    "failedDelete": "Failed to delete unit."
+    "failedDelete": "Failed to delete unit.",
+    "editTitle": "Edit Unit {{number}}",
+    "tenantTabOccupied": "Tenant (Occupied)",
+    "tenantTabVacant": "Tenant (Vacant)",
+    "buildingAddress": "Building / Address",
+    "removeTenantConfirm": "Are you sure you want to remove this tenant? This action cannot be undone.",
+    "vacateFlat": "Vacate Unit",
+    "updateTenant": "Update Tenant",
+    "vacantHint": "This unit is currently vacant. Add a tenant to mark it as occupied.",
+    "addTenantBtn": "Add Tenant",
+    "saveChanges": "Save Changes"
   },
   "building": {
     "title": "Add Building",
@@ -148,7 +158,8 @@
     "creating": "Creating...",
     "nameRequired": "Building name is required.",
     "failed": "Failed to create building.",
-    "uploadingImage": "Uploading image..."
+    "uploadingImage": "Uploading image...",
+    "totalUnits": "Total Units"
   },
   "propertyGroup": {
     "title": "Add Property",
@@ -692,6 +703,17 @@
     "success": "Call initiated — {{agent}} agent is dialling.",
     "failed": "Call failed. Check the number and try again.",
     "anotherCall": "Make another call"
+  },
+  "imageUpload": {
+    "coverImage": "Cover Image",
+    "replace": "Replace",
+    "dropToUpload": "Drop to upload",
+    "clickOrDrag": "Click or drag to upload",
+    "formats": "JPG, PNG, WebP · max {{max}} MB",
+    "uploading": "Uploading…",
+    "invalidType": "Only JPG, PNG, and WebP images are allowed.",
+    "tooLarge": "File too large ({{size}} MB). Max: {{max}} MB.",
+    "failed": "Upload failed. Please try again."
   },
   "recentUpdates": {
     "title": "Recent Activity",

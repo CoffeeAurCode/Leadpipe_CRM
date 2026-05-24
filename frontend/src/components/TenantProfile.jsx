@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, User, Calendar, CreditCard, FileText, Home, Pencil, Save, Lock, Paperclip, ExternalLink, Trash2 } from 'lucide-react';
 import { updateTenant, deleteTenant, uploadImage } from '../services/apiService';
@@ -44,6 +45,7 @@ function FieldRow({ label, children }) {
 const inputCls = 'w-full px-2 py-1.5 bg-secondary border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary';
 
 export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
+    const { t } = useTranslation();
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -76,13 +78,13 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
     };
 
     const handleDelete = async () => {
-        if (!window.confirm(`Permanently delete "${tenant.name}"? Their flat will become vacant and rent record removed. This cannot be undone.`)) return;
+        if (!window.confirm(t('tenantProfile.deleteConfirm', { name: tenant.name }))) return;
         setDeleting(true);
         try {
             await deleteTenant(tenant.uuid);
             onDelete(tenant.uuid);
         } catch (err) {
-            alert(err.message || 'Failed to delete tenant.');
+            alert(err.message || t('tenantProfile.failedDelete'));
         } finally {
             setDeleting(false);
         }
@@ -109,7 +111,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
             onUpdate(merged);
             setEditing(false);
         } catch (err) {
-            setSaveError(err.message || 'Failed to save changes.');
+            setSaveError(err.message || t('tenantProfile.failedSave'));
         } finally {
             setSaving(false);
         }
@@ -125,7 +127,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
             const { url } = await uploadImage(file, 'tenant_document');
             setForm(f => ({ ...f, document_urls: [...(f.document_urls || []), url] }));
         } catch {
-            setSaveError('Document upload failed.');
+            setSaveError(t('tenantProfile.uploadFailed'));
         } finally {
             setUploading(false);
             e.target.value = '';
@@ -178,7 +180,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors disabled:opacity-60"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
-                                        {deleting ? 'Deleting…' : 'Delete'}
+                                        {deleting ? t('tenantProfile.deleting') : t('tenantProfile.delete')}
                                     </button>
                                 )}
                                 {featureEnabled && !editing && (
@@ -186,7 +188,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                         onClick={startEdit}
                                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
                                     >
-                                        <Pencil className="w-3.5 h-3.5" /> Edit
+                                        <Pencil className="w-3.5 h-3.5" /> {t('common.edit')}
                                     </button>
                                 )}
                                 <button
@@ -204,9 +206,9 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                 <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                                     <Lock className="w-6 h-6 text-muted-foreground" />
                                 </div>
-                                <p className="font-medium text-foreground">Tenant Details Disabled</p>
+                                <p className="font-medium text-foreground">{t('tenantProfile.featureDisabled')}</p>
                                 <p className="text-sm text-muted-foreground">
-                                    This feature is not enabled for this unit. Enable it in Settings to view and edit tenant details.
+                                    {t('tenantProfile.featureDisabledMsg')}
                                 </p>
                             </div>
                         ) : (
@@ -229,15 +231,15 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                 {/* Property */}
                                 <section>
                                     <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-                                        <Home className="w-4 h-4 text-primary" /> Property
+                                        <Home className="w-4 h-4 text-primary" /> {t('tenantProfile.property')}
                                     </h3>
-                                    <InfoRow label="Flat" value={tenant.flat_number} />
+                                    <InfoRow label={t('tenantProfile.flat')} value={tenant.flat_number} />
                                     <InfoRow
-                                        label="Tenancy Duration"
-                                        value={tenant.tenancy_duration_months != null ? `${tenant.tenancy_duration_months} months` : null}
+                                        label={t('tenantProfile.tenancyDuration')}
+                                        value={tenant.tenancy_duration_months != null ? t('tenantProfile.months', { count: tenant.tenancy_duration_months }) : null}
                                     />
                                     {editing ? (
-                                        <FieldRow label="Email">
+                                        <FieldRow label={t('common.email')}>
                                             <input
                                                 type="email"
                                                 className={inputCls}
@@ -247,44 +249,44 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                             />
                                         </FieldRow>
                                     ) : (
-                                        <InfoRow label="Email" value={tenant.email} />
+                                        <InfoRow label={t('common.email')} value={tenant.email} />
                                     )}
                                 </section>
 
                                 {/* Contract Details */}
                                 <section>
                                     <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-                                        <Calendar className="w-4 h-4 text-primary" /> Contract Details
+                                        <Calendar className="w-4 h-4 text-primary" /> {t('tenantProfile.contract')}
                                     </h3>
                                     {editing ? (
                                         <>
-                                            <FieldRow label="Lease Start">
+                                            <FieldRow label={t('tenantProfile.leaseStart')}>
                                                 <input type="date" className={inputCls} value={form.lease_start_date} onChange={set('lease_start_date')} />
                                             </FieldRow>
-                                            <FieldRow label="Lease End">
+                                            <FieldRow label={t('tenantProfile.leaseEnd')}>
                                                 <input type="date" className={inputCls} value={form.lease_end_date} onChange={set('lease_end_date')} />
                                             </FieldRow>
-                                            <FieldRow label="Payment Schedule">
+                                            <FieldRow label={t('tenantProfile.paymentSchedule')}>
                                                 <select className={inputCls} value={form.payment_schedule} onChange={set('payment_schedule')}>
-                                                    <option value="">— Select —</option>
+                                                    <option value="">{t('tenantProfile.selectPlaceholder')}</option>
                                                     {PAYMENT_SCHEDULE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                                                 </select>
                                             </FieldRow>
                                         </>
                                     ) : (
                                         <>
-                                            <InfoRow label="Lease Start" value={tenant.lease_start_date} />
-                                            <InfoRow label="Lease End" value={tenant.lease_end_date} />
+                                            <InfoRow label={t('tenantProfile.leaseStart')} value={tenant.lease_start_date} />
+                                            <InfoRow label={t('tenantProfile.leaseEnd')} value={tenant.lease_end_date} />
                                             <InfoRow
-                                                label="Lease Duration"
-                                                value={tenant.lease_duration_months != null ? `${tenant.lease_duration_months} months` : null}
+                                                label={t('tenantProfile.leaseDuration')}
+                                                value={tenant.lease_duration_months != null ? t('tenantProfile.months', { count: tenant.lease_duration_months }) : null}
                                             />
                                             <InfoRow
-                                                label="Days Remaining"
-                                                value={tenant.remaining_time_on_lease_days != null ? `${tenant.remaining_time_on_lease_days} days` : null}
+                                                label={t('tenantProfile.daysRemaining')}
+                                                value={tenant.remaining_time_on_lease_days != null ? t('tenantProfile.days', { count: tenant.remaining_time_on_lease_days }) : null}
                                                 className={tenant.remaining_time_on_lease_days != null && tenant.remaining_time_on_lease_days <= 30 ? 'text-amber-400' : ''}
                                             />
-                                            <InfoRow label="Payment Schedule" value={tenant.payment_schedule} />
+                                            <InfoRow label={t('tenantProfile.paymentSchedule')} value={tenant.payment_schedule} />
                                         </>
                                     )}
                                 </section>
@@ -292,37 +294,37 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                 {/* Payment Summary */}
                                 <section>
                                     <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-                                        <CreditCard className="w-4 h-4 text-primary" /> Payment Summary
+                                        <CreditCard className="w-4 h-4 text-primary" /> {t('tenantProfile.paymentSummary')}
                                     </h3>
                                     {editing ? (
-                                        <FieldRow label="Rent Status">
+                                        <FieldRow label={t('tenantProfile.rentStatus')}>
                                             <select className={inputCls} value={form.rent_status} onChange={set('rent_status')}>
-                                                <option value="">— Select —</option>
+                                                <option value="">{t('tenantProfile.selectPlaceholder')}</option>
                                                 {RENT_STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                                             </select>
                                         </FieldRow>
                                     ) : (
-                                        <InfoRow label="Rent Status" value={tenant.rent_status} />
+                                        <InfoRow label={t('tenantProfile.rentStatus')} value={tenant.rent_status} />
                                     )}
                                     {/* Rent and due_date are read-only — come from rents table */}
                                     <InfoRow
-                                        label="Monthly Rent"
+                                        label={t('tenantProfile.monthlyRent')}
                                         value={tenant.rent_amount != null ? `$${Number(tenant.rent_amount).toLocaleString('en-CA')}` : null}
                                     />
-                                    <InfoRow label="Due Date" value={tenant.due_date} />
+                                    <InfoRow label={t('tenantProfile.dueDate')} value={tenant.due_date} />
                                 </section>
 
                                 {/* Manager Notes */}
                                 <section>
                                     <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-                                        <FileText className="w-4 h-4 text-primary" /> Manager Notes
+                                        <FileText className="w-4 h-4 text-primary" /> {t('tenantProfile.managerNotes')}
                                     </h3>
                                     {editing ? (
                                         <textarea
                                             className={cn(inputCls, 'min-h-[100px] resize-y')}
                                             value={form.manager_notes}
                                             onChange={set('manager_notes')}
-                                            placeholder="Add notes about this tenant…"
+                                            placeholder={t('tenantProfile.addNotes')}
                                         />
                                     ) : (
                                         tenant.manager_notes ? (
@@ -330,7 +332,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                                 {tenant.manager_notes}
                                             </p>
                                         ) : (
-                                            <p className="text-sm text-muted-foreground italic">No notes added.</p>
+                                            <p className="text-sm text-muted-foreground italic">{t('tenantProfile.noNotes')}</p>
                                         )
                                     )}
                                 </section>
@@ -339,10 +341,10 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                 {tenant.tenant_documents_enabled !== false && (
                                     <section>
                                         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-                                            <Paperclip className="w-4 h-4 text-primary" /> Documents
+                                            <Paperclip className="w-4 h-4 text-primary" /> {t('tenantProfile.documents')}
                                         </h3>
                                         {(editing ? form.document_urls : tenant.document_urls || []).length === 0 ? (
-                                            <p className="text-sm text-muted-foreground italic">No documents uploaded.</p>
+                                            <p className="text-sm text-muted-foreground italic">{t('tenantProfile.noDocuments')}</p>
                                         ) : (
                                             <div className="space-y-2">
                                                 {(editing ? form.document_urls : tenant.document_urls || []).map((url, i) => (
@@ -354,7 +356,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                                             className="flex items-center gap-1.5 text-sm text-primary hover:underline truncate"
                                                         >
                                                             <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
-                                                            Document {i + 1}
+                                                            {t('tenantProfile.document', { number: i + 1 })}
                                                         </a>
                                                         {editing && (
                                                             <button onClick={() => removeDoc(url)} className="flex-shrink-0 text-muted-foreground hover:text-red-400 transition-colors">
@@ -380,7 +382,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-secondary hover:bg-secondary/80 text-foreground transition-colors disabled:opacity-60"
                                                 >
                                                     <Paperclip className="w-3.5 h-3.5" />
-                                                    {uploading ? 'Uploading…' : 'Upload Document'}
+                                                    {uploading ? t('tenantProfile.uploading') : t('tenantProfile.uploadDoc')}
                                                 </button>
                                             </div>
                                         )}
@@ -399,7 +401,7 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm disabled:opacity-60 transition-opacity"
                                         >
                                             <Save className="w-4 h-4" />
-                                            {saving ? 'Saving…' : 'Save Changes'}
+                                            {saving ? t('tenantProfile.saving') : t('tenantProfile.saveChanges')}
                                         </button>
                                     </div>
                                 )}

@@ -1,4 +1,5 @@
 import { X, Building2, MapPin, Home, ShoppingBag } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib';
 
@@ -17,6 +18,7 @@ function TypeIcon({ iconType }) {
  *  - onClose: () => void
  */
 function BuildingInfoModal({ building, onClose }) {
+    const { t } = useTranslation();
     if (!building) return null;
 
     return (
@@ -70,7 +72,7 @@ function BuildingInfoModal({ building, onClose }) {
                 <div className="p-5 space-y-4">
                     {building.description && (
                         <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Description</p>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">{t('common.description')}</p>
                             <p className="text-sm text-foreground">{building.description}</p>
                         </div>
                     )}
@@ -84,9 +86,9 @@ function BuildingInfoModal({ building, onClose }) {
 
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border">
-                        <Stat label="Total Units" value={building.unit_count} />
-                        <Stat label="Occupied" value={building.occupied_count} highlight="red" />
-                        <Stat label="Vacant" value={building.unit_count - building.occupied_count} highlight="green" />
+                        <Stat label={t('building.totalUnits')} value={building.unit_count} />
+                        <Stat label={t('settings.occupied')} value={building.occupied_count} highlight="red" />
+                        <Stat label={t('settings.vacant')} value={building.unit_count - building.occupied_count} highlight="green" />
                     </div>
                 </div>
             </motion.div>

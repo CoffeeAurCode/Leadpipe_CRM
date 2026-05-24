@@ -3,11 +3,13 @@
  * with progress tracking, sequential unlocking, and navigation.
  */
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Circle, Lock, ChevronDown, ChevronRight, RotateCcw, Sparkles, Play, Rocket } from 'lucide-react';
 import { useState } from 'react';
 import { useOnboarding } from '../context/OnboardingContext';
 
 export default function OnboardingChecklist() {
+  const { t } = useTranslation();
   const {
     checked,
     isSectionComplete,
@@ -42,9 +44,9 @@ export default function OnboardingChecklist() {
         >
           <Sparkles className="w-16 h-16 text-primary mx-auto" />
         </motion.div>
-        <h1 className="text-3xl font-bold text-foreground">You're all set!</h1>
+        <h1 className="text-3xl font-bold text-foreground">{t('onboarding.allSet')}</h1>
         <p className="text-muted-foreground text-lg">
-          You've completed the CRM tour. You're ready to manage your properties like a pro.
+          {t('onboarding.allSetDesc')}
         </p>
         <div className="flex gap-3 justify-center">
           <button
@@ -52,7 +54,7 @@ export default function OnboardingChecklist() {
             className="px-6 py-2.5 border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors flex items-center gap-2"
           >
             <RotateCcw className="w-4 h-4" />
-            Replay Tour
+            {t('onboarding.replayTour')}
           </button>
         </div>
       </div>
@@ -67,9 +69,9 @@ export default function OnboardingChecklist() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Welcome to your CRM</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('onboarding.welcome')}</h1>
           <p className="text-muted-foreground mt-1">
-            Take a quick tour to learn the key features. It only takes a minute.
+            {t('onboarding.welcomeDesc')}
           </p>
         </div>
         <button
@@ -77,7 +79,7 @@ export default function OnboardingChecklist() {
           className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm"
         >
           <Rocket className="w-4 h-4" />
-          Start Full Tour
+          {t('onboarding.startFullTour')}
         </button>
       </div>
 
@@ -85,7 +87,7 @@ export default function OnboardingChecklist() {
       <div className="bg-card border border-border rounded-xl p-4 space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-foreground">
-            {completedItems} of {totalItems} complete
+            {t('onboarding.ofComplete', { completed: completedItems, total: totalItems })}
           </span>
           <span className="text-muted-foreground">{progressPercent}%</span>
         </div>
@@ -174,7 +176,7 @@ export default function OnboardingChecklist() {
                               <Circle className="w-4 h-4 text-muted-foreground" />
                             )}
                             <span className={checked[itemId] ? 'text-muted-foreground line-through' : 'text-foreground'}>
-                              Take the {meta.label.toLowerCase()} tour
+                              {t('onboarding.takeTour', { section: meta.label.toLowerCase() })}
                             </span>
                           </div>
                         ))}
@@ -186,7 +188,7 @@ export default function OnboardingChecklist() {
                           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                         >
                           <Play className="w-3.5 h-3.5" />
-                          Start from here
+                          {t('onboarding.startFromHere')}
                         </button>
                       )}
                     </div>
@@ -205,7 +207,7 @@ export default function OnboardingChecklist() {
           className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
         >
           <RotateCcw className="w-3 h-3" />
-          Reset progress
+          {t('onboarding.resetProgress')}
         </button>
       </div>
     </div>
