@@ -510,6 +510,12 @@
     "loadTemplate": "Charger un modèle",
     "selectTemplate": "Sélectionner un modèle…",
     "insertVariable": "Insérer une variable",
+    "variables": {
+      "name": "{nom}",
+      "unit": "{unité}",
+      "rent": "{loyer}",
+      "date": "{date}"
+    },
     "message": "Message",
     "typePlaceholder": "Tapez votre message SMS ici, ou chargez un modèle ci-dessus…",
     "charCount": "{{count}} caractère",

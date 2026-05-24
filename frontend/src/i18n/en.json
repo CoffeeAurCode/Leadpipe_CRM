@@ -510,6 +510,12 @@
     "loadTemplate": "Load Template",
     "selectTemplate": "Select a template…",
     "insertVariable": "Insert Variable",
+    "variables": {
+      "name": "{name}",
+      "unit": "{unit}",
+      "rent": "{rent}",
+      "date": "{date}"
+    },
     "message": "Message",
     "typePlaceholder": "Type your SMS message here, or load a template above…",
     "charCount": "{{count}} character",

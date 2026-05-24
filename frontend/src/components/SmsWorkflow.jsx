@@ -45,10 +45,10 @@ function saveTemplates(templates) {
 // ── Variable chips config ─────────────────────────────────────────────────────
 
 const VARIABLES = [
-    { token: '{name}',  sample: 'John' },
-    { token: '{unit}',  sample: 'A101' },
-    { token: '{rent}',  sample: '$1,200' },
-    { token: '{date}',  sample: 'April 5' },
+    { token: '{name}',  sample: 'John',    key: 'name' },
+    { token: '{unit}',  sample: 'A101',    key: 'unit' },
+    { token: '{rent}',  sample: '$1,200',  key: 'rent' },
+    { token: '{date}',  sample: 'April 5', key: 'date' },
 ];
 
 function buildPreview(message) {
@@ -483,13 +483,13 @@ export default function SmsWorkflow() {
                             {t('sms.insertVariable')}
                         </label>
                         <div className="flex flex-wrap gap-2">
-                            {VARIABLES.map(({ token }) => (
+                            {VARIABLES.map(({ token, key }) => (
                                 <button
                                     key={token}
                                     onClick={() => insertVariable(token)}
                                     className="px-2.5 py-1 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-medium hover:bg-primary/20 hover:border-primary/40 transition-all duration-150"
                                 >
-                                    {token}
+                                    {t(`sms.variables.${key}`)}
                                 </button>
                             ))}
                         </div>
