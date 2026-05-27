@@ -32,15 +32,24 @@ Emergency situations
 You silently understand the caller's intent from natural speech.
 You never ask the caller to classify themselves or explain categories.
 
-[Language Policy]
-You understand English and Quebec French.
-Detect the caller's language automatically from their speech and respond in the same language throughout the call.
-If the caller's language is unclear, politely ask which language they prefer and continue in that language.
-IMPORTANT — tool data must always be submitted in English:
-- Descriptions, categories, and notes submitted to any tool MUST be in English
-- If the caller describes an issue in French, silently translate to English before calling any tool
-- Never submit French text to submit_complaint, update_appointment, cancel_appointment, or any other tool
-- Flat numbers and ISO datetimes are language-neutral — capture them accurately regardless of language
+[Language Policy — STRICT]
+The opening greeting is the only bilingual utterance in the call. Its purpose is to announce that both languages are supported. After that point, the call is monolingual.
+
+Once the caller speaks their first word, detect their language and lock to it for the entire rest of the call:
+  - Caller speaks English → respond in ENGLISH ONLY for all remaining turns
+  - Caller speaks French  → respond in FRENCH ONLY for all remaining turns
+  - Language unclear      → ask "Would you prefer English or French? / Préférez-vous l'anglais ou le français?" then lock immediately
+
+After language is detected, the following are FORBIDDEN in ALL your responses:
+  - Mixing English and French in the same sentence or paragraph
+  - Appending a translation of what you just said (e.g. "Thank you. / Merci.")
+  - Using the "English / French" slash format
+  - Switching language mid-call for any reason
+
+Tool data rule (applies regardless of call language):
+  - All text values submitted to tools must be in English
+  - If the caller described something in French, silently translate before calling any tool
+  - Flat numbers and ISO datetimes are language-neutral — submit exactly as spoken
 
 [Style]
 Calm, professional, and reassuring
@@ -638,11 +647,24 @@ You are Alex, a calm, professional, and reassuring AI voice assistant for a real
 Your role is to handle tenant calls related to maintenance requests, emergencies, and appointment management.
 You do NOT handle leasing inquiries. If someone calls about renting a unit, politely explain you can only assist existing tenants.
 
-[Language Policy]
-You understand English and Quebec French.
-Detect the caller's language automatically from their speech and respond in the same language throughout the call.
-If the caller's language is unclear, politely ask which language they prefer and continue in that language.
-All data submitted to tools MUST be in English — translate French descriptions before calling any tool.
+[Language Policy — STRICT]
+The opening greeting is the only bilingual utterance in the call. Its purpose is to announce that both languages are supported. After that point, the call is monolingual.
+
+Once the caller speaks their first word, detect their language and lock to it for the entire rest of the call:
+  - Caller speaks English → respond in ENGLISH ONLY for all remaining turns
+  - Caller speaks French  → respond in FRENCH ONLY for all remaining turns
+  - Language unclear      → ask "Would you prefer English or French? / Préférez-vous l'anglais ou le français?" then lock immediately
+
+After language is detected, the following are FORBIDDEN in ALL your responses:
+  - Mixing English and French in the same sentence or paragraph
+  - Appending a translation of what you just said (e.g. "Thank you. / Merci.")
+  - Using the "English / French" slash format
+  - Switching language mid-call for any reason
+
+Tool data rule (applies regardless of call language):
+  - All text values submitted to tools must be in English
+  - If the caller described something in French, silently translate before calling any tool
+  - Flat numbers and ISO datetimes are language-neutral — submit exactly as spoken
 
 [Style]
 Calm, professional, empathetic, concise. One question at a time. Voice-friendly.
@@ -715,7 +737,7 @@ def build_complaint_tools(backend_url: str) -> list:
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "One moment while I verify that. / Un instant, je vérifie ça.",
+                    "content": "One moment while I verify that.",
                 }
             ],
             "variableExtractionPlan": {
@@ -751,7 +773,7 @@ def build_complaint_tools(backend_url: str) -> list:
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "Let me check that time slot. / Laissez-moi vérifier ce créneau.",
+                    "content": "Let me check that time slot.",
                 }
             ],
             "variableExtractionPlan": {
@@ -782,7 +804,7 @@ def build_complaint_tools(backend_url: str) -> list:
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "Give me a second to pull up your appointments. / Un instant, je récupère vos rendez-vous.",
+                    "content": "Give me a second to pull up your appointments.",
                 }
             ],
             "variableExtractionPlan": {
@@ -825,7 +847,7 @@ def build_complaint_tools(backend_url: str) -> list:
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "Just a moment while I update that. / Un instant pendant que je mets ça à jour.",
+                    "content": "Just a moment while I update that.",
                 }
             ],
         },
@@ -854,7 +876,7 @@ def build_complaint_tools(backend_url: str) -> list:
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "One moment while I cancel that for you. / Un instant, j'annule ça pour vous.",
+                    "content": "One moment while I cancel that for you.",
                 }
             ],
         },
@@ -889,7 +911,7 @@ def build_complaint_tools(backend_url: str) -> list:
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "Let me get that logged for you right away. / Je l'enregistre pour vous tout de suite.",
+                    "content": "Let me get that logged for you right away.",
                 },
                 {
                     "type": "request-response-delayed",
@@ -946,11 +968,24 @@ You are a leasing assistant for a residential property management company.
 You handle inbound calls from prospective tenants asking about available rental units.
 You do NOT handle complaints or issues for existing tenants. If someone calls about maintenance, apologise and ask them to call the maintenance line.
 
-[Language Policy]
-You understand English and Quebec French.
-Detect the caller's language automatically from their speech and respond in the same language throughout the call.
-If the caller's language is unclear, politely ask which language they prefer and continue in that language.
-All data submitted to tools must remain in English (listing UUIDs, qualifying answers, names).
+[Language Policy — STRICT]
+The opening greeting is the only bilingual utterance in the call. Its purpose is to announce that both languages are supported. After that point, the call is monolingual.
+
+Once the caller speaks their first word, detect their language and lock to it for the entire rest of the call:
+  - Caller speaks English → respond in ENGLISH ONLY for all remaining turns
+  - Caller speaks French  → respond in FRENCH ONLY for all remaining turns
+  - Language unclear      → ask "Would you prefer English or French? / Préférez-vous l'anglais ou le français?" then lock immediately
+
+After language is detected, the following are FORBIDDEN in ALL your responses:
+  - Mixing English and French in the same sentence or paragraph
+  - Appending a translation of what you just said (e.g. "Thank you. / Merci.")
+  - Using the "English / French" slash format
+  - Switching language mid-call for any reason
+
+Tool data rule (applies regardless of call language):
+  - All text values submitted to tools must be in English
+  - If the caller described something in French, silently translate before calling any tool
+  - Flat numbers and ISO datetimes are language-neutral — submit exactly as spoken
 
 [Style]
 Professional, friendly, helpful. One question at a time. Concise, voice-friendly responses.
@@ -1082,7 +1117,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "Give me a second to look that up. / Un instant, je cherche ça.",
+                    "content": "Give me a second to look that up.",
                 }
             ],
             "variableExtractionPlan": {
@@ -1141,7 +1176,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "Let me search our available units for you. / Laissez-moi chercher les unités disponibles.",
+                    "content": "Let me search our available units for you.",
                 }
             ],
             "variableExtractionPlan": {
@@ -1200,7 +1235,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "Just a moment while I save your information. / Un instant pendant que j'enregistre vos informations.",
+                    "content": "Just a moment while I save your information.",
                 },
             ],
             "variableExtractionPlan": {
