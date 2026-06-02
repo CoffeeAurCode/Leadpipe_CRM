@@ -3,7 +3,6 @@ from supabase import Client
 from pydantic import BaseModel
 import json
 import re
-import httpx
 from datetime import datetime, timezone
 
 UUID_RE = re.compile(
@@ -320,77 +319,61 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                     }).eq("id", call_log_id).execute()
                     return {"status": "processed", "message": "feature_disabled"}
 
-                complaint_payload = {
+                appointment_date = complaint_data.get("appointment_date")
+
+                # Auto-assign tenant from flat
+                tenant_resp = db.table("tenants").select("uuid").eq("flat_uuid", flat_uuid).execute()
+                tenant_uuid = str(tenant_resp.data[0]["uuid"]) if tenant_resp.data else None
+
+                complaint_dict = {
                     "flat_number": flat_no.strip().upper(),
+                    "flat_uuid": flat_uuid,
+                    "tenant_uuid": tenant_uuid,
                     "category": complaint_data.get("category"),
-                    "priority": "medium",  # Default priority for voice complaints
-                    "description": description[:1000], # safe clip
+                    "priority": "medium",
+                    "description": description[:1000],
                     "status": "pending",
                     "source": "voice"
                 }
-                
-                # Store appointment date for later use
-                appointment_date = complaint_data.get("appointment_date")
-                
-                # TODO: Future improvement - call service function directly instead of HTTP
-                # This HTTP approach will break with gunicorn/multiple workers/Docker
-                # For Day-3 MVP, this is acceptable
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        "https://tenant-management-mvp.onrender.com/complaints",
-                        # "http://localhost:8000/complaints",  # Use localhost for local dev
-                        json=complaint_payload,
-                        headers={"Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}"},
-                        timeout=10.0
-                    )
-                
-                if response.status_code == 201:
-                    data = response.json()
-                    complaint_id = data.get("id")
-                    complaint_uuid = data.get("uuid")  # UUID for foreign key
-                    
-                    # Create appointment if datetime provided
+
+                complaint_resp = db.table("complaints").insert(complaint_dict).execute()
+
+                if complaint_resp.data:
+                    created = complaint_resp.data[0]
+                    complaint_id = created.get("id")
+                    complaint_uuid = created.get("uuid")
+
                     appointment_id = None
+                    appointment_response = None
                     if appointment_date and complaint_uuid:
                         try:
-                            # Get flat_uuid for appointment
-                            flat_no = complaint_data.get("flat_number")
-                            flat_response = db.table("flats").select("uuid").eq("flat_number", flat_no.strip().upper()).execute()
-                            
-                            if flat_response.data:
-                                flat_uuid = flat_response.data[0]['uuid']
-                                
-                                appointment_payload = {
-                                    "flat_number": flat_no.strip().upper(),  # Required field
-                                    "complaint_uuid": complaint_uuid,
-                                    "flat_uuid": flat_uuid,
-                                    "appointment_date": appointment_date,
-                                    "status": "scheduled"
-                                }
-                                
-                                appointment_response = db.table("appointments").insert(appointment_payload).execute()
-                                if appointment_response.data:
-                                    appointment_id = appointment_response.data[0]['id']
-                                    print(f"  [OK] Appointment created: ID={appointment_id} at {appointment_date}")
+                            appointment_payload = {
+                                "flat_number": flat_no.strip().upper(),
+                                "complaint_uuid": complaint_uuid,
+                                "flat_uuid": flat_uuid,
+                                "appointment_date": appointment_date,
+                                "status": "scheduled"
+                            }
+                            appointment_response = db.table("appointments").insert(appointment_payload).execute()
+                            if appointment_response.data:
+                                appointment_id = appointment_response.data[0]["id"]
+                                print(f"  [OK] Appointment created: ID={appointment_id} at {appointment_date}")
                         except Exception as e:
                             print(f"  [!] Appointment creation failed: {e}")
-                            # Don't fail the whole flow if appointment fails
-                    
-                    # Update call log with complaint linkage
+
                     db.table("call_logs").update({
                         "complaint_id": complaint_id,
                         "complaint_status": "created"
                     }).eq("id", call_log_id).execute()
-                    
+
                     call_log['complaint_id'] = complaint_id
                     call_log['complaint_status'] = "created"
-                    
-                    # ========== AUTOMATION: NOTIFICATION TRIGGER ==========
+
                     print(f"[AUTOMATION]")
                     print(f"  call_id:            {call_id}")
                     print(f"  Complaint Created:  Yes (ID={complaint_id})")
                     print(f"  Appointment Created: {'Yes (ID=' + str(appointment_id) + ')' if appointment_id else 'No (no date provided)'}")
-                    if appointment_id and appointment_response.data:
+                    if appointment_id and appointment_response and appointment_response.data:
                         print(f"  Triggering Notification: Yes")
                         background_tasks.add_task(
                             notify_manager_appointment_scheduled,
@@ -398,20 +381,12 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                         )
                     else:
                         print(f"  Triggering Notification: No (no appointment)")
-                    
+
                     complaint_created = True
                     print(f"  [OK] Complaint created: ID={complaint_id}")
 
                 else:
-                    print(f"  [X] API returned {response.status_code}")
-                    print(f"[AUTOMATION]")
-                    print(f"  call_id:           {call_id}")
-                    print(f"  Complaint Created: No (API {response.status_code})")
-                    print(f"  Triggering Notification: No")
-                    db.table("call_logs").update({
-                        "complaint_status": "failed"
-                    }).eq("id", call_log_id).execute()
-                    call_log['complaint_status'] = "failed"
+                    raise Exception("Complaint insert returned no data")
             
             except Exception as e:
                 print(f"  [X] Error: {e}")
