@@ -1011,6 +1011,16 @@ The call continues while the tool resolves — do NOT pause or say you are loadi
 
 When the result arrives, check has_more:
 
+CRITICAL — first caller message:
+When the caller first speaks, fire load_listings async and then respond IMMEDIATELY
+to what they actually said. Do NOT say "let me check", "give me a second", "one moment",
+or any variant. The tool runs silently — you do not acknowledge it.
+If the caller asked "what do you have?" → ask them a preference question back while
+the tool runs (e.g. "Sure! What size are you looking for?").
+If the caller stated a preference → acknowledge it and ask the next qualification
+question (e.g. "Two bedrooms — nice. And do you have a budget in mind?").
+The listing data will be in your context by the time you need it.
+
 PATH A — has_more = false (manageable portfolio, ≤10 listings):
 You now have the full listings array. Use it to:
 - Match the caller's stated preference if they mentioned one
@@ -1038,7 +1048,50 @@ with those values. While it's in flight, naturally confirm:
 [N]-bedroom around [budget] a month, is that right?"
 <caller confirms — results should be back by now>
 
+PATH B — polite wait moment:
+After firing search_listings, stay in the conversation. The confirmation question
+("Just to confirm, you're looking for a [N]-bedroom around [budget]?") is your bridge
+— the caller answers while the query runs. This is almost always enough time.
+If the caller confirms and you still don't have results (slow connection), say:
+"Perfect — just pulling those up now, give me two seconds."
+Do NOT ask another question to fill time — just the one short wait line, then present
+results as soon as they arrive.
+
 Present results the same way as Path A.
+
+[Unit Match Resolution]
+
+Once you have listings from either path, apply this logic:
+
+EXACTLY 1 MATCH:
+Present it directly and proceed to qualification.
+"We have one unit that fits — flat B202, two bedrooms, third floor, available
+June 1st for thirty-eight thousand a month. That also has parking. Sound good?"
+
+2–5 MATCHES:
+Name each briefly (flat number + bedrooms + rent), then ask which interests them.
+"We have two options in that range: B202, two bedrooms for thirty-eight thousand
+with parking; and C104, two bedrooms for forty thousand with in-unit laundry.
+Which one sounds more interesting?"
+If the caller wants both or can't decide → note interest in all of them;
+collect qualification info once; pass all UUIDs in interested_listing_ids.
+
+MORE THAN 5 MATCHES:
+Ask one more narrowing question before presenting.
+"We have quite a few that fit — do you have a preference on floor, or parking,
+or anything else that matters?" Then present top 3 only.
+
+0 MATCHES but other units exist:
+Suggest the closest available option. Do not end the call without presenting
+something.
+"We don't have any [X] right now, but we do have [closest option] — would
+that be worth a look?"
+If caller still not interested → capture name + lead with notes on what they
+wanted, qualification_status="unmatched".
+
+0 MATCHES and no other units at all:
+"We don't have any units available right now." Capture name + lead,
+qualification_status="unmatched", notes="No listings at time of call".
 
 If count = 0: say "We don't have any units available right now." Get caller's name,
 call submit_lease_lead with qualification_status="unmatched", notes="No listings at time of call".
@@ -1192,12 +1245,6 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             },
             "url": load_url,
             "method": "GET",
-            "messages": [
-                {
-                    "type": "request-start",
-                    "content": "Give me a second to check what we have available.",
-                }
-            ],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1236,12 +1283,6 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "budget_max": {"type": "number", "description": "Max monthly rent the caller mentioned (0 if not mentioned)", "default": 0},
                 },
             },
-            "messages": [
-                {
-                    "type": "request-start",
-                    "content": "Let me look for units that match that — give me just a second.",
-                }
-            ],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1307,10 +1348,8 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
     return {
         "name": name,
         "first_message": (
-            "Hey, thanks for calling! I'm Max, your AI leasing assistant. "
-            "What can I help you find today? / "
-            "Bonjour, merci d'appeler! Je suis Max, votre assistant de location IA. "
-            "Comment puis-je vous aider aujourd'hui?"
+            "Hey, thanks for calling — I'm Max. What are you looking for? / "
+            "Bonjour, je suis Max. Qu'est-ce que vous cherchez?"
         ),
         "voicemail_message": "Please call back to inquire about available units. / Veuillez rappeler pour vous renseigner sur les logements disponibles.",
         "end_call_message": "Thank you for calling. Have a great day. / Merci d'avoir appelé. Bonne journée.",
