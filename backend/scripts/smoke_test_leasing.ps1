@@ -1,4 +1,4 @@
-# smoke_test_leasing.ps1
+﻿# smoke_test_leasing.ps1
 # Live HTTP smoke tests for the lease agent backend endpoints.
 # Runs against the deployed Render URL. Requires no credentials.
 # Usage: .\backend\scripts\smoke_test_leasing.ps1 [-Manager <uuid>] [-BaseUrl <url>]
@@ -25,7 +25,7 @@ function Check {
             $script:fail++
         }
     } catch {
-        Write-Host "  [FAIL] $Label — exception: $_" -ForegroundColor Red
+        Write-Host "  [FAIL] $Label - exception: $_" -ForegroundColor Red
         $script:fail++
     }
 }
@@ -84,7 +84,7 @@ Check "small portfolio: listings array is non-empty when has_more=false" {
     if ($body.has_more -eq $false) {
         $body.listings.Count -ge 0   # may be 0 if no active listings for this manager
     } else {
-        $true   # large portfolio path — skip this check
+        $true   # large portfolio path â€” skip this check
     }
 }
 
@@ -106,7 +106,8 @@ Check "monthly_rent is a number (not string)" {
     if ($body.listings.Count -gt 0) {
         $body.listings[0].monthly_rent -is [double] -or
         $body.listings[0].monthly_rent -is [int] -or
-        $body.listings[0].monthly_rent -is [long]
+        $body.listings[0].monthly_rent -is [long] -or
+        $body.listings[0].monthly_rent -is [decimal]
     } else {
         $true
     }
@@ -196,7 +197,7 @@ Check "returns 200 for valid lead payload" {
     $code, $_ = Post-Json "$BaseUrl/voice/lease-lead-direct?call_id=$testCallId&phone=+910000000000" @{
         caller_name           = "Smoke Test Caller"
         qualification_status  = "unmatched"
-        notes                 = "automated smoke test — safe to delete"
+        notes                 = "automated smoke test - safe to delete"
     }
     $code -eq 200
 }
@@ -258,3 +259,4 @@ if ($fail -gt 0) {
 } else {
     exit 0
 }
+

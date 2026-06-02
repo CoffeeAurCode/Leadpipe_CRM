@@ -12,6 +12,7 @@ UUID_RE = re.compile(
 )
 
 from app.db.session import get_db, get_service_db
+from app.config import settings
 from app.ai.validator import validate_complaint
 from app.services.notifications import notify_manager_appointment_scheduled
 from app.dependencies.subscription import require_active_subscription
@@ -339,6 +340,7 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                         "https://tenant-management-mvp.onrender.com/complaints",
                         # "http://localhost:8000/complaints",  # Use localhost for local dev
                         json=complaint_payload,
+                        headers={"Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}"},
                         timeout=10.0
                     )
                 

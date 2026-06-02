@@ -2,10 +2,12 @@
 Read every active lease agent from VAPI and assert:
   1. first_message contains "Max"
   2. system prompt contains "Q1" and "Q7" and "Max"
-  3. search_available_listings is NOT in the tool list
-  4. find_listing IS in the tool list
+  3. load_listings IS in the tool list
+  4. search_listings IS in the tool list
   5. submit_lease_lead IS in the tool list
-  6. serverMessages == ["end-of-call-report"]
+  6. find_listing NOT in the tool list (removed in v2)
+  7. search_available_listings NOT in the tool list
+  8. serverMessages == ["end-of-call-report"]
 """
 import os, sys
 from pathlib import Path
@@ -48,8 +50,10 @@ for aid in ids:
         "system prompt contains Max": "Max" in sys_prompt,
         "system prompt contains Q1": "Q1" in sys_prompt or "move-in" in sys_prompt.lower() or "Move-in" in sys_prompt,
         "system prompt contains Q7": "Q7" in sys_prompt or "non-smoking" in sys_prompt.lower() or "Non-smoking" in sys_prompt,
-        "find_listing in tools": "find_listing" in tool_names or any("find_listing" in (n or "") for n in tool_names),
-        "submit_lease_lead in tools": "submit_lease_lead" in tool_names or any("submit_lease_lead" in (n or "") for n in tool_names),
+        "load_listings in tools": any("load_listings" in (n or "") for n in tool_names),
+        "search_listings in tools": any("search_listings" in (n or "") for n in tool_names),
+        "submit_lease_lead in tools": any("submit_lease_lead" in (n or "") for n in tool_names),
+        "find_listing NOT in tools": not any("find_listing" in (n or "") for n in tool_names),
         "search_available_listings NOT in tools": not any("search_available_listings" in (n or "") for n in tool_names),
         "serverMessages correct": server_msgs == ["end-of-call-report"],
     }
