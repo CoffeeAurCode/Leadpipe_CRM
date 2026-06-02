@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 22 — Tenant Management | Tenant MVP Learning</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+    --text: #e2e8f0; --muted: #94a3b8; --primary: #6366f1;
+    --green: #10b981; --amber: #f59e0b; --red: #ef4444; --blue: #3b82f6;
+    --code-bg: #141720;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 6rem; }
+  h1 { font-size: 2rem; font-weight: 700; color: #fff; }
+  h2 { font-size: 1.3rem; font-weight: 600; color: var(--primary); margin: 2.5rem 0 0.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.5rem 0 0.5rem; }
+  p { color: var(--muted); margin-bottom: 0.8rem; }
+  a { color: var(--primary); }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
+  .badge-session { background: #312e81; color: #a5b4fc; }
+  .badge-part { background: #064e3b; color: #6ee7b7; }
+  .meta { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0 1.5rem; flex-wrap: wrap; }
+  .meta span { font-size: 0.8rem; color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+  .card h3 { margin-top: 0; }
+  .concept-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.5rem; }
+  .concept-list li { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.75rem; font-size: 0.82rem; color: var(--text); font-family: monospace; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.65; margin: 0.75rem 0 1rem; }
+  code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+  pre code { color: var(--text); }
+  .kw { color: #c792ea; } .fn { color: #82aaff; } .str { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; } .num { color: #f78c6c; }
+  .tag { color: #f07178; } .attr { color: #ffcb6b; } .jsx { color: #89ddff; }
+  .hl { background: rgba(99,102,241,0.15); border-left: 3px solid var(--primary); padding-left: 0.75rem; margin-left: -0.75rem; }
+  .callout { border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; font-size: 0.875rem; }
+  .callout-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+  .callout-warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+  .callout-bug { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+  .callout-tip { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+  details { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin: 0.75rem 0; }
+  summary { padding: 0.85rem 1.1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text); user-select: none; }
+  summary:hover { color: var(--primary); }
+  details[open] summary { border-bottom: 1px solid var(--border); color: var(--primary); }
+  .solution-body { padding: 1.1rem; }
+  .file-header { display: flex; align-items: center; gap: 0.6rem; margin: 2rem 0 0.5rem; }
+  .file-chip { background: #1e2130; border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.75rem; font-family: monospace; font-size: 0.78rem; color: #a5b4fc; }
+  .line-ann { color: #64748b; font-size: 0.78rem; display: block; margin-top: 0.15rem; margin-bottom: 0.5rem; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } .concept-list { grid-template-columns: 1fr; } }
+  .nav-links { display: flex; justify-content: space-between; margin-top: 3rem; }
+  .nav-btn { background: var(--surface); border: 1px solid var(--border); padding: 0.6rem 1.2rem; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 0.85rem; }
+  .nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .section-num { color: var(--primary); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="meta">
+    <span class="badge badge-session">Session 6</span>
+    <span class="badge badge-part">Part F — Frontend Advanced</span>
+    <span>Module 22 of 26</span>
+  </div>
+  <h1>Module 22 — Tenant Management</h1>
+  <p>Full tenant CRUD with lease badge display, bidirectional flat assignment, and slide-in profile panel. This module covers how the frontend consumes <em>computed fields</em> returned by the API — fields the backend calculates from raw DB data so the frontend only has to display them.</p>
+
+  <!-- Concepts -->
+  <h2>Concepts Covered</h2>
+  <ul class="concept-list">
+    <li>Computed API fields (lease_status, remaining_time_on_lease_days)</li>
+    <li>Bidirectional assign / unassign tenant</li>
+    <li>Slide-in panel (fixed right, spring animation)</li>
+    <li>Edit / view mode toggle in a panel</li>
+    <li>useCallback + useEffect load pattern</li>
+    <li>document_urls array management</li>
+    <li>Feature-flag gating within a component</li>
+    <li>Tab-based modal (existing vs new tenant)</li>
+    <li>Framer Motion AnimatePresence panel</li>
+    <li>date-fns parseISO / format</li>
+  </ul>
+
+  <!-- Source overview -->
+  <h2>Source Files</h2>
+  <div class="card">
+    <div class="two-col">
+      <div>
+        <h3>TenantManagement.jsx</h3>
+        <p style="font-size:0.85rem">The page component. Owns the tenant list, filters, sort, and which tenant is "selected" for the profile panel.</p>
+      </div>
+      <div>
+        <h3>TenantProfile.jsx</h3>
+        <p style="font-size:0.85rem">The slide-in panel that shows tenant details. Contains its own edit form, document upload, and delete action.</p>
+      </div>
+      <div>
+        <h3>AddTenantModal.jsx</h3>
+        <p style="font-size:0.85rem">Dialog to create a brand-new tenant, optionally assigning to a vacant flat and setting their first rent.</p>
+      </div>
+      <div>
+        <h3>AssignTenantModal.jsx</h3>
+        <p style="font-size:0.85rem">Dialog to assign an <em>existing</em> tenant (who has no flat) to a flat, or create a minimal new one and assign them.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TenantManagement.jsx walkthrough -->
+  <h2>TenantManagement.jsx — Line-by-Line</h2>
+
+  <div class="file-header"><span class="file-chip">frontend/src/components/TenantManagement.jsx</span></div>
+
+  <pre><code><span class="kw">import</span> { useState, useEffect, useCallback } <span class="kw">from</span> <span class="str">'react'</span>;
+<span class="kw">import</span> { Users, ChevronUp, ChevronDown, Filter, RefreshCw, UserPlus, Upload } <span class="kw">from</span> <span class="str">'lucide-react'</span>;
+<span class="kw">import</span> { fetchTenants } <span class="kw">from</span> <span class="str">'../services/apiService'</span>;</code></pre>
+  <span class="line-ann">All HTTP calls through apiService — never inline fetch.</span>
+
+  <pre><code><span class="kw">const</span> RENT_STATUS_VALUES = [<span class="str">'On-time'</span>, <span class="str">'Upcoming'</span>, <span class="str">'Overdue'</span>, <span class="str">'At Risk'</span>];
+<span class="kw">const</span> LEASE_STATUS_VALUES = [<span class="str">'Active'</span>, <span class="str">'Expiring Soon'</span>, <span class="str">'Expired'</span>, <span class="str">'No Lease'</span>];
+
+<span class="kw">const</span> RENT_STATUS_COLORS = {
+    <span class="str">'On-time'</span>:  <span class="str">'bg-emerald-500/15 text-emerald-500'</span>,
+    <span class="str">'Upcoming'</span>: <span class="str">'bg-blue-500/15 text-blue-400'</span>,
+    <span class="str">'Overdue'</span>:  <span class="str">'bg-red-500/15 text-red-500'</span>,
+    <span class="str">'At Risk'</span>:  <span class="str">'bg-orange-500/15 text-orange-400'</span>,
+};</code></pre>
+  <span class="line-ann">Status → Tailwind class maps defined at module level. The same pattern appears in TenantProfile.jsx and SmsWorkflow.jsx — centralise these in constants/status.js if you ever add a third file that uses them.</span>
+
+  <pre><code><span class="kw">function</span> <span class="fn">SortIcon</span>({ field, sortBy, sortOrder }) {
+    <span class="kw">if</span> (sortBy !== field) <span class="kw">return null</span>;
+    <span class="kw">return</span> sortOrder === <span class="str">'asc'</span>
+        ? <span class="tag">&lt;ChevronUp</span> <span class="attr">className</span>=<span class="str">"w-3 h-3"</span> <span class="tag">/&gt;</span>
+        : <span class="tag">&lt;ChevronDown</span> <span class="attr">className</span>=<span class="str">"w-3 h-3"</span> <span class="tag">/&gt;</span>;
+}</code></pre>
+  <span class="line-ann">Tiny helper renders nothing when the column is not the active sort key — prevents rendering two icons on all headers.</span>
+
+  <pre><code><span class="kw">const</span> load = <span class="fn">useCallback</span>(<span class="kw">async</span> () =&gt; {
+    <span class="kw">try</span> {
+        setLoading(<span class="kw">true</span>);
+        <span class="kw">const</span> data = <span class="kw">await</span> <span class="fn">fetchTenants</span>({
+            rent_status: rentStatus || <span class="kw">undefined</span>,
+            lease_status: leaseStatus || <span class="kw">undefined</span>,
+            sort_by: sortBy || <span class="kw">undefined</span>,
+            sort_order: sortOrder,
+        });
+        setTenants(data);
+    } <span class="kw">catch</span> (err) { setError(t(<span class="str">'tenants.failedToLoad'</span>)); }
+    <span class="kw">finally</span> { setLoading(<span class="kw">false</span>); }
+}, [rentStatus, leaseStatus, sortBy, sortOrder, t]);</code></pre>
+  <span class="line-ann">useCallback means the function identity only changes when the filter/sort deps change. The useEffect below depends on this function — without useCallback it would fire on every render.</span>
+
+  <pre><code><span class="fn">useEffect</span>(() =&gt; { load(); }, [load]);</code></pre>
+  <span class="line-ann">Single-line effect: run load() whenever any filter or sort state changes. Changing rentStatus triggers re-creation of load, which triggers this effect.</span>
+
+  <pre><code><span class="kw">const</span> <span class="fn">toggleSort</span> = (field) =&gt; {
+    <span class="kw">if</span> (sortBy === field) {
+        setSortOrder(o =&gt; o === <span class="str">'asc'</span> ? <span class="str">'desc'</span> : <span class="str">'asc'</span>);
+    } <span class="kw">else</span> {
+        setSortBy(field);
+        setSortOrder(<span class="str">'asc'</span>);
+    }
+};</code></pre>
+  <span class="line-ann">Click same column → flip direction. Click different column → set it as sort key and reset direction to asc.</span>
+
+  <h3>Computed fields in the table</h3>
+  <pre><code><span class="tag">&lt;td</span><span class="attr"> className</span>=<span class="str">"px-4 py-3 text-muted-foreground"</span><span class="tag">&gt;</span>
+    {tenant.tenancy_duration_months != <span class="kw">null</span>
+        ? `${tenant.tenancy_duration_months} mo`
+        : <span class="str">'—'</span>}
+<span class="tag">&lt;/td&gt;</span></code></pre>
+  <span class="line-ann">tenancy_duration_months is calculated by the backend Pydantic model_validator and returned directly in the GET /tenants response. The frontend just displays it — no date math here.</span>
+
+  <pre><code>{tenant.lease_status ? (
+    <span class="tag">&lt;span</span> <span class="attr">className</span>={<span class="fn">cn</span>(<span class="str">'px-2 py-0.5 rounded-full text-xs font-medium'</span>,
+        LEASE_STATUS_COLORS[tenant.lease_status])}&gt;
+        {LEASE_STATUS_LABELS[tenant.lease_status] || tenant.lease_status}
+    <span class="tag">&lt;/span&gt;</span>
+) : <span class="str">'—'</span>}</code></pre>
+  <span class="line-ann">Fallback to raw value if the label map doesn't have a translation — defensive against new status values added in the backend without a corresponding frontend key.</span>
+
+  <h3>Callbacks passed to child components</h3>
+  <pre><code><span class="kw">const</span> <span class="fn">handleTenantUpdate</span> = (updated) =&gt; {
+    setTenants(prev =&gt; prev.map(t =&gt; t.uuid === updated.uuid ? updated : t));
+    setSelectedTenant(updated);
+};
+
+<span class="kw">const</span> <span class="fn">handleTenantDelete</span> = (deletedUuid) =&gt; {
+    setTenants(prev =&gt; prev.filter(t =&gt; t.uuid !== deletedUuid));
+    setSelectedTenant(<span class="kw">null</span>);
+};</code></pre>
+  <span class="line-ann">The parent owns the list. When TenantProfile makes an API call and succeeds, it calls these callbacks to update the parent list in place — no full reload needed.</span>
+
+  <!-- TenantProfile.jsx walkthrough -->
+  <h2>TenantProfile.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/TenantProfile.jsx</span></div>
+
+  <div class="callout callout-info">
+    <strong>Pattern:</strong> This is a "slide-in panel" — it sits <code>fixed right-0 top-0 h-full</code>, slides from off-screen right via a spring animation, and overlays the main content with a semi-transparent backdrop. Same pattern used in CalendarView.
+  </div>
+
+  <pre><code><span class="kw">const</span> featureEnabled = tenant.tenant_details_enabled !== <span class="kw">false</span>;</code></pre>
+  <span class="line-ann">Feature flag check. The backend attaches feature flag state to the tenant object. "!== false" means if the field is missing/null, the feature is treated as enabled (default-on).</span>
+
+  <pre><code><span class="kw">const</span> <span class="fn">startEdit</span> = () =&gt; {
+    setForm({
+        email: tenant.email || <span class="str">''</span>,
+        lease_start_date: tenant.lease_start_date || <span class="str">''</span>,
+        lease_end_date: tenant.lease_end_date || <span class="str">''</span>,
+        rent_status: tenant.rent_status || <span class="str">''</span>,
+        payment_schedule: tenant.payment_schedule || <span class="str">''</span>,
+        manager_notes: tenant.manager_notes || <span class="str">''</span>,
+        document_urls: tenant.document_urls || [],
+    });
+    setEditing(<span class="kw">true</span>);
+};</code></pre>
+  <span class="line-ann">The form is initialized from the current tenant data on every "edit" click. This avoids stale state from a previous edit session left open.</span>
+
+  <pre><code><span class="kw">const</span> <span class="fn">handleSave</span> = <span class="kw">async</span> () =&gt; {
+    <span class="kw">const</span> payload = <span class="fn">Object.fromEntries</span>(
+        <span class="fn">Object.entries</span>(form).map(([k, v]) =&gt; [k, v === <span class="str">''</span> ? <span class="kw">null</span> : v])
+    );
+    <span class="kw">const</span> updated = <span class="kw">await</span> <span class="fn">updateTenant</span>(tenant.uuid, payload);
+    <span class="cm">// Merge joined fields back (not returned by PATCH)</span>
+    <span class="kw">const</span> merged = {
+        ...updated,
+        flat_number: tenant.flat_number,
+        rent_amount: tenant.rent_amount,
+        due_date: tenant.due_date,
+        tenant_details_enabled: tenant.tenant_details_enabled,
+        tenant_documents_enabled: tenant.tenant_documents_enabled,
+    };
+    onUpdate(merged);
+};</code></pre>
+  <span class="line-ann">The PATCH endpoint only returns the core tenant row — it doesn't re-JOIN flat or rent data. So we preserve the existing join values from the original tenant object and merge them back. Without this, flat_number would disappear from the panel after saving.</span>
+
+  <div class="callout callout-warn">
+    <strong>Bug you'll hit:</strong> If you remove the merge step, <code>flat_number</code> will show "—" in the table immediately after saving even though the DB didn't change. Always re-merge fields that come from JOINs after a PATCH.
+  </div>
+
+  <pre><code><span class="kw">const</span> <span class="fn">handleDocUpload</span> = <span class="kw">async</span> (e) =&gt; {
+    <span class="kw">const</span> file = e.target.files?.[<span class="num">0</span>];
+    <span class="kw">if</span> (!file) <span class="kw">return</span>;
+    setUploading(<span class="kw">true</span>);
+    <span class="kw">try</span> {
+        <span class="kw">const</span> { url } = <span class="kw">await</span> <span class="fn">uploadImage</span>(file, <span class="str">'tenant_document'</span>);
+        setForm(f =&gt; ({ ...f, document_urls: [...(f.document_urls || []), url] }));
+    } <span class="kw">finally</span> {
+        setUploading(<span class="kw">false</span>);
+        e.target.value = <span class="str">''</span>;   <span class="cm">// Reset so same file can be re-uploaded</span>
+    }
+};</code></pre>
+  <span class="line-ann">Documents upload immediately on file selection and the URL is appended to the form state. The save button then persists the updated array. e.target.value = '' clears the native file input so the change event fires again if the same file is selected.</span>
+
+  <h3>Slide-in panel animation</h3>
+  <pre><code><span class="tag">&lt;motion.div</span>
+    <span class="attr">className</span>=<span class="str">"fixed right-0 top-0 h-full w-full max-w-md bg-card border-l border-border shadow-2xl z-50"</span>
+    <span class="attr">initial</span>={{ x: <span class="str">'100%'</span> }}
+    <span class="attr">animate</span>={{ x: <span class="num">0</span> }}
+    <span class="attr">exit</span>={{ x: <span class="str">'100%'</span> }}
+    <span class="attr">transition</span>={{ type: <span class="str">'spring'</span>, damping: <span class="num">30</span>, stiffness: <span class="num">300</span> }}
+<span class="tag">&gt;</span></code></pre>
+  <span class="line-ann">Spring physics (damping+stiffness) give the panel a natural feel. Pure duration-based transitions feel mechanical on slide effects. x: '100%' means "start 100% of its own width to the right" — completely off-screen.</span>
+
+  <!-- AddTenantModal.jsx walkthrough -->
+  <h2>AddTenantModal.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/AddTenantModal.jsx</span></div>
+
+  <pre><code><span class="fn">useEffect</span>(() =&gt; {
+    <span class="kw">if</span> (!isOpen) <span class="kw">return</span>;
+    setForm(EMPTY_FORM);
+    setError(<span class="str">''</span>);
+    setLoadingFlats(<span class="kw">true</span>);
+    <span class="fn">fetchVacantFlats</span>()
+        .then(setVacantFlats)
+        .catch(() =&gt; setVacantFlats([]))
+        .finally(() =&gt; setLoadingFlats(<span class="kw">false</span>));
+}, [isOpen]);</code></pre>
+  <span class="line-ann">Reset form and fetch vacant flats every time the modal opens. This ensures the flat list is fresh — if a flat was assigned since the page loaded, it won't appear here. The guard "if (!isOpen) return" prevents a needless fetch when the modal closes.</span>
+
+  <pre><code><span class="kw">const</span> newTenant = <span class="kw">await</span> <span class="fn">createTenant</span>(payload);
+
+<span class="cm">// Set rent separately if provided</span>
+<span class="kw">if</span> (form.monthly_rent &amp;&amp; form.flat_uuid) {
+    <span class="kw">const</span> today = <span class="kw">new</span> <span class="fn">Date</span>().toISOString().split(<span class="str">'T'</span>)[<span class="num">0</span>];
+    <span class="kw">await</span> <span class="fn">setRent</span>(form.flat_uuid, parseFloat(form.monthly_rent), today);
+}</code></pre>
+  <span class="line-ann">Tenant creation and rent are separate API calls. The tenant endpoint creates the person; the rent endpoint records their monthly amount. If rent creation fails, the tenant is still created — this is acceptable because rent can be set later from the Rent tab.</span>
+
+  <pre><code>{form.flat_uuid &amp;&amp; (
+    <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"space-y-1.5"</span><span class="tag">&gt;</span>
+        <span class="tag">&lt;label&gt;</span>Monthly Rent<span class="tag">&lt;/label&gt;</span>
+        <span class="tag">&lt;input</span> <span class="attr">type</span>=<span class="str">"number"</span> <span class="attr">name</span>=<span class="str">"monthly_rent"</span> ...<span class="tag">/&gt;</span>
+    <span class="tag">&lt;/div&gt;</span>
+)}</code></pre>
+  <span class="line-ann">Rent field only appears when a flat is selected — no point setting rent for an unassigned tenant (the rent table requires a flat_uuid).</span>
+
+  <!-- AssignTenantModal.jsx walkthrough -->
+  <h2>AssignTenantModal.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/AssignTenantModal.jsx</span></div>
+
+  <div class="callout callout-info">
+    <strong>Design decision:</strong> This modal handles two cases — assigning an <em>existing</em> unassigned tenant, or creating a <em>new minimal</em> tenant and assigning them in one step. Two tabs, one submit handler with a branch.
+  </div>
+
+  <pre><code><span class="fn">fetchUnassignedTenants</span>()
+    .then(setUnassigned)
+    .catch(() =&gt; setUnassigned([]))
+    .finally(() =&gt; setLoadingTenants(<span class="kw">false</span>));</code></pre>
+  <span class="line-ann">Fetches tenants who have no flat assigned (flat_uuid IS NULL in the DB). This is a separate query filter on the GET /tenants endpoint.</span>
+
+  <pre><code><span class="kw">if</span> (tab === <span class="str">'existing'</span>) {
+    <span class="kw">if</span> (!selectedUuid) { setError(<span class="str">'Please select a tenant.'</span>); setLoading(<span class="kw">false</span>); <span class="kw">return</span>; }
+    <span class="kw">await</span> <span class="fn">assignTenantToFlat</span>(flatUuid, selectedUuid);
+} <span class="kw">else</span> {
+    <span class="kw">const</span> created = <span class="kw">await</span> <span class="fn">createTenant</span>({ name: newForm.name.trim(), phone: newForm.phone.trim(), flat_uuid: flatUuid });
+    <span class="kw">await</span> <span class="fn">assignTenantToFlat</span>(flatUuid, created.uuid);
+}</code></pre>
+  <span class="line-ann">For "new" tab: create first, then assign. The PATCH /flats/:uuid/assign-tenant endpoint handles the bidirectional link — it sets flats.tenant_uuid AND tenants.flat_uuid in a single transaction.</span>
+
+  <h3>Bidirectional FK Pattern</h3>
+  <div class="card">
+    <h3>Why two pointers?</h3>
+    <p>The DB has: <code>flats.tenant_uuid → tenants</code> AND <code>tenants.flat_uuid → flats</code>. Both FKs exist for query speed — VAPI can look up a tenant's flat number from their phone without a JOIN, and the properties page can show which tenant lives in a flat without a JOIN. The trade-off is that both must be updated atomically when assigning or unassigning.</p>
+    <pre><code><span class="cm">-- assign-tenant endpoint does both atomically:</span>
+UPDATE flats SET tenant_uuid = :tenant_uuid WHERE uuid = :flat_uuid;
+UPDATE tenants SET flat_uuid = :flat_uuid WHERE uuid = :tenant_uuid;</code></pre>
+    <p>The unassign-tenant endpoint clears both to NULL.</p>
+  </div>
+
+  <!-- Key patterns -->
+  <h2>Key Patterns to Remember</h2>
+  <div class="card">
+    <h3>Three-layer status rule</h3>
+    <p>Lease status flows like this:</p>
+    <pre><code>DB (lease_start_date, lease_end_date)
+  → Backend: TenantResponse.model_validator computes lease_status
+       based on remaining days
+  → Frontend: displays the string value with a colour badge</code></pre>
+    <p>The frontend never re-calculates. If lease_status logic changes, it changes in one place — the Pydantic model.</p>
+  </div>
+  <div class="card">
+    <h3>useCallback pattern for data loading</h3>
+    <pre><code><span class="kw">const</span> load = <span class="fn">useCallback</span>(<span class="kw">async</span> () =&gt; { ... }, [dep1, dep2]);
+<span class="fn">useEffect</span>(() =&gt; { load(); }, [load]);</code></pre>
+    <p>The <code>load</code> function has stable identity when deps haven't changed. This means the effect only re-runs when a filter actually changes — not on every render. Without useCallback, every render would trigger a fresh API call.</p>
+  </div>
+
+  <!-- Bugs encountered -->
+  <h2>Real Bugs Encountered During Build</h2>
+  <div class="callout callout-bug">
+    <strong>Bug 1 — PATCH response missing joined fields</strong><br>
+    Symptom: after saving tenant email, the flat_number column in the table showed "—".<br>
+    Cause: PATCH /tenants/:uuid returns the raw tenant row. flat_number comes from a JOIN not stored on the tenants table.<br>
+    Fix: merge the missing joined fields back from the original tenant object in handleSave.
+  </div>
+  <div class="callout callout-bug">
+    <strong>Bug 2 — Stale vacant flat list</strong><br>
+    Symptom: AddTenantModal showed a flat that was already occupied from an earlier session.<br>
+    Cause: fetchVacantFlats was called once when the component mounted, not each time the modal opened.<br>
+    Fix: move fetchVacantFlats into the useEffect that watches isOpen.
+  </div>
+  <div class="callout callout-bug">
+    <strong>Bug 3 — Document re-upload silently ignored</strong><br>
+    Symptom: uploading the same PDF file twice only uploaded it once.<br>
+    Cause: the HTML file input doesn't fire onChange if the same file is selected again.<br>
+    Fix: <code>e.target.value = ''</code> after every upload to reset the input.
+  </div>
+
+  <!-- Exercises -->
+  <h2>Exercises</h2>
+
+  <details>
+    <summary>Exercise 1 — Add a "days remaining" column to the tenant table</summary>
+    <div class="solution-body">
+      <p>The backend already returns <code>remaining_time_on_lease_days</code>. Add a column header in the <code>&lt;thead&gt;</code> and a cell in the <code>&lt;tbody&gt;</code>.</p>
+      <details>
+        <summary>Show full solution</summary>
+        <div class="solution-body">
+          <pre><code><span class="cm">/* In thead */</span>
+<span class="tag">&lt;th</span> <span class="attr">className</span>=<span class="str">"px-4 py-3 text-left font-medium text-muted-foreground"</span><span class="tag">&gt;</span>
+    Days Left
+<span class="tag">&lt;/th&gt;</span>
+
+<span class="cm">/* In tbody td */</span>
+<span class="tag">&lt;td</span> <span class="attr">className</span>={<span class="fn">cn</span>(<span class="str">'px-4 py-3 tabular-nums'</span>,
+    tenant.remaining_time_on_lease_days != <span class="kw">null</span> &amp;&amp;
+    tenant.remaining_time_on_lease_days &lt;= <span class="num">30</span>
+        ? <span class="str">'text-amber-400 font-semibold'</span>
+        : <span class="str">'text-muted-foreground'</span>
+)}&gt;
+    {tenant.remaining_time_on_lease_days != <span class="kw">null</span>
+        ? tenant.remaining_time_on_lease_days
+        : <span class="str">'—'</span>}
+<span class="tag">&lt;/td&gt;</span></code></pre>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 2 — Show an "assign flat" button when a tenant has no flat</summary>
+    <div class="solution-body">
+      <p>In the tenant table row, conditionally render an "Assign Flat" button when <code>tenant.flat_uuid</code> is null. Clicking it should open <code>AssignTenantModal</code> pre-populated with that tenant.</p>
+      <details>
+        <summary>Show full solution</summary>
+        <div class="solution-body">
+          <p>This requires refactoring: the current flow opens AddTenantModal from the header button. For the table row version you'd need to pass the selected tenant into AssignTenantModal in reverse (assign to ANY flat). The simpler path is: clicking a row with no flat_uuid opens TenantProfile which has the edit panel.</p>
+          <pre><code><span class="cm">// In the table row, add a conditional cell:</span>
+<span class="tag">&lt;td</span> <span class="attr">className</span>=<span class="str">"px-4 py-3"</span><span class="tag">&gt;</span>
+    {!tenant.flat_uuid &amp;&amp; (
+        <span class="tag">&lt;button</span>
+            <span class="attr">onClick</span>={(e) =&gt; { e.stopPropagation(); setAssignTarget(tenant); }}
+            <span class="attr">className</span>=<span class="str">"px-2 py-1 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20"</span>
+        <span class="tag">&gt;</span>
+            Assign Flat
+        <span class="tag">&lt;/button&gt;</span>
+    )}
+<span class="tag">&lt;/td&gt;</span></code></pre>
+          <p>Add <code>assignTarget</code> state and render <code>&lt;AssignTenantModal isOpen={!!assignTarget} flatUuid={null} tenantUuid={assignTarget?.uuid} .../&gt;</code> — this requires a small API endpoint extension to accept tenant-first assignment.</p>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 3 — Make the lease end date column sortable with a toggle</summary>
+    <div class="solution-body">
+      <p>The existing code already wires up <code>toggleSort('lease_end_date')</code> on the Lease End column header. Trace through the data flow: where does the sort happen — frontend or backend?</p>
+      <details>
+        <summary>Answer</summary>
+        <div class="solution-body">
+          <p><strong>Backend.</strong> The <code>sort_by</code> and <code>sort_order</code> parameters are passed to <code>fetchTenants()</code>, which sends them to <code>GET /tenants?sort_by=lease_end_date&amp;sort_order=asc</code>. The backend handles the ORDER BY. The frontend never sorts the array itself — this keeps the logic in one place and avoids pagination bugs.</p>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- Architecture diagram -->
+  <h2>Data Flow Diagram</h2>
+  <pre><code>User clicks row
+  → setSelectedTenant(tenant)              <span class="cm">// TenantManagement state</span>
+  → TenantProfile receives tenant prop
+  → User clicks Edit → startEdit()         <span class="cm">// populates form from tenant</span>
+  → User edits, clicks Save
+  → updateTenant(uuid, payload)            <span class="cm">// PATCH /tenants/:uuid</span>
+  → response is raw tenant row             <span class="cm">// missing flat_number, rent_amount</span>
+  → merge joined fields from old tenant
+  → onUpdate(merged)                       <span class="cm">// update parent list + selectedTenant</span></code></pre>
+
+  <div class="nav-links">
+    <a href="module_21_properties_buildings.html" class="nav-btn">← Module 21: Properties & Buildings</a>
+    <a href="module_23_complaints_calendar.html" class="nav-btn">Module 23: Complaints & Calendar →</a>
+  </div>
+
+</div>
+</body>
+</html>

@@ -53,7 +53,7 @@ FEATURE_METADATA: Dict[Feature, dict] = {
         "category": "Communication",
         "display_name": "Twilio Calls",
         "description": "Twilio-powered voice calls",
-        "default_enabled": False
+        "default_enabled": True
     },
     Feature.SMS_REMINDERS: {
         "category": "Communication",

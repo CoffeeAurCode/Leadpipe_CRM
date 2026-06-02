@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 26 — Settings, Notifications & Onboarding | Tenant MVP Learning</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+    --text: #e2e8f0; --muted: #94a3b8; --primary: #6366f1;
+    --green: #10b981; --amber: #f59e0b; --red: #ef4444; --blue: #3b82f6;
+    --code-bg: #141720;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 6rem; }
+  h1 { font-size: 2rem; font-weight: 700; color: #fff; }
+  h2 { font-size: 1.3rem; font-weight: 600; color: var(--primary); margin: 2.5rem 0 0.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.5rem 0 0.5rem; }
+  p { color: var(--muted); margin-bottom: 0.8rem; }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
+  .badge-session { background: #312e81; color: #a5b4fc; }
+  .badge-part { background: #064e3b; color: #6ee7b7; }
+  .meta { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0 1.5rem; flex-wrap: wrap; }
+  .meta span { font-size: 0.8rem; color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+  .concept-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.5rem; }
+  .concept-list li { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.75rem; font-size: 0.82rem; color: var(--text); font-family: monospace; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.65; margin: 0.75rem 0 1rem; }
+  code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+  pre code { color: var(--text); }
+  .kw { color: #c792ea; } .fn { color: #82aaff; } .str { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; } .num { color: #f78c6c; }
+  .tag { color: #f07178; } .attr { color: #ffcb6b; }
+  .callout { border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; font-size: 0.875rem; }
+  .callout-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+  .callout-warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+  .callout-bug { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+  .callout-tip { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+  details { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin: 0.75rem 0; }
+  summary { padding: 0.85rem 1.1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text); user-select: none; }
+  summary:hover { color: var(--primary); }
+  details[open] summary { border-bottom: 1px solid var(--border); color: var(--primary); }
+  .solution-body { padding: 1.1rem; }
+  .file-header { display: flex; align-items: center; gap: 0.6rem; margin: 2rem 0 0.5rem; }
+  .file-chip { background: #1e2130; border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.75rem; font-family: monospace; font-size: 0.78rem; color: #a5b4fc; }
+  .line-ann { color: #64748b; font-size: 0.78rem; display: block; margin-top: 0.15rem; margin-bottom: 0.5rem; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } .concept-list { grid-template-columns: 1fr; } }
+  .nav-links { display: flex; justify-content: space-between; margin-top: 3rem; }
+  .nav-btn { background: var(--surface); border: 1px solid var(--border); padding: 0.6rem 1.2rem; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 0.85rem; }
+  .nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .drill-tree { font-family: monospace; font-size: 0.82rem; color: var(--text); background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; line-height: 1.8; }
+  .drill-tree .node { color: #a5b4fc; }
+  .drill-tree .dim { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="meta">
+    <span class="badge badge-session">Session 6</span>
+    <span class="badge badge-part">Part F — Frontend Advanced</span>
+    <span>Module 26 of 26</span>
+  </div>
+  <h1>Module 26 — Settings, Notifications, Onboarding & SMS Broadcast</h1>
+  <p>The final module covers four interconnected systems: the hierarchical feature-flag settings page, the SMS broadcast workflow with template CRUD, the onboarding checklist with sequential unlocking, and the React Context that tracks completion in both localStorage and Supabase.</p>
+
+  <h2>Concepts Covered</h2>
+  <ul class="concept-list">
+    <li>Drill-down navigation (4-level hierarchy)</li>
+    <li>Bulk feature flag update (property/building scope)</li>
+    <li>pendingChanges diff pattern</li>
+    <li>Sticky save bar (AnimatePresence)</li>
+    <li>localStorage template CRUD</li>
+    <li>Variable insertion at cursor position</li>
+    <li>React Context for onboarding state</li>
+    <li>Dual persistence (localStorage + Supabase DB)</li>
+    <li>Sequential section unlocking</li>
+    <li>useMemo for derived checklist stats</li>
+  </ul>
+
+  <!-- SettingsPage.jsx -->
+  <h2>SettingsPage.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/SettingsPage.jsx</span></div>
+
+  <h3>4-level drill-down navigation</h3>
+  <div class="drill-tree">
+    <span class="node">Level 0</span>: Property Group cards<br>
+    <span class="dim">  └─ click group →</span><br>
+    <span class="node">Level 1</span>: Building cards + standalone units + property-scope feature toggles<br>
+    <span class="dim">  └─ click building →</span><br>
+    <span class="node">Level 2</span>: Unit cards + building-scope feature toggles<br>
+    <span class="dim">  └─ click unit →</span><br>
+    <span class="node">Level 3</span>: Unit-scope feature toggles (single unit)
+  </div>
+
+  <pre><code><span class="kw">const</span> scopeKey = selectedUnit ? <span class="str">'unit'</span> : selectedBuilding ? <span class="str">'building'</span> : <span class="str">'property'</span>;
+<span class="kw">const</span> isBulk = !selectedUnit;</code></pre>
+  <span class="line-ann">The current scope is determined by which selection states are non-null. isBulk is true at property or building level — saving there applies changes to ALL units in scope. At unit level, isBulk is false — save affects only that one unit.</span>
+
+  <h3>Settings load on scope change</h3>
+  <pre><code><span class="fn">useEffect</span>(() =&gt; {
+    <span class="kw">if</span> (!selectedProperty || (selectedProperty.isUnassigned &amp;&amp; !selectedUnit)) <span class="kw">return</span>;
+    (<span class="kw">async</span> () =&gt; {
+        <span class="kw">let</span> data;
+        <span class="kw">if</span> (selectedUnit)     data = <span class="kw">await</span> <span class="fn">fetchUnitSettings</span>(selectedUnit.id);
+        <span class="kw">else if</span> (selectedBuilding) data = <span class="kw">await</span> <span class="fn">fetchBuildingSettings</span>(selectedProperty.id, selectedBuilding.id);
+        <span class="kw">else</span>                  data = <span class="kw">await</span> <span class="fn">fetchPropertySettings</span>(selectedProperty.id);
+        setSettings(data?.features ?? <span class="kw">null</span>);
+        setPendingChanges({});
+    })();
+}, [selectedProperty, selectedBuilding, selectedUnit]);</code></pre>
+  <span class="line-ann">The effect re-runs whenever any of the three selection states changes. When the user drills from a building back to a property, selectedBuilding becomes null, which re-triggers this effect to load property-level settings.</span>
+
+  <h3>pendingChanges diff pattern</h3>
+  <pre><code><span class="kw">function</span> <span class="fn">handleToggle</span>(featureKey, currentValue) {
+    setPendingChanges(prev =&gt; ({ ...prev, [featureKey]: !currentValue }));
+    setHasChanges(<span class="kw">true</span>);
+}
+
+<span class="cm">// In FeaturePanel render:</span>
+<span class="kw">const</span> currentValue = pendingChanges.hasOwnProperty(feature.key)
+    ? pendingChanges[feature.key]
+    : feature.enabled;</code></pre>
+  <span class="line-ann">pendingChanges only stores the DIFF — only toggled keys. When rendering, we check pendingChanges first (user's pending intent), falling back to the server value from settings. This means the UI reflects the user's selections before save without replacing the entire settings object.</span>
+
+  <div class="callout callout-info">
+    <strong>Why this matters:</strong> If you replaced settings directly, the user couldn't cancel — there'd be no "before" state to restore. With a separate pendingChanges object, Cancel just calls setPendingChanges({}).
+  </div>
+
+  <h3>Sticky save bar with AnimatePresence</h3>
+  <pre><code><span class="tag">&lt;AnimatePresence&gt;</span>
+    {hasChanges &amp;&amp; (
+        <span class="tag">&lt;motion.div</span>
+            <span class="attr">initial</span>={{ opacity: <span class="num">0</span>, y: <span class="num">20</span> }}
+            <span class="attr">animate</span>={{ opacity: <span class="num">1</span>, y: <span class="num">0</span> }}
+            <span class="attr">exit</span>={{ opacity: <span class="num">0</span>, y: <span class="num">20</span> }}
+            <span class="attr">className</span>=<span class="str">"sticky bottom-6 flex items-center justify-between gap-3 p-4
+                           rounded-xl bg-card border border-border shadow-xl z-10"</span>
+        <span class="tag">&gt;</span>
+            <span class="tag">&lt;span&gt;</span>
+                {<span class="fn">Object.keys</span>(pendingChanges).length} unsaved changes
+            <span class="tag">&lt;/span&gt;</span>
+            <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"flex gap-3"</span><span class="tag">&gt;</span>
+                <span class="tag">&lt;button</span> <span class="attr">onClick</span>={handleCancel}&gt;Cancel<span class="tag">&lt;/button&gt;</span>
+                <span class="tag">&lt;button</span> <span class="attr">onClick</span>={handleSave}&gt;
+                    {isBulk ? <span class="str">'Apply to All Units'</span> : <span class="str">'Save Changes'</span>}
+                <span class="tag">&lt;/button&gt;</span>
+            <span class="tag">&lt;/div&gt;</span>
+        <span class="tag">&lt;/motion.div&gt;</span>
+    )}
+<span class="tag">&lt;/AnimatePresence&gt;</span></code></pre>
+  <span class="line-ann">position: sticky bottom-6 keeps the save bar visible while scrolling through a long feature list. AnimatePresence provides enter/exit animation — the bar slides up from below when changes exist and slides back down when saved or cancelled.</span>
+
+  <h3>Breadcrumb back navigation</h3>
+  <pre><code><span class="kw">function</span> <span class="fn">Breadcrumb</span>({ segments, onBack }) {
+    <span class="kw">return</span> (
+        <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"flex items-center gap-2 text-sm"</span><span class="tag">&gt;</span>
+            <span class="tag">&lt;button</span> <span class="attr">onClick</span>={onBack}&gt;
+                <span class="tag">&lt;ArrowLeft</span> <span class="attr">className</span>=<span class="str">"w-4 h-4"</span> <span class="tag">/&gt;</span>
+                {segments[<span class="num">0</span>]}
+            <span class="tag">&lt;/button&gt;</span>
+            {segments.slice(<span class="num">1</span>).map((seg, i) =&gt; (
+                <span class="tag">&lt;span</span> <span class="attr">key</span>={i}&gt;<span class="tag">&lt;span&gt;</span>/<span class="tag">&lt;/span&gt;</span> <span class="tag">&lt;span&gt;</span>{seg}<span class="tag">&lt;/span&gt;</span><span class="tag">&lt;/span&gt;</span>
+            ))}
+        <span class="tag">&lt;/div&gt;</span>
+    );
+}</code></pre>
+  <span class="line-ann">segments[0] is always the "back" label (what clicking the arrow returns to). Remaining segments are the current path shown as text. The ArrowLeft + text acts as the back button — matching the breadcrumb pattern from macOS Finder and iOS navigation.</span>
+
+  <!-- SmsWorkflow.jsx -->
+  <h2>SmsWorkflow.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/SmsWorkflow.jsx</span></div>
+
+  <h3>Template CRUD in localStorage</h3>
+  <pre><code><span class="kw">const</span> STORAGE_KEY = <span class="str">'sms_templates'</span>;
+
+<span class="kw">function</span> <span class="fn">loadTemplates</span>() {
+    <span class="kw">try</span> {
+        <span class="kw">const</span> raw = localStorage.getItem(STORAGE_KEY);
+        <span class="kw">return</span> raw ? <span class="fn">JSON.parse</span>(raw) : DEFAULT_TEMPLATES;
+    } <span class="kw">catch</span> {
+        <span class="kw">return</span> DEFAULT_TEMPLATES;
+    }
+}
+
+<span class="kw">function</span> <span class="fn">saveTemplates</span>(templates) {
+    localStorage.setItem(STORAGE_KEY, <span class="fn">JSON.stringify</span>(templates));
+}</code></pre>
+  <span class="line-ann">Templates are stored in localStorage — no backend endpoint needed. This is intentional: templates are personal preferences, not shared data. The try/catch handles corrupted localStorage (old schema, partial write, etc.).</span>
+
+  <h3>Variable insertion at cursor position</h3>
+  <pre><code><span class="kw">const</span> textareaRef = useRef(<span class="kw">null</span>);
+
+<span class="kw">function</span> <span class="fn">insertVariable</span>(token) {
+    <span class="kw">const</span> el = textareaRef.current;
+    <span class="kw">if</span> (!el) { setMessage(prev =&gt; prev + token); <span class="kw">return</span>; }
+    <span class="kw">const</span> start = el.selectionStart ?? message.length;
+    <span class="kw">const</span> end   = el.selectionEnd   ?? message.length;
+    <span class="kw">const</span> updated = message.slice(<span class="num">0</span>, start) + token + message.slice(end);
+    setMessage(updated);
+    <span class="cm">// Restore cursor after the inserted token</span>
+    requestAnimationFrame(() =&gt; {
+        el.focus();
+        el.setSelectionRange(start + token.length, start + token.length);
+    });
+}</code></pre>
+  <span class="line-ann">el.selectionStart/End tracks where the text cursor is in the textarea. We slice the message at the cursor position, insert the token, and re-join. requestAnimationFrame delays the cursor restore until after React has re-rendered the textarea with the new value — without it, setSelectionRange would be overwritten by React's controlled input update.</span>
+
+  <h3>Set-based selection tracking</h3>
+  <pre><code><span class="kw">const</span> [selectedUuids, setSelectedUuids] = useState(<span class="kw">new</span> Set());
+
+<span class="kw">function</span> <span class="fn">toggleOne</span>(uuid) {
+    setSelectedUuids(prev =&gt; {
+        <span class="kw">const</span> next = <span class="kw">new</span> <span class="fn">Set</span>(prev);
+        next.has(uuid) ? next.delete(uuid) : next.add(uuid);
+        <span class="kw">return</span> next;
+    });
+}
+
+<span class="kw">function</span> <span class="fn">toggleAll</span>() {
+    <span class="kw">if</span> (selectedUuids.size === displayTenants.length) {
+        setSelectedUuids(<span class="kw">new</span> <span class="fn">Set</span>());
+    } <span class="kw">else</span> {
+        setSelectedUuids(<span class="kw">new</span> <span class="fn">Set</span>(displayTenants.map(t =&gt; t.uuid)));
+    }
+}</code></pre>
+  <span class="line-ann">Set has O(1) has() and delete() — faster than .includes() on a large array. Always create a new Set (not mutate in place) because React uses reference equality to detect state changes. Mutating prev without cloning would not trigger a re-render.</span>
+
+  <h3>Live preview with HTML injection</h3>
+  <pre><code><span class="kw">function</span> <span class="fn">buildPreview</span>(message) {
+    <span class="kw">let</span> out = message;
+    VARIABLES.forEach(({ token, sample }) =&gt; {
+        out = out.replaceAll(token, `**${sample}**`);
+    });
+    out = out.replace(<span class="str">/\*\*(.+?)\*\*/g</span>, <span class="str">'&lt;strong&gt;$1&lt;/strong&gt;'</span>);
+    <span class="kw">return</span> out;
+}
+
+<span class="tag">&lt;span</span>
+    <span class="attr">dangerouslySetInnerHTML</span>={{ __html: <span class="fn">buildPreview</span>(message) }}
+<span class="tag">/&gt;</span></code></pre>
+  <span class="line-ann">dangerouslySetInnerHTML bypasses React's XSS protection. This is safe here because the HTML is generated entirely from user's own message text and our sample strings — never from server data. The "dangerous" in the name is a reminder, not a prohibition.</span>
+
+  <!-- OnboardingContext.jsx -->
+  <h2>OnboardingContext.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/context/OnboardingContext.jsx</span></div>
+
+  <div class="callout callout-info">
+    <strong>Architecture:</strong> Onboarding state is dual-persisted — localStorage for instant reads, Supabase DB as the authority. On mount, the DB is consulted and overwrites localStorage if they disagree. This handles: clearing localStorage, testing on a new device, and the manager resetting their tour from the Supabase console.
+  </div>
+
+  <h3>localStorage initialization</h3>
+  <pre><code><span class="kw">const</span> <span class="fn">getStorageKey</span> = (userId) =&gt; `crm-onboarding-checklist-${userId}`;
+
+<span class="kw">const</span> [checked, setCheckedState] = useState(() =&gt; <span class="fn">loadChecked</span>(user?.id));</code></pre>
+  <span class="line-ann">The storage key includes the userId — so different managers on the same browser get separate checklists. The useState lazy initializer (arrow function) only runs once on mount, avoiding a localStorage read on every render.</span>
+
+  <h3>DB sync on mount</h3>
+  <pre><code><span class="fn">useEffect</span>(() =&gt; {
+    <span class="kw">if</span> (!user) <span class="kw">return</span>;
+    <span class="kw">const</span> fetchStatus = <span class="kw">async</span> () =&gt; {
+        <span class="kw">const</span> { data } = <span class="kw">await</span> supabase
+            .from(<span class="str">'manager_profiles'</span>)
+            .select(<span class="str">'tour_completed'</span>)
+            .eq(<span class="str">'user_id'</span>, user.id)
+            .maybeSingle();
+
+        <span class="kw">if</span> (data?.tour_completed) {
+            <span class="cm">// DB says done — force all items to checked</span>
+            <span class="kw">const</span> allChecked = {};
+            Object.values(SECTION_ITEMS).flat().forEach(id =&gt; { allChecked[id] = <span class="kw">true</span>; });
+            setCheckedState(allChecked);
+        } <span class="kw">else if</span> (data &amp;&amp; !data.tour_completed) {
+            <span class="cm">// DB says NOT done — clear local if local thinks it's complete</span>
+            <span class="kw">const</span> localIsAllChecked = ...;
+            <span class="kw">if</span> (localIsAllChecked) { setCheckedState({}); localStorage.removeItem(...); }
+        }
+    };
+    fetchStatus();
+}, [user]);</code></pre>
+  <span class="line-ann">The second branch (DB says NOT done) handles the "reset for testing" scenario: a developer clears tour_completed in Supabase, but localStorage still has all items checked. Without this branch, the user would see the "All done!" screen even though the DB says otherwise.</span>
+
+  <h3>Sequential section unlocking</h3>
+  <pre><code><span class="kw">const</span> isSectionUnlocked = useCallback((sectionIndex) =&gt; {
+    <span class="kw">if</span> (sectionIndex === <span class="num">0</span>) <span class="kw">return true</span>;     <span class="cm">// first section always unlocked</span>
+    <span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i &lt; sectionIndex; i++) {
+        <span class="kw">if</span> (!isSectionComplete(SECTION_ORDER[i])) <span class="kw">return false</span>;
+    }
+    <span class="kw">return true</span>;
+}, [isSectionComplete]);</code></pre>
+  <span class="line-ann">Sequential unlock: section N is unlocked only if ALL sections 0 through N-1 are complete. This creates a guided path through the onboarding — the user can't skip ahead. Learner-friendly: it prevents the overwhelm of seeing 8 incomplete sections at once.</span>
+
+  <h3>Completion sync to backend</h3>
+  <pre><code><span class="fn">useEffect</span>(() =&gt; {
+    <span class="kw">if</span> (!user || !isChecklistComplete || dbTourCompleted || isUpdatingBackend.current) <span class="kw">return</span>;
+
+    <span class="kw">const</span> saveCompletion = <span class="kw">async</span> () =&gt; {
+        isUpdatingBackend.current = <span class="kw">true</span>;
+        <span class="kw">try</span> {
+            <span class="kw">await</span> supabase
+                .from(<span class="str">'manager_profiles'</span>)
+                .update({ tour_completed: <span class="kw">true</span> })
+                .eq(<span class="str">'user_id'</span>, user.id);
+            setDbTourCompleted(<span class="kw">true</span>);
+        } <span class="kw">catch</span> {
+            isUpdatingBackend.current = <span class="kw">false</span>;
+        }
+    };
+    saveCompletion();
+}, [user, isChecklistComplete, dbTourCompleted]);</code></pre>
+  <span class="line-ann">isUpdatingBackend.current is a ref (not state) — it doesn't trigger re-renders when set. It guards against concurrent Supabase writes if this effect fires twice. dbTourCompleted prevents re-saving once we know it's already in the DB.</span>
+
+  <!-- OnboardingChecklist.jsx -->
+  <h2>OnboardingChecklist.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/OnboardingChecklist.jsx</span></div>
+
+  <pre><code><span class="kw">const</span> [expandedSection, setExpandedSection] = useState(
+    () =&gt; SECTION_ORDER.find(id =&gt; !isSectionComplete(id)) || SECTION_ORDER[<span class="num">0</span>]
+);</code></pre>
+  <span class="line-ann">On mount, the first incomplete section is auto-expanded. This way users don't land on a collapsed checklist — they see the next action item immediately. SECTION_ORDER[0] is the fallback if all sections are complete (unlikely since the component doesn't render in the "all done" state).</span>
+
+  <pre><code><span class="kw">const</span> progressPercent = totalItems &gt; <span class="num">0</span>
+    ? <span class="fn">Math.round</span>((completedItems / totalItems) * <span class="num">100</span>)
+    : <span class="num">0</span>;</code></pre>
+  <span class="line-ann">Guard against division by zero when SECTION_ITEMS is empty during development. Math.round gives clean integers — no "43.333%" displayed.</span>
+
+  <pre><code><span class="kw">if</span> (isChecklistComplete) {
+    <span class="kw">return</span> (
+        <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"max-w-2xl mx-auto py-16 text-center space-y-6"</span><span class="tag">&gt;</span>
+            <span class="tag">&lt;Sparkles</span> <span class="attr">className</span>=<span class="str">"w-16 h-16 text-primary mx-auto"</span> <span class="tag">/&gt;</span>
+            <span class="tag">&lt;h1</span><span class="tag">&gt;</span>You're all set!<span class="tag">&lt;/h1&gt;</span>
+            <span class="tag">&lt;button</span> <span class="attr">onClick</span>={() =&gt; startTour(<span class="str">'dashboard'</span>)}&gt;Replay Tour<span class="tag">&lt;/button&gt;</span>
+        <span class="tag">&lt;/div&gt;</span>
+    );
+}</code></pre>
+  <span class="line-ann">Early return for the complete state renders a celebration screen instead of the checklist. The Replay Tour button triggers the tour again from the dashboard without clearing DB state — useful for demos.</span>
+
+  <!-- Key patterns -->
+  <h2>Key Patterns</h2>
+  <div class="card">
+    <h3>pendingChanges vs. direct state mutation</h3>
+    <div class="two-col">
+      <div>
+        <p><strong>With pendingChanges (SettingsPage approach):</strong></p>
+        <ul style="font-size:0.85rem;color:var(--muted);list-style:disc;padding-left:1.2rem">
+          <li>Cancel is free — just clear pendingChanges</li>
+          <li>Can show "X unsaved changes" count</li>
+          <li>Can highlight changed items</li>
+          <li>Save sends only the diff</li>
+        </ul>
+      </div>
+      <div>
+        <p><strong>Without it (direct state update):</strong></p>
+        <ul style="font-size:0.85rem;color:var(--muted);list-style:disc;padding-left:1.2rem">
+          <li>Simpler code</li>
+          <li>Cancel requires a full re-fetch from server</li>
+          <li>Can't distinguish unsaved from saved</li>
+          <li>Save must send the entire feature object</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Dual persistence pattern for user preferences</h3>
+    <pre><code><span class="cm">// Write both simultaneously:</span>
+localStorage.setItem(key, <span class="fn">JSON.stringify</span>(next));   <span class="cm">// instant, device-local</span>
+<span class="kw">await</span> supabase.from(<span class="str">'manager_profiles'</span>).update({ tour_completed: <span class="kw">true</span> }); <span class="cm">// authoritative</span>
+
+<span class="cm">// Read: DB wins on conflict:</span>
+<span class="kw">if</span> (data?.tour_completed) { overwrite localStorage with complete state; }</code></pre>
+    <p>localStorage = fast cache. Supabase = truth. This gives instant UI updates (no spinner waiting for the DB) while keeping data consistent across devices and after localStorage is cleared.</p>
+  </div>
+
+  <!-- Bugs -->
+  <h2>Bugs Encountered</h2>
+  <div class="callout callout-bug">
+    <strong>Bug 1 — Feature flag save affects wrong scope</strong><br>
+    Symptom: toggling "SMS Reminders" at the building level only updated one unit instead of all units in the building.<br>
+    Cause: the save function was using selectedUnit.id even when no unit was selected because the conditional was checking in the wrong order.<br>
+    Fix: check selectedUnit first, then selectedBuilding, then fall back to property — matching the drill-down order.
+  </div>
+  <div class="callout callout-bug">
+    <strong>Bug 2 — SMS variable inserted at end of message regardless of cursor</strong><br>
+    Symptom: clicking "{name}" chip always appended the token to the end, not where the cursor was.<br>
+    Cause: selectionStart/End were only valid at the moment of click — by the time the state update ran, focus had moved to the chip button, losing the cursor position.<br>
+    Fix: read selectionStart/End immediately in the click handler before anything else, then pass them into the string manipulation.
+  </div>
+  <div class="callout callout-bug">
+    <strong>Bug 3 — Checklist "complete" screen showed even though DB said tour_completed: false</strong><br>
+    Symptom: after a Supabase admin reset tour_completed = false, the app still showed the "All set!" screen.<br>
+    Cause: localStorage had all items checked, and the app used localStorage without consulting the DB first.<br>
+    Fix: the DB sync useEffect now detects the discrepancy and clears localStorage when DB says not complete.
+  </div>
+
+  <!-- Exercises -->
+  <h2>Exercises</h2>
+
+  <details>
+    <summary>Exercise 1 — Add an "Apply defaults" button that resets all feature flags to their default values</summary>
+    <div class="solution-body">
+      <p>The backend returns each feature's <code>default_value</code> in the settings response. Use it to build a reset payload.</p>
+      <details>
+        <summary>Show solution</summary>
+        <div class="solution-body">
+          <pre><code><span class="kw">function</span> <span class="fn">handleResetToDefaults</span>() {
+    <span class="kw">const</span> defaults = {};
+    <span class="fn">Object.entries</span>(settings).forEach(([key, meta]) =&gt; {
+        defaults[key] = meta.default_value ?? meta.enabled;
+    });
+    setPendingChanges(defaults);
+    setHasChanges(<span class="kw">true</span>);
+}
+
+<span class="cm">// Add button near the feature panel header:</span>
+<span class="tag">&lt;button</span>
+    <span class="attr">onClick</span>={handleResetToDefaults}
+    <span class="attr">className</span>=<span class="str">"text-xs text-muted-foreground hover:text-foreground transition-colors"</span>
+<span class="tag">&gt;</span>
+    Reset to defaults
+<span class="tag">&lt;/button&gt;</span></code></pre>
+          <p>The button creates a pending diff of all features at their default values. The user still has to click Save — this doesn't auto-apply.</p>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 2 — Add a "Select all overdue" button in the SMS workflow</summary>
+    <div class="solution-body">
+      <p>Add a button that selects all tenants with rent_status === 'Overdue'.</p>
+      <details>
+        <summary>Show solution</summary>
+        <div class="solution-body">
+          <pre><code><span class="kw">function</span> <span class="fn">selectOverdue</span>() {
+    <span class="kw">const</span> overdueUuids = displayTenants
+        .filter(t =&gt; t.rent_status === <span class="str">'Overdue'</span>)
+        .map(t =&gt; t.uuid);
+    setSelectedUuids(<span class="kw">new</span> <span class="fn">Set</span>(overdueUuids));
+}
+
+<span class="cm">// In the toolbar:</span>
+<span class="tag">&lt;button</span>
+    <span class="attr">onClick</span>={selectOverdue}
+    <span class="attr">className</span>=<span class="str">"px-3 py-1.5 text-sm rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20"</span>
+<span class="tag">&gt;</span>
+    Select overdue
+<span class="tag">&lt;/button&gt;</span></code></pre>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 3 — What prevents the onboarding checklist from marking items complete if the DB write fails?</summary>
+    <div class="solution-body">
+      <p>Trace through the sync flow in OnboardingContext. When does the DB write happen, and what happens on failure?</p>
+      <details>
+        <summary>Answer</summary>
+        <div class="solution-body">
+          <p>The DB write in <code>saveCompletion()</code> only runs when ALL items are checked locally (isChecklistComplete). If the Supabase write fails, the catch block resets <code>isUpdatingBackend.current = false</code> and does NOT set <code>dbTourCompleted = true</code>. This means the next re-render that triggers the useEffect will retry the write. The local state remains "complete" — the user sees the celebration screen — but the DB will be retried on the next opportunity.</p>
+          <p>This is a "write-on-best-effort" pattern. The user experience is prioritised (instant feedback) over strict DB consistency. For this use case (a tour completion flag) this is acceptable — a stale "tour_completed = false" for one session is better than showing the user an error or blocking the celebration screen on a failed DB write.</p>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <div class="callout callout-tip">
+    <strong>Congratulations!</strong> You've completed all 27 modules of the Tenant Management MVP learning series. You've covered: FastAPI + Supabase backend, JWT auth, Stripe subscriptions, VAPI voice integration, AI chatbot with tool calling, and a complete React 18 frontend with all its advanced patterns.
+  </div>
+
+  <div class="nav-links">
+    <a href="module_25_chatbot_outbound.html" class="nav-btn">← Module 25: Chatbot & Outbound Calls</a>
+    <a href="index.html" class="nav-btn">Back to Index →</a>
+  </div>
+
+</div>
+</body>
+</html>

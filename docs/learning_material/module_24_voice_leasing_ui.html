@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 24 — Voice Stats & Leasing UI | Tenant MVP Learning</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+    --text: #e2e8f0; --muted: #94a3b8; --primary: #6366f1;
+    --green: #10b981; --amber: #f59e0b; --red: #ef4444; --blue: #3b82f6;
+    --code-bg: #141720;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 6rem; }
+  h1 { font-size: 2rem; font-weight: 700; color: #fff; }
+  h2 { font-size: 1.3rem; font-weight: 600; color: var(--primary); margin: 2.5rem 0 0.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.5rem 0 0.5rem; }
+  p { color: var(--muted); margin-bottom: 0.8rem; }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
+  .badge-session { background: #312e81; color: #a5b4fc; }
+  .badge-part { background: #064e3b; color: #6ee7b7; }
+  .meta { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0 1.5rem; flex-wrap: wrap; }
+  .meta span { font-size: 0.8rem; color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+  .concept-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.5rem; }
+  .concept-list li { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.75rem; font-size: 0.82rem; color: var(--text); font-family: monospace; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.65; margin: 0.75rem 0 1rem; }
+  code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+  pre code { color: var(--text); }
+  .kw { color: #c792ea; } .fn { color: #82aaff; } .str { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; } .num { color: #f78c6c; }
+  .tag { color: #f07178; } .attr { color: #ffcb6b; }
+  .callout { border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; font-size: 0.875rem; }
+  .callout-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+  .callout-warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+  .callout-bug { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+  .callout-tip { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+  details { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin: 0.75rem 0; }
+  summary { padding: 0.85rem 1.1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text); user-select: none; }
+  summary:hover { color: var(--primary); }
+  details[open] summary { border-bottom: 1px solid var(--border); color: var(--primary); }
+  .solution-body { padding: 1.1rem; }
+  .file-header { display: flex; align-items: center; gap: 0.6rem; margin: 2rem 0 0.5rem; }
+  .file-chip { background: #1e2130; border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.75rem; font-family: monospace; font-size: 0.78rem; color: #a5b4fc; }
+  .line-ann { color: #64748b; font-size: 0.78rem; display: block; margin-top: 0.15rem; margin-bottom: 0.5rem; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } .concept-list { grid-template-columns: 1fr; } }
+  .nav-links { display: flex; justify-content: space-between; margin-top: 3rem; }
+  .nav-btn { background: var(--surface); border: 1px solid var(--border); padding: 0.6rem 1.2rem; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 0.85rem; }
+  .nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .state-flow { display: flex; flex-direction: column; gap: 0; }
+  .state-step { background: var(--surface); border: 1px solid var(--border); padding: 0.6rem 1rem; font-size: 0.82rem; }
+  .state-step:first-child { border-radius: 8px 8px 0 0; }
+  .state-step:last-child { border-radius: 0 0 8px 8px; }
+  .state-step .label { font-weight: 600; font-family: monospace; }
+  .state-arrow { text-align: center; color: var(--muted); font-size: 1.2rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="meta">
+    <span class="badge badge-session">Session 6</span>
+    <span class="badge badge-part">Part F — Frontend Advanced</span>
+    <span>Module 24 of 26</span>
+  </div>
+  <h1>Module 24 — Voice Stats & Leasing UI</h1>
+  <p>VoiceStatsTab aggregates call log data into a custom bar chart and recent-calls list. LeasingTab combines listings CRUD, a lead pipeline table, leasing metrics, and the VAPI provisioning status banner with retry + auto-poll logic.</p>
+
+  <h2>Concepts Covered</h2>
+  <ul class="concept-list">
+    <li>Custom bar chart (no library)</li>
+    <li>timeAgo() relative timestamp</li>
+    <li>VAPI provisioning status state machine</li>
+    <li>debounced retry guard (retrying flag)</li>
+    <li>8-second auto-poll after retry click</li>
+    <li>Promise.all for parallel data loading</li>
+    <li>Lead pipeline status badge map</li>
+    <li>filteredLeads derived from state</li>
+    <li>CSV export via browser download</li>
+    <li>Accordion pattern (expandedRow)</li>
+  </ul>
+
+  <!-- VoiceStatsTab.jsx -->
+  <h2>VoiceStatsTab.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/VoiceStatsTab.jsx</span></div>
+
+  <h3>StatCard component</h3>
+  <pre><code><span class="kw">function</span> <span class="fn">StatCard</span>({ icon: Icon, label, value, sub, color }) {
+    <span class="kw">return</span> (
+        <span class="tag">&lt;div</span> <span class="attr">className</span>={<span class="fn">cn</span>(<span class="str">'flex flex-col gap-2 p-5 rounded-xl border bg-card'</span>,
+                         color?.border || <span class="str">'border-border'</span>)}&gt;
+            <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"flex items-center justify-between"</span><span class="tag">&gt;</span>
+                <span class="tag">&lt;span</span> <span class="attr">className</span>=<span class="str">"text-xs font-medium text-muted-foreground uppercase tracking-wide"</span><span class="tag">&gt;</span>{label}<span class="tag">&lt;/span&gt;</span>
+                <span class="tag">&lt;Icon</span> <span class="attr">className</span>={<span class="fn">cn</span>(<span class="str">'w-4 h-4'</span>, color?.text || <span class="str">'text-muted-foreground'</span>)} <span class="tag">/&gt;</span>
+            <span class="tag">&lt;/div&gt;</span>
+            <span class="tag">&lt;span</span> <span class="attr">className</span>=<span class="str">"text-3xl font-bold tabular-nums text-foreground"</span><span class="tag">&gt;</span>{value ?? <span class="str">'—'</span>}<span class="tag">&lt;/span&gt;</span>
+            {sub &amp;&amp; <span class="tag">&lt;span</span> <span class="attr">className</span>=<span class="str">"text-xs text-muted-foreground"</span><span class="tag">&gt;</span>{sub}<span class="tag">&lt;/span&gt;</span>}
+        <span class="tag">&lt;/div&gt;</span>
+    );
+}</code></pre>
+  <span class="line-ann">The color prop is an object { border, text } — not a single class string. This lets StatCard apply different colors to the card border and the icon independently. Optional chaining ?. prevents crashes when color is undefined.</span>
+
+  <h3>Custom BarChart component</h3>
+  <pre><code><span class="kw">function</span> <span class="fn">BarChart</span>({ byDate }) {
+    <span class="kw">const</span> entries = <span class="fn">Object.entries</span>(byDate || {}).sort((a, b) =&gt; a[<span class="num">0</span>].localeCompare(b[<span class="num">0</span>]));
+    <span class="kw">const</span> maxVal = <span class="fn">Math.max</span>(...entries.map(([, v]) =&gt; v), <span class="num">1</span>);
+    <span class="kw">return</span> (
+        <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"flex items-end gap-1 h-24 w-full overflow-x-auto py-1"</span><span class="tag">&gt;</span>
+            {entries.map(([date, count]) =&gt; (
+                <span class="tag">&lt;div</span> <span class="attr">key</span>={date} <span class="attr">className</span>=<span class="str">"flex flex-col items-center gap-1 flex-1 min-w-[18px]"</span>
+                     <span class="attr">title</span>={`${date}: ${count} call${count !== <span class="num">1</span> ? <span class="str">'s'</span> : <span class="str">''</span>}`}&gt;
+                    <span class="tag">&lt;div</span>
+                        <span class="attr">className</span>=<span class="str">"w-full rounded-t bg-primary/60 hover:bg-primary transition-colors"</span>
+                        <span class="attr">style</span>={{ height: `${<span class="fn">Math.max</span>(<span class="num">4</span>, (count / maxVal) * <span class="num">80</span>)}px` }}
+                    <span class="tag">/&gt;</span>
+                <span class="tag">&lt;/div&gt;</span>
+            ))}
+        <span class="tag">&lt;/div&gt;</span>
+    );
+}</code></pre>
+  <span class="line-ann">Math.max(...counts, 1): the ", 1" prevents division by zero when all counts are 0. Without it, every bar would be NaN pixels tall. Math.max(4, ...) ensures even single-call days have a visible bar (4px minimum).</span>
+  <span class="line-ann">Height is a percentage of the container: (count / maxVal) * 80px. The tallest bar always reaches 80px; others scale proportionally.</span>
+
+  <h3>timeAgo helper</h3>
+  <pre><code><span class="kw">function</span> <span class="fn">timeAgo</span>(dateStr) {
+    <span class="kw">if</span> (!dateStr) <span class="kw">return</span> <span class="str">''</span>;
+    <span class="kw">const</span> diff = (<span class="fn">Date.now</span>() - <span class="kw">new</span> <span class="fn">Date</span>(dateStr).getTime()) / <span class="num">1000</span>;
+    <span class="kw">if</span> (diff &lt; <span class="num">60</span>)    <span class="kw">return</span> <span class="str">'just now'</span>;
+    <span class="kw">if</span> (diff &lt; <span class="num">3600</span>)  <span class="kw">return</span> `${<span class="fn">Math.floor</span>(diff / <span class="num">60</span>)}m ago`;
+    <span class="kw">if</span> (diff &lt; <span class="num">86400</span>) <span class="kw">return</span> `${<span class="fn">Math.floor</span>(diff / <span class="num">3600</span>)}h ago`;
+    <span class="kw">return</span> `${<span class="fn">Math.floor</span>(diff / <span class="num">86400</span>)}d ago`;
+}</code></pre>
+  <span class="line-ann">Date.now() / 1000 gives seconds. The thresholds are 60s (1min), 3600s (1hr), 86400s (1 day). Simple and dependency-free — no date-fns needed for this one-way calculation.</span>
+
+  <h3>Collapsible transcript rows</h3>
+  <pre><code><span class="tag">&lt;button</span>
+    <span class="attr">onClick</span>={() =&gt; setExpanded(expanded === i ? <span class="kw">null</span> : i)}
+<span class="tag">&gt;</span>
+    ...
+<span class="tag">&lt;/button&gt;</span>
+{expanded === i &amp;&amp; log.transcript &amp;&amp; (
+    <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"px-5 pb-4"</span><span class="tag">&gt;</span>
+        <span class="tag">&lt;p</span> <span class="attr">className</span>=<span class="str">"text-xs text-muted-foreground bg-secondary/50 rounded-lg p-3
+                          whitespace-pre-wrap max-h-40 overflow-y-auto"</span><span class="tag">&gt;</span>
+            {log.transcript}
+        <span class="tag">&lt;/p&gt;</span>
+    <span class="tag">&lt;/div&gt;</span>
+)}</code></pre>
+  <span class="line-ann">Only one row can be expanded at a time (expanded stores an index). Setting expanded to the same index collapses it. max-h-40 prevents a long transcript from pushing all other rows off screen.</span>
+
+  <!-- LeasingTab.jsx -->
+  <h2>LeasingTab.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/LeasingTab.jsx</span></div>
+
+  <h3>Parallel load with Promise.all</h3>
+  <pre><code><span class="kw">const</span> load = <span class="fn">useCallback</span>(<span class="kw">async</span> () =&gt; {
+    setLoading(<span class="kw">true</span>);
+    <span class="kw">try</span> {
+        <span class="kw">const</span> [l, ld, m, vc] = <span class="kw">await</span> <span class="fn">Promise.all</span>([
+            <span class="fn">getListings</span>(),
+            <span class="fn">getLeaseLeads</span>(),
+            <span class="fn">getLeasingMetrics</span>(),
+            <span class="fn">getUserVapiConfig</span>(),
+        ]);
+        setListings(l); setLeads(ld); setMetrics(m); setVapiConfig(vc);
+    } <span class="kw">catch</span> (e) { console.error(<span class="str">'Leasing load error'</span>, e); }
+    <span class="kw">finally</span> { setLoading(<span class="kw">false</span>); }
+}, []);</code></pre>
+  <span class="line-ann">All 4 API calls fire simultaneously. Sequential awaits would take 4× as long. Promise.all resolves when ALL promises resolve, or rejects immediately on the first rejection — the catch handles any failure.</span>
+
+  <h3>VAPI provisioning status banner</h3>
+  <div class="card">
+    <h3>Provisioning state machine</h3>
+    <div class="state-flow">
+      <div class="state-step"><span class="label">not_set_up</span> — manager has no property group yet, no provisioning triggered</div>
+      <div class="state-arrow">↓ (creates first property group)</div>
+      <div class="state-step"><span class="label">pending</span> — provisioning background task is running</div>
+      <div class="state-arrow">↓ (success) &nbsp; / &nbsp; ↓ (failure)</div>
+      <div class="state-step"><span class="label">active</span> — phone number assigned, assistant live</div>
+      <div class="state-step" style="border-top: 0; background: rgba(239,68,68,0.07)"><span class="label">failed</span> — provisioning errored (pool empty or VAPI error)</div>
+    </div>
+  </div>
+
+  <pre><code>{vapiConfig.vapi_provisioning_status === <span class="str">'pending'</span> &amp;&amp; (
+    <span class="tag">&lt;span</span> <span class="attr">className</span>=<span class="str">"inline-flex items-center gap-2 text-xs text-amber-500 mt-0.5"</span><span class="tag">&gt;</span>
+        <span class="tag">&lt;Loader2</span> <span class="attr">className</span>=<span class="str">"w-3 h-3 animate-spin"</span> <span class="tag">/&gt;</span> Setting up…
+        <span class="tag">&lt;button</span>
+            <span class="attr">onClick</span>={handleRetryProvisioning}
+            <span class="attr">disabled</span>={retrying}
+            <span class="attr">className</span>=<span class="str">"underline hover:no-underline disabled:opacity-50"</span>
+        <span class="tag">&gt;</span>
+            {retrying ? <span class="str">'Starting…'</span> : <span class="str">'Stuck? Trigger setup'</span>}
+        <span class="tag">&lt;/button&gt;</span>
+    <span class="tag">&lt;/span&gt;</span>
+)}</code></pre>
+  <span class="line-ann">Even in "pending" state the retry button is shown — the background task could have silently failed without updating the status. The "Stuck? Trigger setup" text acknowledges that pending can get stuck.</span>
+
+  <h3>Retry with 8-second auto-poll</h3>
+  <pre><code><span class="kw">async function</span> <span class="fn">handleRetryProvisioning</span>() {
+    <span class="kw">if</span> (retrying) <span class="kw">return</span>;            <span class="cm">// debounce guard</span>
+    setRetrying(<span class="kw">true</span>);
+    <span class="kw">try</span> {
+        <span class="kw">await</span> <span class="fn">retryUserProvisioning</span>();
+        setVapiConfig(prev =&gt; ({ ...prev, vapi_provisioning_status: <span class="str">'pending'</span> }));
+        <span class="cm">// Poll once after 8s to catch quick success</span>
+        setTimeout(<span class="kw">async</span> () =&gt; {
+            <span class="kw">try</span> {
+                <span class="kw">const</span> vc = <span class="kw">await</span> <span class="fn">getUserVapiConfig</span>();
+                setVapiConfig(vc);
+            } <span class="kw">catch</span> (_) {}
+            setRetrying(<span class="kw">false</span>);
+        }, <span class="num">8000</span>);
+    } <span class="kw">catch</span> (e) {
+        console.error(<span class="str">'Retry provisioning error'</span>, e);
+        setRetrying(<span class="kw">false</span>);
+    }
+}</code></pre>
+  <span class="line-ann">The "if (retrying) return" guard is the debounce — prevents double-triggering if the user clicks rapidly. The 8s setTimeout gives the background task enough time to complete and then auto-refreshes the status once.</span>
+  <span class="line-ann">We set status to 'pending' immediately (optimistic) so the spinner appears right away, even before the poll resolves.</span>
+
+  <div class="callout callout-warn">
+    <strong>Why 8 seconds?</strong> VAPI assistant creation takes ~2–5 seconds. The Twilio number claim is near-instant. Total background task: ~3–6 seconds. 8s gives a comfortable margin. Too short (e.g., 2s) and the status would still be "pending" when we poll, giving no UX improvement over the user refreshing manually.
+  </div>
+
+  <h3>Status badge map</h3>
+  <pre><code><span class="kw">const</span> STATUS_BADGE = {
+    qualified:     <span class="str">'bg-green-500/10 text-green-500'</span>,
+    not_qualified: <span class="str">'bg-red-500/10 text-red-500'</span>,
+    unmatched:     <span class="str">'bg-yellow-500/10 text-yellow-600'</span>,
+    contacted:     <span class="str">'bg-blue-500/10 text-blue-500'</span>,
+    toured:        <span class="str">'bg-purple-500/10 text-purple-500'</span>,
+    converted:     <span class="str">'bg-emerald-500/10 text-emerald-500'</span>,
+    lost:          <span class="str">'bg-muted text-muted-foreground'</span>,
+};</code></pre>
+  <span class="line-ann">The lead qualification pipeline has 7 states. The color convention: green family = positive outcome, red family = negative, neutral colours = in-progress states. "lost" uses muted because it's a terminal negative state that shouldn't draw attention.</span>
+
+  <h3>Filtered leads</h3>
+  <pre><code><span class="kw">const</span> filteredLeads = leads.filter(l =&gt; {
+    <span class="kw">if</span> (listingFilter &amp;&amp; l.listing_uuid !== listingFilter) <span class="kw">return false</span>;
+    <span class="kw">if</span> (statusFilter &amp;&amp; l.qualification_status !== statusFilter) <span class="kw">return false</span>;
+    <span class="kw">return true</span>;
+});</code></pre>
+  <span class="line-ann">This is NOT wrapped in useMemo. Since filteredLeads is derived inline in the render function, it recalculates on every render. For &lt;100 leads this is fine. If the list grows to thousands, wrap in useMemo([leads, listingFilter, statusFilter]).</span>
+
+  <h3>Metric card component</h3>
+  <pre><code><span class="kw">function</span> <span class="fn">MetricCard</span>({ label, value, sub }) {
+    <span class="kw">return</span> (
+        <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"bg-card border border-border rounded-xl p-4"</span><span class="tag">&gt;</span>
+            <span class="tag">&lt;p</span> <span class="attr">className</span>=<span class="str">"text-xs text-muted-foreground mb-1"</span><span class="tag">&gt;</span>{label}<span class="tag">&lt;/p&gt;</span>
+            <span class="tag">&lt;p</span> <span class="attr">className</span>=<span class="str">"text-2xl font-bold text-foreground"</span><span class="tag">&gt;</span>{value}<span class="tag">&lt;/p&gt;</span>
+            {sub &amp;&amp; <span class="tag">&lt;p</span> <span class="attr">className</span>=<span class="str">"text-xs text-muted-foreground mt-0.5"</span><span class="tag">&gt;</span>{sub}<span class="tag">&lt;/p&gt;</span>}
+        <span class="tag">&lt;/div&gt;</span>
+    );
+}</code></pre>
+  <span class="line-ann">Simpler than StatCard (no icon, no color variant). The sub prop is used for secondary context like "of 24 calls" below a percentage value.</span>
+
+  <h3>fmtDuration helper</h3>
+  <pre><code><span class="kw">function</span> <span class="fn">fmtDuration</span>(secs) {
+    <span class="kw">if</span> (!secs) <span class="kw">return</span> <span class="str">'—'</span>;
+    <span class="kw">const</span> m = <span class="fn">Math.floor</span>(secs / <span class="num">60</span>);
+    <span class="kw">const</span> s = secs % <span class="num">60</span>;
+    <span class="kw">return</span> `${m}m ${s}s`;
+}</code></pre>
+  <span class="line-ann">Call duration comes from VAPI as seconds (integer). Format as "2m 34s". The guard "!secs" handles null, undefined, and 0 — all displayed as "—" since 0-second calls don't make sense.</span>
+
+  <!-- Key patterns -->
+  <h2>Key Patterns</h2>
+  <div class="card">
+    <h3>When to use Promise.all vs sequential await</h3>
+    <p>Use <code>Promise.all</code> when the requests are <strong>independent</strong> — one doesn't need data from another. Here, listings, leads, metrics, and vapi config are all separate endpoints. Loading them sequentially would take 4× longer.</p>
+    <p>Use sequential await when <strong>one request feeds the next</strong> — for example, first GET a property group's ID, then GET buildings for that ID.</p>
+  </div>
+  <div class="card">
+    <h3>Debounce pattern with a boolean flag</h3>
+    <pre><code><span class="kw">const</span> [retrying, setRetrying] = useState(<span class="kw">false</span>);
+
+<span class="kw">async function</span> <span class="fn">handleRetry</span>() {
+    <span class="kw">if</span> (retrying) <span class="kw">return</span>;   <span class="cm">// early exit while in progress</span>
+    setRetrying(<span class="kw">true</span>);
+    <span class="kw">try</span> {
+        <span class="kw">await</span> <span class="fn">doExpensiveOp</span>();
+    } <span class="kw">finally</span> {
+        setRetrying(<span class="kw">false</span>);
+    }
+}</code></pre>
+    <p>This simple pattern prevents double-submission without a timeout or library. The flag also drives UI state: the button is disabled and shows loading text while <code>retrying === true</code>.</p>
+  </div>
+
+  <!-- Bugs -->
+  <h2>Bugs Encountered</h2>
+  <div class="callout callout-bug">
+    <strong>Bug 1 — Bar chart crashes when byDate is undefined</strong><br>
+    Symptom: voice stats page blank on first load before data arrived.<br>
+    Cause: BarChart received undefined for byDate, Object.entries(undefined) throws.<br>
+    Fix: <code>Object.entries(byDate || {})</code> — default to empty object.
+  </div>
+  <div class="callout callout-bug">
+    <strong>Bug 2 — Retry button triggers twice on fast double-click</strong><br>
+    Symptom: two provisioning background tasks started, both claimed a Twilio number.<br>
+    Cause: the button was only disabled visually with opacity but still clickable.<br>
+    Fix: add "if (retrying) return" guard at the top of handleRetryProvisioning.
+  </div>
+  <div class="callout callout-bug">
+    <strong>Bug 3 — VAPI status shows "active" but phone number is missing</strong><br>
+    Symptom: banner showed active status but no phone number string.<br>
+    Cause: vapiConfig.vapi_phone_number was null in the DB (provisioning partially succeeded).<br>
+    Fix: always check both conditions — <code>status === 'active' &amp;&amp; vapi_phone_number</code> — before displaying the number. Otherwise show a fallback message.
+  </div>
+
+  <!-- Exercises -->
+  <h2>Exercises</h2>
+
+  <details>
+    <summary>Exercise 1 — Add a "conversion rate" metric card to LeasingTab</summary>
+    <div class="solution-body">
+      <p>The metrics endpoint returns <code>converted</code> and <code>total_calls</code>. Calculate conversion rate as a percentage.</p>
+      <details>
+        <summary>Show solution</summary>
+        <div class="solution-body">
+          <pre><code>{metrics &amp;&amp; (
+    <span class="tag">&lt;MetricCard</span>
+        <span class="attr">label</span>=<span class="str">"Conversion Rate"</span>
+        <span class="attr">value</span>={metrics.total_calls &gt; <span class="num">0</span>
+            ? `${<span class="fn">Math.round</span>((metrics.converted / metrics.total_calls) * <span class="num">100</span>)}%`
+            : <span class="str">'—'</span>}
+        <span class="attr">sub</span>={`${metrics.converted} converted`}
+    <span class="tag">/&gt;</span>
+)}</code></pre>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 2 — What happens to the 8s poll if the user navigates away?</summary>
+    <div class="solution-body">
+      <p>Think about React component lifecycle. The setTimeout fires after 8s and calls setVapiConfig. If the component has unmounted by then...</p>
+      <details>
+        <summary>Answer</summary>
+        <div class="solution-body">
+          <p>React will log a "Can't perform a React state update on an unmounted component" warning. The fix is to cancel the timeout on unmount using a cleanup ref:</p>
+          <pre><code><span class="kw">const</span> pollRef = useRef(<span class="kw">null</span>);
+
+<span class="cm">// In handleRetryProvisioning:</span>
+pollRef.current = setTimeout(<span class="kw">async</span> () =&gt; { ... }, <span class="num">8000</span>);
+
+<span class="cm">// Cleanup on unmount:</span>
+<span class="fn">useEffect</span>(() =&gt; () =&gt; { <span class="kw">if</span> (pollRef.current) clearTimeout(pollRef.current); }, []);</code></pre>
+          <p>In the current codebase this warning is accepted as low-risk — the setState is a no-op after unmount and doesn't cause memory leaks in modern React. The fix above is the production-correct approach.</p>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 3 — Add a "clear filters" button to the leads table</summary>
+    <div class="solution-body">
+      <p>Add a button that only appears when either listingFilter or statusFilter is set, and resets both to empty string.</p>
+      <details>
+        <summary>Show solution</summary>
+        <div class="solution-body">
+          <pre><code>{(listingFilter || statusFilter) &amp;&amp; (
+    <span class="tag">&lt;button</span>
+        <span class="attr">onClick</span>={() =&gt; { setListingFilter(<span class="str">''</span>); setStatusFilter(<span class="str">''</span>); }}
+        <span class="attr">className</span>=<span class="str">"px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground
+                    border border-border rounded-lg hover:border-primary transition-colors"</span>
+    <span class="tag">&gt;</span>
+        Clear filters
+    <span class="tag">&lt;/button&gt;</span>
+)}</code></pre>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <div class="nav-links">
+    <a href="module_23_complaints_calendar.html" class="nav-btn">← Module 23: Complaints & Calendar</a>
+    <a href="module_25_chatbot_outbound.html" class="nav-btn">Module 25: Chatbot & Outbound Calls →</a>
+  </div>
+
+</div>
+</body>
+</html>

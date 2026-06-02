@@ -315,7 +315,7 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                     print(f"  [BLOCKED] Voice calls feature is disabled for unit {flat_no}")
                     # Update call log to reflect blocked status
                     db.table("call_logs").update({
-                        "complaint_status": "blocked_by_feature_flag"
+                        "complaint_status": "feature_disabled"
                     }).eq("id", call_log_id).execute()
                     return {"status": "processed", "message": "feature_disabled"}
 

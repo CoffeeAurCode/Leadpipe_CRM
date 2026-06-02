@@ -16,6 +16,35 @@ from app.schemas.leasing import ListingCreate, ListingUpdate, ListingResponse, L
 router = APIRouter(prefix="/leasing", tags=["Leasing"])
 
 IST = timezone(timedelta(hours=5, minutes=30))
+LISTING_THRESHOLD = 10
+
+
+def _format_listings(rows: list) -> list:
+    result = []
+    for r in rows:
+        flat = r.get("flats") or {}
+        building = flat.get("buildings") or {}
+        utilities = r.get("included_utilities") or []
+        result.append({
+            "listing_uuid": r["uuid"],
+            "flat_number": r["flat_number"],
+            "title": r.get("title") or "",
+            "address": " ".join(filter(None, [
+                flat.get("address") or "",
+                building.get("name") or "",
+                building.get("address") or "",
+            ])).strip(),
+            "bedrooms": flat.get("bedrooms"),
+            "monthly_rent": float(r["monthly_rent"]),
+            "floor_number": str(flat.get("floor_number") or ""),
+            "available_from": str(r.get("available_from") or ""),
+            "square_footage": r.get("square_footage"),
+            "included_utilities": ", ".join(utilities) if utilities else "not specified",
+            "parking": r.get("parking") or "not specified",
+            "laundry": r.get("laundry") or "not specified",
+            "custom_rules": json.dumps(r.get("custom_rules") or {}),
+        })
+    return result
 
 
 # ===========================================================================
@@ -211,6 +240,15 @@ async def listings_for_agent(
     db: Client = Depends(get_service_db),
 ):
     try:
+        count_q = db.table("lease_listings").select("uuid", count="exact").eq("is_active", True)
+        if manager_id:
+            count_q = count_q.eq("manager_id", manager_id)
+        count_result = count_q.execute()
+        total = count_result.count or 0
+
+        if total > LISTING_THRESHOLD:
+            return {"count": total, "has_more": True, "listings": []}
+
         q = (
             db.table("lease_listings")
             .select(
@@ -222,37 +260,69 @@ async def listings_for_agent(
         )
         if manager_id:
             q = q.eq("manager_id", manager_id)
-
         results = q.order("created_at").execute()
 
-        listings = []
-        for r in (results.data or []):
-            flat = r.get("flats") or {}
-            building = flat.get("buildings") or {}
-            utilities = r.get("included_utilities") or []
-            listings.append({
-                "listing_uuid": r["uuid"],
-                "flat_number": r["flat_number"],
-                "address": " ".join(filter(None, [
-                    flat.get("address") or "",
-                    building.get("name") or "",
-                    building.get("address") or "",
-                ])).strip(),
-                "bedrooms": flat.get("bedrooms"),
-                "monthly_rent": float(r["monthly_rent"]),
-                "floor_number": str(flat.get("floor_number") or ""),
-                "available_from": str(r.get("available_from") or ""),
-                "square_footage": r.get("square_footage"),
-                "included_utilities": ", ".join(utilities) if utilities else "not specified",
-                "parking": r.get("parking") or "not specified",
-                "laundry": r.get("laundry") or "not specified",
-                "custom_rules": json.dumps(r.get("custom_rules") or {}),
-            })
-
-        return {"count": len(listings), "listings": listings}
+        listings = _format_listings(results.data or [])
+        return {"count": len(listings), "has_more": False, "listings": listings}
 
     except Exception as e:
         print(f"[ERROR] listings_for_agent: {e}")
+        return {"count": 0, "has_more": False, "listings": []}
+
+
+@router.get("/search-listings")
+async def search_listings(
+    manager_id: Optional[str] = Query(None),
+    bedrooms: Optional[str] = Query(None),
+    budget_max: Optional[str] = Query(None),
+    available_before: Optional[str] = Query(None),
+    db: Client = Depends(get_service_db),
+):
+    try:
+        def _parse_int(v):
+            try:
+                n = int(v)
+                return n if n > 0 else None
+            except (TypeError, ValueError):
+                return None
+
+        def _parse_float(v):
+            try:
+                n = float(v)
+                return n if n > 0 else None
+            except (TypeError, ValueError):
+                return None
+
+        bedrooms_filter = _parse_int(bedrooms)
+        budget_filter = _parse_float(budget_max)
+
+        q = (
+            db.table("lease_listings")
+            .select(
+                "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
+                "square_footage, included_utilities, parking, laundry, "
+                "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
+            )
+            .eq("is_active", True)
+        )
+        if manager_id:
+            q = q.eq("manager_id", manager_id)
+        if budget_filter is not None:
+            q = q.lte("monthly_rent", budget_filter)
+        if available_before:
+            q = q.lte("available_from", available_before)
+
+        results = q.order("monthly_rent").limit(20).execute()
+        rows = results.data or []
+
+        if bedrooms_filter is not None:
+            rows = [r for r in rows if (r.get("flats") or {}).get("bedrooms") == bedrooms_filter]
+
+        listings = _format_listings(rows[:5])
+        return {"count": len(listings), "listings": listings}
+
+    except Exception as e:
+        print(f"[ERROR] search_listings: {e}")
         return {"count": 0, "listings": []}
 
 

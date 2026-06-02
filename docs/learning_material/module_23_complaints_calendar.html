@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 23 — Complaints & Appointments UI | Tenant MVP Learning</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+    --text: #e2e8f0; --muted: #94a3b8; --primary: #6366f1;
+    --green: #10b981; --amber: #f59e0b; --red: #ef4444; --blue: #3b82f6;
+    --code-bg: #141720;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 6rem; }
+  h1 { font-size: 2rem; font-weight: 700; color: #fff; }
+  h2 { font-size: 1.3rem; font-weight: 600; color: var(--primary); margin: 2.5rem 0 0.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.5rem 0 0.5rem; }
+  p { color: var(--muted); margin-bottom: 0.8rem; }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
+  .badge-session { background: #312e81; color: #a5b4fc; }
+  .badge-part { background: #064e3b; color: #6ee7b7; }
+  .meta { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0 1.5rem; flex-wrap: wrap; }
+  .meta span { font-size: 0.8rem; color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+  .concept-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.5rem; }
+  .concept-list li { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.75rem; font-size: 0.82rem; color: var(--text); font-family: monospace; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.65; margin: 0.75rem 0 1rem; }
+  code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+  pre code { color: var(--text); }
+  .kw { color: #c792ea; } .fn { color: #82aaff; } .str { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; } .num { color: #f78c6c; }
+  .tag { color: #f07178; } .attr { color: #ffcb6b; } .jsx { color: #89ddff; }
+  .callout { border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; font-size: 0.875rem; }
+  .callout-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+  .callout-warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+  .callout-bug { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+  .callout-tip { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+  details { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin: 0.75rem 0; }
+  summary { padding: 0.85rem 1.1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text); user-select: none; }
+  summary:hover { color: var(--primary); }
+  details[open] summary { border-bottom: 1px solid var(--border); color: var(--primary); }
+  .solution-body { padding: 1.1rem; }
+  .file-header { display: flex; align-items: center; gap: 0.6rem; margin: 2rem 0 0.5rem; }
+  .file-chip { background: #1e2130; border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.75rem; font-family: monospace; font-size: 0.78rem; color: #a5b4fc; }
+  .line-ann { color: #64748b; font-size: 0.78rem; display: block; margin-top: 0.15rem; margin-bottom: 0.5rem; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } .concept-list { grid-template-columns: 1fr; } }
+  .nav-links { display: flex; justify-content: space-between; margin-top: 3rem; }
+  .nav-btn { background: var(--surface); border: 1px solid var(--border); padding: 0.6rem 1.2rem; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 0.85rem; }
+  .nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .calendar-demo { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; background: var(--border); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .cal-day { background: var(--surface); min-height: 60px; padding: 4px 6px; font-size: 0.75rem; }
+  .cal-day.today { background: rgba(99,102,241,0.15); }
+  .cal-day.selected { background: rgba(99,102,241,0.25); }
+  .cal-event { font-size: 0.65rem; padding: 1px 4px; margin-top: 2px; border-radius: 3px; border-left: 2px solid; }
+  .ev-sched { background: rgba(59,130,246,0.15); border-color: #3b82f6; color: #93c5fd; }
+  .ev-comp { background: rgba(16,185,129,0.15); border-color: #10b981; color: #6ee7b7; }
+  .ev-pend { background: rgba(245,158,11,0.15); border-color: #f59e0b; color: #fcd34d; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="meta">
+    <span class="badge badge-session">Session 6</span>
+    <span class="badge badge-part">Part F — Frontend Advanced</span>
+    <span>Module 23 of 26</span>
+  </div>
+  <h1>Module 23 — Complaints & Appointments UI</h1>
+  <p>This module builds the complaints card grid with filters and the calendar view that overlays both appointments and complaints. Key patterns: <code>useMemo</code> for filtered lists, custom calendar grid math, slide-over event panel, and cross-linked detail modals.</p>
+
+  <h2>Concepts Covered</h2>
+  <ul class="concept-list">
+    <li>useMemo for derived/filtered lists</li>
+    <li>Custom month calendar grid (no library)</li>
+    <li>date-fns: eachDayOfInterval, startOfMonth, isSameDay, parseISO</li>
+    <li>startOffset trick for grid alignment</li>
+    <li>Hover tooltip positioned with absolute/fixed</li>
+    <li>Slide-over panel for selected date</li>
+    <li>Cross-type events (appointments + complaints)</li>
+    <li>Status color config — normalize() guard</li>
+    <li>Spring slide-over from right edge</li>
+    <li>Framer Motion AnimatePresence for panel</li>
+  </ul>
+
+  <!-- ComplaintsPage.jsx -->
+  <h2>ComplaintsPage.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/ComplaintsPage.jsx</span></div>
+
+  <div class="callout callout-info">
+    <strong>Architecture note:</strong> ComplaintsPage is a "dumb" display component. The parent (App.jsx) owns the complaints array and passes it as a prop. This makes it trivial to refresh: the parent re-fetches, passes the new array, and this component re-renders without any of its own API calls.
+  </div>
+
+  <pre><code><span class="kw">export default function</span> <span class="fn">ComplaintsPage</span>({ complaints = [], onComplaintUpdate }) {
+    <span class="kw">const</span> [filters, setFilters] = useState({ status: <span class="str">'all'</span>, priority: <span class="str">'all'</span> });
+    <span class="kw">const</span> [selectedComplaint, setSelectedComplaint] = useState(<span class="kw">null</span>);</code></pre>
+  <span class="line-ann">Default prop "= []" prevents crashes if the parent hasn't loaded yet. The component doesn't fetch — it receives complaints from its parent.</span>
+
+  <pre><code><span class="kw">const</span> filteredComplaints = <span class="fn">useMemo</span>(() =&gt; {
+    <span class="kw">return</span> complaints.filter(complaint =&gt; {
+        <span class="kw">const</span> matchesStatus = filters.status === <span class="str">'all'</span> || complaint.status === filters.status;
+        <span class="kw">const</span> matchesPriority = filters.priority === <span class="str">'all'</span> || complaint.priority === filters.priority;
+        <span class="kw">return</span> matchesStatus &amp;&amp; matchesPriority;
+    });
+}, [complaints, filters]);</code></pre>
+  <span class="line-ann">useMemo: only re-runs the filter when complaints array or filters object changes. Without useMemo, the filter runs on every render including parent state changes unrelated to this component.</span>
+
+  <pre><code><span class="tag">&lt;motion.div</span>
+    <span class="attr">initial</span>={{ opacity: <span class="num">0</span>, y: <span class="num">20</span> }}
+    <span class="attr">animate</span>={{ opacity: <span class="num">1</span>, y: <span class="num">0</span> }}
+    <span class="attr">transition</span>={{ delay: <span class="num">0.1</span> }}
+    <span class="attr">className</span>=<span class="str">"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"</span>
+<span class="tag">&gt;</span></code></pre>
+  <span class="line-ann">Staggered entrance: the filter bar animates in first (no delay) and the card grid follows 100ms later. Makes the page feel responsive on first load.</span>
+
+  <!-- CalendarView.jsx -->
+  <h2>CalendarView.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/CalendarView.jsx</span></div>
+
+  <h3>Status color maps</h3>
+  <pre><code><span class="kw">const</span> MINI_STATUS = {
+    scheduled:    <span class="str">'border-blue-500 bg-blue-50 text-blue-700'</span>,
+    <span class="str">'in progress'</span>: <span class="str">'border-orange-500 bg-orange-50 text-orange-700'</span>,
+    completed:    <span class="str">'border-green-500 bg-green-50 text-green-700'</span>,
+    attended:     <span class="str">'border-purple-500 bg-purple-50 text-purple-700'</span>,
+    cancelled:    <span class="str">'border-red-500 bg-red-50 text-red-700'</span>,
+    canceled:     <span class="str">'border-red-500 bg-red-50 text-red-700'</span>,  <span class="cm">// US spelling variant</span>
+};</code></pre>
+  <span class="line-ann">Both "cancelled" and "canceled" are listed — VAPI sometimes returns the US spelling. The normalize() function lowercases and trims before lookup, but having both keys makes the map explicit.</span>
+
+  <pre><code><span class="kw">function</span> <span class="fn">normalize</span>(status) {
+    <span class="kw">return</span> (status || <span class="str">''</span>).toLowerCase().trim();
+}</code></pre>
+  <span class="line-ann">Defensive normalization before any map lookup. Without this, "Scheduled" (capital S from some API responses) would return undefined from the color map and cause the badge to appear un-styled.</span>
+
+  <h3>Calendar math</h3>
+  <pre><code><span class="kw">const</span> monthDays = <span class="fn">useMemo</span>(() =&gt; <span class="fn">eachDayOfInterval</span>({
+    start: <span class="fn">startOfMonth</span>(currentDate),
+    end:   <span class="fn">endOfMonth</span>(currentDate),
+}), [currentDate]);
+
+<span class="kw">const</span> startOffset = <span class="fn">useMemo</span>(() =&gt;
+    <span class="fn">startOfMonth</span>(currentDate).getDay(),  <span class="cm">// 0=Sun, 6=Sat</span>
+[currentDate]);</code></pre>
+  <span class="line-ann">startOffset is how many empty cells to render before day 1. If the month starts on Wednesday (day 3), we render 3 empty divs first so the days align to the correct column of the 7-column grid.</span>
+
+  <div class="card">
+    <h3>Calendar grid visual</h3>
+    <div class="calendar-demo">
+      <div class="cal-day" style="background:var(--code-bg);text-align:center;padding:4px;font-weight:600;font-size:0.7rem;color:var(--muted)">Sun</div>
+      <div class="cal-day" style="background:var(--code-bg);text-align:center;padding:4px;font-weight:600;font-size:0.7rem;color:var(--muted)">Mon</div>
+      <div class="cal-day" style="background:var(--code-bg);text-align:center;padding:4px;font-weight:600;font-size:0.7rem;color:var(--muted)">Tue</div>
+      <div class="cal-day" style="background:var(--code-bg);text-align:center;padding:4px;font-weight:600;font-size:0.7rem;color:var(--muted)">Wed</div>
+      <div class="cal-day" style="background:var(--code-bg);text-align:center;padding:4px;font-weight:600;font-size:0.7rem;color:var(--muted)">Thu</div>
+      <div class="cal-day" style="background:var(--code-bg);text-align:center;padding:4px;font-weight:600;font-size:0.7rem;color:var(--muted)">Fri</div>
+      <div class="cal-day" style="background:var(--code-bg);text-align:center;padding:4px;font-weight:600;font-size:0.7rem;color:var(--muted)">Sat</div>
+      <div class="cal-day" style="background:var(--surface)"></div><!-- empty offset -->
+      <div class="cal-day"><span style="font-size:0.75rem">1</span><div class="cal-event ev-sched">14:00 A101</div></div>
+      <div class="cal-day"><span style="font-size:0.75rem">2</span></div>
+      <div class="cal-day"><span style="font-size:0.75rem">3</span></div>
+      <div class="cal-day today"><span style="font-size:0.75rem;font-weight:700;background:#6366f1;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center">4</span></div>
+      <div class="cal-day"><span style="font-size:0.75rem">5</span><div class="cal-event ev-pend">#12 B202</div></div>
+      <div class="cal-day"><span style="font-size:0.75rem">6</span></div>
+    </div>
+    <p style="font-size:0.8rem;margin-top:0.5rem">One empty cell before day 1 = month starts on Monday. Today's date gets a filled primary circle. Events show as mini strips with colored left border.</p>
+  </div>
+
+  <pre><code>{<span class="fn">Array.from</span>({ length: startOffset }).map((_, i) =&gt; (
+    <span class="tag">&lt;div</span> <span class="attr">key</span>={`empty-${i}`} <span class="attr">className</span>=<span class="str">"bg-card min-h-[90px]"</span> <span class="tag">/&gt;</span>
+))}</code></pre>
+  <span class="line-ann">Creates exactly startOffset empty placeholder divs. These fill the grid columns before day 1 so the days land on the correct day-of-week column.</span>
+
+  <h3>Event aggregation per day</h3>
+  <pre><code><span class="kw">function</span> <span class="fn">getEventsForDate</span>(date) {
+    <span class="kw">const</span> appts = appointments.filter(a =&gt; {
+        <span class="kw">try</span> { <span class="kw">return</span> a.appointment_date &amp;&amp; <span class="fn">isSameDay</span>(<span class="fn">parseISO</span>(a.appointment_date), date); }
+        <span class="kw">catch</span> { <span class="kw">return false</span>; }
+    }).map(a =&gt; ({ ...a, _type: <span class="str">'appointment'</span> }));
+
+    <span class="kw">const</span> comps = complaints.filter(c =&gt; {
+        <span class="kw">try</span> { <span class="kw">return</span> c.created_at &amp;&amp; <span class="fn">isSameDay</span>(<span class="fn">parseISO</span>(c.created_at), date); }
+        <span class="kw">catch</span> { <span class="kw">return false</span>; }
+    }).map(c =&gt; ({ ...c, _type: <span class="str">'complaint'</span> }));
+
+    <span class="kw">return</span> [...appts, ...comps];
+}</code></pre>
+  <span class="line-ann">try/catch around parseISO: if the date string is malformed or null, parseISO throws. Without the catch, one bad record crashes the entire calendar render. The filter just excludes bad records silently.</span>
+  <span class="line-ann">Both types get a _type discriminator so the render logic can branch on 'appointment' vs 'complaint' without checking for appointment-specific fields.</span>
+
+  <h3>MAX_VISIBLE overflow</h3>
+  <pre><code><span class="kw">const</span> MAX_VISIBLE = <span class="num">2</span>;
+<span class="kw">const</span> visible  = events.slice(<span class="num">0</span>, MAX_VISIBLE);
+<span class="kw">const</span> overflow = events.length - MAX_VISIBLE;
+
+{overflow &gt; <span class="num">0</span> &amp;&amp; (
+    <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"text-[10px] text-muted-foreground font-medium px-1"</span><span class="tag">&gt;</span>
+        +{overflow} more
+    <span class="tag">&lt;/div&gt;</span>
+)}</code></pre>
+  <span class="line-ann">Calendar cells are small — showing more than 2 events makes them unreadable. The overflow count invites the user to click the day for the full list in the slide-over panel.</span>
+
+  <h3>Hover tooltip (absolute positioned)</h3>
+  <pre><code>{isHovered &amp;&amp; !isSelected &amp;&amp; events.length &gt; <span class="num">0</span> &amp;&amp; (
+    <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"absolute bottom-full left-0 mb-1 z-20 w-52
+                       bg-card border border-border rounded-lg shadow-xl p-2.5
+                       pointer-events-none"</span><span class="tag">&gt;</span>
+        ...
+    <span class="tag">&lt;/div&gt;</span>
+)}</code></pre>
+  <span class="line-ann">pointer-events-none: the tooltip is purely visual. Without this, hovering the tooltip itself would keep it visible while moving between day cells, causing flicker. bottom-full positions it above the cell.</span>
+
+  <h3>Slide-over panel for selected date</h3>
+  <pre><code><span class="tag">&lt;AnimatePresence&gt;</span>
+    {selectedDate &amp;&amp; (
+        <span class="tag">&lt;&gt;</span>
+            <span class="tag">&lt;motion.div</span>
+                <span class="attr">key</span>=<span class="str">"backdrop"</span>
+                <span class="attr">className</span>=<span class="str">"fixed inset-0 bg-black/25 z-30"</span>
+                <span class="attr">initial</span>={{ opacity: <span class="num">0</span> }}
+                <span class="attr">animate</span>={{ opacity: <span class="num">1</span> }}
+                <span class="attr">exit</span>={{ opacity: <span class="num">0</span> }}
+                <span class="attr">onClick</span>={closePanel}
+            <span class="tag">/&gt;</span>
+
+            <span class="tag">&lt;motion.div</span>
+                <span class="attr">key</span>=<span class="str">"panel"</span>
+                <span class="attr">className</span>=<span class="str">"fixed right-0 top-0 h-screen w-96
+                               bg-card border-l border-border shadow-2xl z-40"</span>
+                <span class="attr">initial</span>={{ x: <span class="str">'100%'</span> }}
+                <span class="attr">animate</span>={{ x: <span class="num">0</span> }}
+                <span class="attr">exit</span>={{ x: <span class="str">'100%'</span> }}
+                <span class="attr">transition</span>={{ type: <span class="str">'spring'</span>, stiffness: <span class="num">320</span>, damping: <span class="num">32</span> }}
+            <span class="tag">&gt;</span></code></pre>
+  <span class="line-ann">key="backdrop" and key="panel" are required when multiple elements animate within AnimatePresence — Framer Motion needs stable keys to track which element enters and exits.</span>
+
+  <h3>panelEvents memo</h3>
+  <pre><code><span class="kw">const</span> panelEvents = <span class="fn">useMemo</span>(
+    () =&gt; (selectedDate ? <span class="fn">getEventsForDate</span>(selectedDate) : []),
+    [selectedDate, appointments, complaints]
+);</code></pre>
+  <span class="line-ann">Recalculates only when the selected date or either data array changes. Avoids redundant filtering on every calendar render while the panel is open.</span>
+
+  <h3>Cross-linked detail modals</h3>
+  <pre><code>{activeEvent?._type === <span class="str">'appointment'</span> &amp;&amp; (
+    <span class="tag">&lt;AppointmentDetailModal</span>
+        <span class="attr">appointment</span>={activeEvent}
+        <span class="attr">isOpen</span>={<span class="kw">true</span>}
+        <span class="attr">onClose</span>={() =&gt; setActiveEvent(<span class="kw">null</span>)}
+        <span class="attr">onUpdate</span>={onAppointmentUpdate}
+        <span class="attr">onDelete</span>={onAppointmentDelete}
+    <span class="tag">/&gt;</span>
+)}
+{activeEvent?._type === <span class="str">'complaint'</span> &amp;&amp; (
+    <span class="tag">&lt;ComplaintModal</span>
+        <span class="attr">complaint</span>={activeEvent}
+        <span class="attr">onClose</span>={() =&gt; setActiveEvent(<span class="kw">null</span>)}
+        <span class="attr">onUpdate</span>={onComplaintUpdate}
+    <span class="tag">/&gt;</span>
+)}</code></pre>
+  <span class="line-ann">One state variable (activeEvent) holds whichever event the user clicked in the slide-over panel. The optional chaining ?. prevents errors when activeEvent is null. The correct detail modal opens based on _type.</span>
+
+  <!-- key patterns -->
+  <h2>Key Patterns</h2>
+  <div class="card">
+    <h3>window.dispatchEvent for cross-component refresh</h3>
+    <p>When the chatbot or VAPI voice call creates a new appointment, the CalendarView would be stale. The pattern used is:</p>
+    <pre><code><span class="cm">// Sender (chatbot after mutation)</span>
+window.dispatchEvent(<span class="kw">new</span> <span class="fn">Event</span>(<span class="str">'refresh-appointments'</span>));
+
+<span class="cm">// Receiver (App.jsx)</span>
+<span class="fn">useEffect</span>(() =&gt; {
+    <span class="kw">const</span> handler = () =&gt; <span class="fn">refetchComplaints</span>();
+    window.addEventListener(<span class="str">'refresh-appointments'</span>, handler);
+    <span class="kw">return</span> () =&gt; window.removeEventListener(<span class="str">'refresh-appointments'</span>, handler);
+}, []);</code></pre>
+    <p>This decouples the chatbot from knowing about the calendar. No prop drilling, no shared state manager needed.</p>
+  </div>
+
+  <div class="card">
+    <h3>Why no external calendar library?</h3>
+    <p>The custom grid is only ~50 lines. date-fns provides the math (<code>eachDayOfInterval</code>, <code>startOfMonth</code>, <code>getDay</code>). A library like react-calendar adds 50KB+ of JS for the same result. The key insight: a month calendar is just a 7-column CSS grid — the only hard part is the startOffset for the first row.</p>
+  </div>
+
+  <!-- Bugs -->
+  <h2>Bugs Encountered</h2>
+  <div class="callout callout-bug">
+    <strong>Bug 1 — Calendar crashes on malformed date</strong><br>
+    Symptom: entire calendar blank after voice call created a complaint with a bad timestamp.<br>
+    Cause: parseISO throws on invalid strings; the filter had no error handling.<br>
+    Fix: wrap parseISO call in try/catch, return false to exclude bad records.
+  </div>
+  <div class="callout callout-bug">
+    <strong>Bug 2 — Panel flickers when switching months</strong><br>
+    Symptom: slide-over panel briefly re-appeared when clicking next/prev month button.<br>
+    Cause: goToPrev/goToNext didn't clear selectedDate, so the panel re-rendered with stale date data.<br>
+    Fix: call setSelectedDate(null) inside goToPrev and goToNext.
+  </div>
+  <div class="callout callout-warn">
+    <strong>Design decision — appointment date format</strong><br>
+    The backend stores appointment_date as <code>YYYY-MM-DDTHH:MM:SS</code> (T separator, IST, no timezone offset). date-fns parseISO handles this format but <strong>treats it as local time</strong> (not UTC). This works correctly when the frontend and backend are in the same timezone (both IST), but would break for international users. The trade-off was accepted for an IST-first product.
+  </div>
+
+  <!-- Exercises -->
+  <h2>Exercises</h2>
+
+  <details>
+    <summary>Exercise 1 — Add a "Today" button that selects today's date in the panel</summary>
+    <div class="solution-body">
+      <p>The existing <code>goToToday</code> function navigates to today's month. Extend it to also select today's date.</p>
+      <details>
+        <summary>Show solution</summary>
+        <div class="solution-body">
+          <pre><code><span class="kw">const</span> <span class="fn">goToToday</span> = () =&gt; {
+    <span class="kw">const</span> today = <span class="kw">new</span> <span class="fn">Date</span>();
+    setCurrentDate(today);
+    setSelectedDate(today);   <span class="cm">// also open the panel for today</span>
+};</code></pre>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 2 — Add a complaint count badge to each day cell</summary>
+    <div class="solution-body">
+      <p>If a day has more than 0 complaints (not appointments), show a red dot in the top-right corner of the cell.</p>
+      <details>
+        <summary>Show solution</summary>
+        <div class="solution-body">
+          <pre><code><span class="cm">// Inside the day cell render:</span>
+<span class="kw">const</span> complaintCount = events.filter(e =&gt; e._type === <span class="str">'complaint'</span>).length;
+
+{complaintCount &gt; <span class="num">0</span> &amp;&amp; (
+    <span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500"</span>
+         <span class="attr">title</span>={`${complaintCount} complaint${complaintCount !== <span class="num">1</span> ? <span class="str">'s'</span> : <span class="str">''</span>}`}
+    <span class="tag">/&gt;</span>
+)}</code></pre>
+          <p>The cell needs <code>relative</code> positioning (it already has it via <code>relative min-h-[90px]</code>).</p>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 3 — What happens if appointments and complaints arrays change while the panel is open?</summary>
+    <div class="solution-body">
+      <p>Think through the memo dependency array: <code>[selectedDate, appointments, complaints]</code>. If new data arrives...</p>
+      <details>
+        <summary>Answer</summary>
+        <div class="solution-body">
+          <p>The <code>panelEvents</code> memo recalculates automatically because <code>appointments</code> or <code>complaints</code> is in the dep array. The panel re-renders showing the updated events for the selected date. This is the benefit of passing arrays as props (the parent owns the data) rather than fetching inside the calendar.</p>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <div class="nav-links">
+    <a href="module_22_tenant_management.html" class="nav-btn">← Module 22: Tenant Management</a>
+    <a href="module_24_voice_leasing_ui.html" class="nav-btn">Module 24: Voice Stats & Leasing →</a>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 25 — Chatbot UI & Outbound Calls | Tenant MVP Learning</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+    --text: #e2e8f0; --muted: #94a3b8; --primary: #6366f1;
+    --green: #10b981; --amber: #f59e0b; --red: #ef4444; --blue: #3b82f6;
+    --code-bg: #141720;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 6rem; }
+  h1 { font-size: 2rem; font-weight: 700; color: #fff; }
+  h2 { font-size: 1.3rem; font-weight: 600; color: var(--primary); margin: 2.5rem 0 0.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.5rem 0 0.5rem; }
+  p { color: var(--muted); margin-bottom: 0.8rem; }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
+  .badge-session { background: #312e81; color: #a5b4fc; }
+  .badge-part { background: #064e3b; color: #6ee7b7; }
+  .meta { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0 1.5rem; flex-wrap: wrap; }
+  .meta span { font-size: 0.8rem; color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+  .concept-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.5rem; }
+  .concept-list li { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.75rem; font-size: 0.82rem; color: var(--text); font-family: monospace; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.65; margin: 0.75rem 0 1rem; }
+  code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+  pre code { color: var(--text); }
+  .kw { color: #c792ea; } .fn { color: #82aaff; } .str { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; } .num { color: #f78c6c; }
+  .tag { color: #f07178; } .attr { color: #ffcb6b; }
+  .callout { border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; font-size: 0.875rem; }
+  .callout-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+  .callout-warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; }
+  .callout-bug { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+  .callout-tip { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+  details { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin: 0.75rem 0; }
+  summary { padding: 0.85rem 1.1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text); user-select: none; }
+  summary:hover { color: var(--primary); }
+  details[open] summary { border-bottom: 1px solid var(--border); color: var(--primary); }
+  .solution-body { padding: 1.1rem; }
+  .file-header { display: flex; align-items: center; gap: 0.6rem; margin: 2rem 0 0.5rem; }
+  .file-chip { background: #1e2130; border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.75rem; font-family: monospace; font-size: 0.78rem; color: #a5b4fc; }
+  .line-ann { color: #64748b; font-size: 0.78rem; display: block; margin-top: 0.15rem; margin-bottom: 0.5rem; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } .concept-list { grid-template-columns: 1fr; } }
+  .nav-links { display: flex; justify-content: space-between; margin-top: 3rem; }
+  .nav-btn { background: var(--surface); border: 1px solid var(--border); padding: 0.6rem 1.2rem; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 0.85rem; }
+  .nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+  /* FAB mock */
+  .fab-demo { display: flex; flex-direction: column; align-items: flex-end; gap: 0.75rem; padding: 1rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; }
+  .fab-window { width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .fab-header { padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; }
+  .fab-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .fab-msgs { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; min-height: 120px; }
+  .fab-msg-user { align-self: flex-end; background: var(--primary); color: #fff; padding: 0.4rem 0.7rem; border-radius: 10px 10px 2px 10px; font-size: 0.78rem; max-width: 80%; }
+  .fab-msg-ai { align-self: flex-start; background: var(--code-bg); color: var(--text); padding: 0.4rem 0.7rem; border-radius: 10px 10px 10px 2px; font-size: 0.78rem; max-width: 80%; }
+  .fab-input { padding: 0.5rem 0.75rem; border-top: 1px solid var(--border); display: flex; gap: 0.5rem; }
+  .fab-input input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.78rem; color: var(--text); }
+  .fab-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
+  .fab-close-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--primary); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="meta">
+    <span class="badge badge-session">Session 6</span>
+    <span class="badge badge-part">Part F — Frontend Advanced</span>
+    <span>Module 25 of 26</span>
+  </div>
+  <h1>Module 25 — Chatbot UI & Outbound Calls</h1>
+  <p>Two FAB (Floating Action Button) components anchored to the bottom-right of the screen. The chatbot enables natural-language management of tenants and appointments. The outbound call button triggers VAPI calls to tenants or lease prospects.</p>
+
+  <h2>Concepts Covered</h2>
+  <ul class="concept-list">
+    <li>Floating Action Button (FAB) pattern</li>
+    <li>useRef for scroll-to-bottom</li>
+    <li>ReactMarkdown for AI response rendering</li>
+    <li>Multi-turn conversation history</li>
+    <li>refresh_needed signal → window.dispatchEvent</li>
+    <li>Enter key submit handler</li>
+    <li>E.164 phone number validation regex</li>
+    <li>Agent selector toggle buttons</li>
+    <li>STATUS enum state machine</li>
+    <li>Framer Motion rotate animation (spinner)</li>
+  </ul>
+
+  <!-- FAB demo -->
+  <h2>What It Looks Like</h2>
+  <div class="fab-demo">
+    <div class="fab-window">
+      <div class="fab-header">
+        <div class="fab-dot"></div>
+        Property Assistant
+        <span style="margin-left:auto;color:var(--muted);cursor:pointer">✕</span>
+      </div>
+      <div class="fab-msgs">
+        <div class="fab-msg-user">How many tenants are overdue?</div>
+        <div class="fab-msg-ai">You have **3 tenants** with overdue rent: Ravi (A101), Priya (B203), and Arjun (C305).</div>
+      </div>
+      <div class="fab-input">
+        <input placeholder="Ask me anything…" value="" readonly>
+        <button class="fab-btn" style="width:30px;height:30px;font-size:0.8rem">➤</button>
+      </div>
+    </div>
+    <button class="fab-close-btn">✕</button>
+  </div>
+  <p style="font-size:0.8rem;margin-top:0.5rem">The FAB panel animates in from the bottom-right. The green dot indicates the AI is connected.</p>
+
+  <!-- Chatbot.jsx -->
+  <h2>Chatbot.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/Chatbot.jsx</span></div>
+
+  <pre><code><span class="kw">const</span> [open, setOpen] = useState(<span class="kw">false</span>);
+<span class="kw">const</span> [messages, setMessages] = useState([]);
+<span class="kw">const</span> [input, setInput] = useState(<span class="str">''</span>);
+<span class="kw">const</span> [loading, setLoading] = useState(<span class="kw">false</span>);
+<span class="kw">const</span> bottomRef = useRef(<span class="kw">null</span>);</code></pre>
+  <span class="line-ann">messages is the full conversation history — all user + assistant turns. This array is sent to the backend with each request so the AI has context for follow-up questions.</span>
+
+  <h3>Scroll-to-bottom with useRef</h3>
+  <pre><code><span class="fn">useEffect</span>(() =&gt; {
+    bottomRef.current?.scrollIntoView({ behavior: <span class="str">'smooth'</span> });
+}, [messages, loading]);</code></pre>
+  <span class="line-ann">An invisible div at the bottom of the message list: &lt;div ref={bottomRef} /&gt;. Calling scrollIntoView() on it scrolls the chat to the latest message. Fires whenever messages or loading changes — so the "Thinking…" bubble also triggers a scroll.</span>
+
+  <h3>Message send flow</h3>
+  <pre><code><span class="kw">async function</span> <span class="fn">handleSend</span>() {
+    <span class="kw">const</span> text = input.trim();
+    <span class="kw">if</span> (!text || loading) <span class="kw">return</span>;
+
+    <span class="kw">const</span> userMsg = { role: <span class="str">'user'</span>, content: text };
+    <span class="kw">const</span> updated = [...messages, userMsg];
+    setMessages(updated);     <span class="cm">// show user message immediately</span>
+    setInput(<span class="str">''</span>);
+    setLoading(<span class="kw">true</span>);
+
+    <span class="kw">try</span> {
+        <span class="kw">const</span> data = <span class="kw">await</span> <span class="fn">sendChatMessage</span>(updated);   <span class="cm">// send full history</span>
+        setMessages(prev =&gt; [...prev, { role: <span class="str">'assistant'</span>, content: data.reply }]);
+        <span class="kw">if</span> (data.refresh_needed) {
+            window.dispatchEvent(<span class="kw">new</span> <span class="fn">Event</span>(<span class="str">'refresh-appointments'</span>));
+        }
+    } <span class="kw">catch</span> {
+        setMessages(prev =&gt; [...prev,
+            { role: <span class="str">'assistant'</span>, content: <span class="str">'Sorry, something went wrong. Please try again.'</span> }
+        ]);
+    } <span class="kw">finally</span> {
+        setLoading(<span class="kw">false</span>);
+    }
+}</code></pre>
+  <span class="line-ann">The full conversation history is sent to the API on every turn. The backend truncates to the last 10 messages before sending to OpenAI, keeping token costs bounded.</span>
+  <span class="line-ann">refresh_needed is a boolean in the API response. When true, it means the chatbot just mutated data (created a building, rescheduled an appointment). We dispatch an event so other components can re-fetch.</span>
+
+  <h3>ReactMarkdown custom components</h3>
+  <pre><code><span class="tag">&lt;ReactMarkdown</span>
+    <span class="attr">components</span>={{
+        p:      ({ children }) =&gt; <span class="tag">&lt;p</span> <span class="attr">className</span>=<span class="str">"mb-1 last:mb-0"</span><span class="tag">&gt;</span>{children}<span class="tag">&lt;/p&gt;</span>,
+        strong: ({ children }) =&gt; <span class="tag">&lt;strong</span> <span class="attr">className</span>=<span class="str">"font-semibold"</span><span class="tag">&gt;</span>{children}<span class="tag">&lt;/strong&gt;</span>,
+        ul:     ({ children }) =&gt; <span class="tag">&lt;ul</span> <span class="attr">className</span>=<span class="str">"list-disc list-inside space-y-0.5 my-1"</span><span class="tag">&gt;</span>{children}<span class="tag">&lt;/ul&gt;</span>,
+        ol:     ({ children }) =&gt; <span class="tag">&lt;ol</span> <span class="attr">className</span>=<span class="str">"list-decimal list-inside space-y-0.5 my-1"</span><span class="tag">&gt;</span>{children}<span class="tag">&lt;/ol&gt;</span>,
+        code:   ({ children }) =&gt; <span class="tag">&lt;code</span> <span class="attr">className</span>=<span class="str">"bg-background/50 rounded px-1 text-xs font-mono"</span><span class="tag">&gt;</span>{children}<span class="tag">&lt;/code&gt;</span>,
+        <span class="cm">// h1/h2/h3 mapped to p — prevents large headers in chat bubbles</span>
+        h1: ({ children }) =&gt; <span class="tag">&lt;p</span> <span class="attr">className</span>=<span class="str">"font-semibold mb-1"</span><span class="tag">&gt;</span>{children}<span class="tag">&lt;/p&gt;</span>,
+    }}
+<span class="tag">&gt;</span>
+    {msg.content}
+<span class="tag">&lt;/ReactMarkdown&gt;</span></code></pre>
+  <span class="line-ann">ReactMarkdown overrides are used to apply Tailwind classes. Without custom components, React Markdown renders plain HTML that inherits the default browser styles — which look wrong in a Tailwind-styled app.</span>
+  <span class="line-ann">Heading tags (h1-h3) are mapped to styled paragraphs. If the AI responds with a markdown header, it would be huge inside a chat bubble — so all heading levels render as bold paragraphs instead.</span>
+
+  <h3>FAB toggle button</h3>
+  <pre><code><span class="tag">&lt;motion.button</span>
+    <span class="attr">whileHover</span>={{ scale: <span class="num">1.05</span> }}
+    <span class="attr">whileTap</span>={{ scale: <span class="num">0.95</span> }}
+    <span class="attr">onClick</span>={() =&gt; setOpen(o =&gt; !o)}
+    <span class="attr">className</span>=<span class="str">"w-12 h-12 rounded-full bg-primary text-primary-foreground
+                shadow-lg flex items-center justify-center"</span>
+<span class="tag">&gt;</span>
+    {open ? <span class="tag">&lt;X</span> <span class="attr">className</span>=<span class="str">"w-5 h-5"</span> <span class="tag">/&gt;</span> : <span class="tag">&lt;MessageCircle</span> <span class="attr">className</span>=<span class="str">"w-5 h-5"</span> <span class="tag">/&gt;</span>}
+<span class="tag">&lt;/motion.button&gt;</span></code></pre>
+  <span class="line-ann">The FAB icon changes: MessageCircle when closed, X when open. This gives the user a clear way to dismiss the chat. The functional setState update "o => !o" is safer than "!open" — avoids stale closure issues.</span>
+
+  <!-- OutboundCallButton.jsx -->
+  <h2>OutboundCallButton.jsx — Line-by-Line</h2>
+  <div class="file-header"><span class="file-chip">frontend/src/components/OutboundCallButton.jsx</span></div>
+
+  <h3>STATUS enum</h3>
+  <pre><code><span class="kw">const</span> STATUS = {
+    IDLE:    <span class="str">'idle'</span>,
+    CALLING: <span class="str">'calling'</span>,
+    SUCCESS: <span class="str">'success'</span>,
+    ERROR:   <span class="str">'error'</span>,
+};</code></pre>
+  <span class="line-ann">A string enum prevents typos like 'succcess'. The component uses a single status state variable instead of separate booleans (isCalling, isSuccess, isError). Avoids impossible states — you can't be both CALLING and ERROR simultaneously with one variable.</span>
+
+  <h3>E.164 validation</h3>
+  <pre><code><span class="kw">if</span> (!/^\+\d{7,15}$/.test(trimmed)) {
+    setStatus(STATUS.ERROR);
+    setErrorMsg(t(<span class="str">'outbound.invalidNumber'</span>));
+    <span class="kw">return</span>;
+}</code></pre>
+  <span class="line-ann">E.164 format: + followed by 7–15 digits. This covers phone numbers from most countries (7-digit minimum for small island nations, 15-digit maximum per ITU-T standard). The + prefix is required — VAPI rejects numbers without it.</span>
+
+  <h3>Agent selector</h3>
+  <pre><code><span class="kw">const</span> AGENTS = [
+    { id: <span class="str">'complaint'</span>, label: <span class="str">'Complaint Agent'</span>, description: <span class="str">'Maintenance intake'</span> },
+    { id: <span class="str">'lease'</span>,     label: <span class="str">'Lease Agent'</span>,     description: <span class="str">'Lead capture'</span> },
+];
+
+{AGENTS.map(agent =&gt; (
+    <span class="tag">&lt;button</span>
+        <span class="attr">key</span>={agent.id}
+        <span class="attr">onClick</span>={() =&gt; {
+            setAgentId(agent.id);
+            <span class="kw">if</span> (status !== STATUS.IDLE) { setStatus(STATUS.IDLE); setErrorMsg(<span class="str">''</span>); }
+        }}
+        <span class="attr">disabled</span>={isCalling}
+        <span class="attr">className</span>={`flex-1 text-xs py-1.5 font-medium transition-colors
+            ${agentId === agent.id
+                ? <span class="str">'bg-primary text-primary-foreground'</span>
+                : <span class="str">'bg-background text-muted-foreground hover:text-foreground'</span>
+            }`}
+    <span class="tag">&gt;</span>
+        {agent.label}
+    <span class="tag">&lt;/button&gt;</span>
+))}</code></pre>
+  <span class="line-ann">Switching agents clears any existing error/success state so the user doesn't see a stale message from a previous call attempt. Also prevents disabled state if the previous attempt was "success" — new agent means fresh attempt.</span>
+
+  <h3>Calling spinner animation</h3>
+  <pre><code>{isCalling ? (
+    <span class="tag">&lt;&gt;</span>
+        <span class="tag">&lt;motion.div</span>
+            <span class="attr">animate</span>={{ rotate: <span class="num">360</span> }}
+            <span class="attr">transition</span>={{ repeat: <span class="fn">Infinity</span>, duration: <span class="num">1</span>, ease: <span class="str">'linear'</span> }}
+            <span class="attr">className</span>=<span class="str">"w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"</span>
+        <span class="tag">/&gt;</span>
+        Calling…
+    <span class="tag">&lt;/&gt;</span>
+) : ...}</code></pre>
+  <span class="line-ann">A CSS-only spinner (border trick: full border except transparent top edge = quarter-circle arc). Framer Motion rotate animation gives it infinite clockwise spin. repeat: Infinity means it never stops; ease: 'linear' prevents the slight speed variation that easing functions introduce.</span>
+
+  <h3>FAB color change</h3>
+  <pre><code><span class="attr">className</span>={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-colors ${
+    open
+        ? <span class="str">'bg-red-500 text-white'</span>
+        : <span class="str">'bg-secondary text-foreground hover:bg-secondary/80'</span>
+}`}</code></pre>
+  <span class="line-ann">The outbound call FAB turns red when open (showing the PhoneOff icon). Red + PhoneOff = "tap to cancel/close". This is a standard mobile UX convention — red means "end call".</span>
+
+  <!-- Key patterns -->
+  <h2>Key Patterns</h2>
+  <div class="card">
+    <h3>Conversation history as an array of messages</h3>
+    <p>The OpenAI API requires a message array in this format:</p>
+    <pre><code>[
+  { role: <span class="str">'system'</span>,    content: <span class="str">'You are a property manager assistant...'</span> },
+  { role: <span class="str">'user'</span>,      content: <span class="str">'How many vacant flats are there?'</span> },
+  { role: <span class="str">'assistant'</span>, content: <span class="str">'You have 3 vacant flats: A102, B201, C304.'</span> },
+  { role: <span class="str">'user'</span>,      content: <span class="str">'Which one is the cheapest?'</span> },   <span class="cm">// the new message</span>
+]</code></pre>
+    <p>The frontend sends the full history (including the new message). The backend adds the system message before sending to OpenAI. This design means the backend can change the system prompt without any frontend changes.</p>
+  </div>
+
+  <div class="card">
+    <h3>refresh_needed signal</h3>
+    <pre><code><span class="cm">// In chatbot.py (backend):</span>
+refresh_tools = {<span class="str">'add_new_unit'</span>, <span class="str">'add_new_building'</span>, <span class="str">'reschedule_appointment'</span>, ...}
+refresh_needed = last_tool_called <span class="kw">in</span> refresh_tools
+
+<span class="cm">// In POST /chat response:</span>
+{ <span class="str">"reply"</span>: <span class="str">"Done! Rescheduled for Thursday at 2pm."</span>, <span class="str">"refresh_needed"</span>: <span class="kw">true</span> }
+
+<span class="cm">// In Chatbot.jsx:</span>
+<span class="kw">if</span> (data.refresh_needed) {
+    window.dispatchEvent(<span class="kw">new</span> Event(<span class="str">'refresh-appointments'</span>));
+}</code></pre>
+    <p>The chatbot mutates data in the DB. Without a refresh signal, the calendar would show the old appointment time until the user manually refreshes. The event-based approach decouples the chatbot from the calendar — the chatbot doesn't need to know the calendar exists.</p>
+  </div>
+
+  <!-- Bugs -->
+  <h2>Bugs Encountered</h2>
+  <div class="callout callout-bug">
+    <strong>Bug 1 — Chat window doesn't scroll to new messages</strong><br>
+    Symptom: new messages appeared below the visible area; user had to scroll manually.<br>
+    Cause: useEffect ran before React rendered the new DOM node for the message.<br>
+    Fix: the dependency array includes both [messages, loading] — the effect runs when loading becomes true (showing the "Thinking..." bubble) AND when messages updates (showing the response). Both trigger scrollIntoView.
+  </div>
+  <div class="callout callout-bug">
+    <strong>Bug 2 — Sending empty message after clearing input</strong><br>
+    Symptom: pressing Enter on an empty input sent a blank message to the API.<br>
+    Cause: handleSend wasn't guarding against empty text after trim().<br>
+    Fix: <code>if (!text || loading) return;</code> at the top of handleSend.
+  </div>
+  <div class="callout callout-bug">
+    <strong>Bug 3 — Phone number without + prefix passes regex but VAPI rejects it</strong><br>
+    Symptom: entering "14165551234" (no plus) passed front-end validation but the VAPI call returned an error.<br>
+    Cause: The regex <code>/^\+\d{7,15}$/</code> requires + as the first character. The bug was that the input defaulted to "+1" but users could delete the + and type a number starting with 1.<br>
+    Fix: The default value "+1" is set in state. The regex validation catches numbers without + and shows an error before the API call.
+  </div>
+
+  <!-- Exercises -->
+  <h2>Exercises</h2>
+
+  <details>
+    <summary>Exercise 1 — Add a "Clear conversation" button to the chatbot</summary>
+    <div class="solution-body">
+      <p>Add a button in the chatbot header that calls <code>setMessages([])</code> to wipe the conversation history.</p>
+      <details>
+        <summary>Show solution</summary>
+        <div class="solution-body">
+          <pre><code><span class="cm">// In the header div, next to the X button:</span>
+<span class="tag">&lt;button</span>
+    <span class="attr">onClick</span>={() =&gt; setMessages([])}
+    <span class="attr">className</span>=<span class="str">"text-xs text-muted-foreground hover:text-foreground transition-colors"</span>
+    <span class="attr">title</span>=<span class="str">"Clear conversation"</span>
+<span class="tag">&gt;</span>
+    Clear
+<span class="tag">&lt;/button&gt;</span></code></pre>
+          <p>Note: clearing messages locally doesn't affect backend state. The backend doesn't store conversation history — each POST /chat request sends the full history from the frontend.</p>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 2 — Show a message count badge on the closed FAB button</summary>
+    <div class="solution-body">
+      <p>When the chatbot is closed and has unread messages (messages.length &gt; 0 and the last message is from the assistant), show a red badge with the count.</p>
+      <details>
+        <summary>Show solution</summary>
+        <div class="solution-body">
+          <pre><code><span class="cm">// Track unread count</span>
+<span class="kw">const</span> [unreadCount, setUnreadCount] = useState(<span class="num">0</span>);
+
+<span class="cm">// When a new assistant message arrives and chat is closed:</span>
+<span class="fn">useEffect</span>(() =&gt; {
+    <span class="kw">if</span> (!open &amp;&amp; messages.length &gt; <span class="num">0</span> &amp;&amp;
+        messages[messages.length - <span class="num">1</span>].role === <span class="str">'assistant'</span>) {
+        setUnreadCount(n =&gt; n + <span class="num">1</span>);
+    }
+}, [messages, open]);
+
+<span class="cm">// Clear when opened:</span>
+<span class="kw">const</span> handleOpen = () =&gt; { setOpen(<span class="kw">true</span>); setUnreadCount(<span class="num">0</span>); };
+
+<span class="cm">// In the FAB button JSX, add relative positioning and a badge:</span>
+<span class="tag">&lt;div</span> <span class="attr">className</span>=<span class="str">"relative"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;motion.button</span> <span class="attr">onClick</span>={handleOpen} ...<span class="tag">/&gt;</span>
+    {!open &amp;&amp; unreadCount &gt; <span class="num">0</span> &amp;&amp; (
+        <span class="tag">&lt;span</span> <span class="attr">className</span>=<span class="str">"absolute -top-1 -right-1 w-5 h-5 rounded-full
+                             bg-red-500 text-white text-xs flex items-center justify-center"</span><span class="tag">&gt;</span>
+            {unreadCount}
+        <span class="tag">&lt;/span&gt;</span>
+    )}
+<span class="tag">&lt;/div&gt;</span></code></pre>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>Exercise 3 — Disable the outbound call button if the lease agent isn't provisioned</summary>
+    <div class="solution-body">
+      <p>The OutboundCallButton shows both "complaint" and "lease" agents. If vapiConfig.vapi_provisioning_status !== 'active', the lease agent option shouldn't work. How would you pass this info into the component?</p>
+      <details>
+        <summary>Show solution</summary>
+        <div class="solution-body">
+          <p>Pass a <code>leaseAgentActive</code> prop from LeasingTab (which already fetches vapiConfig):</p>
+          <pre><code><span class="cm">// In LeasingTab (or App.jsx):</span>
+<span class="tag">&lt;OutboundCallButton</span>
+    <span class="attr">leaseAgentActive</span>={vapiConfig?.vapi_provisioning_status === <span class="str">'active'</span>}
+<span class="tag">/&gt;</span>
+
+<span class="cm">// In OutboundCallButton.jsx:</span>
+<span class="kw">export default function</span> OutboundCallButton({ leaseAgentActive = <span class="kw">false</span> }) {
+    ...
+    <span class="cm">// In the AGENTS array, add a disabled field:</span>
+    { id: <span class="str">'lease'</span>, label: <span class="str">'Lease Agent'</span>, disabled: !leaseAgentActive,
+      description: leaseAgentActive ? <span class="str">'Lead capture'</span> : <span class="str">'Not provisioned yet'</span> },
+
+    <span class="cm">// In the button render:</span>
+    <span class="tag">&lt;button</span>
+        <span class="attr">disabled</span>={isCalling || agent.disabled}
+        <span class="attr">title</span>={agent.disabled ? <span class="str">'Lease agent not provisioned'</span> : <span class="str">''</span>}
+        ...
+    <span class="tag">/&gt;</span>
+}</code></pre>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <div class="nav-links">
+    <a href="module_24_voice_leasing_ui.html" class="nav-btn">← Module 24: Voice Stats & Leasing</a>
+    <a href="module_26_settings_onboarding.html" class="nav-btn">Module 26: Settings & Onboarding →</a>
+  </div>
+
+</div>
+</body>
+</html>

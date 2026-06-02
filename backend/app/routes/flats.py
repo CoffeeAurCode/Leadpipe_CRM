@@ -518,6 +518,12 @@ async def create_flat(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="flat_number is required"
             )
+
+        if not re.match(r'^[A-Z0-9]+$', flat_number_normalized):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="flat_number must contain only letters and numbers — no spaces or special characters (e.g. use S104 not S-104)"
+            )
         
         # Validate numeric fields
         if floor_number is not None and floor_number < 0:
