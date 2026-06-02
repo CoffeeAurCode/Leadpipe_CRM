@@ -1,0 +1,14 @@
+#leasing units
+id,uuid,property_group_id,flat_uuid,flat_number,title,monthly_rent,description,available_from,photo_urls,is_active,custom_rules,manager_id,created_at,updated_at,square_footage,included_utilities,parking,laundry
+20,0053cd6a-f417-41fd-9b61-a1362cc60422,aeb9d575-42e2-439f-ad81-8e99ae6900ed,31573820-ea9c-4e63-8a1d-4cedff41568b,A101,,20000,,2026-05-22,[],true,{},28c43c77-8c9c-496f-8d1e-39ffa9d619e3,2026-05-22 17:40:26.428801+00,2026-05-22 17:40:26.428801+00,,[],,
+21,b8f3aed7-fe82-49ce-8fed-91180f2fd19e,aeb9d575-42e2-439f-ad81-8e99ae6900ed,6bd51435-67a9-4dce-bb74-938d1c86eec4,B202,,38000,,2026-06-01,[],true,{},28c43c77-8c9c-496f-8d1e-39ffa9d619e3,2026-05-22 17:40:26.428801+00,2026-05-22 17:40:26.428801+00,,[],,
+22,b9f94428-4efd-44ed-bc5a-ad740cb86c4b,aeb9d575-42e2-439f-ad81-8e99ae6900ed,888a2fab-7b51-4c91-92ae-3e244c4858ee,C301,,65000,,2026-05-22,[],true,{},28c43c77-8c9c-496f-8d1e-39ffa9d619e3,2026-05-22 17:40:26.428801+00,2026-05-22 17:40:26.428801+00,,[],,
+23,b5f4efd5-0e61-483c-84bf-56da7c9250f8,aeb9d575-42e2-439f-ad81-8e99ae6900ed,afa2bbe8-4054-4254-aee5-3122767f96ad,D404,,42000,,2026-05-22,[],true,"{""pets_allowed"": ""no""}",28c43c77-8c9c-496f-8d1e-39ffa9d619e3,2026-05-22 17:40:26.428801+00,2026-05-22 17:40:26.428801+00,,[],,
+24,31875568-83c4-4f6d-8a2d-936d4ce53fd5,aeb9d575-42e2-439f-ad81-8e99ae6900ed,eef095e6-cde1-4f97-88f2-85acd8f32c2c,E501,,55000,,2026-05-22,[],true,"{""custom_question"": ""Can you confirm monthly income of at least ₹1,65,000 (3× the monthly rent of ₹55,000)?"", ""income_required"": true}",28c43c77-8c9c-496f-8d1e-39ffa9d619e3,2026-05-22 17:40:26.428801+00,2026-05-22 17:40:26.428801+00,,[],,
+#flat details
+id,flat_number,address,floor_number,bedrooms,occupied,created_at,uuid,tenant_uuid,image_url,bathrooms,property_type_id,building_id
+73,A101,Sunrise Heights,1,1,false,2026-03-22 20:42:29.278451,31573820-ea9c-4e63-8a1d-4cedff41568b,,,2,,a3ca92d5-2c48-47ad-8f2d-cc6516cbb498
+119,B202,Sunrise Heights,2,2,false,2026-05-22 14:24:31.707005,6bd51435-67a9-4dce-bb74-938d1c86eec4,,,,,a3ca92d5-2c48-47ad-8f2d-cc6516cbb498
+120,C301,Sunrise Heights,3,3,false,2026-05-22 14:24:31.707005,888a2fab-7b51-4c91-92ae-3e244c4858ee,,,,,a3ca92d5-2c48-47ad-8f2d-cc6516cbb498
+121,D404,Sunrise Heights,4,2,false,2026-05-22 14:24:31.707005,afa2bbe8-4054-4254-aee5-3122767f96ad,,,,,a3ca92d5-2c48-47ad-8f2d-cc6516cbb498
+122,E501,Sunrise Heights,5,2,false,2026-05-22 14:24:31.707005,eef095e6-cde1-4f97-88f2-85acd8f32c2c,,,,,a3ca92d5-2c48-47ad-8f2d-cc6516cbb498

@@ -998,23 +998,35 @@ When quoting rent amounts always say "dollars" followed by the number as words �
 Ask: "Which unit are you inquiring about?"
 <wait for caller response>
 
-2. Look Up the Unit
-Call find_listing with the unit number or address/query the caller mentioned.
-- If the tool responds AND found=true (count>=1): store the first matching listing's details
-  (listing_uuid, monthly_rent, bedrooms, floor_number, available_from, custom_rules,
-  square_footage, included_utilities, parking, laundry). Proceed to Q1.
-  If count > 1, read back the options briefly and ask which unit they meant, then proceed.
-- If the tool responds AND found=false (count=0): the unit exists in speech but not in our
-  active listings. Say "I don't have that unit available right now. Could you double-check
-  the unit number or address?"
-  Retry find_listing ONCE with the corrected or alternative query.
-  If still found=false after the retry: say "It seems that unit isn't in our available listings
-  at the moment. Our team will follow up with you."
+2. Load All Available Units
+Immediately after the caller's first message — before formulating your response — call
+load_listings. This returns all currently available units. Do NOT call it more than once.
+
+Once you have the listings array, match the caller's request using your judgment:
+
+- Caller named a flat number (e.g. "C301", "unit 202"):
+  Find the listing where flat_number matches. If found: store its details and proceed to Q1.
+  If not found: say "I don't see that unit in our available listings right now. Would you like
+  to hear what we do have available?" — then describe the available options briefly.
+
+- Caller described a preference (e.g. "3 bedroom", "something under $50,000", "ground floor"):
+  Filter the listings array yourself and find the best match(es).
+  If one match: say "I have a [N]-bedroom unit available — [flat_number], floor [X],
+  available from [date] for [rent] per month. Does that sound like what you're looking for?"
+  If multiple matches: briefly describe each option (flat number + bedrooms + rent).
+  Ask which one they'd like to learn more about.
+
+- Caller wants to browse (e.g. "what do you have?", "show me everything"):
+  Read out all available units briefly: flat number, bedrooms, monthly rent. Ask which interests them.
+
+- count = 0 (no listings available):
+  Say: "We don't have any units available right now. I'll make sure our team follows up with you."
   Call submit_lease_lead with qualification_status="unmatched",
-  notes="Unit not found in listings: <what caller asked for>", address_preference=<caller's query>.
-  Then end politely.
-- "Search tool unavailable" note is ONLY for when find_listing throws a hard error or times out
-  (not for found=false). Do NOT use that note when found=false.
+  notes="No listings available at time of call". Then end politely.
+
+Once a specific listing is identified, store its listing_uuid, monthly_rent, bedrooms,
+floor_number, available_from, address, square_footage, included_utilities, parking, laundry,
+and custom_rules. Use these for all subsequent questions (Q3 answers, Q5 occupant check, Q6 pet check, Q7 smoking check).
 
 3. Q1 — Move-in Date
 "Great! When are you looking to move in?"
@@ -1070,7 +1082,7 @@ If custom_rules.non_smoking is false or not set: skip this question entirely.
 Ask for caller's name if not yet provided: "Could I get your name?"
 Then call submit_lease_lead EXACTLY ONCE:
 - caller_name
-- listing_uuid (exact UUID from find_listing — never invented; blank if no listing found)
+- listing_uuid (exact UUID from load_listings results — never invented; blank if no match found)
 - interested_listing_ids: [listing_uuid] if a listing was found, else []
 - bedrooms, move_in_timeline, occupants (from conversation and listing data)
 - budget_max: 0 (not collected in this flow)
@@ -1089,21 +1101,19 @@ Not qualified / unmatched: "Thank you for calling. Have a great day!"
 - Always call submit_lease_lead EXACTLY ONCE before ending the call.
 - Never expose listing_uuid, property_group_id, or any internal ID to the caller.
 - Never guarantee availability or make promises about a unit.
-- listing_uuid must come from find_listing. If no listing found, leave it blank. NEVER invent a UUID.
-- If find_listing returns found=false twice (HTTP 200 but no listings): notes should be
-  "Unit not found in listings: <what caller asked for>". Do NOT say "search tool unavailable".
-- If find_listing itself errors or times out (no HTTP response): say "I'm unable to pull up
-  that unit right now. Our team will follow up with you." Then call submit_lease_lead with
-  qualification_status="unmatched", notes="Search tool unavailable during call".
-- In both cases, Do NOT end the call without calling submit_lease_lead exactly once.
+- listing_uuid must come from load_listings results. Match by flat_number or caller preference.
+  Never invent a UUID. Leave blank only if no match could be made.
+- If load_listings returns count=0: no units available — submit lead as unmatched and end politely.
+- If load_listings itself errors or times out: say "I'm unable to pull up our available units right
+  now. Our team will follow up with you." Call submit_lease_lead with qualification_status="unmatched",
+  notes="Listing load failed during call". Do not retry.
 - If submit_lease_lead fails or times out: do not retry. End the call politely.
 
 [Tools]
-find_listing — Look up a unit by flat number, unit name, or any part of the address (building,
-              street, neighbourhood). Returns: found, count, listings[]. Each listing has:
-              listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from,
-              custom_rules, square_footage, included_utilities, parking, laundry.
-submit_lease_lead — Capture the caller as a lead. Always call exactly once before ending the call.
+load_listings — Fetches ALL available units for this property account. Call once after the
+               caller's first message. Use the returned listings array to match the caller's
+               request — by flat number, bedroom count, budget, or any preference they mention.
+submit_lease_lead — Capture the prospective tenant as a lead. Always call exactly once before ending the call.
 """
 
 _LEASE_CONTEXT_BLOCK = """\
@@ -1115,50 +1125,50 @@ All searches are scoped to all properties managed by this account.
 
 
 def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
-    mgr_qs = f"&manager_id={manager_id}" if manager_id else ""
+    load_url = (
+        f"{backend_url}/leasing/listings-for-agent?manager_id={manager_id}"
+        if manager_id
+        else f"{backend_url}/leasing/listings-for-agent"
+    )
     return [
         {
             "type": "apiRequest",
-            "name": "find_listing",
+            "name": "load_listings",
             "async": False,
             "function": {
                 "name": "api_request_tool",
                 "description": (
-                    "Find rental listings by flat/unit number, listing title, "
-                    "or any part of the unit's address (street name, building name, neighbourhood, etc.). "
-                    "Use this when the caller mentions a specific address, location, floor, or unit name. "
-                    "Returns {found, count, listings} where listings is a JSON array. "
-                    "Each element has: listing_uuid, flat_number, title, address, bedrooms, monthly_rent, "
-                    "floor_number, available_from, custom_rules, square_footage, included_utilities, "
-                    "parking, laundry. "
-                    "When multiple units match a building name, ALL matching units are returned — "
-                    "present all of them to the caller, not just the first one."
+                    "Fetches ALL available rental units for this property account. "
+                    "Call this ONCE after the caller's first message — before any other response. "
+                    "Returns a listings array. Each listing has: listing_uuid, flat_number, address, "
+                    "bedrooms, monthly_rent, floor_number, available_from, custom_rules, "
+                    "square_footage, included_utilities, parking, laundry. "
+                    "After receiving the listings, use your own judgment to match the caller's request "
+                    "(flat number, bedroom count, budget, or any preference they mention). "
+                    "Do NOT call this tool more than once per call."
                 ),
             },
-            "url": f"{backend_url}/leasing/find-listing?query={{{{query}}}}{mgr_qs}",
+            "url": load_url,
             "method": "GET",
             "body": {
                 "type": "object",
-                "required": ["query"],
-                "properties": {
-                    "query": {"type": "string", "description": "Search query — flat number, unit name, street name, building name, or neighbourhood", "default": ""},
-                },
+                "required": [],
+                "properties": {},
             },
             "messages": [
                 {
                     "type": "request-start",
-                    "content": "Give me a second to look that up.",
+                    "content": "Give me a second to check what we have available.",
                 }
             ],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "found": {"type": "boolean", "description": ""},
-                        "count": {"type": "integer", "description": ""},
+                        "count": {"type": "integer", "description": "Number of available listings"},
                         "listings": {
                             "type": "array",
-                            "description": "All matching listings",
+                            "description": "All available listings",
                             "items": {
                                 "type": "object",
                                 "properties": {

@@ -205,6 +205,57 @@ async def search_available_listings(
         return {"count": 0, "listings": []}
 
 
+@router.get("/listings-for-agent")
+async def listings_for_agent(
+    manager_id: Optional[str] = Query(None),
+    db: Client = Depends(get_service_db),
+):
+    try:
+        q = (
+            db.table("lease_listings")
+            .select(
+                "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
+                "square_footage, included_utilities, parking, laundry, "
+                "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
+            )
+            .eq("is_active", True)
+        )
+        if manager_id:
+            q = q.eq("manager_id", manager_id)
+
+        results = q.order("created_at").execute()
+
+        listings = []
+        for r in (results.data or []):
+            flat = r.get("flats") or {}
+            building = flat.get("buildings") or {}
+            utilities = r.get("included_utilities") or []
+            listings.append({
+                "listing_uuid": r["uuid"],
+                "flat_number": r["flat_number"],
+                "address": " ".join(filter(None, [
+                    flat.get("address") or "",
+                    building.get("name") or "",
+                    building.get("address") or "",
+                ])).strip(),
+                "bedrooms": flat.get("bedrooms"),
+                "monthly_rent": float(r["monthly_rent"]),
+                "floor_number": str(flat.get("floor_number") or ""),
+                "available_from": str(r.get("available_from") or ""),
+                "square_footage": r.get("square_footage"),
+                "included_utilities": ", ".join(utilities) if utilities else "not specified",
+                "parking": r.get("parking") or "not specified",
+                "laundry": r.get("laundry") or "not specified",
+                "custom_rules": json.dumps(r.get("custom_rules") or {}),
+            })
+
+        return {"count": len(listings), "listings": listings}
+
+    except Exception as e:
+        print(f"[ERROR] listings_for_agent: {e}")
+        return {"count": 0, "listings": []}
+
+
 # ===========================================================================
 # Manager CRUD — authenticated, RLS-enforced
 # ===========================================================================
