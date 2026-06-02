@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 19 — API Service Layer | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    .bug-box { background: #f7768e0d; border: 1px solid #f7768e44; border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .bug-box h4 { color: var(--error); margin-bottom: 0.5rem; }
+    @media print { .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; } .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; } details, details > * { display: block; } h2 { page-break-before: always; } }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 19</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 19 — API Service Layer</strong></div>
+
+  <h1>Module 19 — API Service Layer</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 55 minutes</span>
+    <span>📁 Files: <code>services/apiService.js</code></span>
+    <span>🔰 Prerequisites: Module 18 (Auth Context, Supabase session)</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_18_auth_context.html" class="nav-btn">← Previous: Auth Context</a>
+    <a href="module_20_dashboard_charts.html" class="nav-btn">Next: Dashboard &amp; Charts →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="overview">Section 1 — Why a Central Service Module?</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>The entire frontend talks to the backend through a single file: <code>apiService.js</code>. This is not an accident — it's a deliberate architectural pattern called the <strong>Service Module Pattern</strong>.</p>
+
+  <div class="diagram">
+WITHOUT a service module:
+
+ComplaintsPage.jsx:
+  fetch('/complaints', { headers: { Authorization: `Bearer ${token}` } })
+
+PropertiesPage.jsx:
+  fetch('/flats', { headers: { Authorization: `Bearer ${token}` } })
+
+TenantManagement.jsx:
+  fetch('/tenants', { headers: { Authorization: `Bearer ${token}` } })
+
+30+ components, each managing their own fetch + auth header injection.
+Change the auth scheme? Touch 30+ files.
+Backend URL changes? Touch 30+ files.
+Add retry logic? Touch 30+ files.
+
+─────────────────────────────────────────────
+
+WITH a service module (this project):
+
+All 30+ components import from apiService.js:
+  import { fetchComplaints } from '../services/apiService';
+
+Change auth scheme? Change authFetch() once.
+Backend URL changes? Change API_BASE_URL once.
+Add retry logic? Change authFetch() once.
+Add request logging? Change authFetch() once.</div>
+
+  <!-- S2 -->
+  <h2 id="auth-fetch">Section 2 — The <code>authFetch</code> Wrapper (the Heart of the File)</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> API_BASE_URL = <span class="fn">import.meta.env</span>.VITE_API_URL || <span class="str">'http://localhost:8000'</span>;
+<span class="kw">import</span> { format } <span class="kw">from</span> <span class="str">'date-fns'</span>;
+<span class="kw">import</span> { supabase } <span class="kw">from</span> <span class="str">'../lib/supabase'</span>;</code></pre>
+  <div class="line-exp">
+    <strong><code>API_BASE_URL</code></strong>: The base URL for all backend calls. In development, <code>VITE_API_URL</code> is set to <code>http://localhost:8000</code> in <code>.env.local</code>. In production, it points to the deployed FastAPI server. The <code>|| 'http://localhost:8000'</code> fallback means developers can omit the env var locally.<br><br>
+    <strong>Top-level imports inside a service module</strong>: Note that <code>format</code> from date-fns is imported at the module level (for the <code>formatDate</code> helper), and the Supabase singleton is imported to get the current session in <code>authFetch</code>.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">async function</span> <span class="fn">authFetch</span>(url, options = {}) {
+    <span class="kw">const</span> { data: { session } } = <span class="kw">await</span> supabase.auth.<span class="fn">getSession</span>();
+
+    <span class="kw">if</span> (!session) {
+        <span class="kw">await</span> supabase.auth.<span class="fn">signOut</span>();
+        window.location.<span class="fn">reload</span>();
+        <span class="kw">throw new</span> Error(<span class="str">'No active session'</span>);
+    }
+
+    <span class="kw">const</span> headers = { ...options.headers };
+    headers[<span class="str">'Authorization'</span>] = `Bearer ${session.access_token}`;
+
+    <span class="kw">if</span> (!(options.body <span class="kw">instanceof</span> FormData)) {
+        headers[<span class="str">'Content-Type'</span>] = headers[<span class="str">'Content-Type'</span>] || <span class="str">'application/json'</span>;
+    }
+
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">fetch</span>(url, { ...options, headers });
+
+    <span class="kw">if</span> (response.status === <span class="num">401</span>) {
+        <span class="kw">await</span> supabase.auth.<span class="fn">signOut</span>();
+        window.location.<span class="fn">reload</span>();
+        <span class="kw">throw new</span> Error(<span class="str">'Session expired'</span>);
+    }
+
+    <span class="kw">if</span> (response.status === <span class="num">403</span>) {
+        <span class="kw">const</span> landingUrl = <span class="fn">import.meta.env</span>.VITE_LANDING_PAGE_URL || <span class="str">'http://localhost:3000'</span>;
+        window.location.href = `${landingUrl}/pricing`;
+        <span class="kw">throw new</span> Error(<span class="str">'Subscription required'</span>);
+    }
+
+    <span class="kw">return</span> response;
+}</code></pre>
+  <div class="line-exp">
+    <strong><code>supabase.auth.getSession()</code></strong>: Retrieves the current session from the Supabase client's in-memory cache (not from the backend or network). This is synchronous in effect but async in API — it reads from localStorage/sessionStorage, then returns the session object. The destructuring <code>{ data: { session } }</code> handles Supabase's response envelope: <code>{ data: { session: ... }, error: ... }</code>.<br><br>
+    <strong>No session → sign out + reload</strong>: If there's no session (user was never logged in, or the session expired and refresh failed), calling <code>signOut()</code> clears any stale auth state, and <code>reload()</code> triggers the <code>onAuthStateChange</code> event with <code>INITIAL_SESSION(null)</code>, which causes <code>AuthGate</code> to render the login page. It's a clean reset.<br><br>
+    <strong><code>headers['Authorization'] = `Bearer ${session.access_token}`</code></strong>: This is the key line. The FastAPI backend's <code>get_authenticated_db</code> dependency reads this header, extracts the JWT, verifies it with Supabase's JWKS, and injects the user's ID into every DB query via RLS. Without this header, every protected route returns 401.<br><br>
+    <strong>FormData Content-Type guard</strong>: <code>if (!(options.body instanceof FormData))</code> — when uploading a file with FormData, the browser must set the <code>Content-Type</code> header itself. The header must include the <code>boundary</code> string (a random delimiter separating form fields), e.g., <code>multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW</code>. If you manually set <code>Content-Type: multipart/form-data</code> (without the boundary), the server can't parse the request body. The guard prevents this by letting the browser set the header for FormData requests.<br><br>
+    <strong>401 vs 403 handling</strong>:
+    <ul>
+      <li><strong>401 Unauthorized</strong>: token is missing or invalid (expired). Sign out to clear stale state, reload to get a fresh session.</li>
+      <li><strong>403 Forbidden</strong>: token is valid but the user lacks permission — specifically, no active Stripe subscription. Redirect to the pricing page so they can subscribe. The backend's <code>require_active_subscription</code> dependency returns 403 when the subscription table has no active/trialing record.</li>
+    </ul>
+  </div>
+
+  <!-- S3 -->
+  <h2 id="function-patterns">Section 3 — Function Patterns in the Service Module</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <h3>Pattern A — Simple GET (fetch a list)</h3>
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export async function</span> <span class="fn">fetchComplaints</span>() {
+    <span class="kw">try</span> {
+        <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">authFetch</span>(`${API_BASE_URL}/complaints`);
+        <span class="kw">if</span> (!response.ok) {
+            <span class="kw">throw new</span> Error(`HTTP error! status: ${response.status}`);
+        }
+        <span class="kw">const</span> data = <span class="kw">await</span> response.<span class="fn">json</span>();
+        <span class="kw">return</span> data;
+    } <span class="kw">catch</span> (error) {
+        console.<span class="fn">error</span>(<span class="str">'Error fetching complaints:'</span>, error);
+        <span class="kw">throw</span> error;
+    }
+}</code></pre>
+  <div class="line-exp">
+    <strong>Re-throwing the error</strong>: The <code>catch</code> block logs the error and then re-throws it. Without re-throwing, the caller (component) would receive <code>undefined</code> (the implicit return of a caught exception) and wouldn't know the fetch failed. Components handle errors by catching the thrown error and showing an error state to the user.<br><br>
+    <strong>When to NOT re-throw</strong>: Some functions (like <code>fetchActiveRent</code>) return <code>null</code> on failure instead of re-throwing, because a missing rent record is a normal state, not an error. The choice between "throw on failure" and "return null on failure" depends on whether the caller can meaningfully handle the absence of data.
+  </div>
+
+  <h3>Pattern B — GET with query parameters</h3>
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export async function</span> <span class="fn">fetchTenants</span>(params = {}) {
+    <span class="kw">const</span> query = <span class="kw">new</span> URLSearchParams();
+    <span class="kw">if</span> (params.rent_status) query.<span class="fn">set</span>(<span class="str">'rent_status'</span>, params.rent_status);
+    <span class="kw">if</span> (params.lease_status) query.<span class="fn">set</span>(<span class="str">'lease_status'</span>, params.lease_status);
+    <span class="kw">if</span> (params.sort_by) query.<span class="fn">set</span>(<span class="str">'sort_by'</span>, params.sort_by);
+    <span class="kw">if</span> (params.building_id != <span class="op">null</span>) query.<span class="fn">set</span>(<span class="str">'building_id'</span>, params.building_id);
+    <span class="kw">const</span> qs = query.<span class="fn">toString</span>() ? `?${query}` : <span class="str">''</span>;
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">authFetch</span>(`${API_BASE_URL}/tenants${qs}`);
+    <span class="kw">if</span> (!response.ok) <span class="kw">throw new</span> Error(`HTTP error! status: ${response.status}`);
+    <span class="kw">return await</span> response.<span class="fn">json</span>();
+}</code></pre>
+  <div class="line-exp">
+    <strong><code>URLSearchParams</code></strong>: The browser-native API for building query strings. It handles URL encoding automatically (spaces → <code>%20</code>, special chars escaped). Much safer than manual string concatenation.<br><br>
+    <strong>Conditional parameter inclusion</strong>: Only append a param if it has a value. If <code>params.rent_status</code> is undefined or empty string, it's not appended — the backend receives a clean request without empty-string params that would break server-side validation.<br><br>
+    <strong><code>!= null</code> vs <code>!params.building_id</code></strong>: For numeric IDs, use <code>!= null</code> (checks for both <code>null</code> and <code>undefined</code>) rather than falsy check (<code>!</code>), because <code>building_id = 0</code> is falsy but might be a valid ID. Truthy/falsy checks cause subtle bugs with zero values.
+  </div>
+
+  <h3>Pattern C — POST with JSON body</h3>
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export async function</span> <span class="fn">createBuilding</span>(payload) {
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">authFetch</span>(`${API_BASE_URL}/buildings`, {
+        method: <span class="str">'POST'</span>,
+        headers: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+        body: <span class="typ">JSON</span>.<span class="fn">stringify</span>(payload),
+    });
+    <span class="kw">if</span> (!response.ok) {
+        <span class="kw">const</span> err = <span class="kw">await</span> response.<span class="fn">json</span>().<span class="fn">catch</span>(() => ({}));
+        <span class="kw">throw new</span> Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    <span class="kw">return await</span> response.<span class="fn">json</span>();
+}</code></pre>
+  <div class="line-exp">
+    <strong>Error detail extraction</strong>: When the server returns a 4xx or 5xx status, FastAPI often sends a JSON body with a <code>detail</code> field containing a human-readable error message (from the backend's custom error mapping). The pattern <code>response.json().catch(() => ({}))</code> tries to parse the error body, and if the body isn't valid JSON (server crash, empty body), falls back to an empty object. The <code>err.detail || `HTTP error...`</code> then either shows the backend's message or a generic one.<br><br>
+    This is why the user sees "Flat number already exists" instead of "HTTP error! status: 409" — the backend sends <code>{ "detail": "Flat number already exists" }</code> and the frontend extracts it.
+  </div>
+
+  <h3>Pattern D — POST with FormData (file upload)</h3>
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export async function</span> <span class="fn">createProperty</span>(formData) {
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">authFetch</span>(`${API_BASE_URL}/flats`, {
+        method: <span class="str">'POST'</span>,
+        body: formData,   <span class="cm">// FormData — no Content-Type header set</span>
+    });
+
+    <span class="kw">if</span> (!response.ok) {
+        <span class="kw">const</span> error = <span class="kw">await</span> response.<span class="fn">json</span>();
+        <span class="kw">throw new</span> Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    <span class="kw">return await</span> response.<span class="fn">json</span>();
+}</code></pre>
+  <div class="line-exp">
+    This function receives a <code>FormData</code> object from the component (pre-populated with flat fields + an image file). Notice there's no <code>headers: { 'Content-Type': ... }</code> — the <code>authFetch</code> wrapper's FormData guard handles this: it detects that <code>body instanceof FormData</code> is true and skips adding <code>Content-Type</code>, letting the browser set the correct multipart boundary automatically.
+  </div>
+
+  <h3>Pattern E — PATCH with optional detail extraction</h3>
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export async function</span> <span class="fn">updateTenant</span>(tenantUuid, updates) {
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">authFetch</span>(`${API_BASE_URL}/tenants/${tenantUuid}`, {
+        method: <span class="str">'PATCH'</span>,
+        headers: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+        body: <span class="typ">JSON</span>.<span class="fn">stringify</span>(updates),
+    });
+    <span class="kw">if</span> (!response.ok) {
+        <span class="kw">const</span> err = <span class="kw">await</span> response.<span class="fn">json</span>().<span class="fn">catch</span>(() => ({}));
+        <span class="kw">throw new</span> Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    <span class="kw">return await</span> response.<span class="fn">json</span>();
+}</code></pre>
+
+  <h3>Pattern F — DELETE returning null for 204</h3>
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export async function</span> <span class="fn">deleteAppointment</span>(id) {
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">authFetch</span>(`${API_BASE_URL}/appointments/${id}`, {
+        method: <span class="str">'DELETE'</span>,
+    });
+    <span class="kw">if</span> (!response.ok) {
+        <span class="kw">const</span> err = <span class="kw">await</span> response.<span class="fn">json</span>().<span class="fn">catch</span>(() => ({}));
+        <span class="kw">throw new</span> Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    <span class="kw">return</span> response.status === <span class="num">204</span> ? <span class="op">null</span> : <span class="kw">await</span> response.<span class="fn">json</span>();
+}</code></pre>
+  <div class="line-exp">
+    <strong>204 No Content</strong>: Some DELETE endpoints return 204 (no body). Calling <code>response.json()</code> on a 204 response throws a "SyntaxError: Unexpected end of JSON input" because there's no body to parse. The ternary check <code>response.status === 204 ? null : await response.json()</code> handles this safely.
+  </div>
+
+  <h3>Pattern G — CSV export (download trigger)</h3>
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export async function</span> <span class="fn">exportLeads</span>(params = {}) {
+    <span class="kw">const</span> qs = <span class="kw">new</span> URLSearchParams();
+    <span class="kw">if</span> (params.listing_uuid) qs.<span class="fn">set</span>(<span class="str">'listing_uuid'</span>, params.listing_uuid);
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">authFetch</span>(`${API_BASE_URL}/leasing/export?${qs}`);
+    <span class="kw">if</span> (!response.ok) <span class="kw">throw new</span> Error(`HTTP error! status: ${response.status}`);
+    <span class="kw">const</span> blob = <span class="kw">await</span> response.<span class="fn">blob</span>();
+    <span class="kw">const</span> url = URL.<span class="fn">createObjectURL</span>(blob);
+    <span class="kw">const</span> a = document.<span class="fn">createElement</span>(<span class="str">'a'</span>);
+    a.href = url; a.download = <span class="str">'leads.csv'</span>; a.<span class="fn">click</span>();
+    URL.<span class="fn">revokeObjectURL</span>(url);
+}</code></pre>
+  <div class="line-exp">
+    <strong>Download trigger pattern</strong>: The backend returns raw CSV bytes. <code>response.blob()</code> gets the binary data. <code>URL.createObjectURL(blob)</code> creates a temporary in-memory URL. A programmatically created <code>&lt;a&gt;</code> tag with the <code>download</code> attribute triggers the browser's "Save File" dialog when clicked. <code>revokeObjectURL</code> releases the temporary URL's memory immediately after — without this, the blob would stay in memory until the page unloads.
+  </div>
+
+  <!-- S4 -->
+  <h2 id="api-catalog">Section 4 — Complete API Function Catalog</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <table>
+    <tr><th>Function</th><th>Backend Route</th><th>Purpose</th></tr>
+    <tr><td><code>fetchFlats()</code></td><td>GET /flats</td><td>All flats for this manager</td></tr>
+    <tr><td><code>fetchFlatDetails(uuid)</code></td><td>GET /flats/{uuid}/details</td><td>Single flat with tenant data</td></tr>
+    <tr><td><code>updateFlat(uuid, data)</code></td><td>PATCH /flats/{uuid}</td><td>Update flat fields</td></tr>
+    <tr><td><code>deleteFlat(uuid)</code></td><td>DELETE /flats/{uuid}</td><td>Delete flat (cascade deletes tenant)</td></tr>
+    <tr><td><code>createProperty(formData)</code></td><td>POST /flats</td><td>Create flat + optional tenant (multipart)</td></tr>
+    <tr><td><code>assignTenantToFlat(flatUuid, tenantUuid)</code></td><td>PATCH /flats/{uuid}/assign-tenant</td><td>Link existing tenant to flat</td></tr>
+    <tr><td><code>unassignTenantFromFlat(flatUuid)</code></td><td>PATCH /flats/{uuid}/unassign-tenant</td><td>Vacate a flat</td></tr>
+    <tr><td><code>fetchVacantFlats()</code></td><td>GET /flats?vacant=true</td><td>Only unoccupied flats</td></tr>
+    <tr><td><code>fetchComplaints()</code></td><td>GET /complaints</td><td>All complaints</td></tr>
+    <tr><td><code>fetchComplaintById(id)</code></td><td>GET /complaints/{id}</td><td>Single complaint</td></tr>
+    <tr><td><code>createComplaint(data)</code></td><td>POST /complaints</td><td>Create new complaint</td></tr>
+    <tr><td><code>updateComplaint(id, updates)</code></td><td>PATCH /complaints/{id}</td><td>Update status/notes</td></tr>
+    <tr><td><code>fetchPropertyGroups()</code></td><td>GET /property-groups</td><td>Top-level property groups</td></tr>
+    <tr><td><code>createPropertyGroup(payload)</code></td><td>POST /property-groups</td><td>Create new group</td></tr>
+    <tr><td><code>deletePropertyGroup(id)</code></td><td>DELETE /property-groups/{id}</td><td>Cascade delete group</td></tr>
+    <tr><td><code>fetchPropertyBuildings(id)</code></td><td>GET /property-groups/{id}/buildings</td><td>Buildings in a group</td></tr>
+    <tr><td><code>fetchBuildings()</code></td><td>GET /buildings</td><td>All buildings (flat list)</td></tr>
+    <tr><td><code>createBuilding(payload)</code></td><td>POST /buildings</td><td>Create new building</td></tr>
+    <tr><td><code>updateBuilding(id, payload)</code></td><td>PATCH /buildings/{id}</td><td>Update building details</td></tr>
+    <tr><td><code>deleteBuilding(id)</code></td><td>DELETE /buildings/{id}</td><td>Cascade delete building</td></tr>
+    <tr><td><code>fetchBuildingUnits(id)</code></td><td>GET /buildings/{id}/units</td><td>All flats in a building</td></tr>
+    <tr><td><code>fetchTenants(params)</code></td><td>GET /tenants</td><td>Tenants with optional filters</td></tr>
+    <tr><td><code>createTenant(data)</code></td><td>POST /tenants</td><td>Create new tenant</td></tr>
+    <tr><td><code>updateTenant(uuid, updates)</code></td><td>PATCH /tenants/{uuid}</td><td>Update tenant fields</td></tr>
+    <tr><td><code>deleteTenant(uuid)</code></td><td>DELETE /tenants/{uuid}</td><td>Delete tenant, vacate flat</td></tr>
+    <tr><td><code>updateTenantRentStatus(uuid, status)</code></td><td>PATCH /tenants/{uuid}/rent-status</td><td>Mark rent paid/unpaid</td></tr>
+    <tr><td><code>fetchAppointments(start, end)</code></td><td>GET /appointments</td><td>Appointments in date range</td></tr>
+    <tr><td><code>updateAppointment(id, updates)</code></td><td>PATCH /appointments/{id}</td><td>Reschedule or update status</td></tr>
+    <tr><td><code>deleteAppointment(id)</code></td><td>DELETE /appointments/{id}</td><td>Cancel appointment</td></tr>
+    <tr><td><code>uploadImage(file, type)</code></td><td>POST /upload/image</td><td>Upload image to Supabase Storage</td></tr>
+    <tr><td><code>sendChatMessage(messages)</code></td><td>POST /chat</td><td>Send conversation to AI chatbot</td></tr>
+    <tr><td><code>makeOutboundCall(number, agent)</code></td><td>POST /voice/call/outbound</td><td>Initiate VAPI outbound call</td></tr>
+    <tr><td><code>fetchRentSummary()</code></td><td>GET /rents/summary</td><td>Rent analytics per building</td></tr>
+    <tr><td><code>fetchCallStats(days)</code></td><td>GET /call_logs/stats</td><td>Call analytics dashboard</td></tr>
+    <tr><td><code>exportLeads(params)</code></td><td>GET /leasing/export</td><td>Download leads as CSV</td></tr>
+  </table>
+
+  <!-- S5 -->
+  <h2 id="concepts">Section 5 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <details open>
+    <summary>Why the service module functions don't need try/catch</summary>
+    <p>Many functions in <code>apiService.js</code> don't have their own <code>try/catch</code>. They just <code>await authFetch()</code> and throw if the response isn't ok. Why is this safe?</p>
+    <p>Because <strong>errors propagate up the call stack automatically</strong>. If <code>createBuilding()</code> throws, the component that called <code>await createBuilding()</code> is responsible for catching it. The component typically wraps the call in its own try/catch to show an error message to the user.</p>
+    <p>The pattern is:</p>
+    <div class="diagram">
+apiService.js functions:
+  - Throw on HTTP errors (let errors bubble up)
+  - Some log to console.error as a side effect
+  - Don't swallow errors (that would hide bugs)
+
+Components (consumers):
+  try {
+    await createBuilding(payload);
+    setSuccess(true);
+  } catch (err) {
+    setError(err.message); // Show to user
+  }</div>
+    <p>The older functions (like <code>fetchComplaints</code>) have a try/catch that re-throws — that's equivalent to not having try/catch, since the error is re-thrown. The newer functions drop this pattern for brevity.</p>
+  </details>
+
+  <details open>
+    <summary>The <code>formatDate</code> helper — IST offset math</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export function</span> <span class="fn">formatDate</span>(dateString) {
+    <span class="kw">if</span> (!dateString) <span class="kw">return</span> <span class="str">'N/A'</span>;
+    <span class="kw">try</span> {
+        <span class="kw">const</span> utcString = dateString.<span class="fn">endsWith</span>(<span class="str">'Z'</span>) ? dateString : dateString + <span class="str">'Z'</span>;
+        <span class="kw">const</span> utcDate = <span class="kw">new</span> Date(utcString);
+        <span class="kw">const</span> istDate = <span class="kw">new</span> Date(utcDate.<span class="fn">getTime</span>() + (<span class="num">5.5</span> * <span class="num">60</span> * <span class="num">60</span> * <span class="num">1000</span>));
+        <span class="kw">return</span> <span class="fn">format</span>(istDate, <span class="str">'MMM d, yyyy h:mm a'</span>);
+    } <span class="kw">catch</span> (error) {
+        <span class="kw">return</span> dateString;
+    }
+}</code></pre>
+    <p>The backend stores datetimes as IST (India Standard Time, UTC+5:30). But the DB column doesn't have timezone info — it's stored as a plain timestamp string like <code>2024-01-15T14:30:00</code>. JavaScript's <code>new Date()</code> would interpret this as local timezone (e.g., UTC-5 in Canada), showing the wrong time.</p>
+    <p>The fix: append <code>Z</code> to tell JavaScript to treat the string as UTC, then manually add the IST offset (+5:30 = +19800 seconds = +19800000ms). This gives the original IST time back. It's manual but explicit and correct.</p>
+  </details>
+
+  <!-- S6 -->
+  <h2 id="bugs">Section 6 — Common Bugs &amp; Fixes</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <div class="bug-box">
+    <h4>Bug: File upload fails with "Boundary not found" or "Invalid multipart"</h4>
+    <p><strong>Symptom</strong>: Uploading a file works locally but fails in production, or fails intermittently. Server returns 400 Bad Request.</p>
+    <p><strong>Root cause</strong>: Someone added <code>headers: { 'Content-Type': 'multipart/form-data' }</code> to a function that sends FormData. This overrides the browser's auto-generated Content-Type (which includes the required boundary string). The server receives a malformed multipart request it can't parse.</p>
+    <p><strong>Fix</strong>: Never manually set <code>Content-Type</code> when sending FormData. Let the browser set it. The <code>authFetch</code> wrapper's FormData guard enforces this — just don't pass <code>Content-Type</code> in the options:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// ✗ BAD — overrides the boundary</span>
+<span class="fn">authFetch</span>(url, {
+    method: <span class="str">'POST'</span>,
+    headers: { <span class="str">'Content-Type'</span>: <span class="str">'multipart/form-data'</span> },  <span class="cm">// NO!</span>
+    body: formData,
+});
+
+<span class="cm">// ✓ GOOD — no Content-Type, browser sets it with boundary</span>
+<span class="fn">authFetch</span>(url, {
+    method: <span class="str">'POST'</span>,
+    body: formData,
+});</code></pre>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: <code>response.json()</code> throws on DELETE 204 response</h4>
+    <p><strong>Symptom</strong>: Deleting a resource works (backend confirms deletion) but the frontend throws "SyntaxError: Unexpected end of JSON input" or "SyntaxError: JSON Parse error: Unexpected EOF".</p>
+    <p><strong>Root cause</strong>: The backend returns HTTP 204 (No Content) with an empty body. <code>response.json()</code> tries to parse the empty body as JSON, which fails.</p>
+    <p><strong>Fix</strong>: Check the status code before parsing:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">return</span> response.status === <span class="num">204</span> ? <span class="op">null</span> : <span class="kw">await</span> response.<span class="fn">json</span>();</code></pre>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: 401 on every request after the user's token expires</h4>
+    <p><strong>Symptom</strong>: After the app has been open for a while (usually 1 hour), all API calls start failing with 401. The user must manually reload to fix it.</p>
+    <p><strong>Root cause</strong>: Supabase access tokens expire after 1 hour. The Supabase client automatically refreshes them using the refresh token — but <code>authFetch</code> calls <code>supabase.auth.getSession()</code> which returns the current session. If the auto-refresh hasn't run yet (or failed), the stale token is sent.</p>
+    <p><strong>Fix</strong>: The Supabase client handles token refresh automatically via <code>onAuthStateChange(TOKEN_REFRESHED)</code>. If you're seeing 401s, it may be that the user's session was invalidated (they signed in on another device, or the refresh token was revoked). The <code>authFetch</code> handler signs out and reloads, which is the correct behavior. For more resilient apps, you could add a retry with token refresh before giving up.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: Filter params with value <code>0</code> are not sent to the backend</h4>
+    <p><strong>Symptom</strong>: Filtering by <code>building_id: 0</code> (or any numeric zero) doesn't apply the filter. The API is called without the parameter.</p>
+    <p><strong>Root cause</strong>: Early code used <code>if (params.building_id)</code> (truthy check). The value <code>0</code> is falsy in JavaScript, so the condition is never true for <code>building_id: 0</code>.</p>
+    <p><strong>Fix</strong>: Use explicit null check: <code>if (params.building_id != null)</code>. This passes for any value except <code>null</code> and <code>undefined</code> — including <code>0</code>, <code>false</code>, and empty string.</p>
+  </div>
+
+  <!-- S7 -->
+  <h2 id="exercises">Section 7 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7"><label for="chk-s7">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Exercise 1 — Trace an API call end-to-end</summary>
+    <p>Trace the complete path of calling <code>fetchTenants({ rent_status: 'overdue', sort_by: 'name' })</code>. Write out each step including what URL is constructed, what header is added, what the backend dependency validates, and what the response shape looks like.</p>
+    <details>
+      <summary>Show answer</summary>
+      <ol>
+        <li><code>fetchTenants</code> builds <code>URLSearchParams</code>: <code>rent_status=overdue&sort_by=name</code></li>
+        <li>Calls <code>authFetch('http://localhost:8000/tenants?rent_status=overdue&sort_by=name')</code></li>
+        <li><code>authFetch</code> gets the Supabase session, extracts <code>access_token</code></li>
+        <li>Adds header: <code>Authorization: Bearer eyJhbGci...</code></li>
+        <li>Adds header: <code>Content-Type: application/json</code></li>
+        <li>Browser sends GET request to FastAPI</li>
+        <li>FastAPI's <code>get_authenticated_db</code> dependency validates the JWT, extracts user UUID</li>
+        <li>The tenant route filters by <code>rent_status=overdue</code>, sorts by <code>name</code>, and Supabase RLS automatically scopes to the authenticated manager's flats</li>
+        <li>Response: <code>[{ uuid, name, phone, rent_status, lease_status, ... }, ...]</code></li>
+        <li><code>fetchTenants</code> returns the parsed array to the calling component</li>
+      </ol>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Exercise 2 — Add request timing logging</summary>
+    <p>Add performance logging to <code>authFetch</code> so every API call logs its URL and how long it took in milliseconds. Use <code>console.time</code>/<code>console.timeEnd</code> or <code>performance.now()</code>. Only log in development (check <code>import.meta.env.DEV</code>).</p>
+    <details>
+      <summary>Show solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">async function</span> <span class="fn">authFetch</span>(url, options = {}) {
+    <span class="kw">const</span> start = performance.<span class="fn">now</span>();
+    <span class="kw">const</span> { data: { session } } = <span class="kw">await</span> supabase.auth.<span class="fn">getSession</span>();
+    <span class="cm">// ... existing code ...</span>
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">fetch</span>(url, { ...options, headers });
+    <span class="kw">if</span> (<span class="fn">import.meta.env</span>.DEV) {
+        <span class="kw">const</span> ms = (performance.<span class="fn">now</span>() - start).<span class="fn">toFixed</span>(<span class="num">1</span>);
+        console.<span class="fn">log</span>(`[API] ${options.method || <span class="str">'GET'</span>} ${url} → ${response.status} (${ms}ms)`);
+    }
+    <span class="cm">// ... status checks ...</span>
+    <span class="kw">return</span> response;
+}</code></pre>
+      <p>This gives you a DevTools console line like <code>[API] GET http://localhost:8000/tenants → 200 (87.3ms)</code> for every API call in development.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Exercise 3 — Add an automatic retry for 503 (server temporarily unavailable)</summary>
+    <p>Network flakiness can cause intermittent 503 errors. Modify <code>authFetch</code> to automatically retry once if the server returns 503, after a 1-second delay. The retry should only happen once (not loop forever).</p>
+    <details>
+      <summary>Show solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">async function</span> <span class="fn">authFetch</span>(url, options = {}, _retry = <span class="op">true</span>) {
+    <span class="kw">const</span> { data: { session } } = <span class="kw">await</span> supabase.auth.<span class="fn">getSession</span>();
+    <span class="cm">// ... session check + header building ...</span>
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">fetch</span>(url, { ...options, headers });
+
+    <span class="kw">if</span> (response.status === <span class="num">503</span> && _retry) {
+        <span class="kw">await new</span> Promise(resolve => <span class="fn">setTimeout</span>(resolve, <span class="num">1000</span>));
+        <span class="kw">return</span> <span class="fn">authFetch</span>(url, options, <span class="op">false</span>); <span class="cm">// _retry=false prevents infinite loop</span>
+    }
+
+    <span class="cm">// ... 401/403 handling ...</span>
+    <span class="kw">return</span> response;
+}</code></pre>
+      <p>The <code>_retry</code> flag is a private parameter (conventionally marked with <code>_</code> prefix) that controls retry behavior. Callers don't pass it — it defaults to <code>true</code>. The recursive call passes <code>false</code> to prevent a second retry.</p>
+    </details>
+  </details>
+
+  <div class="card card-success">
+    <h3>Module 19 — Key Takeaways</h3>
+    <ul>
+      <li>The <strong>Service Module Pattern</strong> centralizes all HTTP calls — change auth, base URL, or error handling in one place, not 30+ components.</li>
+      <li><strong><code>authFetch</code></strong> is the core: it gets the session, injects the Bearer token, and handles 401/403 globally.</li>
+      <li><strong>Never set <code>Content-Type</code> when sending FormData</strong> — the browser must set it with the multipart boundary. The <code>authFetch</code> FormData guard enforces this.</li>
+      <li><strong>Error detail extraction</strong>: <code>response.json().catch(() => ({}))</code> safely handles non-JSON error bodies, then <code>err.detail || fallback</code> shows the backend's message when available.</li>
+      <li><strong>204 responses have no body</strong> — check <code>response.status === 204</code> before calling <code>response.json()</code>.</li>
+      <li><strong><code>URLSearchParams</code></strong> for query strings — handles encoding automatically. Use <code>!= null</code> (not falsy check) for numeric params to avoid zeroes being skipped.</li>
+      <li><strong>401</strong> = expired/invalid token → sign out and reload. <strong>403</strong> = no subscription → redirect to pricing.</li>
+    </ul>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_18_auth_context.html" class="nav-btn">← Previous: Auth Context</a>
+    <a href="module_20_dashboard_charts.html" class="nav-btn">Next: Dashboard &amp; Charts →</a>
+  </div>
+</div></div>
+
+<script>
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const checkboxes = document.querySelectorAll('.section-check input');
+  function updateProgress() {
+    const checked = [...checkboxes].filter(c => c.checked).length;
+    document.getElementById('progressFill').style.width = (checked / checkboxes.length * 100) + '%';
+  }
+  checkboxes.forEach(c => c.addEventListener('change', updateProgress));
+  function copyCode(btn) {
+    const code = btn.nextElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>

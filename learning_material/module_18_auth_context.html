@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 18 — Auth Context &amp; Google OAuth | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    .bug-box { background: #f7768e0d; border: 1px solid #f7768e44; border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .bug-box h4 { color: var(--error); margin-bottom: 0.5rem; }
+    @media print { .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; } .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; } details, details > * { display: block; } h2 { page-break-before: always; } }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 18</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 18 — Auth Context &amp; Google OAuth</strong></div>
+
+  <h1>Module 18 — Auth Context &amp; Google OAuth (Supabase PKCE)</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 65 minutes</span>
+    <span>📁 Files: <code>lib/supabase.js</code>, <code>context/AuthContext.jsx</code>, <code>components/AuthPage.jsx</code></span>
+    <span>🔰 Prerequisites: Module 03 (JWT, auth dependencies), Module 17 (frontend setup)</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_17_frontend_setup.html" class="nav-btn">← Previous: Frontend Setup</a>
+    <a href="module_19_api_service.html" class="nav-btn">Next: API Service Layer →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="overview">Section 1 — The Auth Flow End-to-End</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>The authentication system has three layers: the Supabase client singleton (created once), the React context that makes session state available to every component, and the auth page that handles sign-in UI. Understanding how these connect is the foundation for every protected route in the app.</p>
+
+  <div class="diagram">
+GOOGLE OAUTH PKCE FLOW:
+
+Browser                    Supabase Auth                    Google
+   │                             │                              │
+   │── signInWithOAuth() ────────▶                              │
+   │                             │── Redirect to Google ───────▶
+   │                             │                              │
+   │◀─────────────────────────── Google redirects back with code
+   │    (?code=xyz in URL)       │
+   │                             │
+   │── supabase detects code ────▶
+   │   detectSessionInUrl:true   │── Exchange code for tokens ──▶
+   │                             │◀─── JWT (access_token + refresh_token)
+   │                             │
+   │── onAuthStateChange fires ──▶
+   │   event: 'SIGNED_IN'        │
+   │   session: { access_token } │
+   │                             │
+   │ (INITIAL_SESSION also fires when client first loads)
+   │
+   AuthGate reads session → renders App (authenticated) or AuthPage (unauthenticated)</div>
+
+  <!-- S2 -->
+  <h2 id="supabase-client">Section 2 — <code>lib/supabase.js</code> Line-by-Line</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <p>This 12-line file is the most important file in the entire frontend. Every other file that touches auth or DB goes through this singleton.</p>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">import</span> { createClient } <span class="kw">from</span> <span class="str">'@supabase/supabase-js'</span>
+
+<span class="kw">export const</span> supabase = <span class="fn">createClient</span>(
+  <span class="fn">import.meta.env</span>.VITE_SUPABASE_URL,
+  <span class="fn">import.meta.env</span>.VITE_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      detectSessionInUrl: <span class="op">true</span>,
+      flowType: <span class="str">'pkce'</span>,
+    },
+  }
+)</code></pre>
+  <div class="line-exp">
+    <strong>Singleton pattern</strong>: This file creates exactly <em>one</em> Supabase client for the entire application. All imports of <code>supabase</code> from anywhere in the codebase get the same instance. This matters because the client manages the session token, WebSocket subscriptions, and auth state — if you created multiple clients, they would each maintain separate state and could get out of sync.<br><br>
+    <strong><code>VITE_SUPABASE_URL</code></strong>: The public Supabase project URL, e.g., <code>https://xyzabc.supabase.co</code>. This is safe to expose in client code (it's not a secret).<br><br>
+    <strong><code>VITE_SUPABASE_ANON_KEY</code></strong>: The "anon" (anonymous) key, also known as the public API key. It's a JWT with <code>"role": "anon"</code> embedded. Despite appearing in client-side code, it's safe to expose because Row Level Security (RLS) policies on the database enforce what the anon role can access.<br><br>
+    <strong><code>detectSessionInUrl: true</code></strong>: After Google OAuth redirects the user back to the app, Supabase puts the session tokens in the URL fragment (<code>#access_token=...</code>) or as a query parameter (<code>?code=...</code>) in PKCE mode. This option tells the Supabase client to look for and consume these URL parameters on initialization.<br><br>
+    <strong><code>flowType: 'pkce'</code></strong>: PKCE (Proof Key for Code Exchange) is a more secure OAuth flow than the older implicit flow. The difference:
+    <ul style="margin-top:0.5rem">
+      <li><strong>Implicit</strong>: Access token delivered directly in URL fragment. Anyone who can see the URL (browser history, server logs, referrer headers) can steal the token.</li>
+      <li><strong>PKCE</strong>: Authorization code is delivered in URL (short-lived, useless alone). Client exchanges code for tokens using a secret verifier stored in the browser's session storage. The token is never in the URL.</li>
+    </ul>
+    In 2024, PKCE is the recommended flow for all browser-based OAuth. Supabase made it the default in their SDK v2.
+  </div>
+
+  <!-- S3 -->
+  <h2 id="auth-context">Section 3 — <code>context/AuthContext.jsx</code> Line-by-Line</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <p>React Context lets you share state across the entire component tree without passing props through every intermediate component. The auth context makes <code>session</code>, <code>user</code>, and <code>signOut</code> available anywhere with <code>useAuth()</code>.</p>
+
+  <h3>Part A — The <code>ensureManagerProfile</code> helper</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">async function</span> <span class="fn">ensureManagerProfile</span>(user) {
+    <span class="kw">try</span> {
+        <span class="kw">const</span> { data } = <span class="kw">await</span> supabase
+            .<span class="fn">from</span>(<span class="str">'manager_profiles'</span>)
+            .<span class="fn">select</span>(<span class="str">'id'</span>)
+            .<span class="fn">eq</span>(<span class="str">'user_id'</span>, user.id)
+            .<span class="fn">maybeSingle</span>();
+
+        <span class="kw">if</span> (!data) {
+            <span class="kw">await</span> supabase.<span class="fn">from</span>(<span class="str">'manager_profiles'</span>).<span class="fn">insert</span>({
+                user_id: user.id,
+                name: user.user_metadata?.full_name || user.email?.<span class="fn">split</span>(<span class="str">'@'</span>)[<span class="num">0</span>] || <span class="str">'Manager'</span>,
+                phone: user.user_metadata?.phone || <span class="op">null</span>,
+            });
+        }
+    } <span class="kw">catch</span> (err) {
+        console.<span class="fn">error</span>(<span class="str">'Failed to ensure manager profile:'</span>, err);
+    }
+}</code></pre>
+  <div class="line-exp">
+    <strong>Why this function exists</strong>: When a user signs up with email/password, the auth page creates their <code>manager_profiles</code> row explicitly. But when a user signs in with <strong>Google OAuth</strong> for the first time, they bypass the sign-up form entirely — there's no code path that creates their profile row. This function fills that gap.<br><br>
+    <strong><code>.maybeSingle()</code></strong> — returns a single row or <code>null</code> (never throws if no rows found). This is the idiomatic way to check existence. Using <code>.single()</code> would throw an error if the row doesn't exist, requiring a try/catch to check existence.<br><br>
+    <strong>Fallback chain for name</strong>: <code>user.user_metadata?.full_name</code> (from Google) → <code>user.email?.split('@')[0]</code> (local part of email, e.g., "john.doe") → <code>'Manager'</code> (guaranteed fallback). The <code>?.</code> optional chaining safely handles <code>null</code>/<code>undefined</code> without throwing.<br><br>
+    <strong>Why the outer try/catch</strong>: Profile creation is non-critical. If it fails (RLS, network blip), the user can still log in and use the app — they'll just have a missing profile row. Swallowing the error here prevents a broken profile upsert from blocking the entire sign-in flow.
+  </div>
+
+  <h3>Part B — The <code>AuthProvider</code> component</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export function</span> <span class="fn">AuthProvider</span>({ children }) {
+    <span class="kw">const</span> [session, setSession] = <span class="fn">useState</span>(<span class="op">null</span>);
+    <span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="op">null</span>);
+    <span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="op">true</span>);
+    <span class="kw">const</span> profileChecked = <span class="fn">useRef</span>(<span class="op">false</span>);</code></pre>
+  <div class="line-exp">
+    <strong><code>loading: true</code></strong> initially — prevents the "flash of unauthenticated content" where the app briefly shows the login page before the session is loaded. While <code>loading</code> is true, the app renders a spinner instead of either the login page or the authenticated app.<br><br>
+    <strong><code>profileChecked</code> ref</strong> — this is a subtle but critical bug prevention mechanism. Without it, the profile creation would run on every <code>SIGNED_IN</code> event — including token refreshes (which fire <code>TOKEN_REFRESHED</code>, but in some edge cases also <code>SIGNED_IN</code>). A ref doesn't trigger re-renders when changed, making it the right tool for this "did we already do this?" guard. See the Bug section for what happens without it.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="fn">useEffect</span>(() => {
+        <span class="kw">const</span> { data: { subscription } } = supabase.auth.<span class="fn">onAuthStateChange</span>(
+            (event, session) => {
+                <span class="fn">setSession</span>(session);
+                <span class="fn">setUser</span>(session?.user ?? <span class="op">null</span>);
+
+                <span class="kw">if</span> (session?.user && !profileChecked.current) {
+                    profileChecked.current = <span class="op">true</span>;
+                    <span class="fn">ensureManagerProfile</span>(session.user);
+                }
+                <span class="kw">if</span> (!session) {
+                    profileChecked.current = <span class="op">false</span>;
+                }
+
+                <span class="kw">if</span> (event === <span class="str">'INITIAL_SESSION'</span>) {
+                    <span class="fn">setLoading</span>(<span class="op">false</span>);
+                }
+            }
+        );
+
+        <span class="kw">return</span> () => subscription.<span class="fn">unsubscribe</span>();
+    }, []);</code></pre>
+  <div class="line-exp">
+    <strong><code>onAuthStateChange</code></strong> — Supabase's event emitter for auth state. It fires for every auth lifecycle event. The events you'll encounter:
+    <table style="margin:0.75rem 0">
+      <tr><th>Event</th><th>When it fires</th><th>Session value</th></tr>
+      <tr><td><code>INITIAL_SESSION</code></td><td>Once, when the Supabase client finishes initializing (including detecting a session from URL or localStorage)</td><td>Session if logged in, <code>null</code> if not</td></tr>
+      <tr><td><code>SIGNED_IN</code></td><td>After successful login (email/password or OAuth redirect)</td><td>New session</td></tr>
+      <tr><td><code>TOKEN_REFRESHED</code></td><td>When the access token is refreshed (automatically, before expiry)</td><td>Updated session with new token</td></tr>
+      <tr><td><code>SIGNED_OUT</code></td><td>After <code>supabase.auth.signOut()</code></td><td><code>null</code></td></tr>
+    </table>
+    <strong>Why only set loading false on <code>INITIAL_SESSION</code></strong>: This event fires exactly once, after the client has checked all possible session sources (localStorage, URL hash). Before it fires, you cannot know whether the user is logged in or not. Setting <code>loading: false</code> on any earlier event (or before this callback) would cause the app to flicker — briefly rendering the login page even for a logged-in user.<br><br>
+    <strong>Profile check logic</strong>: Only runs if (1) there's a user, AND (2) we haven't checked yet for this session (<code>profileChecked.current === false</code>). When the user signs out, <code>profileChecked.current</code> is reset to <code>false</code> so the check will run again on their next sign-in.<br><br>
+    <strong>Cleanup: <code>subscription.unsubscribe()</code></strong>: React's <code>useEffect</code> cleanup runs when the component unmounts. Without this, the subscription would persist after unmount, causing memory leaks and potentially firing state updates on unmounted components.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">const</span> <span class="fn">signOut</span> = <span class="kw">async</span> () => {
+        <span class="kw">await</span> supabase.auth.<span class="fn">signOut</span>();
+        <span class="cm">// Redirect handled by onAuthStateChange → AuthGate</span>
+    };
+
+    <span class="kw">return</span> (
+        &lt;<span class="typ">AuthContext.Provider</span> value={{ session, user, loading, signOut }}&gt;
+            {children}
+        &lt;/<span class="typ">AuthContext.Provider</span>&gt;
+    );
+}</code></pre>
+  <div class="line-exp">
+    <strong><code>signOut()</code> only calls Supabase</strong> — it doesn't manually update state or redirect. Why? Because <code>supabase.auth.signOut()</code> triggers the <code>SIGNED_OUT</code> event, which fires <code>onAuthStateChange</code>, which sets <code>session: null</code>. The <code>AuthGate</code> component (in <code>App.jsx</code>) watches the session and renders the login page when <code>session === null</code>. Clean separation: the context manages state changes, the gate decides what to render.<br><br>
+    <strong>Context value shape</strong>: The object <code>{ session, user, loading, signOut }</code> is what any component gets when calling <code>useAuth()</code>. Providing both <code>session</code> and <code>user</code> as separate values is convenient: some places need the full session (to extract the JWT for API calls), others just need <code>user.id</code> or <code>user.email</code>.
+  </div>
+
+  <h3>Part C — The <code>useAuth</code> hook</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export function</span> <span class="fn">useAuth</span>() {
+    <span class="kw">const</span> context = <span class="fn">useContext</span>(AuthContext);
+    <span class="kw">if</span> (!context) {
+        <span class="kw">throw new</span> Error(<span class="str">'useAuth must be used within an AuthProvider'</span>);
+    }
+    <span class="kw">return</span> context;
+}</code></pre>
+  <div class="line-exp">
+    The guard check <code>if (!context)</code> catches a common developer mistake: using <code>useAuth()</code> in a component that isn't wrapped by <code>AuthProvider</code>. Without this guard, the hook silently returns <code>null</code> and the destructure <code>const { session } = useAuth()</code> would throw a different, confusing error ("Cannot destructure property 'session' of null"). The explicit error message "must be used within an AuthProvider" tells the developer exactly what to fix.
+  </div>
+
+  <!-- S4 -->
+  <h2 id="auth-page">Section 4 — <code>components/AuthPage.jsx</code> Line-by-Line</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <h3>Part A — State and setup</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export default function</span> <span class="fn">AuthPage</span>() {
+    <span class="kw">const</span> { t } = <span class="fn">useTranslation</span>();
+    <span class="kw">const</span> [mode, setMode] = <span class="fn">useState</span>(<span class="str">'login'</span>); <span class="cm">// 'login' | 'signup'</span>
+    <span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+    <span class="kw">const</span> [password, setPassword] = <span class="fn">useState</span>(<span class="str">''</span>);
+    <span class="kw">const</span> [name, setName] = <span class="fn">useState</span>(<span class="str">''</span>);
+    <span class="kw">const</span> [phone, setPhone] = <span class="fn">useState</span>(<span class="str">''</span>);
+    <span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="op">false</span>);
+    <span class="kw">const</span> [googleLoading, setGoogleLoading] = <span class="fn">useState</span>(<span class="op">false</span>);
+    <span class="kw">const</span> [error, setError] = <span class="fn">useState</span>(<span class="op">null</span>);
+    <span class="kw">const</span> [message, setMessage] = <span class="fn">useState</span>(<span class="op">null</span>);</code></pre>
+  <div class="line-exp">
+    <strong>Separate <code>loading</code> and <code>googleLoading</code></strong>: Two loading states for two different async operations. When the user clicks "Continue with Google", <code>googleLoading</code> shows a spinner on the Google button while <code>loading</code> remains false. If both shared one state, clicking Google would also disable the email form button, creating a confusing UX.<br><br>
+    <strong><code>mode</code> state instead of a separate component</strong>: Login and signup share 90% of their UI. Using a <code>mode</code> string and conditional rendering (show name/phone fields only in signup mode) is simpler than two separate page components.
+  </div>
+
+  <h3>Part B — Email authentication handler</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">const</span> <span class="fn">handleEmailAuth</span> = <span class="kw">async</span> (e) => {
+        e.<span class="fn">preventDefault</span>();
+        <span class="fn">setLoading</span>(<span class="op">true</span>);
+        <span class="fn">setError</span>(<span class="op">null</span>);
+        <span class="fn">setMessage</span>(<span class="op">null</span>);
+
+        <span class="kw">try</span> {
+            <span class="kw">if</span> (mode === <span class="str">'signup'</span>) {
+                <span class="kw">if</span> (!name) { <span class="fn">setError</span>(t(<span class="str">'auth.nameRequired'</span>)); <span class="fn">setLoading</span>(<span class="op">false</span>); <span class="kw">return</span>; }
+
+                <span class="kw">const</span> { data, error: signUpError } = <span class="kw">await</span> supabase.auth.<span class="fn">signUp</span>({
+                    email, password,
+                });
+
+                <span class="kw">if</span> (signUpError) { <span class="fn">setError</span>(signUpError.message); <span class="fn">setLoading</span>(<span class="op">false</span>); <span class="kw">return</span>; }
+
+                <span class="kw">if</span> (data.user) {
+                    <span class="kw">const</span> { error: profileError } = <span class="kw">await</span> supabase
+                        .<span class="fn">from</span>(<span class="str">'manager_profiles'</span>)
+                        .<span class="fn">insert</span>({ user_id: data.user.id, name, phone: phone || <span class="op">null</span> });
+                    <span class="kw">if</span> (profileError) console.<span class="fn">error</span>(<span class="str">'Profile creation error:'</span>, profileError);
+                }
+                <span class="fn">setMessage</span>(t(<span class="str">'auth.accountCreated'</span>));
+            } <span class="kw">else</span> {
+                <span class="kw">const</span> { error: signInError } = <span class="kw">await</span> supabase.auth.<span class="fn">signInWithPassword</span>({
+                    email, password,
+                });
+                <span class="kw">if</span> (signInError) { <span class="fn">setError</span>(signInError.message); <span class="fn">setLoading</span>(<span class="op">false</span>); <span class="kw">return</span>; }
+            }
+        } <span class="kw">catch</span> {
+            <span class="fn">setError</span>(t(<span class="str">'auth.unexpectedError'</span>));
+            <span class="fn">setLoading</span>(<span class="op">false</span>);
+        }
+    };</code></pre>
+  <div class="line-exp">
+    <strong>Sign-up flow vs sign-in flow</strong>: Sign-in is simple — call <code>signInWithPassword</code>, get back an error or a session (session triggers <code>onAuthStateChange</code>, which renders the app). Sign-up has an extra step: after creating the auth user, immediately create the <code>manager_profiles</code> row.<br><br>
+    <strong>Why not use a Supabase trigger instead</strong>: Triggers (DB-level functions that run after INSERT on auth.users) would be the "correct" approach for auto-creating profiles. But triggers require database access beyond what the Supabase dashboard easily exposes, and they're harder to debug. Doing it in application code is more transparent.<br><br>
+    <strong><code>data.user</code> check after signUp</strong>: Supabase can return a user object even when email confirmation is required (the user exists but is unconfirmed). The profile row is created regardless — when the user confirms their email and signs in, the profile will already be there.<br><br>
+    <strong>Loading state not reset on success</strong>: After successful sign-in, <code>onAuthStateChange</code> fires and causes a re-render that replaces AuthPage with the authenticated app. Resetting <code>loading</code> to false would cause a brief flicker. On error, <code>setLoading(false)</code> is called explicitly before the early returns.
+  </div>
+
+  <h3>Part C — Google OAuth handler</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">const</span> <span class="fn">handleGoogleAuth</span> = <span class="kw">async</span> () => {
+        <span class="fn">setError</span>(<span class="op">null</span>);
+        <span class="fn">setGoogleLoading</span>(<span class="op">true</span>);
+        <span class="kw">const</span> { error } = <span class="kw">await</span> supabase.auth.<span class="fn">signInWithOAuth</span>({
+            provider: <span class="str">'google'</span>,
+            options: {
+                redirectTo: window.location.origin,
+            },
+        });
+        <span class="kw">if</span> (error) {
+            <span class="fn">setError</span>(error.message);
+            <span class="fn">setGoogleLoading</span>(<span class="op">false</span>);
+        }
+    };</code></pre>
+  <div class="line-exp">
+    <strong><code>signInWithOAuth</code> redirects the browser</strong> — it doesn't return a session. It redirects the user to Google's consent screen, which redirects back to <code>redirectTo</code> after sign-in. The function only returns an error if the initial redirect itself fails (invalid provider config, network error).<br><br>
+    <strong><code>redirectTo: window.location.origin</code></strong>: Sets where Google redirects back to after authentication. <code>window.location.origin</code> evaluates to the current page's origin (e.g., <code>https://app.example.com</code> in production, <code>http://localhost:5173</code> in dev). This URL <strong>must be whitelisted</strong> in both Supabase (Auth > URL Configuration > Redirect URLs) and in the Google Cloud Console (OAuth 2.0 > Authorized redirect URIs). If it's not whitelisted, Google returns "redirect_uri_mismatch" error.<br><br>
+    <strong><code>setGoogleLoading(false)</code> only on error</strong>: On success, the page navigates away. On error, we need to re-enable the button.
+  </div>
+
+  <h3>Part D — The JSX structure</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">return</span> (
+        &lt;<span class="typ">div</span> className=<span class="str">"flex items-center justify-center min-h-screen bg-background"</span>&gt;
+            &lt;<span class="typ">div</span> className=<span class="str">"w-full max-w-sm mx-auto px-6"</span>&gt;
+                <span class="cm">{/* Logo */}</span>
+                &lt;<span class="typ">div</span> className=<span class="str">"flex flex-col items-center mb-8"</span>&gt;
+                    &lt;<span class="typ">img</span> src={Logo} alt=<span class="str">"LeadPipe"</span> className=<span class="str">"w-14 h-14 mb-3"</span> /&gt;
+                    &lt;<span class="typ">h1</span> className=<span class="str">"text-2xl font-semibold text-foreground"</span>&gt;
+                        {mode === <span class="str">'login'</span> ? t(<span class="str">'auth.signIn'</span>) : t(<span class="str">'auth.createAccount'</span>)}
+                    &lt;/<span class="typ">h1</span>&gt;
+                &lt;/<span class="typ">div</span>&gt;</code></pre>
+  <div class="line-exp">
+    <strong>Full-screen centering</strong>: <code>flex items-center justify-center min-h-screen</code> — flexbox centers the form both vertically and horizontally in the viewport. <code>min-h-screen</code> (not <code>h-screen</code>) allows the container to grow taller than the screen if needed (e.g., on mobile with the signup form showing extra fields).<br><br>
+    <strong><code>t('auth.signIn')</code></strong>: i18next translation key. The actual string ("Sign In" / "Se connecter") comes from the locale files, not hardcoded. This is how all user-facing text in the app is structured for bilingual support.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>                <span class="cm">{/* Google Button */}</span>
+                &lt;<span class="typ">button</span>
+                    onClick={handleGoogleAuth}
+                    disabled={googleLoading}
+                    className=<span class="str">"w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg
+                               border border-border bg-card text-foreground hover:bg-secondary
+                               transition-colors mb-6 disabled:opacity-50 disabled:cursor-not-allowed"</span>
+                &gt;
+                    {googleLoading ? (
+                        &lt;<span class="typ">div</span> className=<span class="str">"w-5 h-5 rounded-full border-2 border-muted-foreground
+                                          border-t-transparent animate-spin"</span> /&gt;
+                    ) : (
+                        &lt;<span class="typ">svg</span> className=<span class="str">"w-5 h-5"</span> viewBox=<span class="str">"0 0 24 24"</span>&gt;
+                            <span class="cm">{/* Google logo SVG paths */}</span>
+                        &lt;/<span class="typ">svg</span>&gt;
+                    )}
+                    {googleLoading ? t(<span class="str">'auth.connectingGoogle'</span>) : t(<span class="str">'auth.continueGoogle'</span>)}
+                &lt;/<span class="typ">button</span>&gt;</code></pre>
+  <div class="line-exp">
+    <strong>Spinner pattern</strong>: <code>rounded-full border-2 border-muted-foreground border-t-transparent animate-spin</code> — a CSS-only loading spinner using border coloring. Three sides of the border are visible; the top border is transparent, creating a gap. The rotation animation makes it appear to spin. No SVG or animation library needed.<br><br>
+    <strong>Disabled state</strong>: <code>disabled:opacity-50 disabled:cursor-not-allowed</code> — Tailwind's <code>disabled:</code> variant applies these styles when the button's <code>disabled</code> attribute is set. Without these, a disabled button looks identical to an enabled one, confusing users.
+  </div>
+
+  <!-- S5 -->
+  <h2 id="concepts">Section 5 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <details open>
+    <summary>React Context — when to use it, when not to</summary>
+    <p>Context solves <strong>prop drilling</strong>: passing data through many component layers just so a deeply nested component can access it. Auth state is the canonical use case — every protected component needs to know who's logged in.</p>
+    <div class="diagram">
+Without Context (prop drilling):
+App → Layout → Sidebar → UserAvatar (needs user.name)
+App → Layout → MainContent → Header → UserMenu (needs signOut)
+App → Layout → MainContent → Profile → ProfileForm (needs user.email)
+→ You'd need to pass user/signOut as props through 3 levels of components
+  that don't need the data themselves
+
+With Context:
+AuthProvider wraps the whole tree.
+UserAvatar calls useAuth() directly — gets user.name.
+UserMenu calls useAuth() directly — gets signOut.
+ProfileForm calls useAuth() directly — gets user.email.
+→ No prop drilling. Components are decoupled.</div>
+    <p><strong>When NOT to use context</strong>: for data that only one subtree needs (use props or local state), for frequently changing values (context re-renders ALL consumers on every change — use Zustand or useState+props for high-frequency updates like mouse position or animation state).</p>
+  </details>
+
+  <details open>
+    <summary>PKCE flow — what the "code verifier" actually does</summary>
+    <p>PKCE stands for "Proof Key for Code Exchange." The mechanism:</p>
+    <ol>
+      <li>Browser generates a random <code>code_verifier</code> string (stored in sessionStorage)</li>
+      <li>Browser hashes it: <code>code_challenge = base64url(SHA256(code_verifier))</code></li>
+      <li>Browser sends <code>code_challenge</code> to Supabase when starting OAuth</li>
+      <li>Google redirects back with a one-time <code>code</code></li>
+      <li>Supabase exchanges the <code>code</code> for tokens — but <em>also requires</em> the original <code>code_verifier</code></li>
+      <li>Browser sends both <code>code</code> + <code>code_verifier</code>; Supabase verifies that <code>SHA256(code_verifier) == code_challenge</code></li>
+    </ol>
+    <p><strong>Why this prevents token theft</strong>: Even if an attacker intercepts the <code>code</code> in the URL, they can't use it without the <code>code_verifier</code>, which was never in the URL. The verifier is in sessionStorage — only the original tab can use it.</p>
+  </details>
+
+  <!-- S6 -->
+  <h2 id="bugs">Section 6 — Common Bugs &amp; Fixes</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <div class="bug-box">
+    <h4>Bug: Google OAuth redirects back but user isn't logged in</h4>
+    <p><strong>Symptom</strong>: User clicks "Continue with Google", authenticates on Google, gets redirected back to the app, but sees the login page again. No session.</p>
+    <p><strong>Root causes</strong> (check in this order):</p>
+    <ol>
+      <li><strong><code>detectSessionInUrl: true</code> missing</strong>: Without this, the client doesn't look for the auth code in the URL on return. The code in the URL expires (it's single-use and short-lived) and the session is lost.</li>
+      <li><strong>Redirect URL not whitelisted</strong>: The URL you passed to <code>redirectTo</code> is not in Supabase's allowed redirect URLs list (Dashboard → Authentication → URL Configuration). Add <code>http://localhost:5173</code> for dev and your production URL for prod.</li>
+      <li><strong>Google Cloud Console not configured</strong>: The Google OAuth client must also have the Supabase callback URL (<code>https://[project].supabase.co/auth/v1/callback</code>) in its "Authorized redirect URIs".</li>
+    </ol>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: App shows login page for a fraction of a second even when user is logged in</h4>
+    <p><strong>Symptom</strong>: On every page load, the login page flashes briefly before the app loads. Users with slow connections see this for a noticeable time.</p>
+    <p><strong>Root cause</strong>: The auth state hasn't been resolved yet. If <code>loading</code> is set to <code>false</code> before <code>INITIAL_SESSION</code> fires (e.g., before the Supabase client has checked localStorage), the <code>AuthGate</code> sees <code>session === null</code> and renders the login page.</p>
+    <p><strong>Fix</strong>: Render a loading spinner while <code>loading === true</code> (before <code>INITIAL_SESSION</code> fires). Only then render either the auth page or the app:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">function</span> <span class="fn">AuthGate</span>({ children }) {
+    <span class="kw">const</span> { session, loading } = <span class="fn">useAuth</span>();
+    <span class="kw">if</span> (loading) <span class="kw">return</span> &lt;<span class="typ">LoadingSpinner</span> /&gt;;
+    <span class="kw">if</span> (!session) <span class="kw">return</span> &lt;<span class="typ">AuthPage</span> /&gt;;
+    <span class="kw">return</span> children;
+}</code></pre>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: Manager profile created multiple times for the same user (duplicate rows)</h4>
+    <p><strong>Symptom</strong>: The <code>manager_profiles</code> table has multiple rows for the same <code>user_id</code>. This causes FK errors and inconsistent data.</p>
+    <p><strong>Root cause</strong>: Without the <code>profileChecked</code> ref guard, <code>ensureManagerProfile</code> runs on every <code>onAuthStateChange</code> event that has a user — including <code>TOKEN_REFRESHED</code> events that happen every hour. If <code>maybeSingle()</code> and <code>insert()</code> are called in a race condition (two events firing close together), both calls might see no existing row and both insert one.</p>
+    <p><strong>Fix</strong>: The <code>profileChecked</code> ref prevents this. Alternatively, add a UNIQUE constraint on <code>manager_profiles.user_id</code> in the database — even if the application code runs the insert twice, the DB rejects the second one.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: <code>useAuth()</code> crashes with "Cannot read properties of null"</h4>
+    <p><strong>Symptom</strong>: A component that calls <code>useAuth()</code> throws at runtime, but only in certain situations (e.g., when rendered in a test or in a specific route context).</p>
+    <p><strong>Root cause</strong>: The component is rendered outside the <code>AuthProvider</code>. <code>useContext(AuthContext)</code> returns <code>null</code> when no provider is found. The explicit guard in <code>useAuth()</code> throws a helpful error — if you removed that guard, you'd get cryptic "cannot destructure null" errors instead.</p>
+    <p><strong>Fix in production code</strong>: Ensure <code>AuthProvider</code> wraps the component tree at the app root. <strong>Fix in tests</strong>: Wrap the component under test in a mock <code>AuthProvider</code> that provides a fake session:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> mockSession = { user: { id: <span class="str">'uuid-123'</span>, email: <span class="str">'test@test.com'</span> } };
+<span class="fn">render</span>(
+    &lt;<span class="typ">AuthContext.Provider</span> value={{ session: mockSession, user: mockSession.user, loading: <span class="op">false</span>, signOut: <span class="fn">vi.fn</span>() }}&gt;
+        &lt;<span class="typ">ComponentUnderTest</span> /&gt;
+    &lt;/<span class="typ">AuthContext.Provider</span>&gt;
+);</code></pre>
+  </div>
+
+  <!-- S7 -->
+  <h2 id="exercises">Section 7 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7"><label for="chk-s7">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Exercise 1 — Trace the auth state events</summary>
+    <p>Open the browser DevTools console and add a temporary <code>console.log</code> inside the <code>onAuthStateChange</code> callback to log <code>event</code> and whether <code>session</code> is null. Then:</p>
+    <ol>
+      <li>Reload the page while logged in. What events fire?</li>
+      <li>Log out. What event fires?</li>
+      <li>Log in with email/password. What events fire?</li>
+    </ol>
+    <details>
+      <summary>Show answer</summary>
+      <ol>
+        <li>Reload while logged in: <code>INITIAL_SESSION</code> fires once with a valid session (Supabase found it in localStorage).</li>
+        <li>Log out: <code>SIGNED_OUT</code> fires with <code>session: null</code>.</li>
+        <li>Log in: <code>SIGNED_IN</code> fires with the new session. Then <code>INITIAL_SESSION</code> may fire again if the page reloads as part of the auth flow.</li>
+      </ol>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Exercise 2 — Add a <code>managerId</code> value to the context</summary>
+    <p>Many API calls need the manager's UUID from the <code>manager_profiles</code> table (not the auth user UUID, which is different). Add a <code>managerId</code> value to the <code>AuthContext</code> that fetches the profile UUID when the user signs in, and exposes it via <code>useAuth()</code>.</p>
+    <details>
+      <summary>Show solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// In AuthContext.jsx</span>
+<span class="kw">const</span> [managerId, setManagerId] = <span class="fn">useState</span>(<span class="op">null</span>);
+
+<span class="cm">// Inside onAuthStateChange callback, after ensureManagerProfile:</span>
+<span class="kw">if</span> (session?.user && !profileChecked.current) {
+    profileChecked.current = <span class="op">true</span>;
+    <span class="fn">ensureManagerProfile</span>(session.user);
+    <span class="cm">// Fetch the manager's profile ID</span>
+    supabase
+        .<span class="fn">from</span>(<span class="str">'manager_profiles'</span>)
+        .<span class="fn">select</span>(<span class="str">'id'</span>)
+        .<span class="fn">eq</span>(<span class="str">'user_id'</span>, session.user.id)
+        .<span class="fn">maybeSingle</span>()
+        .then(({ data }) => { <span class="kw">if</span> (data) <span class="fn">setManagerId</span>(data.id); });
+}
+<span class="kw">if</span> (!session) { profileChecked.current = <span class="op">false</span>; <span class="fn">setManagerId</span>(<span class="op">null</span>); }
+
+<span class="cm">// In the Provider value:</span>
+value={{ session, user, loading, signOut, managerId }}</code></pre>
+      <p>Now <code>const { managerId } = useAuth()</code> works anywhere in the tree.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Exercise 3 — Implement a "Remember Me" checkbox</summary>
+    <p>By default, Supabase's session is stored in localStorage (persists across tabs and browser restarts). Add a "Remember me" checkbox to the login form. When unchecked, the session should use <code>sessionStorage</code> instead (cleared when the browser tab closes).</p>
+    <details>
+      <summary>Show solution</summary>
+      <p>Supabase JS v2 controls session storage via the <code>storage</code> option on <code>createClient</code>. This means you'd need to create the client dynamically based on the user's choice — not ideal for a singleton. A simpler approach: always use localStorage, but on sign-in, record the user's preference and call <code>supabase.auth.signOut()</code> on page unload if they didn't check "Remember me":</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// In handleEmailAuth, after successful login:</span>
+<span class="kw">if</span> (!rememberMe) {
+    window.<span class="fn">addEventListener</span>(<span class="str">'beforeunload'</span>, () => {
+        supabase.auth.<span class="fn">signOut</span>();
+    }, { once: <span class="op">true</span> });
+}</code></pre>
+      <p>A cleaner but more complex approach: pass a custom <code>storage</code> adapter to <code>createClient</code> that uses <code>sessionStorage</code> when the user hasn't checked "Remember me". This requires creating the Supabase client after the user submits the form — which means breaking the singleton pattern and creating it lazily. For most apps, the simpler approach above is sufficient.</p>
+    </details>
+  </details>
+
+  <div class="card card-success">
+    <h3>Module 18 — Key Takeaways</h3>
+    <ul>
+      <li><strong>One Supabase client singleton</strong> for the whole app — multiple instances cause state desync.</li>
+      <li><strong>PKCE over implicit</strong>: tokens are never in the URL, making them immune to interception via browser history or logs.</li>
+      <li><strong><code>INITIAL_SESSION</code></strong> is the signal that auth initialization is complete — only set <code>loading: false</code> here to avoid the login-page flash.</li>
+      <li><strong><code>onAuthStateChange</code></strong> is the single source of truth — never manually set session state; let the event update it.</li>
+      <li><strong><code>ensureManagerProfile</code></strong> exists because OAuth users bypass the signup form — profile creation must happen outside the form flow.</li>
+      <li>The <strong><code>profileChecked</code> ref</strong> prevents duplicate profile inserts from multiple auth events firing close together.</li>
+      <li><strong><code>detectSessionInUrl: true</code></strong> is required for OAuth to work — the Supabase client needs to look for the auth code in the URL after redirect.</li>
+      <li><strong>Two loading states</strong> (<code>loading</code>, <code>googleLoading</code>) for two different async operations prevents one blocking the other's UI.</li>
+    </ul>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_17_frontend_setup.html" class="nav-btn">← Previous: Frontend Setup</a>
+    <a href="module_19_api_service.html" class="nav-btn">Next: API Service Layer →</a>
+  </div>
+</div></div>
+
+<script>
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const checkboxes = document.querySelectorAll('.section-check input');
+  function updateProgress() {
+    const checked = [...checkboxes].filter(c => c.checked).length;
+    document.getElementById('progressFill').style.width = (checked / checkboxes.length * 100) + '%';
+  }
+  checkboxes.forEach(c => c.addEventListener('change', updateProgress));
+  function copyCode(btn) {
+    const code = btn.nextElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>

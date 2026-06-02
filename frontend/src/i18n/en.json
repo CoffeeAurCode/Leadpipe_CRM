@@ -352,7 +352,13 @@
       "create": "Create Listing",
       "saving": "Saving…",
       "rentError": "Monthly rent must be a valid number.",
-      "failedSave": "Failed to save listing."
+      "failedSave": "Failed to save listing.",
+      "unitDetails": "Unit Details",
+      "squareFootage": "Square Footage (sq ft)",
+      "parking": "Parking",
+      "laundry": "Laundry",
+      "includedUtilities": "Included Utilities",
+      "nonSmoking": "Non-smoking unit"
     },
     "leads": {
       "title": "Leads",
@@ -385,6 +391,7 @@
       "failedSaveNote": "Failed to save.",
       "floorPref": "Floor",
       "occupants": "Occupants",
+      "agentNotes": "Agent Summary",
       "noLeads": "No leads yet. Once a caller dials the lease number and the voice agent captures their info, it will appear here.",
       "beds": "Beds",
       "actions": "Actions",

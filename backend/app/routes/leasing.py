@@ -40,6 +40,7 @@ async def find_listing(
                 db.table("lease_listings")
                 .select(
                     "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
+                    "square_footage, included_utilities, parking, laundry, "
                     "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
                 )
                 .eq("is_active", True)
@@ -53,6 +54,7 @@ async def find_listing(
         def _to_listing_out(l):
             flat = l.get("flats") or {}
             building = flat.get("buildings") or {}
+            utilities = l.get("included_utilities") or []
             return {
                 "listing_uuid": l["uuid"],
                 "flat_number": l["flat_number"],
@@ -66,6 +68,10 @@ async def find_listing(
                 "monthly_rent": float(l["monthly_rent"]),
                 "floor_number": str(flat.get("floor_number") or ""),
                 "available_from": str(l.get("available_from") or ""),
+                "square_footage": l.get("square_footage"),
+                "included_utilities": ", ".join(utilities) if utilities else "not specified",
+                "parking": l.get("parking") or "not specified",
+                "laundry": l.get("laundry") or "not specified",
                 "custom_rules": json.dumps(l.get("custom_rules") or {}),
             }
 
@@ -145,6 +151,7 @@ async def search_available_listings(
             db.table("lease_listings")
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
+                "square_footage, included_utilities, parking, laundry, "
                 "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
             )
             .eq("is_active", True)
@@ -176,6 +183,7 @@ async def search_available_listings(
                 ])).lower()
                 if address_lower not in haystack:
                     continue
+            utilities = listing.get("included_utilities") or []
             listings_out.append({
                 "listing_uuid": listing["uuid"],
                 "flat_number": listing["flat_number"],
@@ -184,6 +192,10 @@ async def search_available_listings(
                 "monthly_rent": float(listing["monthly_rent"]),
                 "floor_number": str(flat.get("floor_number") or ""),
                 "available_from": str(listing.get("available_from") or ""),
+                "square_footage": listing.get("square_footage"),
+                "included_utilities": ", ".join(utilities) if utilities else "not specified",
+                "parking": listing.get("parking") or "not specified",
+                "laundry": listing.get("laundry") or "not specified",
             })
 
         listings_out = listings_out[:20]

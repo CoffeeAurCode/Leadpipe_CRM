@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Phone, Mail, BedDouble, Calendar, Banknote, MessageSquare, MapPin } from 'lucide-react';
+import { X, Phone, Mail, BedDouble, Calendar, Banknote, MessageSquare, MapPin, PawPrint, Briefcase, Home, Cigarette } from 'lucide-react';
 import { updateLead } from '../services/apiService';
 
 const STATUS_COLORS = {
@@ -30,10 +30,30 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
     const isVoiceSet = ['qualified', 'not_qualified', 'unmatched'].includes(lead.qualification_status);
     const qualifyingAnswers = lead.qualifying_answers || {};
     const addressPref = qualifyingAnswers.address_preference || '';
-    const displayAnswers = Object.fromEntries(
-        Object.entries(qualifyingAnswers).filter(([k]) => k !== 'address_preference')
+
+    const KNOWN_KEYS = ['landlord_aware', 'employment_status', 'has_pets', 'non_smoking_ok', 'address_preference'];
+    const KNOWN_LABELS = {
+        landlord_aware: { label: 'Landlord Aware', icon: Home },
+        employment_status: { label: 'Employment', icon: Briefcase },
+        has_pets: { label: 'Has Pets', icon: PawPrint },
+        non_smoking_ok: { label: 'Non-Smoking OK', icon: Cigarette },
+    };
+
+    const knownAnswers = Object.fromEntries(
+        Object.entries(qualifyingAnswers).filter(([k]) => KNOWN_KEYS.includes(k) && k !== 'address_preference')
     );
-    const hasAnswers = Object.keys(displayAnswers).length > 0;
+    const extraAnswers = Object.fromEntries(
+        Object.entries(qualifyingAnswers).filter(([k]) => !KNOWN_KEYS.includes(k))
+    );
+    const hasKnownAnswers = Object.keys(knownAnswers).length > 0;
+    const hasExtraAnswers = Object.keys(extraAnswers).length > 0;
+
+    function formatAnswerValue(key, val) {
+        if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+        if (val === 'true') return 'Yes';
+        if (val === 'false') return 'No';
+        return String(val);
+    }
 
     async function handleSave() {
         setSaving(true);
@@ -104,7 +124,7 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                             {lead.budget_max != null && Number(lead.budget_max) > 0 && (
                                 <div className="flex items-center gap-2 text-sm text-foreground">
                                     <Banknote className="w-4 h-4 text-muted-foreground" />
-                                    ₹{Number(lead.budget_max).toLocaleString('en-IN')}/mo
+                                    ${Number(lead.budget_max).toLocaleString('en-CA')}/mo
                                 </div>
                             )}
                             {lead.move_in_timeline && (
@@ -164,17 +184,36 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                     )}
 
                     {/* Qualifying Answers */}
-                    {hasAnswers && (
+                    {(hasKnownAnswers || hasExtraAnswers) && (
                         <section>
                             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('leasing.leads.qualifyingAnswers')}</h3>
                             <div className="space-y-2">
-                                {Object.entries(displayAnswers).map(([q, a]) => (
+                                {hasKnownAnswers && Object.entries(knownAnswers).map(([k, v]) => {
+                                    const meta = KNOWN_LABELS[k];
+                                    const Icon = meta?.icon;
+                                    return (
+                                        <div key={k} className="flex items-center gap-2 text-sm">
+                                            {Icon && <Icon className="w-4 h-4 text-muted-foreground shrink-0" />}
+                                            <span className="text-muted-foreground">{meta?.label || k}:</span>
+                                            <span className="text-foreground font-medium">{formatAnswerValue(k, v)}</span>
+                                        </div>
+                                    );
+                                })}
+                                {hasExtraAnswers && Object.entries(extraAnswers).map(([q, a]) => (
                                     <div key={q} className="text-sm">
                                         <span className="text-muted-foreground">{q}: </span>
                                         <span className="text-foreground">{String(a)}</span>
                                     </div>
                                 ))}
                             </div>
+                        </section>
+                    )}
+
+                    {/* Agent Notes */}
+                    {lead.notes && (
+                        <section>
+                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t('leasing.leads.agentNotes')}</h3>
+                            <p className="text-sm text-foreground bg-secondary rounded-lg p-3 whitespace-pre-wrap">{lead.notes}</p>
                         </section>
                     )}
 

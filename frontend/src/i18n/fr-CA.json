@@ -352,7 +352,13 @@
       "create": "Créer l'annonce",
       "saving": "Enregistrement…",
       "rentError": "Le loyer mensuel doit être un nombre valide.",
-      "failedSave": "Impossible d'enregistrer l'annonce."
+      "failedSave": "Impossible d'enregistrer l'annonce.",
+      "unitDetails": "Détails de l'unité",
+      "squareFootage": "Superficie (pi²)",
+      "parking": "Stationnement",
+      "laundry": "Laveuse/sécheuse",
+      "includedUtilities": "Services inclus",
+      "nonSmoking": "Logement non-fumeur"
     },
     "leads": {
       "title": "Prospects",
@@ -385,6 +391,7 @@
       "failedSaveNote": "Impossible d'enregistrer.",
       "floorPref": "Étage",
       "occupants": "Occupants",
+      "agentNotes": "Résumé de l'agent",
       "noLeads": "Aucun prospect pour l'instant. Dès qu'un appelant compose le numéro de location et que l'agent vocal saisit ses informations, elles apparaîtront ici.",
       "beds": "Ch.",
       "actions": "Actions",

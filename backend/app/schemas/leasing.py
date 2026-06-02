@@ -12,6 +12,7 @@ class CustomRules(BaseModel):
     vegetarian_only: Optional[bool] = False
     lease_term_months: Optional[int] = 11
     custom_question: Optional[str] = ""
+    non_smoking: Optional[bool] = True
 
 
 class ListingCreate(BaseModel):
@@ -23,6 +24,10 @@ class ListingCreate(BaseModel):
     photo_urls: Optional[List[str]] = Field(default_factory=list)
     is_active: Optional[bool] = True
     custom_rules: Optional[CustomRules] = Field(default_factory=CustomRules)
+    square_footage: Optional[int] = None
+    included_utilities: Optional[List[str]] = Field(default_factory=list)
+    parking: Optional[str] = None
+    laundry: Optional[str] = None
 
 
 class ListingUpdate(BaseModel):
@@ -33,6 +38,10 @@ class ListingUpdate(BaseModel):
     photo_urls: Optional[List[str]] = None
     is_active: Optional[bool] = None
     custom_rules: Optional[CustomRules] = None
+    square_footage: Optional[int] = None
+    included_utilities: Optional[List[str]] = None
+    parking: Optional[str] = None
+    laundry: Optional[str] = None
 
 
 class ListingResponse(BaseModel):
@@ -48,6 +57,10 @@ class ListingResponse(BaseModel):
     photo_urls: List[str] = Field(default_factory=list)
     is_active: bool
     custom_rules: Any = Field(default_factory=dict)
+    square_footage: Optional[int] = None
+    included_utilities: List[str] = Field(default_factory=list)
+    parking: Optional[str] = None
+    laundry: Optional[str] = None
     manager_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime

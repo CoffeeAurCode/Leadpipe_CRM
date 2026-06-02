@@ -1020,9 +1020,14 @@ If caller says no, note it (informational risk flag for the manager — do NOT d
 
 5. Q3 — Questions About the Unit
 "Do you have any questions about the unit itself?"
-<wait> — answer using listing data (monthly_rent, floor_number, available_from, bedrooms,
-address). If the caller asks something not in the listing data, say the team will follow up.
-Continue when the caller has no more questions.
+<wait> — answer using all available listing data:
+  monthly_rent, bedrooms, floor_number, available_from, address,
+  square_footage (e.g. "It's 850 square feet"),
+  included_utilities (e.g. "Heat and water are included in the rent"),
+  parking (e.g. "Indoor parking is included"),
+  laundry (e.g. "There's an in-unit washer/dryer").
+Only mention fields that are set (not "not specified"). If the caller asks something not in
+the listing data, say the team will follow up. Continue when the caller has no more questions.
 
 6. Q4 — Employment
 "Are you currently employed? Are you full-time, part-time, or currently between jobs?"
@@ -1037,7 +1042,7 @@ If custom_rules contains max_occupants and occupants > max_occupants:
 
 8. Q6 — Pets
 "Do you have any pets?"
-<wait>
+<wait> — record in qualifying_answers as has_pets: true or false.
 If custom_rules.pets_allowed = "no" AND caller has pets:
   Say: "Unfortunately this unit doesn't allow pets."
   → qualification_status = "not_qualified", disqualifying_reason = "pets not allowed"
@@ -1045,12 +1050,14 @@ If custom_rules.pets_allowed = "small_only" AND caller has large pets:
   Say: "This unit only allows small pets. Unfortunately we can't accommodate larger animals."
   → qualification_status = "not_qualified", disqualifying_reason = "large pets not allowed"
 
-9. Q7 — Non-Smoking
-"Just so you know, this is a non-smoking unit — inside and on the property. Is that okay for you?"
-<wait> — record in qualifying_answers as non_smoking_ok.
-If caller says no:
-  Say: "Unfortunately we can't accommodate that for this unit."
-  → qualification_status = "not_qualified", disqualifying_reason = "smoker"
+9. Q7 — Non-Smoking (ask ONLY if custom_rules.non_smoking is true)
+If custom_rules.non_smoking is true:
+  "Just so you know, this is a non-smoking unit — inside and on the property. Is that okay for you?"
+  <wait> — record in qualifying_answers as non_smoking_ok: true or false.
+  If caller says no:
+    Say: "Unfortunately we can't accommodate that for this unit."
+    → qualification_status = "not_qualified", disqualifying_reason = "smoker"
+If custom_rules.non_smoking is false or not set: skip this question entirely.
 
 10. Capture Lead
 Ask for caller's name if not yet provided: "Could I get your name?"
@@ -1062,7 +1069,7 @@ Then call submit_lease_lead EXACTLY ONCE:
 - budget_max: 0 (not collected in this flow)
 - qualification_status: "qualified" if all questions passed, else "not_qualified" or "unmatched"
 - disqualifying_reason: fill if not_qualified
-- qualifying_answers: JSON string with keys landlord_aware, employment_status, non_smoking_ok
+- qualifying_answers: JSON string with keys: landlord_aware, employment_status, has_pets, non_smoking_ok (include non_smoking_ok only if Q7 was asked)
 - notes: flag any risk indicators (e.g. "landlord unaware — possible mid-lease situation")
 
 11. Close
@@ -1083,9 +1090,9 @@ Not qualified / unmatched: "Thank you for calling. Have a great day!"
 
 [Tools]
 find_listing — Look up a unit by flat number, unit name, or any part of the address (building,
-              street, neighbourhood). Returns: found, count, listings[]. Each listing has
+              street, neighbourhood). Returns: found, count, listings[]. Each listing has:
               listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from,
-              custom_rules.
+              custom_rules, square_footage, included_utilities, parking, laundry.
 submit_lease_lead — Capture the caller as a lead. Always call exactly once before ending the call.
 """
 
@@ -1112,7 +1119,8 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "Use this when the caller mentions a specific address, location, floor, or unit name. "
                     "Returns {found, count, listings} where listings is a JSON array. "
                     "Each element has: listing_uuid, flat_number, title, address, bedrooms, monthly_rent, "
-                    "floor_number, available_from, custom_rules. "
+                    "floor_number, available_from, custom_rules, square_footage, included_utilities, "
+                    "parking, laundry. "
                     "When multiple units match a building name, ALL matching units are returned — "
                     "present all of them to the caller, not just the first one."
                 ),
@@ -1151,6 +1159,10 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                                     "monthly_rent": {"type": "number"},
                                     "floor_number": {"type": "string"},
                                     "available_from": {"type": "string"},
+                                    "square_footage": {"type": "integer"},
+                                    "included_utilities": {"type": "string"},
+                                    "parking": {"type": "string"},
+                                    "laundry": {"type": "string"},
                                     "custom_rules": {"type": "string"},
                                 },
                             },

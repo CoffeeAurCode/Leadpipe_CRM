@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 17 — Frontend Setup | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    .bug-box { background: #f7768e0d; border: 1px solid #f7768e44; border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .bug-box h4 { color: var(--error); margin-bottom: 0.5rem; }
+    @media print { .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; } .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; } details, details > * { display: block; } h2 { page-break-before: always; } }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 17</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 17 — Frontend Setup</strong></div>
+
+  <h1>Module 17 — Frontend Setup (Vite + Tailwind + React 18)</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 50 minutes</span>
+    <span>📁 Files: <code>frontend/package.json</code>, <code>vite.config.js</code>, <code>tailwind.config.js</code>, <code>src/main.jsx</code></span>
+    <span>🔰 Prerequisites: Basic JavaScript, comfort with terminal</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_16_leasing.html" class="nav-btn">← Previous: Leasing Module</a>
+    <a href="module_18_auth_context.html" class="nav-btn">Next: Auth Context →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="overview">Section 1 — The Build Pipeline You're Working In</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>Before writing a single component, you need to understand the tools that compile, serve, and bundle your code. The frontend uses three tools working together: <strong>Vite</strong> (dev server + bundler), <strong>Tailwind CSS</strong> (utility-class styling), and <strong>React 18</strong> (UI library). Each does a distinct job.</p>
+
+  <div class="diagram">
+SOURCE CODE (JSX + CSS)
+       │
+       ▼
+  ┌─────────────┐
+  │    Vite     │  ← Transforms JSX → JS, processes imports, HMR in dev
+  │  (esbuild)  │
+  └─────────────┘
+       │
+       ▼
+  ┌─────────────┐
+  │  PostCSS +  │  ← Scans source for Tailwind class names, generates CSS
+  │  Tailwind   │
+  └─────────────┘
+       │
+       ▼
+  ┌─────────────┐
+  │  Browser /  │  ← Final bundled JS + CSS served or deployed
+  │  dist/      │
+  └─────────────┘
+
+Dev mode:  `npm run dev`   → Vite dev server on :5173 with HMR
+Prod mode: `npm run build` → Writes optimized output to dist/</div>
+
+  <p>The key difference from older tools like Webpack: Vite uses native ES modules in development (no bundle step), so cold start is instant and HMR (Hot Module Replacement — live updates without full reload) patches only the changed module, not the entire app.</p>
+
+  <!-- S2 -->
+  <h2 id="package-json">Section 2 — <code>package.json</code> Line-by-Line</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <p>Every dependency has a reason. Understanding <em>why</em> each package exists makes you able to debug version conflicts, audit bundle size, and explain the stack to a colleague.</p>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>{
+  <span class="str">"name"</span>: <span class="str">"manager-dashboard"</span>,
+  <span class="str">"private"</span>: <span class="op">true</span>,
+  <span class="str">"version"</span>: <span class="str">"1.0.0"</span>,
+  <span class="str">"type"</span>: <span class="str">"module"</span>,
+  <span class="str">"engines"</span>: { <span class="str">"node"</span>: <span class="str">"20.x"</span> },</code></pre>
+  <div class="line-exp">
+    <strong>"type": "module"</strong> — tells Node.js to treat <code>.js</code> files as ES Modules (using <code>import</code>/<code>export</code>) instead of CommonJS (<code>require()</code>). Required for Vite to work correctly with native ESM.<br><br>
+    <strong>"engines": { "node": "20.x" }</strong> — documents the expected Node version. CI pipelines and <code>nvm use</code> read this. Node 20 is the current LTS. If a teammate runs Node 16, they'll get a warning rather than a cryptic crash.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>  <span class="str">"scripts"</span>: {
+    <span class="str">"dev"</span>: <span class="str">"vite"</span>,
+    <span class="str">"build"</span>: <span class="str">"vite build"</span>,
+    <span class="str">"preview"</span>: <span class="str">"vite preview"</span>,
+    <span class="str">"test"</span>: <span class="str">"vitest run"</span>,
+    <span class="str">"test:watch"</span>: <span class="str">"vitest"</span>,
+    <span class="str">"test:ui"</span>: <span class="str">"vitest --ui"</span>
+  },</code></pre>
+  <div class="line-exp">
+    <strong>"dev"</strong> → starts Vite dev server with HMR. <strong>"build"</strong> → bundles for production into <code>dist/</code>. <strong>"preview"</strong> → serves the <code>dist/</code> folder locally to verify the production build before deploying.<br><br>
+    <strong>"test"</strong> → runs Vitest (a Vite-native test runner, drop-in replacement for Jest). <strong>"test:watch"</strong> → re-runs affected tests on file changes. <strong>"test:ui"</strong> → opens Vitest's browser UI dashboard.
+  </div>
+
+  <h3>Runtime Dependencies</h3>
+
+  <table>
+    <tr><th>Package</th><th>Version</th><th>Why it's here</th></tr>
+    <tr><td><code>react</code> + <code>react-dom</code></td><td>^18.3.1</td><td>Core React library + DOM renderer. React 18 adds concurrent mode, automatic batching, and <code>createRoot</code> API.</td></tr>
+    <tr><td><code>@supabase/supabase-js</code></td><td>^2.100.1</td><td>Supabase client: auth (<code>signInWithOAuth</code>, <code>onAuthStateChange</code>), DB queries (PostgREST builder), storage.</td></tr>
+    <tr><td><code>framer-motion</code></td><td>^11.0.0</td><td>Animation library for React. Used for page transitions, modal open/close, staggered list animations, spring-based KPI counter.</td></tr>
+    <tr><td><code>lucide-react</code></td><td>^0.563.0</td><td>SVG icon library with tree-shaking. Only icons actually imported are bundled. Zero runtime overhead for unused icons.</td></tr>
+    <tr><td><code>recharts</code></td><td>^3.8.0</td><td>Charting library built on D3 + React. Used for LineChart (trends), PieChart (status donut, categories), BarChart (appointments by day).</td></tr>
+    <tr><td><code>date-fns</code></td><td>^3.0.0</td><td>Date utility library. Used for <code>parseISO</code>, <code>format</code>, <code>subDays</code>, <code>isToday</code>. Tree-shakeable — only imported functions are bundled.</td></tr>
+    <tr><td><code>date-fns-tz</code></td><td>^3.2.0</td><td>Timezone-aware date utilities. Used when IST conversion needs to be explicit rather than manual offset math.</td></tr>
+    <tr><td><code>tailwindcss</code></td><td>^3.4.19</td><td>Utility-first CSS framework. At build time, scans source for class names and generates only the CSS that's actually used.</td></tr>
+    <tr><td><code>tailwindcss-animate</code></td><td>^1.0.7</td><td>Tailwind plugin that adds animation utility classes (<code>animate-in</code>, <code>fade-in</code>, <code>slide-in-from-top</code>) used by UI components.</td></tr>
+    <tr><td><code>postcss</code> + <code>autoprefixer</code></td><td>latest</td><td>PostCSS processes CSS files; autoprefixer adds vendor prefixes automatically for cross-browser compatibility.</td></tr>
+    <tr><td><code>react-markdown</code></td><td>^10.1.0</td><td>Renders markdown strings as React components. Used in the Chatbot to display AI responses with formatting.</td></tr>
+    <tr><td><code>react-joyride</code></td><td>^3.0.0</td><td>Guided product tour library. Renders highlighted spotlight overlays and step-by-step tooltips over UI elements.</td></tr>
+    <tr><td><code>i18next</code> + <code>react-i18next</code></td><td>latest</td><td>Internationalization (i18n) library. All user-facing strings go through <code>t('key')</code> for English/French bilingual support.</td></tr>
+    <tr><td><code>clsx</code> + <code>tailwind-merge</code></td><td>latest</td><td><code>clsx</code> conditionally joins class strings. <code>tailwind-merge</code> deduplicates conflicting Tailwind classes. Combined into a <code>cn()</code> helper.</td></tr>
+    <tr><td><code>@heroicons/react</code></td><td>^2.1.0</td><td>Alternative icon set from the Tailwind team. A few components use Heroicons alongside Lucide React.</td></tr>
+  </table>
+
+  <h3>Dev Dependencies</h3>
+  <table>
+    <tr><th>Package</th><th>Purpose</th></tr>
+    <tr><td><code>vite</code></td><td>Build tool and dev server — a devDependency because it's only needed during development/build, not at runtime.</td></tr>
+    <tr><td><code>@vitejs/plugin-react</code></td><td>Vite plugin that adds React Fast Refresh (HMR for React state preservation) and JSX transformation.</td></tr>
+    <tr><td><code>vitest</code></td><td>Test runner that uses Vite's pipeline — tests run with the same transforms and aliases as the app itself.</td></tr>
+    <tr><td><code>@testing-library/react</code></td><td>React-specific testing utilities: render components, query DOM, fire events.</td></tr>
+    <tr><td><code>@testing-library/jest-dom</code></td><td>Extends Vitest/Jest matchers with DOM-specific assertions: <code>toBeInTheDocument()</code>, <code>toHaveTextContent()</code>.</td></tr>
+    <tr><td><code>@testing-library/user-event</code></td><td>Simulates real user interactions (typing, clicking) more realistically than <code>fireEvent</code>.</td></tr>
+    <tr><td><code>jsdom</code></td><td>Node.js DOM implementation. Vitest runs in Node, not a browser — jsdom fakes the browser environment.</td></tr>
+    <tr><td><code>msw</code></td><td>Mock Service Worker — intercepts HTTP requests in tests so components can fetch data without a real backend.</td></tr>
+  </table>
+
+  <!-- S3 -->
+  <h2 id="vite-config">Section 3 — <code>vite.config.js</code> Line-by-Line</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">import</span> { defineConfig } <span class="kw">from</span> <span class="str">'vite'</span>
+<span class="kw">import</span> react <span class="kw">from</span> <span class="str">'@vitejs/plugin-react'</span>
+<span class="kw">import</span> path <span class="kw">from</span> <span class="str">'path'</span>
+
+<span class="kw">export default</span> <span class="fn">defineConfig</span>({
+    plugins: [<span class="fn">react</span>()],</code></pre>
+  <div class="line-exp">
+    <strong><code>defineConfig()</code></strong> — TypeScript-aware wrapper that gives you autocomplete for all Vite config options. Not required, but gives IDE hints.<br><br>
+    <strong><code>react()</code></strong> — Enables <strong>React Fast Refresh</strong>: when you edit a component, Vite patches only that component in the browser while preserving React state. Without this plugin, every change would trigger a full page reload and reset all state.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    resolve: {
+        alias: {
+            <span class="str">'@'</span>: path.<span class="fn">resolve</span>(__dirname, <span class="str">'./src'</span>),
+        },
+    },</code></pre>
+  <div class="line-exp">
+    <strong>Path alias <code>@</code></strong> — maps <code>@</code> to the <code>src/</code> directory. Without this, imports would look like <code>../../lib/utils</code> (fragile — breaks when you move files). With this alias, you always write <code>import { cn } from '@/lib'</code> no matter how deeply nested the importing file is.<br><br>
+    <code>path.resolve(__dirname, './src')</code> converts the relative <code>./src</code> to an absolute path, e.g., <code>/Users/you/project/frontend/src</code>. Absolute paths are what Node module resolution requires.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    server: {
+        port: <span class="num">5173</span>,
+    },</code></pre>
+  <div class="line-exp">
+    Locks the dev server to port 5173 (Vite's default). Explicit port prevents surprises when another app occupies the default port and Vite silently increments it. The backend runs on <code>:8000</code>. The frontend makes API calls via the <code>VITE_API_URL</code> environment variable (pointing to <code>http://localhost:8000</code> in dev), so the backend's CORS configuration handles cross-origin requests — no Vite proxy is needed.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    recharts: [<span class="str">'recharts'</span>],
+                    motion: [<span class="str">'framer-motion'</span>],
+                    markdown: [<span class="str">'react-markdown'</span>],
+                    react: [<span class="str">'react'</span>, <span class="str">'react-dom'</span>],
+                },
+            },
+        },
+    },</code></pre>
+  <div class="line-exp">
+    <strong>Manual chunk splitting</strong> — tells Rollup (Vite's production bundler) to put specific packages into separate JS files. Why?<br><br>
+    Without splitting, <em>everything</em> lands in one massive JS file. Recharts alone is ~400 KB gzipped. The first page load would force the browser to download and parse all 400 KB before showing anything.<br><br>
+    With splitting: <code>recharts.js</code> is downloaded once and then cached by the browser independently. When you deploy a new app version, browsers re-download <code>app.js</code> (your changed code) but <em>still use the cached</em> <code>recharts.js</code> (unchanged library). This dramatically reduces the bytes transferred on subsequent deploys.<br><br>
+    The chunks are loaded in parallel and only when needed (Vite adds dynamic imports automatically for code that's not on the initial route).
+  </div>
+
+  <!-- S4 -->
+  <h2 id="tailwind-config">Section 4 — <code>tailwind.config.js</code> Line-by-Line</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <p>This project uses a technique called <strong>CSS variable-based theming</strong>: Tailwind classes like <code>bg-primary</code> don't map to a fixed color — they map to a CSS custom property (<code>--primary</code>) whose value changes when the theme switches. This is the standard shadcn/ui pattern.</p>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>darkMode: [<span class="str">'class'</span>],</code></pre>
+  <div class="line-exp">
+    Tailwind's dark mode strategy. <strong><code>'class'</code></strong> means Tailwind generates dark-mode variants only when the <code>.dark</code> class is present on the <code>&lt;html&gt;</code> or <code>&lt;body&gt;</code> element. The alternative, <code>'media'</code>, would follow the OS-level dark mode preference — but <code>'class'</code> lets you toggle dark mode programmatically and persist the preference in localStorage.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>content: [
+    <span class="str">"./index.html"</span>,
+    <span class="str">"./src/**/*.{js,ts,jsx,tsx}"</span>,
+],</code></pre>
+  <div class="line-exp">
+    <strong>JIT content scanning</strong> — Tailwind scans these files at build time and generates CSS <em>only</em> for the class names it finds. This is why production CSS is tiny (~10 KB instead of ~3 MB for the full Tailwind stylesheet).<br><br>
+    <strong>Common mistake</strong>: dynamically constructing class names breaks this. <code>bg-${color}-500</code> will never be found by the scanner because Tailwind looks for literal strings, not runtime values. Always use full class names: <code>bg-red-500</code>, <code>bg-blue-500</code>.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>theme: {
+    extend: {
+        colors: {
+            border: <span class="str">"hsl(var(--border))"</span>,
+            background: <span class="str">"hsl(var(--background))"</span>,
+            foreground: <span class="str">"hsl(var(--foreground))"</span>,
+            primary: {
+                DEFAULT: <span class="str">"hsl(var(--primary))"</span>,
+                foreground: <span class="str">"hsl(var(--primary-foreground))"</span>,
+            },
+            <span class="cm">// ... more tokens ...</span>
+        },
+    },
+},</code></pre>
+  <div class="line-exp">
+    Each color token is defined as <code>hsl(var(--token-name))</code>. The actual HSL values come from <code>index.css</code> where CSS custom properties are declared for both light and dark themes. This separation means:<br><br>
+    • Tailwind generates: <code>.bg-primary { background-color: hsl(var(--primary)); }</code><br>
+    • The <code>:root</code> block in <code>index.css</code> declares: <code>--primary: 217 91% 60%;</code> (light theme)<br>
+    • The <code>.dark :root</code> block declares: <code>--primary: 217 91% 70%;</code> (dark theme)<br><br>
+    Switching themes is a single class toggle on <code>&lt;html&gt;</code> — no JavaScript rerendering of components required.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>plugins: [<span class="fn">require</span>(<span class="str">"tailwindcss-animate"</span>)],</code></pre>
+  <div class="line-exp">
+    Adds animation utility classes like <code>animate-in</code>, <code>fade-in-0</code>, <code>zoom-in-95</code>, <code>slide-in-from-top-2</code>. These are used by modal open/close transitions. The plugin generates the keyframe CSS and the utility classes — you just use them in JSX without writing any custom CSS.
+  </div>
+
+  <!-- S5 -->
+  <h2 id="main-jsx">Section 5 — <code>src/main.jsx</code> Line-by-Line</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <p>The entry point: the first file the browser executes. Everything flows from here.</p>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">import</span> React <span class="kw">from</span> <span class="str">'react'</span>;
+<span class="kw">import</span> ReactDOM <span class="kw">from</span> <span class="str">'react-dom/client'</span>;
+<span class="kw">import</span> App <span class="kw">from</span> <span class="str">'./App'</span>;
+<span class="kw">import</span> { ThemeProvider } <span class="kw">from</span> <span class="str">'./context/ThemeContext'</span>;
+<span class="kw">import</span> <span class="str">'./i18n'</span>;
+<span class="kw">import</span> <span class="str">'./index.css'</span>;</code></pre>
+  <div class="line-exp">
+    <strong><code>import React from 'react'</code></strong> — In React 17+ with the new JSX transform, you no longer need this for JSX files. But importing React explicitly ensures <code>React.StrictMode</code> is available and future-proofs against transform config changes.<br><br>
+    <strong><code>'react-dom/client'</code></strong> — React 18's new entry point for the concurrent root API. The old <code>react-dom</code> still exists but uses the legacy mode.<br><br>
+    <strong><code>import './i18n'</code></strong> — Side-effect import: initializes the i18next library with language resources. No export needed — just running the module's top-level code configures the global i18n instance used by <code>useTranslation()</code> everywhere.<br><br>
+    <strong><code>import './index.css'</code></strong> — Global CSS: defines the CSS custom properties (<code>--primary</code>, <code>--background</code>, etc.) for both themes. Must be imported here so it's part of the bundle from the start.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>ReactDOM.<span class="fn">createRoot</span>(document.<span class="fn">getElementById</span>(<span class="str">'root'</span>)).<span class="fn">render</span>(
+    &lt;<span class="typ">React.StrictMode</span>&gt;
+        &lt;<span class="typ">ThemeProvider</span>&gt;
+            &lt;<span class="typ">App</span> /&gt;
+        &lt;/<span class="typ">ThemeProvider</span>&gt;
+    &lt;/<span class="typ">React.StrictMode</span>&gt;
+);</code></pre>
+  <div class="line-exp">
+    <strong><code>createRoot()</code> vs old <code>ReactDOM.render()</code></strong>:<br>
+    • Old: <code>ReactDOM.render(&lt;App /&gt;, document.getElementById('root'))</code> — legacy mode, no concurrent features<br>
+    • New: <code>ReactDOM.createRoot(...).render()</code> — enables React 18's concurrent mode: automatic batching, <code>useTransition</code>, <code>useDeferredValue</code>, <code>Suspense</code> for data fetching<br><br>
+    <strong><code>React.StrictMode</code></strong> — development-only wrapper that:<br>
+    1. Renders every component <em>twice</em> to detect side effects in the render phase (this is intentional and only happens in dev)<br>
+    2. Calls <code>useEffect</code> cleanup and re-setup once after mount (double invocation) to detect stale closure bugs<br>
+    3. Warns about deprecated APIs<br><br>
+    <strong>Important</strong>: if you see console logs appear twice in dev, this is StrictMode. It does NOT happen in production.<br><br>
+    <strong><code>ThemeProvider</code></strong> — context provider that manages dark/light mode state. Wrapping at this level makes the theme available to every component in the tree without prop drilling.
+  </div>
+
+  <!-- S6 -->
+  <h2 id="concepts">Section 6 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <details open>
+    <summary>HMR — Hot Module Replacement explained</summary>
+    <p>HMR is the mechanism that updates your running app when you save a file, without a full page reload. Here's how it works in Vite + React:</p>
+    <div class="diagram">
+1. You edit PropertiesPage.jsx and save.
+
+2. Vite detects the file change via file system watcher.
+
+3. Vite re-compiles only that module (not the whole app).
+   Result: a new JS module chunk is ready in ~5ms.
+
+4. Vite sends a WebSocket message to the browser:
+   "PropertiesPage module has a new version at /path/hash.js"
+
+5. React Fast Refresh (via @vitejs/plugin-react):
+   → Imports the new module
+   → Finds which React components changed
+   → Re-renders only those components
+   → Preserves state in UNCHANGED components
+
+Without Fast Refresh: any change would unmount/remount the entire tree,
+losing all React state (form inputs, open modals, etc.).</div>
+
+    <p>The practical effect: you edit a button's color in <code>PropertiesPage.jsx</code>, and the button updates in the browser in under 100ms — while your selected property group, open modal, and everything else stays exactly where it was.</p>
+  </details>
+
+  <details open>
+    <summary>Tailwind JIT (Just-In-Time) compilation</summary>
+    <p>Before JIT (Tailwind v2 and earlier), Tailwind pre-generated CSS for every possible utility class (~3 MB), then used PurgeCSS in production to strip unused ones. Development CSS was enormous and slow to process.</p>
+    <p>JIT (default since Tailwind v3) flips this: Tailwind <em>watches</em> your source files and generates CSS on-demand as you type class names. The result:</p>
+    <ul>
+      <li>Development CSS is tiny — only the classes you've actually used so far</li>
+      <li>Arbitrary values work: <code>top-[23px]</code>, <code>bg-[#ff6b6b]</code> — no pre-configuration needed</li>
+      <li>No PurgeCSS step in production — the same JIT scanner runs at build time</li>
+    </ul>
+    <div class="callout callout-warning">
+      <p><strong>JIT gotcha</strong>: if you build class names dynamically at runtime (e.g., <code>`text-${size}-500`</code>), JIT won't find them during the build-time scan because it's a static string scanner, not a runtime evaluator. Always use complete class name strings. Conditional classes: <code>isActive ? 'bg-primary' : 'bg-secondary'</code> (both strings visible to the scanner).</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Environment variables: VITE_ prefix</summary>
+    <p>Vite has a strict rule: only environment variables prefixed with <code>VITE_</code> are exposed to client-side code. Variables without this prefix are never bundled into the JS — they stay server-side only.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm"># .env.local (git-ignored)</span>
+VITE_SUPABASE_URL=https://xyz.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+VITE_API_URL=http://localhost:8000
+SECRET_INTERNAL_KEY=never_exposed  <span class="cm"># NOT prefixed — never reaches the browser</span>
+
+<span class="cm"># In code:</span>
+<span class="kw">const</span> url = <span class="fn">import.meta.env</span>.VITE_SUPABASE_URL;  <span class="cm">// ✓ works</span>
+<span class="kw">const</span> secret = <span class="fn">import.meta.env</span>.SECRET_INTERNAL_KEY;  <span class="cm">// undefined</span></code></pre>
+    <p>Note the syntax: <code>import.meta.env</code> (not <code>process.env</code>). Vite inlines these values at build time — the deployed JS contains the literal value, not a reference to an env variable. This is why anon keys (public by design) are safe to expose but never put secret service-role keys in <code>VITE_</code> variables.</p>
+  </details>
+
+  <!-- S7 -->
+  <h2 id="bugs">Section 7 — Common Bugs &amp; Fixes</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7"><label for="chk-s7">Mark complete</label></div>
+
+  <div class="bug-box">
+    <h4>Bug: Tailwind classes not applying after adding a new file location</h4>
+    <p><strong>Symptom</strong>: you create <code>src/features/NewPage.jsx</code> and add Tailwind classes, but the CSS isn't generated — the element has no styling.</p>
+    <p><strong>Root cause</strong>: The content glob <code>"./src/**/*.{js,ts,jsx,tsx}"</code> should cover new directories automatically. But if you create a file <em>outside</em> <code>src/</code>, or if Vite's watcher missed the new directory (rare, usually on slow filesystems), the scan misses it.</p>
+    <p><strong>Fix</strong>: Restart <code>npm run dev</code>. The file system watcher re-initializes and picks up new directories. If the glob genuinely doesn't match your new file location, update the <code>content</code> array in <code>tailwind.config.js</code>.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: useEffect runs twice in development, causing double API calls</h4>
+    <p><strong>Symptom</strong>: <code>useEffect(() => { fetchData(); }, [])</code> triggers two HTTP requests on mount. Checked the network tab — two identical requests.</p>
+    <p><strong>Root cause</strong>: React 18 <code>StrictMode</code> intentionally mounts → unmounts → remounts components in development to detect side effects. Each mount runs the <code>useEffect</code>.</p>
+    <p><strong>Fix</strong>: This is correct behavior and only happens in dev. In production, the effect runs once. If you must prevent double fetches in dev (e.g., to avoid rate limits on an external API), use a ref flag or an AbortController:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="fn">useEffect</span>(() => {
+    <span class="kw">let</span> cancelled = <span class="op">false</span>;
+    <span class="fn">fetchData</span>().then(data => {
+        <span class="kw">if</span> (!cancelled) <span class="fn">setData</span>(data);
+    });
+    <span class="kw">return</span> () => { cancelled = <span class="op">true</span>; };
+}, []);</code></pre>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: "Cannot find module '@/lib'" after setting up the alias</h4>
+    <p><strong>Symptom</strong>: import resolves correctly in Vite but TypeScript shows a red underline and the test runner fails to find the module.</p>
+    <p><strong>Root cause</strong>: The <code>@</code> alias is configured in <code>vite.config.js</code>, but TypeScript's module resolver and Vitest's resolver are separate systems that don't automatically read Vite config.</p>
+    <p><strong>Fix</strong>: Add the path alias to <code>tsconfig.json</code> (or <code>jsconfig.json</code>) and to <code>vitest.config.js</code> or the <code>test</code> section in <code>vite.config.js</code>:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// jsconfig.json</span>
+{
+  <span class="str">"compilerOptions"</span>: {
+    <span class="str">"paths"</span>: { <span class="str">"@/*"</span>: [<span class="str">"./src/*"</span>] }
+  }
+}</code></pre>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: Dynamic Tailwind classes not appearing in production build</h4>
+    <p><strong>Symptom</strong>: <code>const colorClass = `bg-${status}-500`</code> works in dev (because all classes exist) but fails in production (those classes were never found by JIT scan).</p>
+    <p><strong>Fix</strong>: Use a lookup object with full class name strings:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// ✗ BAD — JIT can't scan dynamic construction</span>
+<span class="kw">const</span> colorClass = `bg-${status}-<span class="num">500</span>`;
+
+<span class="cm">// ✓ GOOD — all strings visible to JIT scanner</span>
+<span class="kw">const</span> STATUS_COLORS = {
+    pending: <span class="str">'bg-amber-500'</span>,
+    resolved: <span class="str">'bg-green-500'</span>,
+    in_progress: <span class="str">'bg-blue-500'</span>,
+};
+<span class="kw">const</span> colorClass = STATUS_COLORS[status];</code></pre>
+  </div>
+
+  <!-- S8 -->
+  <h2 id="exercises">Section 8 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s8"><label for="chk-s8">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Exercise 1 — Read the build output</summary>
+    <p>Run <code>npm run build</code> in the <code>frontend/</code> directory. Look at the output — specifically the chunk sizes listed. Answer these questions:</p>
+    <ol>
+      <li>Which chunk is the largest?</li>
+      <li>What happens if you remove the <code>recharts</code> entry from <code>manualChunks</code> and rebuild?</li>
+      <li>After any deploy, which chunks do returning users <em>not</em> need to re-download (assuming their browser cached the previous version)?</li>
+    </ol>
+    <details>
+      <summary>Show answer</summary>
+      <ol>
+        <li>Recharts is typically the largest (400–500 KB gzipped), followed by framer-motion (~80 KB). Without manual chunking, all of this would be in the main <code>index.js</code> bundle.</li>
+        <li>Without the <code>recharts</code> chunk entry, Rollup bundles Recharts into whichever chunk first imports it (usually the dashboard chunk). That chunk becomes much larger, and every deploy re-downloads it even if only your app code changed.</li>
+        <li>Chunks whose content hash hasn't changed — <code>recharts.[hash].js</code>, <code>motion.[hash].js</code>, <code>react.[hash].js</code> — are served from browser cache. Only <code>index.[newhash].js</code> (your app code) needs to be downloaded again.</li>
+      </ol>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Exercise 2 — Add a new color token</summary>
+    <p>Add a <code>danger</code> color token to <code>tailwind.config.js</code> so you can use <code>bg-danger</code>, <code>text-danger</code>, and <code>border-danger</code> in JSX. The color should be <code>#ef4444</code> (Tailwind's red-500 equivalent) in light mode and <code>#f87171</code> (red-400) in dark mode.</p>
+    <details>
+      <summary>Show solution</summary>
+      <p><strong>Step 1</strong>: Add to <code>tailwind.config.js</code>:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>colors: {
+    <span class="cm">// ... existing tokens ...</span>
+    danger: <span class="str">"hsl(var(--danger))"</span>,
+},</code></pre>
+      <p><strong>Step 2</strong>: Add to <code>index.css</code> (in the <code>:root</code> block for light and <code>.dark</code> block for dark):</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">/* index.css */</span>
+:root {
+    --danger: <span class="num">0</span> <span class="num">84</span>% <span class="num">60</span>%;  <span class="cm">/* hsl(0, 84%, 60%) ≈ #ef4444 */</span>
+}
+.dark {
+    --danger: <span class="num">0</span> <span class="num">91</span>% <span class="num">71</span>%;  <span class="cm">/* hsl(0, 91%, 71%) ≈ #f87171 */</span>
+}</code></pre>
+      <p>Now <code>bg-danger</code>, <code>text-danger</code>, <code>border-danger</code> all work and automatically respect the theme.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Exercise 3 — Add a Vite dev proxy</summary>
+    <p>Currently, all API calls go to <code>http://localhost:8000</code> via the <code>VITE_API_URL</code> environment variable. The backend has <code>CORSMiddleware</code> to allow this. But suppose you're deploying to a platform where the backend and frontend share the same domain — you'd want to proxy <code>/api/*</code> requests to the backend without the frontend knowing the backend URL.</p>
+    <p>Add a <code>server.proxy</code> configuration to <code>vite.config.js</code> that forwards any request starting with <code>/api</code> to <code>http://localhost:8000</code>, stripping the <code>/api</code> prefix.</p>
+    <details>
+      <summary>Show solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>server: {
+    port: <span class="num">5173</span>,
+    proxy: {
+        <span class="str">'/api'</span>: {
+            target: <span class="str">'http://localhost:8000'</span>,
+            changeOrigin: <span class="op">true</span>,
+            rewrite: (path) => path.<span class="fn">replace</span>(<span class="op">/^\/api/</span>, <span class="str">''</span>),
+        },
+    },
+},</code></pre>
+      <p>With this config: <code>fetch('/api/flats')</code> → Vite dev server → <code>http://localhost:8000/flats</code>. The browser never sees a cross-origin request, so no CORS headers are needed. In production, your reverse proxy (Nginx, Caddy, etc.) would do the same rewrite.</p>
+      <p>Note: you'd also need to change <code>API_BASE_URL</code> in <code>apiService.js</code> to <code>'/api'</code> instead of <code>'http://localhost:8000'</code> to use this approach.</p>
+    </details>
+  </details>
+
+  <div class="card card-success">
+    <h3>Module 17 — Key Takeaways</h3>
+    <ul>
+      <li><strong>Vite</strong> = dev server with HMR + production bundler. It does NOT run in production — only the <code>dist/</code> output does.</li>
+      <li><strong><code>@vitejs/plugin-react</code></strong> enables React Fast Refresh (HMR that preserves component state).</li>
+      <li><strong>Path alias <code>@</code></strong> maps to <code>src/</code> — use it everywhere to avoid brittle relative paths like <code>../../..</code>.</li>
+      <li><strong>Manual chunk splitting</strong> puts heavy libraries (Recharts, Framer Motion) in separate cached files.</li>
+      <li><strong>Tailwind JIT</strong> scans source for literal class strings — never build class names dynamically.</li>
+      <li><strong>CSS variable tokens</strong> let one Tailwind class (<code>bg-primary</code>) render differently per theme — configured in <code>index.css</code>, referenced via <code>hsl(var(--primary))</code>.</li>
+      <li><strong><code>VITE_</code> prefix</strong> is required for env vars to reach the browser. Never put secrets in <code>VITE_</code> vars — they're bundled into the JS.</li>
+      <li><strong>StrictMode double-invocation</strong> in dev is intentional. Production runs effects once.</li>
+      <li><strong><code>createRoot()</code></strong> opts into React 18 concurrent mode — the foundation for all new React 18 features.</li>
+    </ul>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_16_leasing.html" class="nav-btn">← Previous: Leasing Module</a>
+    <a href="module_18_auth_context.html" class="nav-btn">Next: Auth Context →</a>
+  </div>
+</div></div>
+
+<script>
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const checkboxes = document.querySelectorAll('.section-check input');
+  function updateProgress() {
+    const checked = [...checkboxes].filter(c => c.checked).length;
+    document.getElementById('progressFill').style.width = (checked / checkboxes.length * 100) + '%';
+  }
+  checkboxes.forEach(c => c.addEventListener('change', updateProgress));
+  function copyCode(btn) {
+    const code = btn.nextElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>
