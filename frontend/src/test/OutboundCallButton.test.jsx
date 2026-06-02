@@ -64,7 +64,7 @@ describe('OutboundCallButton', () => {
     });
 
     async function setPhoneAndCall(user, phone) {
-        const input = screen.getByPlaceholderText('+919876543210');
+        const input = screen.getByPlaceholderText('+14165551234');
         fireEvent.change(input, { target: { value: phone } });
         await act(async () => {});
         await user.click(screen.getByRole('button', { name: 'Call' }));
@@ -82,8 +82,8 @@ describe('OutboundCallButton', () => {
         const user = userEvent.setup();
         renderButton();
         await user.click(screen.getByTitle(/outbound call/i));
-        await setPhoneAndCall(user, '+919876543210');
-        await waitFor(() => expect(makeOutboundCall).toHaveBeenCalledWith('+919876543210', 'complaint'));
+        await setPhoneAndCall(user, '+14165551234');
+        await waitFor(() => expect(makeOutboundCall).toHaveBeenCalledWith('+14165551234', 'complaint'));
     });
 
     it('calls makeOutboundCall with lease agent when lease is selected', async () => {
@@ -91,15 +91,15 @@ describe('OutboundCallButton', () => {
         renderButton();
         await user.click(screen.getByTitle(/outbound call/i));
         await user.click(screen.getByRole('button', { name: /^lease$/i }));
-        await setPhoneAndCall(user, '+919876543210');
-        await waitFor(() => expect(makeOutboundCall).toHaveBeenCalledWith('+919876543210', 'lease'));
+        await setPhoneAndCall(user, '+14165551234');
+        await waitFor(() => expect(makeOutboundCall).toHaveBeenCalledWith('+14165551234', 'lease'));
     });
 
     it('shows success message after successful call', async () => {
         const user = userEvent.setup();
         renderButton();
         await user.click(screen.getByTitle(/outbound call/i));
-        await setPhoneAndCall(user, '+919876543210');
+        await setPhoneAndCall(user, '+14165551234');
         await waitFor(() => expect(screen.getByText(/agent is dialling/i)).toBeInTheDocument());
     });
 
@@ -108,7 +108,7 @@ describe('OutboundCallButton', () => {
         const user = userEvent.setup();
         renderButton();
         await user.click(screen.getByTitle(/outbound call/i));
-        await setPhoneAndCall(user, '+919876543210');
+        await setPhoneAndCall(user, '+14165551234');
         await waitFor(() => expect(screen.getByText(/VAPI timed out/i)).toBeInTheDocument());
     });
 

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 10 — AI Chatbot with Tool Calling (OpenAI) | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-warn { border-left: 4px solid var(--warning); }
+    .card-error { border-left: 4px solid var(--error); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .flow-diagram { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin: 1rem 0; font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-secondary); line-height: 2; }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h3>Module 10</h3>
+  <a href="#overview">Overview</a>
+  <a href="#system-prompt">System Prompt + Date Injection</a>
+  <a href="#tools-schema">Tool Schema Design</a>
+  <a href="#tool-list">All 17 Tools</a>
+  <a href="#execute-tool">execute_tool()</a>
+  <a href="#run-chat">run_chat() Loop</a>
+  <a href="#refresh-signal">refresh_needed Signal</a>
+  <a href="#history-truncation">History Truncation</a>
+  <a href="#bad-request">BadRequestError Fallback</a>
+  <a href="#chat-route">chat.py Route</a>
+  <a href="#bugs">Bugs &amp; Fixes</a>
+  <a href="#exercises">Exercises</a>
+  <br>
+  <h3>All Modules</h3>
+  <a href="module_09_groq_extraction.html">← 09: Groq Extraction</a>
+  <a href="module_11_vapi_webhook.html">11: VAPI Webhook →</a>
+</nav>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<div class="main-content">
+<div class="container">
+
+  <div class="breadcrumbs">
+    <a href="index.html">Home</a> › Part C — AI &amp; Voice Integration › Module 10
+  </div>
+
+  <h1>Module 10 — AI Chatbot with Tool Calling (OpenAI)</h1>
+  <p><strong>Part C — AI &amp; Voice Integration</strong> &nbsp;|&nbsp; Build Session 3</p>
+
+  <div class="progress-bar"><div class="progress-fill" style="width: 38%"></div></div>
+  <p style="font-size:0.85rem; color: var(--text-muted)">Module 10 of 26 — 38% through the course</p>
+
+  <div class="card card-info">
+    <strong>Learner outcome:</strong> Can build a multi-turn chatbot with tool calling, inject dynamic context (today's date), truncate history to manage costs, and detect when tools mutate data so the frontend can refresh.
+  </div>
+
+  <p><strong>Source files:</strong> <code>backend/app/ai/chatbot.py</code>, <code>backend/app/routes/chat.py</code></p>
+
+  <h2 id="overview">What the Chatbot Does</h2>
+
+  <p>The chatbot lets property managers control the entire system through natural language from within the dashboard. Instead of clicking through modals, a manager can type:</p>
+
+  <div class="flow-diagram">"Add a new building called Maple Court at 45 Oak Street"
+"Show me all appointments for flat B-203"
+"Reschedule appointment 14 to next Thursday at 3pm"
+"Cancel all appointments for the Riverside block"</div>
+
+  <p>The chatbot can read data (no side effects) and also mutate data (create buildings, reschedule appointments, delete tenants). When it mutates appointment data, it sends a <code>refresh_needed: true</code> signal back so the frontend refreshes the calendar automatically.</p>
+
+  <h2 id="system-prompt">System Prompt + Date Injection</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">MAX_TOOL_CALL_TURNS = <span class="num">5</span>
+
+<span class="cm"># {today} is replaced at request-time, not module load time</span>
+_SYSTEM_PROMPT_BASE = <span class="str">"""You are a property management assistant...
+
+Rules you must always follow:
+- Before performing any write or delete operation, always ask the user for explicit confirmation first.
+- When rescheduling, use ONLY the appointment ID that the user explicitly stated.
+- When adding a unit, look up the building by the name the user provides. Do not ask for a building ID.
+- CRITICAL: Never claim an action was completed unless you received a success result from the tool.
+- CRITICAL: You can ONLY perform actions that have a corresponding tool.
+- Today's date is {today}. Use this when the user says "today", "tomorrow", "yesterday", etc."""</span>
+
+
+<span class="kw">def</span> <span class="fn">run_chat</span>(messages: list, db: <span class="typ">Client</span>) -> tuple[str, bool]:
+    client = <span class="fn">OpenAI</span>(api_key=settings.OPEN_AI_API)
+
+    <span class="cm"># Inject today's date at request time, not at import time</span>
+    today = datetime.<span class="fn">now</span>().<span class="fn">strftime</span>(<span class="str">"%A, %B %d, %Y"</span>)   <span class="cm"># "Tuesday, June 03, 2026"</span>
+    system_content = _SYSTEM_PROMPT_BASE.<span class="fn">format</span>(today=today)
+    system_message = {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: system_content}
+    ...</code></pre>
+
+  <div class="card card-warn">
+    <strong>Why inject date at request time, not module load time?</strong><br><br>
+    If the date was baked into the system prompt string at server startup, every request for the entire lifetime of the server would use the same date. The server starts on June 1st, runs until July 15th — every chatbot request thinks it's still June 1st. By formatting <code>{today}</code> inside <code>run_chat()</code>, the date is accurate for every single request.
+  </div>
+
+  <h2 id="tools-schema">Tool Schema Design</h2>
+
+  <p>OpenAI tool calling requires defining each tool as a JSON Schema object. The structure is:</p>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button>{
+    <span class="str">"type"</span>: <span class="str">"function"</span>,
+    <span class="str">"function"</span>: {
+        <span class="str">"name"</span>: <span class="str">"add_new_unit"</span>,
+        <span class="str">"description"</span>: <span class="str">"Add a new unit/flat to a building. Looks up the building by name automatically."</span>,
+        <span class="str">"parameters"</span>: {
+            <span class="str">"type"</span>: <span class="str">"object"</span>,
+            <span class="str">"properties"</span>: {
+                <span class="str">"flat_number"</span>: {
+                    <span class="str">"type"</span>: <span class="str">"string"</span>,
+                    <span class="str">"description"</span>: <span class="str">"The unit/flat identifier (e.g. '4B', 'A101')"</span>
+                },
+                <span class="str">"building_name"</span>: {
+                    <span class="str">"type"</span>: <span class="str">"string"</span>,
+                    <span class="str">"description"</span>: <span class="str">"The name of the building this unit belongs to (will be looked up by name)"</span>
+                }
+            },
+            <span class="str">"required"</span>: [<span class="str">"flat_number"</span>, <span class="str">"building_name"</span>]
+        }
+    }
+}</code></pre>
+
+  <p>Key design points in descriptions:</p>
+  <table>
+    <tr><th>Tool name pattern</th><th>Why it matters</th></tr>
+    <tr><td>"Looks up the building by name automatically"</td><td>Tells the model it does NOT need to first call a separate lookup tool. The LLM will otherwise chain unnecessary calls.</td></tr>
+    <tr><td>"Only use the appointment ID explicitly stated by the user"</td><td>Guards against the LLM hallucinating a nearby appointment ID when the exact one doesn't match.</td></tr>
+    <tr><td>Detailed <code>description</code> on each parameter</td><td>The LLM reads these when deciding what to pass. Vague descriptions = wrong arguments.</td></tr>
+  </table>
+
+  <h2 id="tool-list">All 17 Tools — Quick Reference</h2>
+
+  <table>
+    <tr><th>Tool name</th><th>Action</th><th>Mutates data?</th></tr>
+    <tr><td><code>add_new_unit</code></td><td>Create a flat in a building</td><td>Yes</td></tr>
+    <tr><td><code>add_new_building</code></td><td>Create a building (optionally link to property)</td><td>Yes</td></tr>
+    <tr><td><code>add_new_property</code></td><td>Create a property group</td><td>Yes</td></tr>
+    <tr><td><code>list_properties</code></td><td>List all property groups</td><td>No</td></tr>
+    <tr><td><code>list_buildings</code></td><td>List buildings (optional name filter)</td><td>No</td></tr>
+    <tr><td><code>delete_property</code></td><td>Cascade-delete property group</td><td>Yes</td></tr>
+    <tr><td><code>delete_building</code></td><td>Cascade-delete building + units + tenants</td><td>Yes</td></tr>
+    <tr><td><code>delete_unit</code></td><td>Delete flat (+ tenant if occupied)</td><td>Yes</td></tr>
+    <tr><td><code>delete_tenant</code></td><td>Delete tenant by UUID</td><td>Yes</td></tr>
+    <tr><td><code>get_tenant_details</code></td><td>Lookup tenant by name or phone</td><td>No</td></tr>
+    <tr><td><code>get_unit_info</code></td><td>Full flat + tenant details</td><td>No</td></tr>
+    <tr><td><code>check_appointments_by_date</code></td><td>List appointments for a date</td><td>No</td></tr>
+    <tr><td><code>get_appointment_details</code></td><td>Single appointment or all for a flat</td><td>No</td></tr>
+    <tr><td><code>get_complaints</code></td><td>List complaints with optional filters</td><td>No</td></tr>
+    <tr><td><code>reschedule_appointment</code></td><td>Change appointment date/time</td><td>Yes ★</td></tr>
+    <tr><td><code>cancel_appointment</code></td><td>Cancel appointment</td><td>Yes ★</td></tr>
+    <tr><td><code>update_appointment_status</code></td><td>Set status: scheduled/attended/cancelled</td><td>Yes ★</td></tr>
+  </table>
+
+  <p>★ = triggers <code>refresh_needed = True</code> via <code>_APPOINTMENT_WRITE_TOOLS</code></p>
+
+  <h2 id="execute-tool">execute_tool() — Deep Dive on Key Patterns</h2>
+
+  <h3>Building name lookup via ilike</h3>
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># Inside add_new_unit:</span>
+building_res = db.table(<span class="str">"buildings"</span>).<span class="fn">select</span>(<span class="str">"id, name, address"</span>).<span class="fn">ilike</span>(<span class="str">"name"</span>, <span class="fn">f</span><span class="str">"%{building_name}%"</span>).<span class="fn">execute</span>()
+<span class="kw">if not</span> building_res.data:
+    <span class="kw">return</span> <span class="fn">f</span><span class="str">"No building found with name '{building_name}'..."</span>
+<span class="kw">if</span> len(building_res.data) > <span class="num">1</span>:
+    options = <span class="str">", "</span>.<span class="fn">join</span>(<span class="fn">f</span><span class="str">"'{b.get('name')}' (ID: {b.get('id')})"</span> <span class="kw">for</span> b <span class="kw">in</span> building_res.data)
+    <span class="kw">return</span> <span class="fn">f</span><span class="str">"Multiple buildings match '{building_name}': {options}. Please be more specific."</span>
+building_id = building_res.data[<span class="num">0</span>].<span class="fn">get</span>(<span class="str">"id"</span>)</code></pre>
+
+  <div class="card card-info">
+    <strong>Pattern — name lookup with ambiguity handling:</strong> The user types "Add unit to Maple" and the tool searches <code>ILIKE '%Maple%'</code>. If 0 results: clear error. If 1 result: proceed. If 2+ results: list them all and ask the user to be more specific. This is the correct pattern for any fuzzy name lookup.
+  </div>
+
+  <h3>Tool results must be strings</h3>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># CORRECT — tool result is a human-readable string</span>
+<span class="kw">return</span> <span class="fn">f</span><span class="str">"Building '{name}' successfully created with ID {building.get('id')}."</span>
+
+<span class="cm"># WRONG — tool result is a dict (LLM cannot parse this properly)</span>
+<span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"success"</span>, <span class="str">"id"</span>: building.get(<span class="str">"id"</span>)}</code></pre>
+
+  <p>The LLM reads the tool result and formulates a human response from it. If you return a dict, the LLM will try to parse a Python object repr string, which is inconsistent. Always return a plain string the model can read naturally.</p>
+
+  <h3>Appointment rescheduling with date normalization</h3>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="kw">from</span> dateutil <span class="kw">import</span> parser as dateparser
+
+<span class="kw">try</span>:
+    parsed = dateparser.<span class="fn">parse</span>(new_date)
+    <span class="cm"># Store with T separator so frontend parseISO works correctly</span>
+    normalized_date = parsed.<span class="fn">strftime</span>(<span class="str">"%Y-%m-%dT%H:%M:%S"</span>)
+<span class="kw">except</span> (ValueError, TypeError):
+    <span class="kw">return</span> <span class="str">"Invalid date format. Please use YYYY-MM-DD HH:MM:SS (e.g. 2025-06-15 10:00:00)."</span></code></pre>
+
+  <div class="card card-warn">
+    <strong>Date format bug:</strong> Early versions stored dates with a space separator (<code>2025-06-15 10:00:00</code>). JavaScript's <code>parseISO()</code> from date-fns requires a <code>T</code> separator. Appointments stored with spaces showed as "Invalid Date" in the calendar. The fix: always use <code>strftime("%Y-%m-%dT%H:%M:%S")</code>.
+  </div>
+
+  <h3>Notification trigger after reschedule</h3>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># After successful reschedule — notify tenant via SMS/email</span>
+flat_uuid = apt.<span class="fn">get</span>(<span class="str">"flat_uuid"</span>)
+<span class="kw">if</span> flat_uuid:
+    <span class="fn">notify_tenant_appointment</span>(
+        <span class="fn">str</span>(flat_uuid), <span class="str">"rescheduled"</span>, apt.<span class="fn">get</span>(<span class="str">"flat_number"</span>, <span class="str">""</span>), db, normalized_date
+    )</code></pre>
+
+  <p>The chatbot fires the same notification service as the REST API. A manager typing "Reschedule appointment 14 to Thursday" triggers an SMS to the tenant automatically.</p>
+
+  <h2 id="run-chat">run_chat() — The Agentic Loop</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="kw">def</span> <span class="fn">run_chat</span>(messages: list, db: <span class="typ">Client</span>) -> tuple[str, bool]:
+    <span class="str">"""Returns (reply, refresh_needed)"""</span>
+    client = <span class="fn">OpenAI</span>(api_key=settings.OPEN_AI_API)
+
+    today = datetime.<span class="fn">now</span>().<span class="fn">strftime</span>(<span class="str">"%A, %B %d, %Y"</span>)
+    system_content = _SYSTEM_PROMPT_BASE.<span class="fn">format</span>(today=today)
+    system_message = {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: system_content}
+
+    truncated = messages[<span class="op">-</span><span class="num">10</span>:] <span class="kw">if</span> len(messages) > <span class="num">10</span> <span class="kw">else</span> messages
+    full_messages = [system_message] + truncated
+    refresh_needed = <span class="kw">False</span>
+
+    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(MAX_TOOL_CALL_TURNS):   <span class="cm"># max 5 turns to prevent infinite loops</span>
+        <span class="kw">try</span>:
+            response = client.chat.completions.<span class="fn">create</span>(
+                model=<span class="str">"gpt-4o-mini"</span>,
+                messages=full_messages,
+                tools=TOOLS,
+                tool_choice=<span class="str">"auto"</span>,
+            )
+        <span class="kw">except</span> <span class="typ">BadRequestError</span>:
+            <span class="cm"># Fallback: retry without tools</span>
+            fallback = client.chat.completions.<span class="fn">create</span>(
+                model=<span class="str">"gpt-4o-mini"</span>,
+                messages=full_messages,
+            )
+            <span class="kw">return</span> fallback.choices[<span class="num">0</span>].message.content <span class="kw">or</span> <span class="str">"Sorry, I couldn't process that."</span>, refresh_needed
+
+        msg = response.choices[<span class="num">0</span>].message
+
+        <span class="cm"># Build assistant entry for history (include tool_calls if present)</span>
+        assistant_entry = {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: msg.content}
+        <span class="kw">if</span> msg.tool_calls:
+            assistant_entry[<span class="str">"tool_calls"</span>] = [
+                {
+                    <span class="str">"id"</span>: tc.id,
+                    <span class="str">"type"</span>: <span class="str">"function"</span>,
+                    <span class="str">"function"</span>: {<span class="str">"name"</span>: tc.function.name, <span class="str">"arguments"</span>: tc.function.arguments},
+                }
+                <span class="kw">for</span> tc <span class="kw">in</span> msg.tool_calls
+            ]
+        full_messages.<span class="fn">append</span>(assistant_entry)
+
+        <span class="cm"># No tool calls → model has given its final answer</span>
+        <span class="kw">if not</span> msg.tool_calls:
+            <span class="kw">return</span> msg.content <span class="kw">or</span> <span class="str">"I'm sorry, I couldn't generate a response."</span>, refresh_needed
+
+        <span class="cm"># Execute each tool and append results to the message chain</span>
+        <span class="kw">for</span> tool_call <span class="kw">in</span> msg.tool_calls:
+            <span class="kw">if</span> tool_call.function.name <span class="kw">in</span> _APPOINTMENT_WRITE_TOOLS:
+                refresh_needed = <span class="kw">True</span>
+
+            <span class="kw">try</span>:
+                tool_args = json.<span class="fn">loads</span>(tool_call.function.arguments)
+            <span class="kw">except</span> (json.JSONDecodeError, TypeError):
+                tool_args = {}
+
+            result = <span class="fn">execute_tool</span>(tool_call.function.name, tool_args, db)
+
+            full_messages.<span class="fn">append</span>({
+                <span class="str">"role"</span>: <span class="str">"tool"</span>,
+                <span class="str">"tool_call_id"</span>: tool_call.id,
+                <span class="str">"content"</span>: result,
+            })
+
+    <span class="kw">return</span> <span class="str">"I've reached the maximum number of steps. Please try rephrasing your request."</span>, refresh_needed</code></pre>
+
+  <h3>The message chain structure</h3>
+
+  <p>Here's what <code>full_messages</code> looks like after one tool call cycle:</p>
+
+  <pre><code>[
+  {<span class="str">"role"</span>: <span class="str">"system"</span>,    <span class="str">"content"</span>: <span class="str">"...today is Tuesday June 03..."</span>},
+  {<span class="str">"role"</span>: <span class="str">"user"</span>,      <span class="str">"content"</span>: <span class="str">"What appointments are on June 5th?"</span>},
+  {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: <span class="kw">null</span>, <span class="str">"tool_calls"</span>: [{<span class="str">"id"</span>: <span class="str">"call_abc"</span>, <span class="str">"function"</span>: {<span class="str">"name"</span>: <span class="str">"check_appointments_by_date"</span>, ...}}]},
+  {<span class="str">"role"</span>: <span class="str">"tool"</span>,       <span class="str">"tool_call_id"</span>: <span class="str">"call_abc"</span>, <span class="str">"content"</span>: <span class="str">"Appointments for 2026-06-05:\n- ID 14 | Flat A-101 | ..."</span>},
+  <span class="cm">// ← model now generates a response reading the tool result</span>
+  {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: <span class="str">"On June 5th you have 2 appointments: ..."</span>}
+]</code></pre>
+
+  <p>The OpenAI API requires this exact alternating structure. If you append a <code>tool</code> message without a preceding <code>assistant</code> message containing the matching <code>tool_calls</code>, the API returns a <code>BadRequestError</code>.</p>
+
+  <h2 id="refresh-signal">refresh_needed Signal</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># Only appointment mutation tools trigger a refresh</span>
+_APPOINTMENT_WRITE_TOOLS = {<span class="str">"reschedule_appointment"</span>, <span class="str">"cancel_appointment"</span>, <span class="str">"update_appointment_status"</span>}
+
+<span class="cm"># In the loop:</span>
+<span class="kw">if</span> tool_call.function.name <span class="kw">in</span> _APPOINTMENT_WRITE_TOOLS:
+    refresh_needed = <span class="kw">True</span></code></pre>
+
+  <p>The chat route returns <code>{"reply": "...", "refresh_needed": true}</code>. The frontend <code>Chatbot.jsx</code> checks this and dispatches a custom event:</p>
+
+  <pre><code><span class="cm">// In Chatbot.jsx (frontend)</span>
+<span class="kw">if</span> (data.refresh_needed) {
+  window.dispatchEvent(<span class="kw">new</span> Event(<span class="str">'refresh-appointments'</span>));
+}</code></pre>
+
+  <p><code>App.jsx</code> listens for this event and re-fetches complaints and appointments. This is the simplest possible real-time update mechanism — no WebSockets, no polling for this purpose.</p>
+
+  <div class="card card-info">
+    <strong>Why only appointment tools trigger refresh?</strong> Adding a new building doesn't need a dashboard refresh because the buildings list is fetched on navigation, not continuously. But appointment mutations affect the calendar view which the manager may be looking at right now. Only surfacing the event for visible/time-sensitive data avoids unnecessary re-renders.
+  </div>
+
+  <h2 id="history-truncation">History Truncation</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">truncated = messages[<span class="op">-</span><span class="num">10</span>:] <span class="kw">if</span> len(messages) > <span class="num">10</span> <span class="kw">else</span> messages
+full_messages = [system_message] + truncated</code></pre>
+
+  <p>OpenAI charges per token. A long conversation grows unbounded. The fix: only send the last 10 messages to the model. The system message is always prepended fresh (not counted in the 10).</p>
+
+  <div class="card card-warn">
+    <strong>Tradeoff:</strong> Messages beyond 10 turns back are forgotten. For most property management tasks (3-4 turns to complete an action), this is fine. For very long investigations ("look up the complaint from three weeks ago, then find the tenant for that flat, then reschedule their appointment..."), the model may lose context. A more sophisticated approach would use a sliding window or summarize older history.
+  </div>
+
+  <h2 id="bad-request">BadRequestError Fallback</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="kw">try</span>:
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o-mini"</span>,
+        messages=full_messages,
+        tools=TOOLS,
+        tool_choice=<span class="str">"auto"</span>,
+    )
+<span class="kw">except</span> <span class="typ">BadRequestError</span>:
+    <span class="cm"># Groq-specific: llama-3.3-70b-versatile can hallucinate tool names not in schema
+    # When that happens, the API returns BadRequestError with "tool_use_failed"
+    # Fallback: retry without tools as a plain chat completion</span>
+    fallback = client.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o-mini"</span>,
+        messages=full_messages,
+    )
+    <span class="kw">return</span> fallback.choices[<span class="num">0</span>].message.content <span class="kw">or</span> <span class="str">"Sorry, I couldn't process that."</span>, refresh_needed</code></pre>
+
+  <div class="card card-error">
+    <strong>Groq tool calling quirk (affects Groq models, not OpenAI):</strong> <code>llama-3.3-70b-versatile</code> sometimes hallucinates tool names that aren't in the schema (e.g., calls <code>brave_search</code> when it doesn't exist in the TOOLS list). The Groq API returns a <code>BadRequestError</code> with <code>"tool_use_failed"</code> in the error message. The fix: catch <code>BadRequestError</code> and retry without tools as a plain completion. This way the user gets a response instead of an error.<br><br>
+    <em>The chatbot uses OpenAI (gpt-4o-mini) so this quirk doesn't actually affect it. The code has this guard as a safety net and for historical reasons — early versions used Groq for both extraction and chat.</em>
+  </div>
+
+  <h2 id="chat-route">chat.py Route</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="kw">from</span> fastapi <span class="kw">import</span> APIRouter, Depends, HTTPException
+<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel, Field
+<span class="kw">from</span> typing <span class="kw">import</span> Literal
+
+router = <span class="fn">APIRouter</span>(prefix=<span class="str">"/chat"</span>, tags=[<span class="str">"Chat"</span>])
+
+
+<span class="kw">class</span> <span class="typ">ChatMessage</span>(<span class="typ">BaseModel</span>):
+    role: <span class="typ">Literal</span>[<span class="str">"user"</span>, <span class="str">"assistant"</span>]    <span class="cm"># only 2 valid roles from the client</span>
+    content: str = <span class="fn">Field</span>(..., max_length=<span class="num">10000</span>)
+
+
+<span class="kw">class</span> <span class="typ">ChatRequest</span>(<span class="typ">BaseModel</span>):
+    messages: list[<span class="typ">ChatMessage</span>]
+
+
+<span class="op">@</span>router.<span class="fn">post</span>(<span class="str">""</span>)
+<span class="kw">async def</span> <span class="fn">chat_endpoint</span>(
+    request: <span class="typ">ChatRequest</span>,
+    user: dict = <span class="fn">Depends</span>(require_active_subscription),
+    db: <span class="typ">Client</span> = <span class="fn">Depends</span>(get_authenticated_db)
+):
+    <span class="cm"># Guard: last user message must not exceed 2000 characters</span>
+    user_messages = [m <span class="kw">for</span> m <span class="kw">in</span> request.messages <span class="kw">if</span> m.role == <span class="str">"user"</span>]
+    <span class="kw">if</span> user_messages <span class="kw">and</span> len(user_messages[<span class="op">-</span><span class="num">1</span>].content) > <span class="num">2000</span>:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(status_code=<span class="num">400</span>, detail=<span class="str">"Message too long. Maximum 2000 characters."</span>)
+
+    <span class="kw">try</span>:
+        messages = [m.<span class="fn">model_dump</span>() <span class="kw">for</span> m <span class="kw">in</span> request.messages]
+        reply, refresh_needed = chatbot.<span class="fn">run_chat</span>(messages, db)
+        <span class="kw">return</span> {<span class="str">"reply"</span>: reply, <span class="str">"refresh_needed"</span>: refresh_needed}
+    <span class="kw">except</span> <span class="typ">Exception</span> as e:
+        <span class="fn">print</span>(<span class="fn">f</span><span class="str">"[ERROR] Chat endpoint failed: {type(e).__name__}: {e}"</span>)
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(status_code=<span class="num">500</span>, detail=<span class="str">"Chat service error."</span>)</code></pre>
+
+  <h3>Dependency chain</h3>
+  <table>
+    <tr><th>Dependency</th><th>What it provides</th></tr>
+    <tr><td><code>require_active_subscription</code></td><td>Blocks non-subscribers. Returns the user dict (JWT payload).</td></tr>
+    <tr><td><code>get_authenticated_db</code></td><td>RLS-enforced Supabase client. Only data owned by this manager is visible.</td></tr>
+  </table>
+
+  <p>The chatbot gets <code>db</code> (not <code>user</code>) injected. It calls Supabase through this RLS-enforced client, so a manager cannot accidentally access another manager's buildings through the chatbot — even if they send malformed messages trying to.</p>
+
+  <h3>Why <code>Literal["user", "assistant"]</code> for role?</h3>
+  <p>Pydantic validates the <code>role</code> field at request time. If the frontend sends <code>role: "system"</code>, FastAPI returns a 422 before the code even runs. This prevents prompt injection attacks where a malicious client tries to override the system prompt by injecting a <code>{"role": "system", "content": "ignore all previous instructions"}</code> message into the chat history.</p>
+
+  <h2 id="bugs">Real Bugs Faced &amp; How We Fixed Them</h2>
+
+  <h3>Bug 1: Chatbot didn't know today's date — hallucinated appointments in the past</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> Manager says "Schedule for tomorrow" — chatbot uses 2023 or some other training-cutoff date.<br><br>
+    <strong>Root cause:</strong> System prompt had no date injection.<br><br>
+    <strong>Fix:</strong> Added <code>{today}</code> placeholder in <code>_SYSTEM_PROMPT_BASE</code> and the <code>format(today=today)</code> call in <code>run_chat()</code>.
+  </div>
+
+  <h3>Bug 2: Chatbot rescheduled the wrong appointment</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> Manager says "Reschedule appointment 14" — chatbot reschedules appointment 15 because 14 wasn't found.<br><br>
+    <strong>Root cause:</strong> The model was substituting the nearest valid appointment ID when the specified one wasn't found.<br><br>
+    <strong>Fix:</strong> Added the explicit system prompt rule: <em>"When rescheduling, use ONLY the appointment ID that the user explicitly stated. If that appointment is not found, tell the user it does not exist — do NOT substitute a different appointment ID."</em> Also, <code>execute_tool()</code> returns a clear error string when the ID isn't found rather than a soft failure.
+  </div>
+
+  <h3>Bug 3: Duplicate buildings created</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> After "Add building Maple Court" succeeded, typing it again created a second identical building.<br><br>
+    <strong>Root cause:</strong> No duplicate check in <code>add_new_building</code>.<br><br>
+    <strong>Fix:</strong> Added <code>existing = db.table("buildings").select("id, name").ilike("name", name).execute()</code> before the INSERT. If a match is found, return a message like "A building named 'Maple Court' already exists (ID: abc123). Use this building to add units." This also gives the LLM the existing building's ID in case the user wants to add units to it.
+  </div>
+
+  <h3>Bug 4: Calendar didn't update after chatbot rescheduled</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> Chatbot said "Appointment rescheduled" but the calendar still showed the old time.<br><br>
+    <strong>Root cause:</strong> The <code>refresh_needed</code> signal existed but was set to <code>False</code> because <code>reschedule_appointment</code> wasn't in <code>_APPOINTMENT_WRITE_TOOLS</code>.<br><br>
+    <strong>Fix:</strong> Added all three mutation tools to <code>_APPOINTMENT_WRITE_TOOLS</code>.
+  </div>
+
+  <h2 id="exercises">Exercises</h2>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> &nbsp; What happens if MAX_TOOL_CALL_TURNS is reached?</summary>
+    <p>The function returns the string <code>"I've reached the maximum number of steps. Please try rephrasing your request."</code> with <code>refresh_needed</code> as whatever it was set to so far. This prevents infinite loops where the model keeps calling tools without converging on a final answer. 5 turns is enough for any legitimate property management task.</p>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> &nbsp; Why does the route use get_authenticated_db and not get_service_db?</summary>
+    <p>The chatbot operates on behalf of a logged-in manager. RLS must be enforced so the chatbot can only see and modify data belonging to that manager. <code>get_service_db</code> bypasses RLS entirely — if used here, any bug in the chatbot's tool execution could expose or modify any manager's data. Use <code>get_service_db</code> only for webhooks that arrive without a JWT (VAPI, Stripe callbacks).</p>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> &nbsp; Add a new tool get_vacant_flats that returns all unoccupied flats.</summary>
+    <details style="margin-top: 0.75rem">
+      <summary>Show solution</summary>
+      <p><strong>Step 1 — Add to TOOLS list:</strong></p>
+      <pre><code>{
+    <span class="str">"type"</span>: <span class="str">"function"</span>,
+    <span class="str">"function"</span>: {
+        <span class="str">"name"</span>: <span class="str">"get_vacant_flats"</span>,
+        <span class="str">"description"</span>: <span class="str">"List all unoccupied (vacant) flats across all buildings."</span>,
+        <span class="str">"parameters"</span>: {
+            <span class="str">"type"</span>: <span class="str">"object"</span>,
+            <span class="str">"properties"</span>: {
+                <span class="str">"building_name"</span>: {
+                    <span class="str">"type"</span>: <span class="str">"string"</span>,
+                    <span class="str">"description"</span>: <span class="str">"Optional building name filter"</span>
+                }
+            },
+            <span class="str">"required"</span>: []
+        }
+    }
+}</code></pre>
+      <p><strong>Step 2 — Add to execute_tool():</strong></p>
+      <pre><code><span class="kw">elif</span> tool_name == <span class="str">"get_vacant_flats"</span>:
+    building_name = args.<span class="fn">get</span>(<span class="str">"building_name"</span>)
+    query = db.table(<span class="str">"flats"</span>).<span class="fn">select</span>(<span class="str">"flat_number, building_id, address"</span>).<span class="fn">eq</span>(<span class="str">"occupied"</span>, <span class="kw">False</span>)
+    result = query.<span class="fn">execute</span>()
+    <span class="kw">if not</span> result.data:
+        <span class="kw">return</span> <span class="str">"No vacant flats found."</span>
+    lines = [<span class="fn">f</span><span class="str">"Found {len(result.data)} vacant flat(s):"</span>]
+    <span class="kw">for</span> f <span class="kw">in</span> result.data:
+        lines.<span class="fn">append</span>(<span class="fn">f</span><span class="str">"- {f.get('flat_number')} | {f.get('address') or 'no address'}"</span>)
+    <span class="kw">return</span> <span class="str">"\n"</span>.<span class="fn">join</span>(lines)</code></pre>
+      <p>Note: This tool does not mutate data, so it does NOT go in <code>_APPOINTMENT_WRITE_TOOLS</code>.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> &nbsp; The chatbot sends the full history (up to 10 messages) plus system prompt on every request. How would you reduce the token cost without losing context quality?</summary>
+    <details style="margin-top: 0.75rem">
+      <summary>Show solution</summary>
+      <p><strong>Option 1: Smarter truncation</strong><br>Instead of keeping last 10 messages, keep the last 2 user messages + their assistant+tool responses. Tool call turns can be verbose; trimming tool content to just the first 200 characters significantly reduces token count.</p>
+      <p><strong>Option 2: Summarization</strong><br>When conversation exceeds 10 turns, call gpt-4o-mini once with just the older turns and ask it to produce a "memory summary" (what was found, what was done). Replace the older turns with this summary as a single assistant message.</p>
+      <pre><code>summary = client.chat.completions.<span class="fn">create</span>(
+    model=<span class="str">"gpt-4o-mini"</span>,
+    messages=[
+        {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="fn">f</span><span class="str">"Summarize this conversation in under 200 words:\n{old_turns}"</span>}
+    ]
+)
+summary_msg = {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: <span class="fn">f</span><span class="str">"[Earlier context] {summary}"</span>}
+full_messages = [system_message, summary_msg] + recent_turns</code></pre>
+      <p><strong>Option 3: Prompt caching</strong><br>OpenAI's API supports prompt caching for prompts over 1024 tokens. The system prompt is always the same structure; it's cached and only charged at 50% on repeated requests within the cache window.</p>
+    </details>
+  </details>
+
+  <div class="nav-buttons">
+    <a href="module_09_groq_extraction.html" class="nav-btn">← Module 09: Groq Extraction</a>
+    <a href="module_11_vapi_webhook.html" class="nav-btn">Module 11: VAPI Webhook →</a>
+  </div>
+
+</div>
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  document.querySelector('.theme-toggle').textContent = html.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+}
+function copyCode(btn) {
+  const code = btn.parentElement.querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(() => { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 2000); });
+}
+window.addEventListener('scroll', () => {
+  document.getElementById('backToTop').classList.toggle('visible', window.scrollY > 400);
+});
+const links = document.querySelectorAll('.sidebar a');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const id = e.target.getAttribute('id');
+      const active = document.querySelector(`.sidebar a[href="#${id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('h2[id], h3[id]').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

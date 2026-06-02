@@ -1,5 +1,19 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import en from '../i18n/en.json';
+import frCA from '../i18n/fr-CA.json';
+
+i18n.use(initReactI18next).init({
+    resources: {
+        en: { translation: en },
+        'fr-CA': { translation: frCA },
+    },
+    lng: 'en',
+    fallbackLng: 'en',
+    interpolation: { escapeValue: false },
+});
 
 // SVG imports return a string stub
 vi.mock('../components/icon.svg', () => ({ default: 'icon-svg-stub' }));

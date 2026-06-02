@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 05 — Property Groups & Buildings | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --accent-hover: #89b4fa; --success: #9ece6a;
+      --warning: #e0af68; --error: #f7768e; --border: #3b4261;
+      --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3);
+      --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --accent-hover: #0550ae; --success: #1a7f37;
+      --warning: #9a6700; --error: #cf222e; --border: #d0d7de;
+      --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; transition: transform 0.3s; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0; font-size: 0.85rem; border-left: 2px solid transparent; padding-left: 0.5rem; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-secondary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; } .var { color: #c0caf5; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; } [data-theme="light"] .var { color: #24292f; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .lang-label { position: absolute; top: 0.4rem; right: 3.5rem; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-family: var(--font-sans); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; box-shadow: var(--shadow); }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-warning { border-left: 4px solid var(--warning); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-error { border-left: 4px solid var(--error); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; color: var(--text-primary); }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .badge-concept { background: #7aa2f722; color: var(--accent); border: 1px solid var(--accent); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .nav-btn.disabled { opacity: 0.4; pointer-events: none; }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .breadcrumbs a:hover { color: var(--accent); }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: all 0.3s; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { background: var(--bg-secondary); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { border-left: 4px solid var(--warning); }
+    .callout-info { border-left: 4px solid var(--accent); }
+    .callout-success { border-left: 4px solid var(--success); }
+    .callout p { margin: 0; }
+    @media print {
+      .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; }
+      .main-content { margin-left: 0 !important; }
+      body { color: #000; background: #fff; }
+      pre { border: 1px solid #ccc; }
+      details, details > * { display: block; }
+      h2 { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 05</h3>
+  <div id="toc"></div>
+</nav>
+
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content">
+  <div class="container">
+
+    <div class="breadcrumbs">
+      <a href="index.html">Home</a> › <strong>Module 05 — Property Groups &amp; Buildings</strong>
+    </div>
+
+    <h1>Module 05 — Property Groups &amp; Buildings</h1>
+    <div class="meta-row">
+      <span>⏱ Estimated time: 60 minutes</span>
+      <span>📁 Files: <code>routes/property_groups.py</code>, <code>routes/buildings.py</code></span>
+      <span>🔰 Prerequisites: Modules 00–04</span>
+    </div>
+
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div class="nav-buttons">
+      <a href="module_04_subscription_stripe.html" class="nav-btn">← Module 04: Subscription Gate</a>
+      <a href="module_06_flats_assignment.html" class="nav-btn">Next: Flats &amp; Assignment →</a>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+    <p>This module covers the top two layers of the data hierarchy: <strong>Property Groups</strong> (a collection of buildings, e.g. "Sunrise Apartments") and <strong>Buildings</strong> (a physical structure inside a group, e.g. "Block A"). Together they form the container that all flats, tenants, and complaints live inside.</p>
+
+    <div class="diagram">
+Hierarchy
+─────────
+PropertyGroup  (properties_list table)
+  └── Building  (buildings table)         ←── Module 05
+        └── Flat  (flats table)           ←── Module 06
+              └── Tenant  (tenants table) ←── Module 07
+
+Route prefixes (no /api prefix — project rule)
+───────────────────────────────────────────────
+GET    /property-groups                  → list all groups (with building counts)
+POST   /property-groups                  → create group + trigger VAPI provisioning
+GET    /property-groups/{id}/buildings   → list buildings inside one group
+DELETE /property-groups/{id}             → cascade-delete entire group
+
+GET    /buildings                        → list all buildings (with unit counts)
+GET    /buildings/{id}/units             → list flats inside one building
+POST   /buildings                        → create building
+PATCH  /buildings/{id}                   → update building
+DELETE /buildings/{id}                   → cascade-delete building + its flats/tenants
+    </div>
+
+    <p>Both route files share the same structural pattern: Pydantic schemas at the top, helper functions in the middle, endpoint handlers at the bottom. This layout is consistent across the entire backend.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+    <details open>
+      <summary>The N+1 Query Problem and the 2-Query Fix</summary>
+      <p>Imagine you want to show 10 property groups, each with a building count. The naive approach:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># BAD — N+1: 1 query for groups + 1 query PER group = 11 queries total</span>
+<span class="kw">for</span> group <span class="kw">in</span> groups:
+    count = db.table(<span class="str">"buildings"</span>).select(<span class="str">"id"</span>).eq(<span class="str">"property_id"</span>, group[<span class="str">"id"</span>]).execute()
+    group[<span class="str">"building_count"</span>] = len(count.data)
+</code></pre>
+      <p>With 100 groups this becomes 101 queries. The database is hit once per row — this is the N+1 problem.</p>
+      <p>The fix used in this codebase: fetch everything in <strong>2 flat queries</strong>, then merge in Python:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># GOOD — exactly 2 queries regardless of how many groups exist</span>
+groups_resp = db.table(<span class="str">"properties_list"</span>).select(<span class="str">"*"</span>).execute()
+buildings_resp = db.table(<span class="str">"buildings"</span>).select(<span class="str">"property_id"</span>).execute()
+
+<span class="cm"># Build a count map in Python (O(n) loop, not O(n) DB round-trips)</span>
+count_map = {}
+<span class="kw">for</span> b <span class="kw">in</span> buildings_resp.data:
+    pid = b.get(<span class="str">"property_id"</span>)
+    count_map[pid] = count_map.get(pid, <span class="num">0</span>) + <span class="num">1</span>
+
+<span class="cm"># Attach count to each group dict</span>
+<span class="kw">for</span> g <span class="kw">in</span> groups_resp.data:
+    g[<span class="str">"building_count"</span>] = count_map.get(str(g[<span class="str">"id"</span>]), <span class="num">0</span>)
+</code></pre>
+      <p>Key insight: database round-trips are expensive (network latency). In-memory Python loops are cheap (nanoseconds). Always batch into the fewest queries possible, then merge.</p>
+    </details>
+
+    <details>
+      <summary>PostgREST JOIN syntax — <code>select("*, related_table(col1, col2)")</code></summary>
+      <p>Supabase's PostgREST API supports relationship traversal inside a single <code>select()</code> call. When two tables have a foreign key between them, you can fetch related rows in one query:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># Fetch buildings with property_type name and icon in one query</span>
+resp = db.table(<span class="str">"buildings"</span>).select(<span class="str">"*, property_types(name, icon_type)"</span>).execute()
+
+<span class="cm"># Each row has a nested dict:
+# { "id": "...", "name": "Block A", ...,
+#   "property_types": {"name": "Residential", "icon_type": "house"} }</span>
+
+<span class="cm"># Extract nested data safely (may be None if FK is null)</span>
+<span class="kw">for</span> b <span class="kw">in</span> resp.data:
+    pt = b.get(<span class="str">"property_types"</span>) <span class="kw">or</span> {}
+    name = pt.get(<span class="str">"name"</span>)  <span class="cm"># "Residential"</span>
+</code></pre>
+      <p>This is PostgREST's version of a SQL <code>LEFT JOIN</code>. The nested table name must match the actual table name referenced by the FK in your schema.</p>
+      <div class="callout callout-warning">
+        <p><strong>Gotcha:</strong> If a row has <code>property_type_id = NULL</code>, the nested value is <code>None</code>, not an empty dict. Always use <code>b.get("property_types") or {}</code> — never assume it's present.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Cascade Delete — Manual vs Database-Level</summary>
+      <p>PostgreSQL can cascade deletes automatically via <code>ON DELETE CASCADE</code> on FK constraints. This codebase does <strong>not</strong> rely on that — it does cascades manually in Python, in a strict order. Why?</p>
+      <ul>
+        <li>Manual cascades are explicit — you can see exactly what gets deleted</li>
+        <li>You can add business logic (e.g., notify tenants before deleting)</li>
+        <li>RLS policies sometimes block automatic cascades</li>
+        <li>You can bail out early if something is in a protected state</li>
+      </ul>
+      <p>The correct deletion order for a property group (child before parent, no orphaned FKs):</p>
+      <div class="diagram">
+DELETE ORDER (must go from leaf → root)
+───────────────────────────────────────
+1. tenants         (FK → flats.uuid)
+2. rents           (FK → flats.uuid)
+3. flats           (FK → buildings.id)
+4. buildings       (FK → properties_list.id)
+5. properties_list (root — no parent)
+      </div>
+      <p>If you try to delete a building before its flats, PostgreSQL raises a foreign key violation error. Always delete children before parents.</p>
+    </details>
+
+    <details>
+      <summary>FastAPI <code>BackgroundTasks</code></summary>
+      <p>Some work should happen <em>after</em> the HTTP response is sent — e.g., provisioning a VAPI phone number (which takes 2-5 seconds). You don't want to make the user wait. <code>BackgroundTasks</code> solves this:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">from</span> fastapi <span class="kw">import</span> BackgroundTasks
+
+<span class="dec">@router.post</span>(<span class="str">""</span>)
+<span class="kw">async def</span> <span class="fn">create_property_group</span>(
+    request: PropertyGroupCreate,
+    background_tasks: BackgroundTasks,  <span class="cm"># injected by FastAPI</span>
+    ...
+):
+    <span class="cm"># 1. Do the main work synchronously (user waits for this)</span>
+    response = db.table(<span class="str">"properties_list"</span>).insert(payload).execute()
+
+    <span class="cm"># 2. Schedule background work (user does NOT wait for this)</span>
+    background_tasks.add_task(provision_vapi_for_manager, user[<span class="str">"sub"</span>], svc_db)
+
+    <span class="cm"># 3. Return immediately — provisioning runs after response is sent</span>
+    <span class="kw">return</span> response.data[<span class="num">0</span>]
+</code></pre>
+      <div class="callout callout-warning">
+        <p><strong>Critical:</strong> The background task runs in the same process but <em>after</em> the response is sent. This means the request's DB client may already be closed. Always pass a <strong>service-role DB client</strong> to background tasks — never use the request-scoped authenticated client.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Pydantic V2 <code>model_dump(exclude_none=True)</code></summary>
+      <p>When building a dict to insert into the database, you only want fields the user actually provided — not <code>None</code> values that would overwrite existing data with nulls.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">class</span> <span class="typ">PropertyGroupCreate</span>(BaseModel):
+    name: str
+    description: Optional[str] = None
+    address: Optional[str] = None
+
+<span class="cm"># If user sends: {"name": "Sunrise"} (no description, no address)</span>
+create = PropertyGroupCreate(name=<span class="str">"Sunrise"</span>)
+
+<span class="cm"># WITHOUT exclude_none — inserts nulls for description and address</span>
+create.model_dump()
+<span class="cm"># → {"name": "Sunrise", "description": None, "address": None}</span>
+
+<span class="cm"># WITH exclude_none — only sends what was provided</span>
+create.model_dump(exclude_none=<span class="kw">True</span>)
+<span class="cm"># → {"name": "Sunrise"}</span>
+</code></pre>
+      <p>For <code>PATCH</code> (partial updates), use <code>model_dump(exclude_unset=True)</code> instead — that excludes fields the caller didn't mention at all, even if they have a default value.</p>
+    </details>
+
+    <details>
+      <summary>UUID serialization — why <code>str(v) if isinstance(v, UUID)</code></summary>
+      <p>Pydantic parses <code>UUID</code>-typed fields into Python's <code>uuid.UUID</code> objects. But Supabase's Python client expects plain strings for UUID columns, not UUID objects.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># Pattern used in buildings.py for every PATCH/POST payload</span>
+payload = {
+    k: str(v) <span class="kw">if isinstance</span>(v, UUID) <span class="kw">else</span> v
+    <span class="kw">for</span> k, v <span class="kw">in</span> request.model_dump(exclude_none=<span class="kw">True</span>).items()
+}
+
+<span class="cm"># Without this: Supabase client receives UUID('abc-123-...') object → TypeError</span>
+<span class="cm"># With this:    Supabase client receives "abc-123-..." string → works</span>
+</code></pre>
+      <p>An alternative is to use <code>model_dump(mode='json')</code> in Pydantic V2, which serializes UUIDs and dates to strings automatically. Both patterns exist in this codebase depending on the context.</p>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="walkthrough-pg">Section 3 — property_groups.py Line by Line</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+    <h3>Imports and router registration</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">from</span> fastapi <span class="kw">import</span> APIRouter, Depends, HTTPException, status, BackgroundTasks
+<span class="kw">from</span> supabase <span class="kw">import</span> Client
+<span class="kw">from</span> app.dependencies.authenticated_db <span class="kw">import</span> get_authenticated_db
+<span class="kw">from</span> app.dependencies.subscription <span class="kw">import</span> require_active_subscription
+<span class="kw">from</span> typing <span class="kw">import</span> List, Optional
+<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel
+<span class="kw">from</span> uuid <span class="kw">import</span> UUID
+<span class="kw">from</span> datetime <span class="kw">import</span> datetime
+
+router = APIRouter(prefix=<span class="str">"/property-groups"</span>, tags=[<span class="str">"Property Groups"</span>])
+</code></pre>
+    <ul>
+      <li><code>get_authenticated_db</code> — yields a Supabase client with the user's JWT injected, so all queries are RLS-filtered to only their data</li>
+      <li><code>require_active_subscription</code> — FastAPI dependency that validates the JWT <em>and</em> checks Stripe subscription status before allowing access</li>
+      <li><code>prefix="/property-groups"</code> — all routes in this router automatically get this prefix; main.py registers the router with no additional prefix (no /api)</li>
+    </ul>
+
+    <h3>Pydantic schemas</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">class</span> <span class="typ">PropertyGroupCreate</span>(BaseModel):
+    name: str
+    description: Optional[str] = None
+    address: Optional[str] = None
+    image_url: Optional[str] = None
+    property_type_id: Optional[UUID] = None
+
+
+<span class="kw">class</span> <span class="typ">PropertyGroupResponse</span>(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    address: Optional[str] = None
+    image_url: Optional[str] = None
+    property_type_id: Optional[UUID] = None
+    property_type_name: Optional[str] = None   <span class="cm"># joined from property_types</span>
+    property_type_icon: Optional[str] = None   <span class="cm"># joined from property_types</span>
+    building_count: int = <span class="num">0</span>                   <span class="cm"># computed — not in DB column</span>
+    created_at: datetime
+    vapi_provisioning_status: Optional[str] = None
+    vapi_phone_number: Optional[str] = None
+</code></pre>
+    <p>Notice <code>PropertyGroupResponse</code> has fields that <em>don't exist as columns</em> in <code>properties_list</code> — they are assembled in Python (<code>property_type_name</code>, <code>building_count</code>). This is the pattern used throughout: the DB stores normalized data, the API response assembles a denormalized view for the frontend to consume.</p>
+
+    <h3>GET / — list all property groups</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">""</span>, response_model=List[PropertyGroupResponse])
+<span class="kw">async def</span> <span class="fn">get_all_property_groups</span>(
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db)
+):
+    <span class="cm"># Query 1: all groups with joined property_types (PostgREST join)</span>
+    groups_resp = (
+        db.table(<span class="str">"properties_list"</span>)
+        .select(<span class="str">"*, property_types(name, icon_type)"</span>)
+        .order(<span class="str">"name"</span>)
+        .execute()
+    )
+
+    <span class="cm"># Query 2: just property_id from buildings (minimal data for count)</span>
+    buildings_resp = db.table(<span class="str">"buildings"</span>).select(<span class="str">"property_id"</span>).execute()
+
+    <span class="cm"># Build count map: { "group-uuid": 3, "other-uuid": 1, ... }</span>
+    count_map: dict[str, int] = {}
+    <span class="kw">for</span> b <span class="kw">in</span> buildings_resp.data:
+        pid = b.get(<span class="str">"property_id"</span>)
+        <span class="kw">if</span> pid:
+            count_map[str(pid)] = count_map.get(str(pid), <span class="num">0</span>) + <span class="num">1</span>
+
+    <span class="cm"># Assemble response dicts manually (can't return raw DB row — it's missing fields)</span>
+    result = []
+    <span class="kw">for</span> g <span class="kw">in</span> groups_resp.data:
+        pt = g.get(<span class="str">"property_types"</span>) <span class="kw">or</span> {}  <span class="cm"># guard against null FK</span>
+        result.append({
+            <span class="str">"id"</span>: g[<span class="str">"id"</span>],
+            <span class="str">"name"</span>: g[<span class="str">"name"</span>],
+            <span class="str">"description"</span>: g.get(<span class="str">"description"</span>),
+            <span class="str">"address"</span>: g.get(<span class="str">"address"</span>),
+            <span class="str">"image_url"</span>: g.get(<span class="str">"image_url"</span>),
+            <span class="str">"property_type_id"</span>: g.get(<span class="str">"property_type_id"</span>),
+            <span class="str">"property_type_name"</span>: pt.get(<span class="str">"name"</span>),
+            <span class="str">"property_type_icon"</span>: pt.get(<span class="str">"icon_type"</span>),
+            <span class="str">"building_count"</span>: count_map.get(str(g[<span class="str">"id"</span>]), <span class="num">0</span>),
+            <span class="str">"created_at"</span>: g[<span class="str">"created_at"</span>],
+            <span class="str">"vapi_provisioning_status"</span>: g.get(<span class="str">"vapi_provisioning_status"</span>),
+            <span class="str">"vapi_phone_number"</span>: g.get(<span class="str">"vapi_phone_number"</span>),
+        })
+    <span class="kw">return</span> result
+</code></pre>
+    <p>Why <code>str(pid)</code> when building the count_map? Because UUID values coming back from Supabase may be strings or UUID objects depending on the client version. Converting both sides to <code>str</code> ensures the dictionary lookup always works.</p>
+
+    <h3>POST / — create property group with VAPI provisioning</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.post</span>(<span class="str">""</span>, response_model=PropertyGroupResponse, status_code=status.HTTP_201_CREATED)
+<span class="kw">async def</span> <span class="fn">create_property_group</span>(
+    request: PropertyGroupCreate,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    payload = request.model_dump(exclude_none=<span class="kw">True</span>)
+
+    <span class="cm"># UUID → str for Supabase client compatibility</span>
+    <span class="kw">if</span> <span class="str">"property_type_id"</span> <span class="kw">in</span> payload:
+        payload[<span class="str">"property_type_id"</span>] = str(payload[<span class="str">"property_type_id"</span>])
+
+    <span class="cm"># Set initial provisioning status and link to this manager</span>
+    payload[<span class="str">"vapi_provisioning_status"</span>] = <span class="str">"not_applicable"</span>
+    payload[<span class="str">"manager_id"</span>] = user[<span class="str">"sub"</span>]  <span class="cm"># "sub" = Supabase user UUID from JWT</span>
+
+    response = db.table(<span class="str">"properties_list"</span>).insert(payload).execute()
+    ...
+    <span class="cm"># Only provision VAPI if this manager has no existing config yet</span>
+    <span class="kw">from</span> app.db.session <span class="kw">import</span> get_service_db
+    svc_db = get_service_db()  <span class="cm"># service-role client for background task</span>
+    existing_config = (
+        svc_db.table(<span class="str">"manager_vapi_config"</span>)
+        .select(<span class="str">"id, vapi_provisioning_status"</span>)
+        .eq(<span class="str">"manager_id"</span>, user[<span class="str">"sub"</span>])
+        .limit(<span class="num">1</span>)
+        .execute()
+    )
+    <span class="kw">if not</span> existing_config.data:
+        svc_db.table(<span class="str">"manager_vapi_config"</span>).insert({
+            <span class="str">"manager_id"</span>: user[<span class="str">"sub"</span>],
+            <span class="str">"vapi_provisioning_status"</span>: <span class="str">"pending"</span>,
+        }).execute()
+        <span class="kw">from</span> app.services.vapi_provisioning <span class="kw">import</span> provision_vapi_for_manager
+        background_tasks.add_task(provision_vapi_for_manager, user[<span class="str">"sub"</span>], svc_db)
+</code></pre>
+    <p><code>user["sub"]</code> is the Supabase auth UID extracted from the JWT by <code>require_active_subscription</code>. Setting <code>manager_id = user["sub"]</code> is how RLS knows this row belongs to this user — Supabase's RLS policy checks <code>auth.uid() = manager_id</code>.</p>
+    <p>VAPI provisioning is only triggered once per manager (not per property group). The check <code>if not existing_config.data</code> ensures only the first group creation triggers provisioning — subsequent groups reuse the same phone number.</p>
+
+    <h3>DELETE /{property_id} — cascade delete</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.delete</span>(<span class="str">"/{property_id}"</span>, status_code=status.HTTP_204_NO_CONTENT)
+<span class="kw">async def</span> <span class="fn">delete_property_group</span>(property_id: str, ...):
+    <span class="cm"># Step 1: verify it exists (raises 404 if not)</span>
+    prop_resp = db.table(<span class="str">"properties_list"</span>).select(<span class="str">"id"</span>).eq(<span class="str">"id"</span>, property_id).execute()
+    <span class="kw">if not</span> prop_resp.data:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">"..."</span>)
+
+    <span class="cm"># Step 2: get all building IDs in this group</span>
+    buildings_resp = db.table(<span class="str">"buildings"</span>).select(<span class="str">"id"</span>).eq(<span class="str">"property_id"</span>, property_id).execute()
+    building_ids = [b[<span class="str">"id"</span>] <span class="kw">for</span> b <span class="kw">in</span> buildings_resp.data]
+
+    <span class="kw">if</span> building_ids:
+        <span class="cm"># Step 3: get all flat UUIDs + tenant UUIDs inside those buildings</span>
+        flats_resp = (
+            db.table(<span class="str">"flats"</span>)
+            .select(<span class="str">"id, uuid, tenant_uuid"</span>)
+            .in_(<span class="str">"building_id"</span>, building_ids)
+            .execute()
+        )
+        flat_uuids = [f[<span class="str">"uuid"</span>] <span class="kw">for</span> f <span class="kw">in</span> flats_resp.data <span class="kw">if</span> f.get(<span class="str">"uuid"</span>)]
+        tenant_uuids = [f[<span class="str">"tenant_uuid"</span>] <span class="kw">for</span> f <span class="kw">in</span> flats_resp.data <span class="kw">if</span> f.get(<span class="str">"tenant_uuid"</span>)]
+
+        <span class="cm"># Step 4: delete leaves first, then parents (never delete parent before child)</span>
+        <span class="kw">if</span> tenant_uuids:
+            db.table(<span class="str">"tenants"</span>).delete().in_(<span class="str">"uuid"</span>, tenant_uuids).execute()
+        <span class="kw">if</span> flat_uuids:
+            db.table(<span class="str">"rents"</span>).delete().in_(<span class="str">"flat_uuid"</span>, flat_uuids).execute()
+        db.table(<span class="str">"flats"</span>).delete().in_(<span class="str">"building_id"</span>, building_ids).execute()
+        db.table(<span class="str">"buildings"</span>).delete().eq(<span class="str">"property_id"</span>, property_id).execute()
+
+    <span class="cm"># Step 5: now safe to delete the root</span>
+    db.table(<span class="str">"properties_list"</span>).delete().eq(<span class="str">"id"</span>, property_id).execute()
+    <span class="kw">return</span> None  <span class="cm"># 204 No Content</span>
+</code></pre>
+    <p><code>.in_("building_id", building_ids)</code> is the Supabase SDK's equivalent of SQL <code>WHERE building_id IN (...)</code>. It accepts a Python list. This deletes all matching flats in a single query rather than one delete per flat.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="walkthrough-b">Section 4 — buildings.py Line by Line</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+    <h3>The <code>_enrich_buildings</code> helper</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">def</span> <span class="fn">_enrich_buildings</span>(buildings: list, all_flats: list) -> list:
+    <span class="cm">"""Merges unit count data from all_flats into buildings list."""</span>
+    unit_counts: dict[str, int] = {}
+    occupied_counts: dict[str, int] = {}
+
+    <span class="kw">for</span> flat <span class="kw">in</span> all_flats:
+        bid = flat.get(<span class="str">"building_id"</span>)
+        <span class="kw">if</span> bid:
+            unit_counts[bid] = unit_counts.get(bid, <span class="num">0</span>) + <span class="num">1</span>
+            <span class="kw">if</span> flat.get(<span class="str">"tenant_uuid"</span>):   <span class="cm"># tenant_uuid is set = occupied</span>
+                occupied_counts[bid] = occupied_counts.get(bid, <span class="num">0</span>) + <span class="num">1</span>
+
+    result = []
+    <span class="kw">for</span> b <span class="kw">in</span> buildings:
+        pt = b.get(<span class="str">"property_types"</span>) <span class="kw">or</span> {}
+        bid = str(b[<span class="str">"id"</span>])
+        result.append({
+            <span class="str">"id"</span>: b[<span class="str">"id"</span>],
+            <span class="str">"name"</span>: b[<span class="str">"name"</span>],
+            ...
+            <span class="str">"property_type_name"</span>: pt.get(<span class="str">"name"</span>),
+            <span class="str">"unit_count"</span>: unit_counts.get(bid, <span class="num">0</span>),
+            <span class="str">"occupied_count"</span>: occupied_counts.get(bid, <span class="num">0</span>),
+        })
+    <span class="kw">return</span> result
+</code></pre>
+    <p>This helper is extracted because the same merge logic is used by both <code>GET /buildings</code> and <code>GET /property-groups/{id}/buildings</code>. Extracting it prevents duplication. In Python, a function starting with <code>_</code> signals it is a module-private helper — not part of the public API, only used within this file.</p>
+
+    <h3>GET /buildings — 2-query pattern for all buildings</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">""</span>, response_model=List[BuildingResponse])
+<span class="kw">async def</span> <span class="fn">get_all_buildings</span>(user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
+    <span class="cm"># Query 1: all buildings + joined property_types</span>
+    buildings_resp = (
+        db.table(<span class="str">"buildings"</span>)
+        .select(<span class="str">"*, property_types(name, icon_type)"</span>)
+        .order(<span class="str">"name"</span>)
+        .execute()
+    )
+    <span class="cm"># Query 2: minimal flat data (building_id + tenant_uuid) for counting</span>
+    flats_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"building_id, tenant_uuid"</span>).execute()
+
+    <span class="cm"># Merge in Python</span>
+    <span class="kw">return</span> _enrich_buildings(buildings_resp.data, flats_resp.data)
+</code></pre>
+    <p>Only 2 queries total. <code>_enrich_buildings</code> receives both result sets and produces the merged response. The endpoint itself is just orchestration — collect data, merge, return.</p>
+
+    <h3>PATCH /{building_id} — partial update</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.patch</span>(<span class="str">"/{building_id}"</span>, response_model=BuildingResponse)
+<span class="kw">async def</span> <span class="fn">update_building</span>(building_id: str, request: BuildingUpdate, ...):
+    <span class="cm"># UUID fields must be converted to str for Supabase client</span>
+    payload = {k: str(v) <span class="kw">if isinstance</span>(v, UUID) <span class="kw">else</span> v
+               <span class="kw">for</span> k, v <span class="kw">in</span> request.model_dump(exclude_none=<span class="kw">True</span>).items()}
+
+    response = db.table(<span class="str">"buildings"</span>).update(payload).eq(<span class="str">"id"</span>, building_id).execute()
+    <span class="kw">if not</span> response.data:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">"Building not found"</span>)
+
+    b = response.data[<span class="num">0</span>]
+    pt = _fetch_property_type(db, b.get(<span class="str">"property_type_id"</span>))
+
+    <span class="cm"># Re-count units for this building (needed for response model)</span>
+    flats_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"tenant_uuid"</span>).eq(<span class="str">"building_id"</span>, building_id).execute()
+    units = flats_resp.data
+
+    <span class="kw">return</span> {
+        **b,
+        <span class="str">"property_type_name"</span>: pt.get(<span class="str">"name"</span>),
+        <span class="str">"property_type_icon"</span>: pt.get(<span class="str">"icon_type"</span>),
+        <span class="str">"unit_count"</span>: len(units),
+        <span class="str">"occupied_count"</span>: sum(<span class="num">1</span> <span class="kw">for</span> u <span class="kw">in</span> units <span class="kw">if</span> u.get(<span class="str">"tenant_uuid"</span>)),
+    }
+</code></pre>
+    <p>After a PATCH, the updated row is returned directly by Supabase (<code>response.data[0]</code>). The building's unit counts are re-queried to give the caller an accurate response — PATCH updates only the building row, so the counts must be fetched separately.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="bugs">Section 5 — Real Bugs We Hit</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+    <details>
+      <summary>Bug: Duplicate VAPI provisioning on every group creation</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> Manager creates 3 property groups → 3 VAPI assistants are provisioned → 3 phone numbers are charged → phone calls only work on one of them.</p>
+        <p><strong>Root cause:</strong> The original code called <code>provision_vapi_for_manager</code> inside every <code>POST /property-groups</code> — there was no check for an existing provisioning record.</p>
+        <p><strong>Fix:</strong> Added a guard that checks <code>manager_vapi_config</code> first. Only provision if no row exists for this manager:</p>
+      </div>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code>existing_config = (
+    svc_db.table(<span class="str">"manager_vapi_config"</span>)
+    .select(<span class="str">"id"</span>)
+    .eq(<span class="str">"manager_id"</span>, user[<span class="str">"sub"</span>])
+    .limit(<span class="num">1</span>)
+    .execute()
+)
+<span class="kw">if not</span> existing_config.data:  <span class="cm"># only on FIRST property group</span>
+    background_tasks.add_task(provision_vapi_for_manager, ...)
+</code></pre>
+    </details>
+
+    <details>
+      <summary>Bug: Background task fails because authenticated DB client is closed</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> VAPI provisioning silently fails. No error in the response (the request succeeded), but no phone number is ever assigned.</p>
+        <p><strong>Root cause:</strong> The background task was using the request-scoped <code>db</code> client (authenticated, user-JWT). FastAPI closes this client after the response is sent. The background task runs after the response — the client is gone.</p>
+        <p><strong>Fix:</strong> Background tasks must use a separately-created service-role client that is not tied to the request lifecycle:</p>
+      </div>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># WRONG — svc_db here is the request-scoped client, already closed</span>
+background_tasks.add_task(provision_vapi_for_manager, user[<span class="str">"sub"</span>], db)
+
+<span class="cm"># CORRECT — create a fresh service-role client before scheduling</span>
+<span class="kw">from</span> app.db.session <span class="kw">import</span> get_service_db
+svc_db = get_service_db()  <span class="cm"># fresh, independent of the request</span>
+background_tasks.add_task(provision_vapi_for_manager, user[<span class="str">"sub"</span>], svc_db)
+</code></pre>
+    </details>
+
+    <details>
+      <summary>Bug: CASCADE delete order violation — FK constraint error</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> <code>DELETE /property-groups/{id}</code> returns 500 with a PostgreSQL foreign key violation error.</p>
+        <p><strong>Root cause:</strong> The original code deleted buildings before deleting the flats inside them. Since flats have a FK to buildings (<code>flats.building_id → buildings.id</code>), the database rejected the building deletion.</p>
+        <p><strong>Fix:</strong> Strict deletion order — always delete child rows before parent rows:</p>
+      </div>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># WRONG order</span>
+db.table(<span class="str">"buildings"</span>).delete().execute()  <span class="cm"># flats still reference buildings → FK error</span>
+db.table(<span class="str">"flats"</span>).delete().execute()
+
+<span class="cm"># CORRECT order</span>
+db.table(<span class="str">"tenants"</span>).delete().in_(<span class="str">"uuid"</span>, tenant_uuids).execute()
+db.table(<span class="str">"rents"</span>).delete().in_(<span class="str">"flat_uuid"</span>, flat_uuids).execute()
+db.table(<span class="str">"flats"</span>).delete().in_(<span class="str">"building_id"</span>, building_ids).execute()
+db.table(<span class="str">"buildings"</span>).delete().eq(<span class="str">"property_id"</span>, property_id).execute()
+db.table(<span class="str">"properties_list"</span>).delete().eq(<span class="str">"id"</span>, property_id).execute()
+</code></pre>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="exercises">Section 6 — Exercises</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+    <h3>Exercise 1 <span class="badge badge-easy">Easy</span></h3>
+    <p>The <code>GET /property-groups</code> endpoint currently orders groups by <code>name</code>. Add an optional query parameter <code>sort_by</code> that accepts either <code>"name"</code> (default) or <code>"created_at"</code>, and an optional <code>sort_order</code> parameter (<code>"asc"</code> or <code>"desc"</code>).</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">from</span> fastapi <span class="kw">import</span> Query
+
+<span class="dec">@router.get</span>(<span class="str">""</span>, response_model=List[PropertyGroupResponse])
+<span class="kw">async def</span> <span class="fn">get_all_property_groups</span>(
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+    sort_by: str = Query(<span class="str">"name"</span>, description=<span class="str">"name | created_at"</span>),
+    sort_order: str = Query(<span class="str">"asc"</span>, description=<span class="str">"asc | desc"</span>),
+):
+    valid_sort = {<span class="str">"name"</span>, <span class="str">"created_at"</span>}
+    <span class="kw">if</span> sort_by <span class="kw">not in</span> valid_sort:
+        sort_by = <span class="str">"name"</span>
+    desc = sort_order.lower() == <span class="str">"desc"</span>
+
+    groups_resp = (
+        db.table(<span class="str">"properties_list"</span>)
+        .select(<span class="str">"*, property_types(name, icon_type)"</span>)
+        .order(sort_by, desc=desc)
+        .execute()
+    )
+    buildings_resp = db.table(<span class="str">"buildings"</span>).select(<span class="str">"property_id"</span>).execute()
+
+    count_map: dict[str, int] = {}
+    <span class="kw">for</span> b <span class="kw">in</span> buildings_resp.data:
+        pid = b.get(<span class="str">"property_id"</span>)
+        <span class="kw">if</span> pid:
+            count_map[str(pid)] = count_map.get(str(pid), <span class="num">0</span>) + <span class="num">1</span>
+
+    result = []
+    <span class="kw">for</span> g <span class="kw">in</span> groups_resp.data:
+        pt = g.get(<span class="str">"property_types"</span>) <span class="kw">or</span> {}
+        result.append({
+            <span class="str">"id"</span>: g[<span class="str">"id"</span>], <span class="str">"name"</span>: g[<span class="str">"name"</span>],
+            <span class="str">"description"</span>: g.get(<span class="str">"description"</span>), <span class="str">"address"</span>: g.get(<span class="str">"address"</span>),
+            <span class="str">"image_url"</span>: g.get(<span class="str">"image_url"</span>),
+            <span class="str">"property_type_id"</span>: g.get(<span class="str">"property_type_id"</span>),
+            <span class="str">"property_type_name"</span>: pt.get(<span class="str">"name"</span>),
+            <span class="str">"property_type_icon"</span>: pt.get(<span class="str">"icon_type"</span>),
+            <span class="str">"building_count"</span>: count_map.get(str(g[<span class="str">"id"</span>]), <span class="num">0</span>),
+            <span class="str">"created_at"</span>: g[<span class="str">"created_at"</span>],
+            <span class="str">"vapi_provisioning_status"</span>: g.get(<span class="str">"vapi_provisioning_status"</span>),
+            <span class="str">"vapi_phone_number"</span>: g.get(<span class="str">"vapi_phone_number"</span>),
+        })
+    <span class="kw">return</span> result
+</code></pre>
+    </details>
+
+    <h3>Exercise 2 <span class="badge badge-medium">Medium</span></h3>
+    <p>Add a <code>PATCH /property-groups/{property_id}</code> endpoint that allows updating <code>name</code>, <code>description</code>, <code>address</code>, and <code>image_url</code>. The endpoint should return the updated property group in the same format as the <code>GET /</code> response (with <code>building_count</code> and <code>property_type_name</code>).</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">class</span> <span class="typ">PropertyGroupUpdate</span>(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    address: Optional[str] = None
+    image_url: Optional[str] = None
+    property_type_id: Optional[UUID] = None
+
+
+<span class="dec">@router.patch</span>(<span class="str">"/{property_id}"</span>, response_model=PropertyGroupResponse)
+<span class="kw">async def</span> <span class="fn">update_property_group</span>(
+    property_id: str,
+    request: PropertyGroupUpdate,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    payload = {k: str(v) <span class="kw">if isinstance</span>(v, UUID) <span class="kw">else</span> v
+               <span class="kw">for</span> k, v <span class="kw">in</span> request.model_dump(exclude_unset=<span class="kw">True</span>).items()}
+
+    <span class="kw">if not</span> payload:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">400</span>, detail=<span class="str">"No fields to update"</span>)
+
+    response = db.table(<span class="str">"properties_list"</span>).update(payload).eq(<span class="str">"id"</span>, property_id).execute()
+    <span class="kw">if not</span> response.data:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">"Property group not found"</span>)
+
+    g = response.data[<span class="num">0</span>]
+    pt = {}
+    <span class="kw">if</span> g.get(<span class="str">"property_type_id"</span>):
+        pt_resp = db.table(<span class="str">"property_types"</span>).select(<span class="str">"name, icon_type"</span>).eq(<span class="str">"id"</span>, g[<span class="str">"property_type_id"</span>]).execute()
+        pt = pt_resp.data[<span class="num">0</span>] <span class="kw">if</span> pt_resp.data <span class="kw">else</span> {}
+
+    buildings_resp = db.table(<span class="str">"buildings"</span>).select(<span class="str">"id"</span>).eq(<span class="str">"property_id"</span>, property_id).execute()
+    building_count = len(buildings_resp.data)
+
+    <span class="kw">return</span> {
+        **g,
+        <span class="str">"property_type_name"</span>: pt.get(<span class="str">"name"</span>),
+        <span class="str">"property_type_icon"</span>: pt.get(<span class="str">"icon_type"</span>),
+        <span class="str">"building_count"</span>: building_count,
+    }
+</code></pre>
+    </details>
+
+    <h3>Exercise 3 <span class="badge badge-hard">Hard</span></h3>
+    <p>The cascade delete for a property group currently fails silently if one of the intermediate deletes raises an error — subsequent deletes still run even though the data is in a broken state. Refactor <code>delete_property_group</code> to wrap the entire cascade in a try/except that raises a clear 500 error if <em>any</em> intermediate step fails, and add a log message for each step so you can see exactly which step failed.</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.delete</span>(<span class="str">"/{property_id}"</span>, status_code=status.HTTP_204_NO_CONTENT)
+<span class="kw">async def</span> <span class="fn">delete_property_group</span>(property_id: str, user=Depends(require_active_subscription), db=Depends(get_authenticated_db)):
+    prop_resp = db.table(<span class="str">"properties_list"</span>).select(<span class="str">"id"</span>).eq(<span class="str">"id"</span>, property_id).execute()
+    <span class="kw">if not</span> prop_resp.data:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">f"Property group {property_id} not found"</span>)
+
+    buildings_resp = db.table(<span class="str">"buildings"</span>).select(<span class="str">"id"</span>).eq(<span class="str">"property_id"</span>, property_id).execute()
+    building_ids = [b[<span class="str">"id"</span>] <span class="kw">for</span> b <span class="kw">in</span> buildings_resp.data]
+
+    <span class="kw">try</span>:
+        <span class="kw">if</span> building_ids:
+            flats_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"id, uuid, tenant_uuid"</span>).in_(<span class="str">"building_id"</span>, building_ids).execute()
+            flat_uuids = [f[<span class="str">"uuid"</span>] <span class="kw">for</span> f <span class="kw">in</span> flats_resp.data <span class="kw">if</span> f.get(<span class="str">"uuid"</span>)]
+            tenant_uuids = [f[<span class="str">"tenant_uuid"</span>] <span class="kw">for</span> f <span class="kw">in</span> flats_resp.data <span class="kw">if</span> f.get(<span class="str">"tenant_uuid"</span>)]
+
+            <span class="kw">if</span> tenant_uuids:
+                print(<span class="str">f"[DELETE] Removing {len(tenant_uuids)} tenants"</span>)
+                db.table(<span class="str">"tenants"</span>).delete().in_(<span class="str">"uuid"</span>, tenant_uuids).execute()
+
+            <span class="kw">if</span> flat_uuids:
+                print(<span class="str">f"[DELETE] Removing rents for {len(flat_uuids)} flats"</span>)
+                db.table(<span class="str">"rents"</span>).delete().in_(<span class="str">"flat_uuid"</span>, flat_uuids).execute()
+
+            print(<span class="str">f"[DELETE] Removing flats in buildings {building_ids}"</span>)
+            db.table(<span class="str">"flats"</span>).delete().in_(<span class="str">"building_id"</span>, building_ids).execute()
+
+            print(<span class="str">f"[DELETE] Removing buildings for property {property_id}"</span>)
+            db.table(<span class="str">"buildings"</span>).delete().eq(<span class="str">"property_id"</span>, property_id).execute()
+
+        print(<span class="str">f"[DELETE] Removing property group {property_id}"</span>)
+        db.table(<span class="str">"properties_list"</span>).delete().eq(<span class="str">"id"</span>, property_id).execute()
+        <span class="kw">return</span> None
+
+    <span class="kw">except</span> HTTPException:
+        <span class="kw">raise</span>
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        print(<span class="str">f"[ERROR] Cascade delete failed at property {property_id}: {type(e).__name__}: {e}"</span>)
+        <span class="kw">raise</span> HTTPException(
+            status_code=<span class="num">500</span>,
+            detail=<span class="str">f"Cascade delete failed: {str(e)}"</span>
+        )
+</code></pre>
+    </details>
+
+    <div class="nav-buttons">
+      <a href="module_04_subscription_stripe.html" class="nav-btn">← Module 04: Subscription Gate</a>
+      <a href="module_06_flats_assignment.html" class="nav-btn">Next: Flats &amp; Assignment →</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Theme toggle
+  const themeToggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme') || 'dark';
+  root.setAttribute('data-theme', saved);
+  themeToggle.textContent = saved === 'dark' ? '🌙' : '☀️';
+  themeToggle.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    themeToggle.textContent = next === 'dark' ? '🌙' : '☀️';
+  });
+
+  // Back to top
+  const backToTop = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => {
+    backToTop.classList.toggle('visible', window.scrollY > 400);
+  });
+  backToTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+  // Copy button
+  function copyCode(btn) {
+    const code = btn.parentElement.querySelector('code').innerText;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+
+  // TOC generation
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2[id]').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+
+  // Progress bar from checkboxes
+  const checks = document.querySelectorAll('.section-check input[type="checkbox"]');
+  const fill = document.getElementById('progressFill');
+  const key = 'mod05-checks';
+  const saved_checks = JSON.parse(localStorage.getItem(key) || '{}');
+  checks.forEach((cb, i) => {
+    if (saved_checks[i]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      const state = {};
+      checks.forEach((c, j) => state[j] = c.checked);
+      localStorage.setItem(key, JSON.stringify(state));
+      const pct = (Object.values(state).filter(Boolean).length / checks.length) * 100;
+      fill.style.width = pct + '%';
+    });
+  });
+  const initPct = (Object.values(saved_checks).filter(Boolean).length / checks.length) * 100;
+  fill.style.width = (isNaN(initPct) ? 0 : initPct) + '%';
+
+  // Active TOC highlight
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+</script>
+</body>
+</html>

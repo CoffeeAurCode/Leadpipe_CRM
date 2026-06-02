@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 06 — Flats & Tenant Assignment | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --accent-hover: #89b4fa; --success: #9ece6a;
+      --warning: #e0af68; --error: #f7768e; --border: #3b4261;
+      --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3);
+      --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --accent-hover: #0550ae; --success: #1a7f37;
+      --warning: #9a6700; --error: #cf222e; --border: #d0d7de;
+      --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; transition: transform 0.3s; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0; font-size: 0.85rem; border-left: 2px solid transparent; padding-left: 0.5rem; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-secondary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; } .var { color: #c0caf5; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; } [data-theme="light"] .var { color: #24292f; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .lang-label { position: absolute; top: 0.4rem; right: 3.5rem; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-family: var(--font-sans); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; box-shadow: var(--shadow); }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-warning { border-left: 4px solid var(--warning); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-error { border-left: 4px solid var(--error); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; color: var(--text-primary); }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .badge-concept { background: #7aa2f722; color: var(--accent); border: 1px solid var(--accent); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .nav-btn.disabled { opacity: 0.4; pointer-events: none; }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .breadcrumbs a:hover { color: var(--accent); }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: all 0.3s; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { background: var(--bg-secondary); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { border-left: 4px solid var(--warning); }
+    .callout-info { border-left: 4px solid var(--accent); }
+    .callout-success { border-left: 4px solid var(--success); }
+    .callout p { margin: 0; }
+    @media print {
+      .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; }
+      .main-content { margin-left: 0 !important; }
+      body { color: #000; background: #fff; }
+      pre { border: 1px solid #ccc; }
+      details, details > * { display: block; }
+      h2 { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 06</h3>
+  <div id="toc"></div>
+</nav>
+
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content">
+  <div class="container">
+
+    <div class="breadcrumbs">
+      <a href="index.html">Home</a> › <strong>Module 06 — Flats &amp; Tenant Assignment</strong>
+    </div>
+
+    <h1>Module 06 — Flats &amp; Tenant Assignment</h1>
+    <div class="meta-row">
+      <span>⏱ Estimated time: 75 minutes</span>
+      <span>📁 Files: <code>routes/flats.py</code>, <code>schemas/flat.py</code></span>
+      <span>🔰 Prerequisites: Modules 00–05</span>
+    </div>
+
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div class="nav-buttons">
+      <a href="module_05_property_groups_buildings.html" class="nav-btn">← Module 05: Property Groups</a>
+      <a href="module_07_tenants_computed.html" class="nav-btn">Next: Tenants &amp; Computed Fields →</a>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+    <p>This module covers the <strong>flats</strong> layer — the individual units inside buildings. A flat is the entity that ties together a physical location (building_id), a resident (tenant_uuid), and a complaint history. The trickiest part is the <strong>bidirectional foreign key</strong>: both <code>flats.tenant_uuid</code> and <code>tenants.flat_uuid</code> point at each other, and you must keep them in sync.</p>
+
+    <div class="diagram">
+Bidirectional FK (the "married couple" pattern)
+────────────────────────────────────────────────
+flats table                  tenants table
+──────────────────           ──────────────────────
+uuid  PK                     uuid  PK
+flat_number  UNIQUE          name
+building_id  FK→buildings    phone  UNIQUE
+tenant_uuid  FK→tenants.uuid flat_uuid  FK→flats.uuid
+occupied     bool
+
+When you ASSIGN a tenant to a flat, you must update BOTH:
+  UPDATE flats  SET tenant_uuid = 'tenant-uuid', occupied = true  WHERE uuid = 'flat-uuid'
+  UPDATE tenants SET flat_uuid  = 'flat-uuid'                    WHERE uuid = 'tenant-uuid'
+
+When you UNASSIGN:
+  UPDATE tenants SET flat_uuid  = NULL                           WHERE uuid = 'tenant-uuid'
+  UPDATE flats  SET tenant_uuid = NULL, occupied = false         WHERE uuid = 'flat-uuid'
+    </div>
+
+    <p>This module also covers two VAPI integration endpoints (<code>/verify-phone</code> and <code>/identify-caller</code>) that must always return HTTP 200, and the <code>_clean_db_error</code> helper that translates PostgreSQL error codes into human-readable messages.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+    <details open>
+      <summary>Bidirectional FK — Why Two Pointers?</summary>
+      <p>In a strict normalized schema, you would have only one FK: either <code>flats.tenant_uuid</code> OR <code>tenants.flat_uuid</code>, not both. Having both creates <em>data redundancy</em> — two columns storing the same relationship.</p>
+      <p>This codebase uses both intentionally for two different access patterns:</p>
+      <ul>
+        <li><strong>Starting from a flat:</strong> <code>flat.tenant_uuid</code> — "who lives here?" — one lookup, no join</li>
+        <li><strong>Starting from a tenant:</strong> <code>tenant.flat_uuid</code> — "where does this person live?" — one lookup, no join</li>
+      </ul>
+      <p>The cost: any write that changes the relationship must update <em>both</em> rows atomically. If you update one but not the other (e.g. server crash mid-operation), the data is corrupted. This is why assign and unassign always do two updates in sequence.</p>
+      <div class="callout callout-warning">
+        <p><strong>Supabase limitation:</strong> PostgREST does not support multi-table transactions in a single HTTP call. The two updates are separate API calls with no rollback. If the second update fails, the first is already committed. In practice this is acceptable for an MVP but would need a Postgres function (RPC) for production-grade atomicity.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Input Normalization — <code>.strip().upper()</code></summary>
+      <p>Flat numbers are typed by humans. Humans are inconsistent. A flat registered as "A-101" might be queried as "a-101", " A-101 ", or "a101". Without normalization, these all fail to match.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># All these should match the stored flat "A-101"</span>
+<span class="cm"># Without normalization: only exact match works</span>
+<span class="cm"># With normalization: all work</span>
+
+flat_number_normalized = flat_number.strip().upper()
+<span class="cm"># " a-101 " → "A-101" ✓</span>
+<span class="cm"># "a-101"   → "A-101" ✓</span>
+<span class="cm"># "A-101"   → "A-101" ✓</span>
+
+<span class="cm"># Also used in queries with ilike (case-insensitive LIKE)</span>
+db.table(<span class="str">"flats"</span>).select(<span class="str">"*"</span>).ilike(<span class="str">"flat_number"</span>, normalized_flat).execute()
+</code></pre>
+      <p><code>ilike</code> is PostgreSQL's case-insensitive string match. Combined with <code>.strip().upper()</code> on the input, every flat lookup is whitespace-tolerant and case-insensitive. This pattern appears in every route that accepts a flat number from outside.</p>
+    </details>
+
+    <details>
+      <summary>PostgreSQL Error Codes and <code>_clean_db_error</code></summary>
+      <p>When a database constraint is violated, PostgreSQL raises an exception with a numeric error code. Without handling, these leak raw error messages like <code>"duplicate key value violates unique constraint 'flats_flat_number_key'"</code> to the API caller. This is confusing and exposes schema details.</p>
+      <p>The <code>_clean_db_error</code> helper maps the three most common codes to human-readable messages:</p>
+      <table>
+        <thead><tr><th>Error Code</th><th>PostgreSQL meaning</th><th>Human message</th></tr></thead>
+        <tbody>
+          <tr><td><code>42501</code></td><td>INSUFFICIENT PRIVILEGE (RLS policy denied)</td><td>"Permission denied: you are not authorized..."</td></tr>
+          <tr><td><code>23505</code></td><td>UNIQUE VIOLATION (duplicate record)</td><td>"This record already exists."</td></tr>
+          <tr><td><code>23503</code></td><td>FOREIGN KEY VIOLATION (referenced row missing)</td><td>"A required related record does not exist."</td></tr>
+        </tbody>
+      </table>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">def</span> <span class="fn">_clean_db_error</span>(e: Exception) -> str:
+    code = str(getattr(e, <span class="str">'code'</span>, <span class="str">''</span>))
+    <span class="kw">if</span> <span class="str">'42501'</span> <span class="kw">in</span> code <span class="kw">or</span> <span class="str">'42501'</span> <span class="kw">in</span> str(e):
+        <span class="kw">return</span> <span class="str">"Permission denied: you are not authorized..."</span>
+    <span class="kw">if</span> <span class="str">'23505'</span> <span class="kw">in</span> code <span class="kw">or</span> <span class="str">'23505'</span> <span class="kw">in</span> str(e):
+        <span class="kw">return</span> <span class="str">"This record already exists."</span>
+    <span class="kw">if</span> <span class="str">'23503'</span> <span class="kw">in</span> code <span class="kw">or</span> <span class="str">'23503'</span> <span class="kw">in</span> str(e):
+        <span class="kw">return</span> <span class="str">"A required related record does not exist."</span>
+    <span class="cm"># Fall back to the raw message from the exception if it's a string</span>
+    msg = getattr(e, <span class="str">'message'</span>, None)
+    <span class="kw">if</span> msg <span class="kw">and isinstance</span>(msg, str):
+        <span class="kw">return</span> msg
+    <span class="kw">return</span> <span class="str">"A database error occurred. Please try again."</span>
+</code></pre>
+      <p>The code checks both <code>e.code</code> (Supabase client attribute) and <code>str(e)</code> (the exception string) for the error code string. This is necessary because different versions of the Supabase Python client surface the code in different ways.</p>
+    </details>
+
+    <details>
+      <summary>Service-Role Client for Flat INSERT — Why?</summary>
+      <p>The <code>POST /flats</code> endpoint uses the <em>service-role</em> client to insert the flat, even though it also uses the authenticated client for queries. Why?</p>
+      <p>Supabase RLS INSERT policies can be restrictive. The flats table might have a policy that prevents inserting rows via the anon key if the user doesn't have explicit write permission. The service-role key bypasses all RLS policies, guaranteeing the insert works regardless of policy configuration.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.post</span>(<span class="str">""</span>)
+<span class="kw">async def</span> <span class="fn">create_flat</span>(
+    ...
+    db: Client = Depends(get_authenticated_db),   <span class="cm"># for reads (RLS-filtered)</span>
+    svc: Client = Depends(get_service_db),         <span class="cm"># for writes (bypasses RLS)</span>
+):
+    <span class="cm"># Reads use RLS-enforced client — only sees this manager's data</span>
+    existing = db.table(<span class="str">"flats"</span>).select(<span class="str">"*"</span>).eq(<span class="str">"flat_number"</span>, normalized).execute()
+
+    <span class="cm"># Insert uses service-role client — guaranteed to work</span>
+    flat_response = svc.table(<span class="str">"flats"</span>).insert(flat_payload).execute()
+</code></pre>
+      <div class="callout callout-warning">
+        <p><strong>Security note:</strong> Using service-role for writes is safe here because the route is still protected by <code>require_active_subscription</code> — unauthenticated users can't reach this endpoint. The service-role bypass is only to satisfy the INSERT policy, not to skip authentication.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Route Ordering — VAPI endpoint MUST come before <code>/{flat_number}</code></summary>
+      <p>FastAPI matches routes in the order they are registered. Consider these two routes:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># If registered in this order:</span>
+<span class="dec">@router.get</span>(<span class="str">"/{flat_number}"</span>)    <span class="cm"># dynamic — matches ANY string</span>
+<span class="dec">@router.post</span>(<span class="str">"/verify-phone"</span>)  <span class="cm"># literal — matches only "verify-phone"</span>
+
+<span class="cm"># Request: POST /flats/verify-phone</span>
+<span class="cm"># FastAPI would try to match /{flat_number} first → flat_number="verify-phone"</span>
+<span class="cm"># The verify-phone handler is NEVER reached!</span>
+</code></pre>
+      <p>The fix in <code>flats.py</code>: VAPI endpoints (<code>/verify-phone</code>, <code>/identify-caller</code>) are defined at the top of the file, before any dynamic path routes like <code>/{flat_number}</code>. FastAPI matches routes top-to-bottom.</p>
+      <div class="callout callout-info">
+        <p><strong>Rule:</strong> Always register specific literal paths before dynamic <code>/{param}</code> paths. This pattern comes up in both <code>flats.py</code> and <code>appointments.py</code>.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Phone Normalization — Country Code Problem</summary>
+      <p>VAPI passes the caller's phone number in E.164 format: <code>+919998064026</code>. But the tenant's phone might be stored as <code>9998064026</code> (without country code). A simple equality check would fail.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">import</span> re
+
+<span class="kw">def</span> <span class="fn">_digits_only</span>(phone: str) -> str:
+    <span class="str">"""Strip everything except digits."""</span>
+    <span class="kw">return</span> re.sub(<span class="str">r"\D"</span>, <span class="str">""</span>, phone)
+
+
+<span class="kw">def</span> <span class="fn">_phones_match</span>(a: str, b: str) -> bool:
+    <span class="str">"""
+    Compare two phone numbers flexibly.
+    Normalises both to digits only, then checks whether
+    either is a SUFFIX of the other.
+
+    +919998064026  vs  9998064026  → digits: 919998064026 vs 9998064026
+                                   → 919998064026.endswith("9998064026") → True ✓
+    """</span>
+    da, db_ = _digits_only(a), _digits_only(b)
+    <span class="kw">if not</span> da <span class="kw">or not</span> db_:
+        <span class="kw">return False</span>
+    <span class="kw">return</span> da.endswith(db_) <span class="kw">or</span> db_.endswith(da)
+</code></pre>
+      <p>The suffix check handles both directions: VAPI number has country code but DB doesn't, or DB has country code but VAPI doesn't. It also handles cases where both have or both lack the country code.</p>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="walkthrough-vapi">Section 3 — VAPI Endpoints</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+    <h3>POST /flats/verify-phone</h3>
+    <p>This is called by VAPI as an API Request tool when a caller says their flat number. VAPI sends the flat number in the request body and the caller's phone in the query string.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.post</span>(<span class="str">"/verify-phone"</span>, response_model=FlatVerifyPhoneResponse)
+<span class="kw">async def</span> <span class="fn">verify_phone</span>(
+    request: FlatVerifyPhoneRequest,
+    phone_number: Optional[str] = Query(None),  <span class="cm"># from VAPI: {{customer.number}}</span>
+    db: Client = Depends(get_service_db),        <span class="cm"># service-role: no JWT from VAPI</span>
+):
+    <span class="cm"># CRITICAL: never raise, always return FlatVerifyPhoneResponse</span>
+    <span class="kw">try</span>:
+        <span class="kw">if not</span> request.flat_number:
+            <span class="kw">return</span> FlatVerifyPhoneResponse(
+                result=<span class="str">"Verification failed: no flat number provided."</span>,
+                status=<span class="str">"invalid"</span>
+            )
+
+        normalized_flat = request.flat_number.strip().upper()
+
+        <span class="cm"># 1. Lookup flat (include building_id for property_group resolution)</span>
+        flat_resp = (
+            db.table(<span class="str">"flats"</span>)
+            .select(<span class="str">"uuid, tenant_uuid, building_id"</span>)
+            .ilike(<span class="str">"flat_number"</span>, normalized_flat)
+            .execute()
+        )
+        <span class="kw">if not</span> flat_resp.data:
+            <span class="kw">return</span> FlatVerifyPhoneResponse(
+                result=<span class="str">"Verification failed: flat not found."</span>, status=<span class="str">"invalid"</span>
+            )
+
+        flat = flat_resp.data[<span class="num">0</span>]
+        flat_uuid = flat[<span class="str">"uuid"</span>]
+
+        <span class="cm"># 2. Find tenant — primary: flat_uuid FK; fallback: flat.tenant_uuid</span>
+        tenant_resp = (
+            db.table(<span class="str">"tenants"</span>).select(<span class="str">"phone"</span>).eq(<span class="str">"flat_uuid"</span>, flat_uuid).execute()
+        )
+        <span class="kw">if not</span> tenant_resp.data <span class="kw">and</span> flat.get(<span class="str">"tenant_uuid"</span>):
+            tenant_resp = (
+                db.table(<span class="str">"tenants"</span>).select(<span class="str">"phone"</span>).eq(<span class="str">"uuid"</span>, flat[<span class="str">"tenant_uuid"</span>]).execute()
+            )
+
+        <span class="kw">if not</span> tenant_resp.data:
+            <span class="kw">return</span> FlatVerifyPhoneResponse(
+                result=<span class="str">"Verification result: vacant."</span>, status=<span class="str">"vacant"</span>
+            )
+
+        <span class="cm"># 3. Compare phones using flexible suffix-match</span>
+        tenant_phone = tenant_resp.data[<span class="num">0</span>].get(<span class="str">"phone"</span>, <span class="str">""</span>)
+        match = _phones_match(phone_number, tenant_phone)
+
+        <span class="kw">if</span> match:
+            current_time_ist = datetime.now(IST).strftime(<span class="str">"%Y-%m-%dT%H:%M:%S"</span>)
+
+            <span class="cm"># Resolve property_group_id: flat → building → property_group</span>
+            property_group_id = None
+            <span class="kw">if</span> flat.get(<span class="str">"building_id"</span>):
+                bldg_resp = (
+                    db.table(<span class="str">"buildings"</span>)
+                    .select(<span class="str">"property_id"</span>)
+                    .eq(<span class="str">"id"</span>, flat[<span class="str">"building_id"</span>])
+                    .limit(<span class="num">1</span>)
+                    .execute()
+                )
+                <span class="kw">if</span> bldg_resp.data:
+                    property_group_id = str(bldg_resp.data[<span class="num">0</span>][<span class="str">"property_id"</span>])
+
+            <span class="kw">return</span> FlatVerifyPhoneResponse(
+                result=<span class="str">f"Verification result: valid. Current IST time: {current_time_ist}."</span>,
+                status=<span class="str">"valid"</span>,
+                datetime=current_time_ist,
+                property_group_id=property_group_id,
+            )
+
+        <span class="kw">return</span> FlatVerifyPhoneResponse(
+            result=<span class="str">"Verification failed: phone does not match."</span>,
+            status=<span class="str">"invalid"</span>
+        )
+
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        print(<span class="str">f"[ERROR] verify_phone failed: {type(e).__name__}: {e}"</span>)
+        <span class="cm"># Never raise — return a safe error response</span>
+        <span class="kw">return</span> FlatVerifyPhoneResponse(
+            result=<span class="str">"Verification failed due to an internal error."</span>, status=<span class="str">"invalid"</span>
+        )
+</code></pre>
+
+    <p>Three statuses are possible: <code>"valid"</code> (phone matches registered tenant), <code>"invalid"</code> (flat not found, phone mismatch, or error), and <code>"vacant"</code> (flat exists but has no tenant). VAPI reads the <code>status</code> field to decide what to say to the caller.</p>
+
+    <p>The two-step tenant lookup (first by <code>flat_uuid</code>, fallback to <code>flat.tenant_uuid</code>) exists because data created in different sessions may have only one of the two FK directions set. The fallback guards against historical data inconsistency.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="walkthrough-crud">Section 4 — Flat CRUD Line by Line</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+    <h3>POST /flats — multi-step create with image upload</h3>
+    <p>Creating a flat is the most complex operation in this file. It has 6 numbered steps:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.post</span>(<span class="str">""</span>, response_model=FlatResponse, status_code=<span class="num">201</span>)
+<span class="kw">async def</span> <span class="fn">create_flat</span>(
+    flat_number: str = Form(...),           <span class="cm"># Form fields (not JSON body)</span>
+    address: Optional[str] = Form(None),   <span class="cm"># because request may include a file</span>
+    ...
+    image: Optional[UploadFile] = File(None),
+    db: Client = Depends(get_authenticated_db),
+    svc: Client = Depends(get_service_db),
+):
+    image_url = None
+    uploaded_filename = None  <span class="cm"># track for cleanup on failure</span>
+
+    <span class="cm"># STEP 1: Upload image to Supabase Storage if provided</span>
+    <span class="kw">if</span> image:
+        contents = <span class="kw">await</span> image.read()
+        file_ext = image.filename.split(<span class="str">'.'</span>)[<span class="op">-</span><span class="num">1</span>]
+        uploaded_filename = <span class="str">f"{uuid4()}.{file_ext}"</span>
+        svc.storage.from_(<span class="str">"Property Pics"</span>).upload(
+            uploaded_filename, contents, {<span class="str">"content-type"</span>: image.content_type}
+        )
+        image_url = svc.storage.from_(<span class="str">"Property Pics"</span>).get_public_url(uploaded_filename)
+
+    <span class="cm"># STEP 2: Validate and normalize</span>
+    flat_number_normalized = flat_number.strip().upper()
+
+    <span class="cm"># STEP 3: Check for duplicates BEFORE any DB writes</span>
+    existing_flat = db.table(<span class="str">"flats"</span>).select(<span class="str">"*"</span>).eq(<span class="str">"flat_number"</span>, flat_number_normalized).execute()
+    <span class="kw">if</span> existing_flat.data:
+        <span class="cm"># Clean up uploaded image before raising error</span>
+        <span class="kw">if</span> uploaded_filename:
+            svc.storage.from_(<span class="str">"Property Pics"</span>).remove([uploaded_filename])
+        <span class="kw">raise</span> HTTPException(<span class="num">400</span>, detail=<span class="str">f"Flat {flat_number_normalized} already exists"</span>)
+
+    <span class="cm"># STEP 4: Create the flat (uses service-role to bypass INSERT policy)</span>
+    flat_payload = {
+        <span class="str">"flat_number"</span>: flat_number_normalized,
+        <span class="str">"image_url"</span>: image_url,
+        <span class="str">"building_id"</span>: building_id,
+        <span class="str">"tenant_uuid"</span>: None,
+        <span class="str">"occupied"</span>: <span class="kw">False</span>,
+        ...
+    }
+    flat_response = svc.table(<span class="str">"flats"</span>).insert(flat_payload).execute()
+    flat = flat_response.data[<span class="num">0</span>]
+    flat_uuid = flat[<span class="str">"uuid"</span>]
+
+    <span class="cm"># STEP 4.5: Initialize feature flags (non-blocking — errors are logged only)</span>
+    <span class="kw">try</span>:
+        feature_service = FeatureService(db)
+        <span class="kw">await</span> feature_service.initialize_unit_features(flat[<span class="str">"id"</span>])
+    <span class="kw">except</span> Exception <span class="kw">as</span> f_err:
+        print(<span class="str">f"[FEATURE INIT ERROR] {f_err}"</span>)
+
+    <span class="cm"># STEP 5: Create and link tenant if provided</span>
+    tenant_info = None
+    <span class="kw">if</span> tenant_name <span class="kw">and</span> tenant_phone:
+        tenant_payload = {<span class="str">"name"</span>: tenant_name.strip(), <span class="str">"phone"</span>: tenant_phone.strip(), <span class="str">"flat_uuid"</span>: flat_uuid}
+        tenant_response = db.table(<span class="str">"tenants"</span>).insert(tenant_payload).execute()
+        <span class="kw">if</span> tenant_response.data:
+            tenant_info = tenant_response.data[<span class="num">0</span>]
+            <span class="cm"># Bidirectional link: update flat to point at new tenant</span>
+            db.table(<span class="str">"flats"</span>).update({
+                <span class="str">"tenant_uuid"</span>: tenant_info[<span class="str">"uuid"</span>], <span class="str">"occupied"</span>: <span class="kw">True</span>
+            }).eq(<span class="str">"uuid"</span>, flat_uuid).execute()
+
+    <span class="cm"># STEP 6: Return flat with nested tenant details</span>
+    <span class="kw">return</span> {**flat, <span class="str">"tenant"</span>: tenant_info}
+</code></pre>
+    <p>The duplicate check (Step 3) happens before any DB writes. This ensures that if the flat already exists, we clean up the uploaded image and return a 400 error without leaving orphaned data in storage.</p>
+    <p>The outer <code>try/except</code> at the bottom of the function calls <code>svc.storage.from_("Property Pics").remove([uploaded_filename])</code> if an unexpected error happens at any step — this prevents orphaned images accumulating in storage.</p>
+
+    <h3>PATCH /{flat_uuid}/assign-tenant</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.patch</span>(<span class="str">"/{flat_uuid}/assign-tenant"</span>)
+<span class="kw">async def</span> <span class="fn">assign_tenant</span>(flat_uuid: str, body: AssignTenantRequest, ...):
+    <span class="cm"># Guard 1: flat must exist</span>
+    flat_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid, tenant_uuid"</span>).eq(<span class="str">"uuid"</span>, flat_uuid).execute()
+    <span class="kw">if not</span> flat_resp.data:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">"Flat not found"</span>)
+
+    <span class="cm"># Guard 2: flat must be vacant</span>
+    <span class="kw">if</span> flat_resp.data[<span class="num">0</span>].get(<span class="str">"tenant_uuid"</span>):
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">400</span>, detail=<span class="str">"Flat is already occupied"</span>)
+
+    <span class="cm"># Bidirectional update: both sides of the FK</span>
+    db.table(<span class="str">"flats"</span>).update({
+        <span class="str">"tenant_uuid"</span>: body.tenant_uuid, <span class="str">"occupied"</span>: <span class="kw">True</span>
+    }).eq(<span class="str">"uuid"</span>, flat_uuid).execute()
+
+    db.table(<span class="str">"tenants"</span>).update({
+        <span class="str">"flat_uuid"</span>: flat_uuid
+    }).eq(<span class="str">"uuid"</span>, body.tenant_uuid).execute()
+
+    <span class="kw">return</span> {<span class="str">"success"</span>: <span class="kw">True</span>}
+</code></pre>
+
+    <h3>PATCH /{flat_uuid}/unassign-tenant</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.patch</span>(<span class="str">"/{flat_uuid}/unassign-tenant"</span>)
+<span class="kw">async def</span> <span class="fn">unassign_tenant</span>(flat_uuid: str, ...):
+    flat_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid, tenant_uuid"</span>).eq(<span class="str">"uuid"</span>, flat_uuid).execute()
+    <span class="kw">if not</span> flat_resp.data:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">"Flat not found"</span>)
+
+    tenant_uuid = flat_resp.data[<span class="num">0</span>].get(<span class="str">"tenant_uuid"</span>)
+    <span class="kw">if</span> tenant_uuid:
+        <span class="cm"># Clear tenant side first</span>
+        db.table(<span class="str">"tenants"</span>).update({<span class="str">"flat_uuid"</span>: None}).eq(<span class="str">"uuid"</span>, tenant_uuid).execute()
+
+    <span class="cm"># Then clear flat side</span>
+    db.table(<span class="str">"flats"</span>).update({
+        <span class="str">"tenant_uuid"</span>: None, <span class="str">"occupied"</span>: <span class="kw">False</span>
+    }).eq(<span class="str">"uuid"</span>, flat_uuid).execute()
+
+    <span class="kw">return</span> {<span class="str">"success"</span>: <span class="kw">True</span>}
+</code></pre>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="schemas">Section 5 — schemas/flat.py</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">class</span> <span class="typ">FlatResponse</span>(FlatBase):
+    id: int              <span class="cm"># integer PK (auto-increment, used in some legacy joins)</span>
+    uuid: UUID           <span class="cm"># UUID PK (used in all new code)</span>
+    created_at: datetime
+    image_url: Optional[str] = None
+    tenant_uuid: Optional[UUID] = None      <span class="cm"># FK → tenants</span>
+    tenant: Optional[TenantResponse] = None  <span class="cm"># nested — populated on flat detail fetches</span>
+    building_id: Optional[UUID] = None      <span class="cm"># FK → buildings</span>
+    property_type_id: Optional[UUID] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+<span class="kw">class</span> <span class="typ">FlatVerifyPhoneRequest</span>(BaseModel):
+    flat_number: Optional[str] = Field(None)
+    phone_number: Optional[str] = Field(None)  <span class="cm"># filled by VAPI from call metadata</span>
+
+
+<span class="kw">class</span> <span class="typ">FlatVerifyPhoneResponse</span>(BaseModel):
+    result: str               <span class="cm"># plain-English — the LLM reads this directly</span>
+    status: str               <span class="cm"># "valid" | "invalid" | "vacant" — for variable extraction</span>
+    datetime: Optional[str] = None          <span class="cm"># IST time, only on "valid" responses</span>
+    property_group_id: Optional[str] = None  <span class="cm"># UUID of property group, only on "valid"</span>
+</code></pre>
+    <p>The split between <code>result</code> (natural language) and <code>status</code> (machine-readable) in <code>FlatVerifyPhoneResponse</code> is a deliberate design decision. VAPI's LLM reads <code>result</code> to formulate its spoken response. VAPI's variable extraction reads <code>status</code> to make branching decisions in the conversation flow. One field serves the human, the other serves the machine.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="bugs">Section 6 — Real Bugs We Hit</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+    <details>
+      <summary>Bug: VAPI couldn't reach /verify-phone — 404 at the wrong endpoint</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> VAPI tool calls to <code>POST /flats/verify-phone</code> returned 404 or matched the wrong route. The flat lookup was returning results for a flat literally named "verify-phone".</p>
+        <p><strong>Root cause:</strong> <code>@router.get("/{flat_number}")</code> was registered before <code>@router.post("/verify-phone")</code>. FastAPI matched <code>flat_number="verify-phone"</code> instead of the literal route.</p>
+        <p><strong>Fix:</strong> Move all literal-path VAPI endpoints to the <strong>top</strong> of the router file, before any <code>/{param}</code> routes. Added a comment block explaining this constraint.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Bug: Phone verification failed for Indian numbers (country code prefix)</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> Tenants calling their own number were told "phone does not match". DB had <code>9998064026</code>, VAPI sent <code>+919998064026</code>.</p>
+        <p><strong>Root cause:</strong> Original code used <code>tenant_phone == phone_number</code> (exact match). Failed for every caller with a country code prefix.</p>
+        <p><strong>Fix:</strong> Replaced with <code>_phones_match()</code> using digit-only suffix comparison. Also handles edge cases: empty strings, None values, and numbers stored with or without country code.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Bug: Orphaned image in Supabase Storage after duplicate flat error</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> Manager uploads a photo while creating flat "A-101", but A-101 already exists. API returns 400. The image file was already uploaded — it now sits in storage with no reference and accumulates over time.</p>
+        <p><strong>Root cause:</strong> Image upload (Step 1) happened before the duplicate check (Step 3).</p>
+        <p><strong>Fix:</strong> Added cleanup before every raise in the duplicate check and in the outer catch block. Track the uploaded filename in <code>uploaded_filename</code> so cleanup knows what to remove.</p>
+      </div>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">if</span> existing_flat.data:
+    <span class="kw">if</span> uploaded_filename:  <span class="cm"># clean up before raising</span>
+        <span class="kw">try</span>:
+            svc.storage.from_(<span class="str">"Property Pics"</span>).remove([uploaded_filename])
+        <span class="kw">except</span>:
+            <span class="kw">pass</span>  <span class="cm"># storage cleanup failure is non-fatal</span>
+    <span class="kw">raise</span> HTTPException(<span class="num">400</span>, detail=<span class="str">f"Flat {flat_number_normalized} already exists"</span>)
+</code></pre>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="exercises">Section 7 — Exercises</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s7"><label for="chk-s7">Mark complete</label></div>
+
+    <h3>Exercise 1 <span class="badge badge-easy">Easy</span></h3>
+    <p>The <code>GET /flats</code> endpoint has an optional <code>vacant</code> query parameter. Add a second query parameter <code>building_id</code> that, when provided, filters flats to only those belonging to the specified building. Return only flats in that building.</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">""</span>, response_model=list[FlatResponse])
+<span class="kw">async def</span> <span class="fn">get_all_flats</span>(
+    vacant: Optional[bool] = Query(None),
+    building_id: Optional[str] = Query(None),  <span class="cm"># new parameter</span>
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    query = db.table(<span class="str">"flats"</span>).select(<span class="str">"*"</span>).order(<span class="str">"address"</span>).order(<span class="str">"flat_number"</span>)
+    <span class="kw">if</span> vacant:
+        query = query.is_(<span class="str">"tenant_uuid"</span>, <span class="str">"null"</span>)
+    <span class="kw">if</span> building_id:
+        query = query.eq(<span class="str">"building_id"</span>, building_id)
+    response = query.execute()
+    <span class="kw">return</span> response.data
+</code></pre>
+    </details>
+
+    <h3>Exercise 2 <span class="badge badge-medium">Medium</span></h3>
+    <p>Write a new endpoint <code>GET /flats/{flat_uuid}/tenant</code> that returns just the tenant assigned to a flat. If the flat has no tenant, return <code>{"exists": false}</code>. If it does have a tenant, return <code>{"exists": true, "tenant": {...}}</code>. This endpoint should always return HTTP 200 (VAPI-safe pattern).</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">"/{flat_uuid}/tenant"</span>)
+<span class="kw">async def</span> <span class="fn">get_flat_tenant</span>(
+    flat_uuid: str,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    <span class="kw">try</span>:
+        flat_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid, tenant_uuid"</span>).eq(<span class="str">"uuid"</span>, flat_uuid).execute()
+        <span class="kw">if not</span> flat_resp.data:
+            <span class="kw">return</span> {<span class="str">"exists"</span>: <span class="kw">False</span>, <span class="str">"message"</span>: <span class="str">"Flat not found"</span>}
+
+        flat = flat_resp.data[<span class="num">0</span>]
+        tenant_uuid = flat.get(<span class="str">"tenant_uuid"</span>)
+
+        <span class="kw">if not</span> tenant_uuid:
+            <span class="kw">return</span> {<span class="str">"exists"</span>: <span class="kw">False</span>}
+
+        tenant_resp = db.table(<span class="str">"tenants"</span>).select(<span class="str">"*"</span>).eq(<span class="str">"uuid"</span>, tenant_uuid).execute()
+        <span class="kw">if not</span> tenant_resp.data:
+            <span class="kw">return</span> {<span class="str">"exists"</span>: <span class="kw">False</span>}
+
+        <span class="kw">return</span> {<span class="str">"exists"</span>: <span class="kw">True</span>, <span class="str">"tenant"</span>: tenant_resp.data[<span class="num">0</span>]}
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        print(<span class="str">f"[ERROR] get_flat_tenant: {e}"</span>)
+        <span class="kw">return</span> {<span class="str">"exists"</span>: <span class="kw">False</span>}
+</code></pre>
+    </details>
+
+    <h3>Exercise 3 <span class="badge badge-hard">Hard</span></h3>
+    <p>Currently, <code>PATCH /{flat_uuid}/assign-tenant</code> does NOT check whether the tenant being assigned already lives in a different flat. If tenant X is in flat A, and you assign them to flat B, flat A's <code>tenant_uuid</code> is left pointing at a tenant who no longer lives there. Fix this by checking if the tenant is already assigned elsewhere, and if so, first clearing the old flat before doing the new assignment.</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.patch</span>(<span class="str">"/{flat_uuid}/assign-tenant"</span>)
+<span class="kw">async def</span> <span class="fn">assign_tenant</span>(flat_uuid: str, body: AssignTenantRequest, user=Depends(require_active_subscription), db=Depends(get_authenticated_db)):
+    <span class="cm"># Guard 1: target flat must exist and be vacant</span>
+    flat_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid, tenant_uuid"</span>).eq(<span class="str">"uuid"</span>, flat_uuid).execute()
+    <span class="kw">if not</span> flat_resp.data:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">"Flat not found"</span>)
+    <span class="kw">if</span> flat_resp.data[<span class="num">0</span>].get(<span class="str">"tenant_uuid"</span>):
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">400</span>, detail=<span class="str">"Flat is already occupied"</span>)
+
+    <span class="cm"># Guard 2: check if this tenant is already in another flat</span>
+    tenant_resp = db.table(<span class="str">"tenants"</span>).select(<span class="str">"uuid, flat_uuid"</span>).eq(<span class="str">"uuid"</span>, body.tenant_uuid).execute()
+    <span class="kw">if not</span> tenant_resp.data:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">"Tenant not found"</span>)
+
+    existing_flat_uuid = tenant_resp.data[<span class="num">0</span>].get(<span class="str">"flat_uuid"</span>)
+    <span class="kw">if</span> existing_flat_uuid <span class="kw">and</span> existing_flat_uuid != flat_uuid:
+        <span class="cm"># Clear the old flat first</span>
+        db.table(<span class="str">"flats"</span>).update({
+            <span class="str">"tenant_uuid"</span>: None, <span class="str">"occupied"</span>: <span class="kw">False</span>
+        }).eq(<span class="str">"uuid"</span>, existing_flat_uuid).execute()
+
+    <span class="cm"># Now do the bidirectional assignment</span>
+    db.table(<span class="str">"flats"</span>).update({
+        <span class="str">"tenant_uuid"</span>: body.tenant_uuid, <span class="str">"occupied"</span>: <span class="kw">True</span>
+    }).eq(<span class="str">"uuid"</span>, flat_uuid).execute()
+
+    db.table(<span class="str">"tenants"</span>).update({
+        <span class="str">"flat_uuid"</span>: flat_uuid
+    }).eq(<span class="str">"uuid"</span>, body.tenant_uuid).execute()
+
+    <span class="kw">return</span> {<span class="str">"success"</span>: <span class="kw">True</span>, <span class="str">"moved_from"</span>: existing_flat_uuid}
+</code></pre>
+    </details>
+
+    <div class="nav-buttons">
+      <a href="module_05_property_groups_buildings.html" class="nav-btn">← Module 05: Property Groups</a>
+      <a href="module_07_tenants_computed.html" class="nav-btn">Next: Tenants &amp; Computed Fields →</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const themeToggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme') || 'dark';
+  root.setAttribute('data-theme', saved);
+  themeToggle.textContent = saved === 'dark' ? '🌙' : '☀️';
+  themeToggle.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    themeToggle.textContent = next === 'dark' ? '🌙' : '☀️';
+  });
+  const backToTop = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => backToTop.classList.toggle('visible', window.scrollY > 400));
+  backToTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  function copyCode(btn) {
+    const code = btn.parentElement.querySelector('code').innerText;
+    navigator.clipboard.writeText(code).then(() => { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 2000); });
+  }
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2[id]').forEach(h => {
+    const a = document.createElement('a'); a.href = '#' + h.id; a.textContent = h.textContent; toc.appendChild(a);
+  });
+  const checks = document.querySelectorAll('.section-check input[type="checkbox"]');
+  const fill = document.getElementById('progressFill');
+  const key = 'mod06-checks';
+  const saved_checks = JSON.parse(localStorage.getItem(key) || '{}');
+  checks.forEach((cb, i) => {
+    if (saved_checks[i]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      const state = {}; checks.forEach((c, j) => state[j] = c.checked);
+      localStorage.setItem(key, JSON.stringify(state));
+      const pct = (Object.values(state).filter(Boolean).length / checks.length) * 100;
+      fill.style.width = pct + '%';
+    });
+  });
+  const initPct = (Object.values(saved_checks).filter(Boolean).length / checks.length) * 100;
+  fill.style.width = (isNaN(initPct) ? 0 : initPct) + '%';
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+</script>
+</body>
+</html>

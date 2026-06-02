@@ -30,7 +30,7 @@ function renderChatbot() {
 // Open chatbot by clicking FAB, then return the input element.
 async function openChatbot(user) {
     await user.click(screen.getByRole('button')); // click FAB — only button when closed
-    return screen.getByPlaceholderText('Ask something…');
+    return screen.getByPlaceholderText('Ask me anything about your properties…');
 }
 
 // Set input value via RTL's fireEvent.input (triggers React onChange),
@@ -54,14 +54,14 @@ describe('Chatbot', () => {
 
     it('chat dialog is hidden by default', () => {
         renderChatbot();
-        expect(screen.queryByPlaceholderText('Ask something…')).not.toBeInTheDocument();
+        expect(screen.queryByPlaceholderText('Ask me anything about your properties…')).not.toBeInTheDocument();
     });
 
     it('opens the dialog when FAB is clicked', async () => {
         const user = userEvent.setup();
         renderChatbot();
         await openChatbot(user);
-        expect(screen.getByPlaceholderText('Ask something…')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Ask me anything about your properties…')).toBeInTheDocument();
     });
 
     it('shows 3 buttons when dialog is open: header-X, send, FAB', async () => {
@@ -75,12 +75,12 @@ describe('Chatbot', () => {
         const user = userEvent.setup();
         renderChatbot();
         await openChatbot(user);
-        expect(screen.getByPlaceholderText('Ask something…')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Ask me anything about your properties…')).toBeInTheDocument();
 
         const buttons = screen.getAllByRole('button');
         await user.click(buttons[0]); // header X (0=header-X, 1=send, 2=FAB)
 
-        expect(screen.queryByPlaceholderText('Ask something…')).not.toBeInTheDocument();
+        expect(screen.queryByPlaceholderText('Ask me anything about your properties…')).not.toBeInTheDocument();
     });
 
     it('sends a message on Enter and shows user message', async () => {
@@ -133,7 +133,7 @@ describe('Chatbot', () => {
         await typeAndSend(user, input, 'Hello');
 
         await waitFor(() => {
-            expect(screen.getByPlaceholderText('Ask something…')).toBeDisabled();
+            expect(screen.getByPlaceholderText('Ask me anything about your properties…')).toBeDisabled();
         });
     });
 

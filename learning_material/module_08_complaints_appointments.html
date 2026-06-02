@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 08 — Complaints & Appointments | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --accent-hover: #89b4fa; --success: #9ece6a;
+      --warning: #e0af68; --error: #f7768e; --border: #3b4261;
+      --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3);
+      --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --accent-hover: #0550ae; --success: #1a7f37;
+      --warning: #9a6700; --error: #cf222e; --border: #d0d7de;
+      --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; transition: transform 0.3s; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0; font-size: 0.85rem; border-left: 2px solid transparent; padding-left: 0.5rem; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-secondary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; } .var { color: #c0caf5; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; } [data-theme="light"] .var { color: #24292f; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .lang-label { position: absolute; top: 0.4rem; right: 3.5rem; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-family: var(--font-sans); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; box-shadow: var(--shadow); }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-warning { border-left: 4px solid var(--warning); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-error { border-left: 4px solid var(--error); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; color: var(--text-primary); }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .badge-concept { background: #7aa2f722; color: var(--accent); border: 1px solid var(--accent); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .nav-btn.disabled { opacity: 0.4; pointer-events: none; }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .breadcrumbs a:hover { color: var(--accent); }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: all 0.3s; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { background: var(--bg-secondary); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { border-left: 4px solid var(--warning); }
+    .callout-info { border-left: 4px solid var(--accent); }
+    .callout-success { border-left: 4px solid var(--success); }
+    .callout p { margin: 0; }
+    @media print {
+      .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; }
+      .main-content { margin-left: 0 !important; }
+      body { color: #000; background: #fff; }
+      pre { border: 1px solid #ccc; }
+      details, details > * { display: block; }
+      h2 { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 08</h3>
+  <div id="toc"></div>
+</nav>
+
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content">
+  <div class="container">
+
+    <div class="breadcrumbs">
+      <a href="index.html">Home</a> › <strong>Module 08 — Complaints &amp; Appointments</strong>
+    </div>
+
+    <h1>Module 08 — Complaints &amp; Appointments</h1>
+    <div class="meta-row">
+      <span>⏱ Estimated time: 80 minutes</span>
+      <span>📁 Files: <code>routes/complaints.py</code>, <code>routes/appointments.py</code>, <code>schemas/complaint.py</code>, <code>schemas/appointment.py</code>, <code>core/constants.py</code></span>
+      <span>🔰 Prerequisites: Modules 00–07</span>
+    </div>
+
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div class="nav-buttons">
+      <a href="module_07_tenants_computed.html" class="nav-btn">← Module 07: Tenants</a>
+      <a href="module_09_groq_extraction.html" class="nav-btn">Next: Groq AI Extraction →</a>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+    <p>Complaints and appointments form a linked two-table system. A complaint represents a tenant's reported issue (water leak, noise, etc). An appointment is the scheduled visit to resolve it. One complaint can have one appointment. The complaint is the parent; the appointment is the child.</p>
+
+    <div class="diagram">
+Relationship
+────────────
+complaints table                  appointments table
+─────────────────────             ──────────────────────────────
+uuid   PK                         uuid   PK
+id     int PK (legacy)            complaint_uuid  FK → complaints.uuid
+flat_uuid  FK → flats.uuid        flat_number     (denormalized copy — for VAPI speed)
+tenant_uuid FK → tenants.uuid     appointment_date  datetime
+category   (water|electricity...) status  (scheduled|cancelled|attended|completed)
+status     (pending|in-progress|resolved)
+priority   (low|medium|high)
+
+VAPI tool endpoints on /appointments:
+  GET  /appointments/view         → list appointments for a flat (by flat_number)
+  PATCH /appointments/update      → reschedule (query params, not body)
+  PATCH /appointments/cancel      → cancel (idempotent)
+  GET  /appointments/availability → check if a time slot is free
+
+These MUST be registered ABOVE the dynamic /{appointment_id} route.
+    </div>
+
+    <p>The module also covers <code>core/constants.py</code> — the single source of truth for allowed complaint categories and statuses, used both for API validation and for AI extraction (covered in Module 09).</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+    <details open>
+      <summary>Named FK JOIN in Supabase — <code>!fk_appointments_complaint_uuid</code></summary>
+      <p>When two tables have more than one FK relationship between them, PostgREST doesn't know which one you mean when you write <code>select("*, appointments(*)")</code>. You must name the specific FK constraint.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># The appointments table has multiple relationships to complaints:</span>
+<span class="cm"># - appointments.complaint_uuid → complaints.uuid  (FK name: fk_appointments_complaint_uuid)</span>
+<span class="cm"># - appointments.complaint_id  → complaints.id     (FK name: fk_appointments_complaint_id)</span>
+
+<span class="cm"># WRONG — ambiguous, PostgREST raises an error</span>
+db.table(<span class="str">"complaints"</span>).select(<span class="str">"*, appointments(*)"</span>).execute()
+
+<span class="cm"># CORRECT — use the specific FK constraint name</span>
+db.table(<span class="str">"complaints"</span>).select(<span class="str">"*, appointments!fk_appointments_complaint_uuid(*)"</span>).execute()
+</code></pre>
+      <p>The FK constraint name is defined in your Supabase schema SQL. You can find all FK names in the Supabase dashboard under Database → Tables → click the table → Constraints, or by running <code>SELECT conname FROM pg_constraint WHERE contype = 'f'</code> in the SQL editor.</p>
+      <div class="callout callout-warning">
+        <p><strong>Error message:</strong> When you have ambiguous FK relationships and don't specify the name, Supabase returns <code>"Could not embed because more than one relationship was found"</code>. If you see this error, add the <code>!fk_name</code> qualifier.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Flattening Nested JOIN Results</summary>
+      <p>Supabase's PostgREST JOIN returns a nested structure. Complaints returns appointments as an array inside each complaint. The route handler flattens this into a single-level dict for a cleaner API response:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># Raw DB response structure (after join):</span>
+<span class="cm"># {</span>
+<span class="cm">#   "id": 1, "category": "water", ...,</span>
+<span class="cm">#   "appointments": [{"appointment_date": "2025-06-01T10:00:00", "status": "scheduled"}]</span>
+<span class="cm"># }</span>
+
+<span class="cm"># Flattened output structure (what the API returns):</span>
+<span class="cm"># {</span>
+<span class="cm">#   "id": 1, "category": "water", ...,</span>
+<span class="cm">#   "appointment_date": "2025-06-01T10:00:00",</span>
+<span class="cm">#   "appointment_status": "scheduled"</span>
+<span class="cm"># }</span>
+
+complaints = []
+<span class="kw">for</span> complaint <span class="kw">in</span> response.data:
+    complaint_data = {**complaint}  <span class="cm"># shallow copy</span>
+
+    appointments = complaint.get(<span class="str">'appointments'</span>, [])
+    <span class="kw">if</span> appointments <span class="kw">and</span> len(appointments) > <span class="num">0</span>:
+        appt = appointments[<span class="num">0</span>]  <span class="cm"># take first appointment only</span>
+        complaint_data[<span class="str">'appointment_date'</span>] = appt.get(<span class="str">'appointment_date'</span>)
+        complaint_data[<span class="str">'appointment_status'</span>] = appt.get(<span class="str">'status'</span>)
+    <span class="kw">else</span>:
+        complaint_data[<span class="str">'appointment_date'</span>] = None
+        complaint_data[<span class="str">'appointment_status'</span>] = None
+
+    complaint_data.pop(<span class="str">'appointments'</span>, None)  <span class="cm"># remove nested array</span>
+    complaints.append(complaint_data)
+</code></pre>
+      <p>Why flatten? The frontend expects a flat dict, not a nested array. It makes template rendering simpler: <code>complaint.appointment_date</code> instead of <code>complaint.appointments[0]?.appointment_date</code>.</p>
+    </details>
+
+    <details>
+      <summary>Denormalized <code>flat_number</code> on Appointments — Why?</summary>
+      <p>The appointment's link to a flat goes through the complaint: <code>appointment → complaint → flat_uuid → flat_number</code>. That's 3 joins to get the flat number. VAPI needs the flat number to look up appointments (it comes from the voice conversation — the tenant says their flat number). Doing 3 joins per VAPI call adds latency.</p>
+      <p>Solution: store <code>flat_number</code> as a denormalized column directly on the appointments table. It's set at insert time from the complaint's associated flat. VAPI then queries appointments directly by flat_number with zero joins:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># At complaint creation: extract flat_number from the complaint's flat and store it</span>
+appt_response = db.table(<span class="str">"appointments"</span>).insert({
+    <span class="str">"complaint_uuid"</span>: created_complaint[<span class="str">"uuid"</span>],
+    <span class="str">"flat_number"</span>: created_complaint.get(<span class="str">"flat_number"</span>),  <span class="cm"># denormalized copy</span>
+    <span class="str">"appointment_date"</span>: appointment_date,
+    <span class="str">"status"</span>: <span class="str">"scheduled"</span>
+}).execute()
+
+<span class="cm"># At VAPI query: one simple indexed lookup</span>
+db.table(<span class="str">"appointments"</span>).select(<span class="str">"*"</span>).ilike(<span class="str">"flat_number"</span>, flat_number).execute()
+</code></pre>
+      <p>The downside: if a flat is ever renumbered, the denormalized <code>flat_number</code> on historical appointments becomes stale. This is an acceptable trade-off for an MVP — renumbering flats almost never happens in practice.</p>
+    </details>
+
+    <details>
+      <summary>Soft Delete vs Hard Delete</summary>
+      <p>The <code>DELETE /appointments/{id}</code> endpoint doesn't actually delete the row. It sets <code>status = "cancelled"</code>. This is called a <em>soft delete</em>.</p>
+      <table>
+        <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+        <tbody>
+          <tr><td>Hard delete (remove row)</td><td>Clean, no orphaned data</td><td>Can't audit history, can't un-cancel</td></tr>
+          <tr><td>Soft delete (status = cancelled)</td><td>Full history, reversible</td><td>Must filter cancelled records in every query</td></tr>
+        </tbody>
+      </table>
+      <p>For appointments, soft delete is the right choice: the manager might want to see past cancelled appointments, or accidentally cancelled something and needs to reactivate it. The status machine for appointments is:</p>
+      <div class="diagram">
+scheduled → cancelled    (DELETE or PATCH /cancel)
+scheduled → attended     (PATCH /{id} with status=attended)
+scheduled → completed    (set by VAPI end-of-call webhook)
+cancelled → scheduled    (PATCH /{id} with status=scheduled — "reactivate")
+      </div>
+    </details>
+
+    <details>
+      <summary>VAPI Availability Check — 1-Hour Slot Model</summary>
+      <p>The <code>GET /appointments/availability</code> endpoint checks if the manager is free at a requested time. Every appointment is assumed to take exactly 1 hour. Two appointments conflict if their 1-hour windows overlap.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># Requested slot: 10:30</span>
+<span class="cm"># Any existing appointment A conflicts if: A - 1hr < 10:30 < A + 1hr</span>
+<span class="cm"># Example: A=10:00 → window (9:00, 11:00) → 10:30 is inside → UNAVAILABLE</span>
+<span class="cm"># Example: A=11:00 → window (10:00, 12:00) → 10:30 is inside → UNAVAILABLE</span>
+<span class="cm"># Example: A=09:00 → window (8:00, 10:00)  → 10:30 is outside → AVAILABLE</span>
+<span class="cm"># Back-to-back: A=09:30 → window ends at 10:30, requested starts at 10:30</span>
+<span class="cm">#   gt(window_start) and lt(window_end) → strictly outside → AVAILABLE</span>
+
+requested_dt = datetime.strptime(normalized_date, <span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+window_start = (requested_dt - timedelta(hours=<span class="num">1</span>)).strftime(<span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+window_end   = (requested_dt + timedelta(hours=<span class="num">1</span>)).strftime(<span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+
+result = (
+    db.table(<span class="str">"appointments"</span>)
+    .select(<span class="str">"id"</span>)
+    .eq(<span class="str">"status"</span>, <span class="str">"scheduled"</span>)   <span class="cm"># only scheduled appointments block time</span>
+    .gt(<span class="str">"appointment_date"</span>, window_start)  <span class="cm"># strictly greater than</span>
+    .lt(<span class="str">"appointment_date"</span>, window_end)    <span class="cm"># strictly less than</span>
+    .execute()
+)
+</code></pre>
+      <p>The strict inequalities (<code>gt</code>, <code>lt</code> rather than <code>gte</code>, <code>lte</code>) allow back-to-back bookings: a 10:00 appointment ending at 11:00 does not block an 11:00 appointment. The window is open-ended on both sides.</p>
+      <div class="callout callout-warning">
+        <p><strong>Fail-safe:</strong> If the DB query throws an exception, <code>availability</code> returns <code>"unavailable"</code>. This is intentional — never let an error silently allow a double-booking. Fail closed, not open.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary><code>core/constants.py</code> — Single Source of Truth for Allowed Values</summary>
+      <p>Categories and statuses are defined once and imported everywhere. This prevents the category "Electricity" in the DB constraint, "electricity" in the validator, and "ELECTRICITY" in the AI extractor from silently diverging:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># core/constants.py — the canonical list</span>
+ALLOWED_CATEGORIES = [
+    <span class="str">"water"</span>, <span class="str">"electricity"</span>, <span class="str">"cleaning"</span>, <span class="str">"noise"</span>,
+    <span class="str">"maintenance"</span>, <span class="str">"security"</span>, <span class="str">"other"</span>
+]
+
+<span class="kw">class</span> <span class="typ">ComplaintStatus</span>(str, Enum):
+    PENDING = <span class="str">"pending"</span>
+    IN_PROGRESS = <span class="str">"in-progress"</span>
+    RESOLVED = <span class="str">"resolved"</span>
+
+ALLOWED_STATUSES = [status.value <span class="kw">for</span> status <span class="kw">in</span> ComplaintStatus]
+<span class="cm"># → ["pending", "in-progress", "resolved"]</span>
+</code></pre>
+      <p>Used in <strong>3 places</strong>: the Pydantic schema validator (below), the AI extractor (Module 09), and the DB <code>CHECK</code> constraint. Change the constants file and all three update together.</p>
+      <p><code>ComplaintStatus(str, Enum)</code> inherits from both <code>str</code> and <code>Enum</code>. The <code>str</code> inheritance means each enum value IS a string — <code>ComplaintStatus.PENDING == "pending"</code> is True. This allows the enum to be stored in the DB and compared to plain strings without conversion.</p>
+    </details>
+
+    <details>
+      <summary>Idempotent Cancel — Why It Matters</summary>
+      <p>VAPI might call the cancel endpoint twice for the same appointment if the first call timed out or the network was unreliable. Without idempotency, the second call returns 400 ("cannot cancel an already-cancelled appointment"), which the voice agent treats as an error and confuses the caller.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># Idempotent cancel: silently succeed if already cancelled</span>
+<span class="kw">if</span> apt.get(<span class="str">"status"</span>) == <span class="str">"cancelled"</span>:
+    <span class="kw">return</span> VapiAppointmentCancelResponse(id=apt[<span class="str">"id"</span>], status=<span class="str">"cancelled"</span>)
+    <span class="cm"># ↑ returns 200 immediately, no DB write, no SMS, no error</span>
+
+<span class="kw">if</span> apt.get(<span class="str">"status"</span>) == <span class="str">"completed"</span>:
+    <span class="kw">raise</span> HTTPException(<span class="num">400</span>, detail=<span class="str">"Cannot cancel a completed appointment"</span>)
+    <span class="cm"># ↑ completed IS an error — the work is done, you can't undo it</span>
+</code></pre>
+      <p>The pattern: idempotency for retryable states (cancelled twice = fine), hard error for terminal states (can't cancel completed).</p>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="schemas-walkthrough">Section 3 — Schemas Walkthrough</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+    <h3>complaint.py — <code>@field_validator</code> for status</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel, field_validator
+
+<span class="kw">class</span> <span class="typ">ComplaintBase</span>(BaseModel):
+    category: str
+    priority: Optional[str] = <span class="str">"medium"</span>
+    appointment_date: Optional[str] = None   <span class="cm"># present on create only</span>
+    description: str
+    status: str
+    source: str = <span class="str">"AI_AGENT"</span>               <span class="cm"># default source — AI-created complaints</span>
+
+    <span class="dec">@field_validator</span>(<span class="str">'status'</span>)
+    <span class="dec">@classmethod</span>
+    <span class="kw">def</span> <span class="fn">validate_status</span>(cls, v):
+        <span class="kw">from</span> app.core.constants <span class="kw">import</span> ALLOWED_STATUSES
+        <span class="kw">if</span> v <span class="kw">not in</span> ALLOWED_STATUSES:
+            <span class="kw">raise</span> ValueError(
+                <span class="str">f"Invalid status '{v}'. Allowed: {', '.join(ALLOWED_STATUSES)}"</span>
+            )
+        <span class="kw">return</span> v
+</code></pre>
+    <p><code>@field_validator('status')</code> is the Pydantic V2 way to validate a single field (V1 used <code>@validator('status')</code>). The <code>@classmethod</code> decorator is required — validators are class methods that receive the raw value before it's assigned to the model. Raising <code>ValueError</code> triggers Pydantic's validation error machinery.</p>
+
+    <h3>appointment.py — <code>AppointmentStatus</code> enum</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">class</span> <span class="typ">AppointmentStatus</span>(str, Enum):
+    SCHEDULED  = <span class="str">"scheduled"</span>
+    CANCELLED  = <span class="str">"cancelled"</span>
+    ATTENDED   = <span class="str">"attended"</span>
+    DONE       = <span class="str">"done"</span>
+    COMPLETED  = <span class="str">"completed"</span>   <span class="cm"># legacy alias — VAPI end-of-call uses "completed"</span>
+</code></pre>
+    <p>The duplicate <code>DONE</code> / <code>COMPLETED</code> is a legacy remnant: VAPI's end-of-call webhook writes <code>status="completed"</code>, but the manager-facing UI originally used <code>"done"</code>. Both are kept as valid values for backward compatibility. In new code, prefer <code>ATTENDED</code> for manager-confirmed attendance.</p>
+
+    <h3>VAPI-specific schemas</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">class</span> <span class="typ">VapiAppointmentViewItem</span>(BaseModel):
+    appointment_id: Optional[str] = None   <span class="cm"># UUID — for reference</span>
+    id: int                                 <span class="cm"># integer PK — what VAPI uses in reschedule/cancel calls</span>
+    category: Optional[str] = None
+    appointment_date: str
+    status: str
+
+<span class="kw">class</span> <span class="typ">VapiAvailabilityResponse</span>(BaseModel):
+    status: str = Field(..., description=<span class="str">"'available' or 'unavailable'"</span>)
+</code></pre>
+    <p>VAPI uses the integer <code>id</code> (not the UUID) in the reschedule and cancel tool calls. Why? Because VAPI's variable extraction from voice transcripts works better with short integers than long UUIDs. The tenant says "appointment ID 42" — that's extractable. "appointment ID 550e8400-e29b-41d4-a716-446655440000" is not.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="complaints-walkthrough">Section 4 — complaints.py Walkthrough</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+    <h3>POST /complaints — create with optional linked appointment</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.post</span>(<span class="str">""</span>, response_model=ComplaintResponse, status_code=<span class="num">201</span>)
+<span class="kw">async def</span> <span class="fn">create_complaint</span>(
+    complaint_data: ComplaintCreate,
+    background_tasks: BackgroundTasks,
+    user=Depends(require_active_subscription), db=Depends(get_authenticated_db)
+):
+    complaint_dict = complaint_data.model_dump(mode=<span class="str">'json'</span>)
+
+    <span class="cm"># appointment_date is NOT a complaint column — extract before insert</span>
+    appointment_date = complaint_dict.pop(<span class="str">"appointment_date"</span>, None)
+
+    <span class="cm"># UUID-based reference (preferred path)</span>
+    <span class="kw">if</span> complaint_data.flat_uuid:
+        flat_check = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid"</span>).eq(<span class="str">"uuid"</span>, str(complaint_data.flat_uuid)).execute()
+        <span class="kw">if not</span> flat_check.data:
+            <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">"Flat not found"</span>)
+
+    <span class="cm"># Legacy path: flat_number → look up flat_uuid</span>
+    <span class="kw">elif</span> complaint_data.flat_number:
+        flat = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid"</span>).eq(<span class="str">"flat_number"</span>, complaint_data.flat_number).execute()
+        <span class="kw">if</span> flat.data:
+            complaint_dict[<span class="str">'flat_uuid'</span>] = str(flat.data[<span class="num">0</span>][<span class="str">'uuid'</span>])
+
+    <span class="cm"># Auto-assign tenant_uuid from the flat if not explicitly set</span>
+    <span class="kw">if</span> complaint_dict.get(<span class="str">'flat_uuid'</span>) <span class="kw">and not</span> complaint_dict.get(<span class="str">'tenant_uuid'</span>):
+        tenant = db.table(<span class="str">"tenants"</span>).select(<span class="str">"uuid"</span>).eq(<span class="str">"flat_uuid"</span>, complaint_dict[<span class="str">'flat_uuid'</span>]).execute()
+        <span class="kw">if</span> tenant.data:
+            complaint_dict[<span class="str">'tenant_uuid'</span>] = str(tenant.data[<span class="num">0</span>][<span class="str">'uuid'</span>])
+
+    complaint_dict.pop(<span class="str">"tenant_id"</span>, None)  <span class="cm"># strip deprecated field</span>
+
+    response = db.table(<span class="str">"complaints"</span>).insert(complaint_dict).execute()
+    created_complaint = response.data[<span class="num">0</span>]
+
+    <span class="cm"># Create linked appointment if appointment_date was in the request</span>
+    <span class="kw">if</span> appointment_date:
+        appt_response = db.table(<span class="str">"appointments"</span>).insert({
+            <span class="str">"complaint_uuid"</span>: created_complaint[<span class="str">"uuid"</span>],
+            <span class="str">"flat_number"</span>: created_complaint.get(<span class="str">"flat_number"</span>),  <span class="cm"># denormalized</span>
+            <span class="str">"appointment_date"</span>: appointment_date,
+            <span class="str">"status"</span>: <span class="str">"scheduled"</span>
+        }).execute()
+
+        <span class="cm"># Notify manager — non-blocking, runs after response is sent</span>
+        <span class="kw">if</span> appt_response.data:
+            background_tasks.add_task(
+                notify_manager_appointment_scheduled,
+                appt_response.data[<span class="num">0</span>]
+            )
+
+    <span class="kw">return</span> created_complaint
+</code></pre>
+    <p>The <code>appointment_date</code> field is defined in <code>ComplaintBase</code> schema for convenience — callers can send a complaint and its first appointment in a single request. But <code>appointment_date</code> is NOT a column in the complaints table. It must be <code>.pop()</code>-ed from the dict before the DB insert, then used to create a separate row in the appointments table.</p>
+
+    <h3>GET /complaints — JOIN and flatten</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">""</span>, response_model=list[ComplaintResponse])
+<span class="kw">async def</span> <span class="fn">get_all_complaints</span>(...):
+    response = (
+        db.table(<span class="str">"complaints"</span>)
+        .select(<span class="str">"*, appointments!fk_appointments_complaint_uuid(*)"</span>)
+        .order(<span class="str">"created_at"</span>, desc=<span class="kw">True</span>)
+        .execute()
+    )
+
+    complaints = []
+    <span class="kw">for</span> complaint <span class="kw">in</span> response.data:
+        complaint_data = {**complaint}
+        appointments = complaint.get(<span class="str">'appointments'</span>, [])
+        <span class="kw">if</span> appointments:
+            appt = appointments[<span class="num">0</span>]
+            complaint_data[<span class="str">'appointment_date'</span>] = appt.get(<span class="str">'appointment_date'</span>)
+            complaint_data[<span class="str">'appointment_status'</span>] = appt.get(<span class="str">'status'</span>)
+        <span class="kw">else</span>:
+            complaint_data[<span class="str">'appointment_date'</span>] = None
+            complaint_data[<span class="str">'appointment_status'</span>] = None
+        complaint_data.pop(<span class="str">'appointments'</span>, None)
+        complaints.append(complaint_data)
+
+    <span class="kw">return</span> complaints
+</code></pre>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="appointments-walkthrough">Section 5 — appointments.py Walkthrough</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+    <h3>GET /appointments/availability — 1-hour slot model</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">"/availability"</span>, response_model=VapiAvailabilityResponse)
+<span class="kw">async def</span> <span class="fn">vapi_check_availability</span>(
+    appointment_date: str = Query(...),
+    db: Client = Depends(get_db),  <span class="cm"># anon/service-role — no JWT from VAPI</span>
+):
+    <span class="kw">try</span>:
+        <span class="cm"># VAPI sends "T" separator; DB expects space separator</span>
+        normalized_date = appointment_date.strip().replace(<span class="str">"T"</span>, <span class="str">" "</span>)
+        requested_dt = datetime.strptime(normalized_date, <span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+
+        window_start = (requested_dt - timedelta(hours=<span class="num">1</span>)).strftime(<span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+        window_end   = (requested_dt + timedelta(hours=<span class="num">1</span>)).strftime(<span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+
+        result = (
+            db.table(<span class="str">"appointments"</span>)
+            .select(<span class="str">"id"</span>)
+            .eq(<span class="str">"status"</span>, <span class="str">"scheduled"</span>)
+            .gt(<span class="str">"appointment_date"</span>, window_start)  <span class="cm"># strictly after T-1hr</span>
+            .lt(<span class="str">"appointment_date"</span>, window_end)    <span class="cm"># strictly before T+1hr</span>
+            .execute()
+        )
+        <span class="kw">if</span> result.data:
+            <span class="kw">return</span> VapiAvailabilityResponse(status=<span class="str">"unavailable"</span>)
+        <span class="kw">return</span> VapiAvailabilityResponse(status=<span class="str">"available"</span>)
+
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        print(<span class="str">f"[ERROR] vapi_check_availability: {e}"</span>)
+        <span class="kw">return</span> VapiAvailabilityResponse(status=<span class="str">"unavailable"</span>)  <span class="cm"># fail-safe</span>
+</code></pre>
+
+    <h3>PATCH /appointments/update — reschedule via query params</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.patch</span>(<span class="str">"/update"</span>, response_model=VapiAppointmentUpdateResponse)
+<span class="kw">async def</span> <span class="fn">vapi_update_appointment</span>(
+    background_tasks: BackgroundTasks,
+    flat_number: str = Query(...),
+    id: int = Query(...),                       <span class="cm"># integer PK — easier for VAPI to extract</span>
+    new_appointment_date: str = Query(...),
+    db: Client = Depends(get_db),
+):
+    normalized_flat = flat_number.strip().upper()
+
+    <span class="cm"># Fetch appointment by BOTH id AND flat_number — prevents cross-tenant access</span>
+    apt_resp = (
+        db.table(<span class="str">"appointments"</span>)
+        .select(<span class="str">"*"</span>)
+        .eq(<span class="str">"id"</span>, id)
+        .ilike(<span class="str">"flat_number"</span>, normalized_flat)
+        .execute()
+    )
+    <span class="kw">if not</span> apt_resp.data:
+        <span class="kw">raise</span> HTTPException(<span class="num">404</span>, detail=<span class="str">"Appointment not found"</span>)
+
+    apt = apt_resp.data[<span class="num">0</span>]
+    <span class="kw">if</span> apt.get(<span class="str">"status"</span>) == <span class="str">"completed"</span>:
+        <span class="kw">raise</span> HTTPException(<span class="num">400</span>, detail=<span class="str">"Cannot reschedule a completed appointment"</span>)
+
+    <span class="cm"># Normalize date: VAPI sends T-separator, DB expects space</span>
+    normalized_date = new_appointment_date.replace(<span class="str">"T"</span>, <span class="str">" "</span>)
+
+    update_resp = (
+        db.table(<span class="str">"appointments"</span>)
+        .update({<span class="str">"appointment_date"</span>: normalized_date})
+        .eq(<span class="str">"id"</span>, apt[<span class="str">"id"</span>])
+        .execute()
+    )
+
+    <span class="cm"># Notify tenant asynchronously</span>
+    <span class="kw">if</span> flat_uuid := apt_resp.data[<span class="num">0</span>].get(<span class="str">"flat_uuid"</span>):
+        background_tasks.add_task(notify_tenant_appointment, flat_uuid, <span class="str">"rescheduled"</span>, normalized_flat, db, normalized_date)
+
+    updated = update_resp.data[<span class="num">0</span>]
+    <span class="kw">return</span> VapiAppointmentUpdateResponse(id=updated[<span class="str">"id"</span>], new_appointment_date=updated[<span class="str">"appointment_date"</span>])
+</code></pre>
+    <p>The double-filter <code>.eq("id", id).ilike("flat_number", normalized_flat)</code> is a security measure: if VAPI sends an appointment ID that belongs to a different flat (perhaps a bug or a confused LLM), the query returns nothing. This prevents one tenant accidentally viewing or modifying another tenant's appointment.</p>
+
+    <h3>PATCH /appointments/{id} — manager update with notifications</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.patch</span>(<span class="str">"/{appointment_id}"</span>, response_model=AppointmentResponse)
+<span class="kw">async def</span> <span class="fn">update_appointment</span>(appointment_id: int, appointment_data: AppointmentUpdate, background_tasks: BackgroundTasks, ...):
+    update_data = appointment_data.model_dump(exclude_unset=<span class="kw">True</span>, mode=<span class="str">'json'</span>)
+
+    response = db.table(<span class="str">"appointments"</span>).update(update_data).eq(<span class="str">"id"</span>, appointment_id).execute()
+    updated = response.data[<span class="num">0</span>]
+
+    flat_uuid = updated.get(<span class="str">"flat_uuid"</span>)
+    flat_number_val = updated.get(<span class="str">"flat_number"</span>, <span class="str">""</span>)
+
+    <span class="cm"># If date was changed → notify tenant of reschedule</span>
+    <span class="kw">if</span> <span class="str">"appointment_date"</span> <span class="kw">in</span> update_data <span class="kw">and</span> flat_uuid:
+        background_tasks.add_task(
+            notify_tenant_appointment, str(flat_uuid), <span class="str">"rescheduled"</span>,
+            flat_number_val, db, updated[<span class="str">"appointment_date"</span>]
+        )
+
+    <span class="cm"># If status was changed → send appropriate notification</span>
+    <span class="kw">if</span> <span class="str">"status"</span> <span class="kw">in</span> update_data <span class="kw">and</span> flat_uuid:
+        _status_event_map = {
+            <span class="str">"cancelled"</span>: <span class="str">"cancelled"</span>,
+            <span class="str">"attended"</span>:  <span class="str">"attended"</span>,
+            <span class="str">"scheduled"</span>: <span class="str">"reactivated"</span>,  <span class="cm"># re-scheduling cancelled apt</span>
+        }
+        event = _status_event_map.get(update_data[<span class="str">"status"</span>])
+        <span class="kw">if</span> event:
+            background_tasks.add_task(notify_tenant_appointment, str(flat_uuid), event, flat_number_val, db)
+
+    <span class="kw">return</span> updated
+</code></pre>
+    <p>The <code>_status_event_map</code> dict maps DB status values to notification event names. The notification service uses event names to select the right SMS/email template. <code>"scheduled"</code> → <code>"reactivated"</code> handles the case where a manager un-cancels an appointment by setting it back to scheduled.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="bugs">Section 6 — Real Bugs We Hit</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+    <details>
+      <summary>Bug: appointment_date was stored in the complaints table, causing schema errors</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> <code>POST /complaints</code> with an <code>appointment_date</code> returned a Supabase error: <code>"column appointment_date of relation complaints does not exist"</code>.</p>
+        <p><strong>Root cause:</strong> <code>appointment_date</code> is a field in the <code>ComplaintCreate</code> schema but NOT a column in the complaints DB table. The code was doing <code>complaint_dict = complaint_data.model_dump()</code> and inserting the whole dict including <code>appointment_date</code>.</p>
+        <p><strong>Fix:</strong> <code>.pop("appointment_date", None)</code> before the DB insert to extract it first, then use it to create the separate appointments row:</p>
+      </div>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code>complaint_dict = complaint_data.model_dump(mode=<span class="str">'json'</span>)
+appointment_date = complaint_dict.pop(<span class="str">"appointment_date"</span>, None)  <span class="cm"># extract before insert</span>
+db.table(<span class="str">"complaints"</span>).insert(complaint_dict).execute()  <span class="cm"># appointment_date no longer in dict</span>
+</code></pre>
+    </details>
+
+    <details>
+      <summary>Bug: Ambiguous FK — PostgREST couldn't determine which relationship to use</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> <code>GET /complaints</code> returned a 500 with the error <code>"Could not embed because more than one relationship was found for 'complaints' and 'appointments'"</code>.</p>
+        <p><strong>Root cause:</strong> The appointments table has TWO foreign keys pointing at complaints: <code>complaint_uuid</code> and the legacy <code>complaint_id</code>. Using <code>select("*, appointments(*)")</code> was ambiguous — PostgREST couldn't pick one.</p>
+        <p><strong>Fix:</strong> Use the explicit FK constraint name in the select:</p>
+      </div>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># BEFORE (ambiguous)</span>
+db.table(<span class="str">"complaints"</span>).select(<span class="str">"*, appointments(*)"</span>).execute()
+
+<span class="cm"># AFTER (unambiguous — names the specific FK)</span>
+db.table(<span class="str">"complaints"</span>).select(<span class="str">"*, appointments!fk_appointments_complaint_uuid(*)"</span>).execute()
+</code></pre>
+    </details>
+
+    <details>
+      <summary>Bug: VAPI reschedule matched /appointments/{appointment_id} instead of /appointments/update</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> VAPI's reschedule tool call reached <code>GET /appointments/{appointment_id}</code> and returned a single appointment as JSON, which the LLM tried to parse as a reschedule response — it was completely confused.</p>
+        <p><strong>Root cause:</strong> <code>PATCH /appointments/update</code> was registered below <code>PATCH /appointments/{appointment_id}</code>. FastAPI matched "update" as the <code>appointment_id</code> path parameter.</p>
+        <p><strong>Fix:</strong> Move ALL VAPI tool endpoints (<code>/view</code>, <code>/update</code>, <code>/cancel</code>, <code>/availability</code>) to the top of the appointments.py file, before the dynamic <code>/{appointment_id}</code> routes. Added a comment block explaining the ordering requirement.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Bug: Double SMS notification on VAPI cancel</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> Tenants received two "your appointment has been cancelled" SMS messages.</p>
+        <p><strong>Root cause:</strong> VAPI retried the cancel tool call (it thought the first call failed due to a timeout). Without idempotency, the second call hit the cancel endpoint, found the appointment in "scheduled" state (the first update hadn't committed fast enough), and sent another SMS.</p>
+        <p><strong>Fix:</strong> Add the idempotency check at the top of the cancel handler. If <code>status == "cancelled"</code> already, return 200 immediately without triggering another notification:</p>
+      </div>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">if</span> apt.get(<span class="str">"status"</span>) == <span class="str">"cancelled"</span>:
+    <span class="kw">return</span> VapiAppointmentCancelResponse(id=apt[<span class="str">"id"</span>], status=<span class="str">"cancelled"</span>)
+    <span class="cm"># ↑ no background_tasks.add_task — no second SMS</span>
+</code></pre>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="exercises">Section 7 — Exercises</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s7"><label for="chk-s7">Mark complete</label></div>
+
+    <h3>Exercise 1 <span class="badge badge-easy">Easy</span></h3>
+    <p>Add a <code>GET /complaints/by-flat/{flat_uuid}</code> endpoint that returns all complaints for a specific flat, ordered by <code>created_at</code> descending. This should include the joined appointment data (using the same flatten logic as <code>GET /complaints</code>).</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">"/by-flat/{flat_uuid}"</span>, response_model=list[ComplaintResponse])
+<span class="kw">async def</span> <span class="fn">get_complaints_by_flat</span>(
+    flat_uuid: str,
+    user=Depends(require_active_subscription),
+    db=Depends(get_authenticated_db),
+):
+    <span class="kw">try</span>:
+        response = (
+            db.table(<span class="str">"complaints"</span>)
+            .select(<span class="str">"*, appointments!fk_appointments_complaint_uuid(*)"</span>)
+            .eq(<span class="str">"flat_uuid"</span>, flat_uuid)
+            .order(<span class="str">"created_at"</span>, desc=<span class="kw">True</span>)
+            .execute()
+        )
+        complaints = []
+        <span class="kw">for</span> complaint <span class="kw">in</span> response.data:
+            complaint_data = {**complaint}
+            appointments = complaint.get(<span class="str">'appointments'</span>, [])
+            <span class="kw">if</span> appointments:
+                appt = appointments[<span class="num">0</span>]
+                complaint_data[<span class="str">'appointment_date'</span>] = appt.get(<span class="str">'appointment_date'</span>)
+                complaint_data[<span class="str">'appointment_status'</span>] = appt.get(<span class="str">'status'</span>)
+            <span class="kw">else</span>:
+                complaint_data[<span class="str">'appointment_date'</span>] = None
+                complaint_data[<span class="str">'appointment_status'</span>] = None
+            complaint_data.pop(<span class="str">'appointments'</span>, None)
+            complaints.append(complaint_data)
+        <span class="kw">return</span> complaints
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        <span class="kw">raise</span> HTTPException(<span class="num">500</span>, detail=<span class="str">f"Error fetching complaints: {str(e)}"</span>)
+</code></pre>
+      <p>This must be registered before <code>/{complaint_id}</code> to avoid route shadowing (FastAPI would match <code>flat_uuid="by-flat"</code> and then fail to parse "A-101" as an int).</p>
+    </details>
+
+    <h3>Exercise 2 <span class="badge badge-medium">Medium</span></h3>
+    <p>The <code>GET /appointments/availability</code> endpoint uses a 1-hour slot model. Add an optional query parameter <code>duration_minutes: int</code> (default 60) that allows checking availability for a custom duration. If <code>duration_minutes=30</code>, the check window should be ±30 minutes instead of ±60 minutes.</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">"/availability"</span>, response_model=VapiAvailabilityResponse)
+<span class="kw">async def</span> <span class="fn">vapi_check_availability</span>(
+    appointment_date: str = Query(...),
+    duration_minutes: int = Query(<span class="num">60</span>, ge=<span class="num">15</span>, le=<span class="num">480</span>),
+    db: Client = Depends(get_db),
+):
+    <span class="kw">try</span>:
+        normalized_date = appointment_date.strip().replace(<span class="str">"T"</span>, <span class="str">" "</span>)
+        requested_dt = datetime.strptime(normalized_date, <span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+
+        slot = timedelta(minutes=duration_minutes)
+        window_start = (requested_dt - slot).strftime(<span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+        window_end   = (requested_dt + slot).strftime(<span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+
+        result = (
+            db.table(<span class="str">"appointments"</span>)
+            .select(<span class="str">"id"</span>)
+            .eq(<span class="str">"status"</span>, <span class="str">"scheduled"</span>)
+            .gt(<span class="str">"appointment_date"</span>, window_start)
+            .lt(<span class="str">"appointment_date"</span>, window_end)
+            .execute()
+        )
+        <span class="kw">if</span> result.data:
+            <span class="kw">return</span> VapiAvailabilityResponse(status=<span class="str">"unavailable"</span>)
+        <span class="kw">return</span> VapiAvailabilityResponse(status=<span class="str">"available"</span>)
+
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        print(<span class="str">f"[ERROR] vapi_check_availability: {e}"</span>)
+        <span class="kw">return</span> VapiAvailabilityResponse(status=<span class="str">"unavailable"</span>)
+</code></pre>
+    </details>
+
+    <h3>Exercise 3 <span class="badge badge-hard">Hard</span></h3>
+    <p>Currently, creating a complaint with a category not in <code>ALLOWED_CATEGORIES</code> succeeds silently — <code>category</code> has no validator. Add a <code>@field_validator</code> to <code>ComplaintBase</code> that validates <code>category</code> against <code>ALLOWED_CATEGORIES</code>. The validator should be case-insensitive (accept "Water", "WATER", "water") and should normalize the value to lowercase before returning it.</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel, field_validator, ConfigDict
+
+<span class="kw">class</span> <span class="typ">ComplaintBase</span>(BaseModel):
+    category: str
+    priority: Optional[str] = <span class="str">"medium"</span>
+    appointment_date: Optional[str] = None
+    description: str
+    status: str
+    source: str = <span class="str">"AI_AGENT"</span>
+
+    <span class="dec">@field_validator</span>(<span class="str">'category'</span>)
+    <span class="dec">@classmethod</span>
+    <span class="kw">def</span> <span class="fn">validate_category</span>(cls, v):
+        <span class="kw">from</span> app.core.constants <span class="kw">import</span> ALLOWED_CATEGORIES
+        normalized = v.strip().lower()
+        <span class="kw">if</span> normalized <span class="kw">not in</span> ALLOWED_CATEGORIES:
+            <span class="kw">raise</span> ValueError(
+                <span class="str">f"Invalid category '{v}'. "
+                f"Allowed: {', '.join(ALLOWED_CATEGORIES)}"</span>
+            )
+        <span class="kw">return</span> normalized  <span class="cm"># return the normalized value, not the original</span>
+
+    <span class="dec">@field_validator</span>(<span class="str">'status'</span>)
+    <span class="dec">@classmethod</span>
+    <span class="kw">def</span> <span class="fn">validate_status</span>(cls, v):
+        <span class="kw">from</span> app.core.constants <span class="kw">import</span> ALLOWED_STATUSES
+        <span class="kw">if</span> v <span class="kw">not in</span> ALLOWED_STATUSES:
+            <span class="kw">raise</span> ValueError(
+                <span class="str">f"Invalid status '{v}'. "
+                f"Allowed: {', '.join(ALLOWED_STATUSES)}"</span>
+            )
+        <span class="kw">return</span> v
+</code></pre>
+      <p>The validator returns <code>normalized</code> (the lowercase version) — Pydantic stores the returned value, not the original input. So if the caller sends <code>"Water"</code>, the complaint is stored as <code>"water"</code> — consistently lowercase everywhere in the system.</p>
+    </details>
+
+    <div class="nav-buttons">
+      <a href="module_07_tenants_computed.html" class="nav-btn">← Module 07: Tenants</a>
+      <a href="module_09_groq_extraction.html" class="nav-btn">Next: Groq AI Extraction →</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const themeToggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme') || 'dark';
+  root.setAttribute('data-theme', saved);
+  themeToggle.textContent = saved === 'dark' ? '🌙' : '☀️';
+  themeToggle.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    themeToggle.textContent = next === 'dark' ? '🌙' : '☀️';
+  });
+  const backToTop = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => backToTop.classList.toggle('visible', window.scrollY > 400));
+  backToTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  function copyCode(btn) {
+    const code = btn.parentElement.querySelector('code').innerText;
+    navigator.clipboard.writeText(code).then(() => { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 2000); });
+  }
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2[id]').forEach(h => {
+    const a = document.createElement('a'); a.href = '#' + h.id; a.textContent = h.textContent; toc.appendChild(a);
+  });
+  const checks = document.querySelectorAll('.section-check input[type="checkbox"]');
+  const fill = document.getElementById('progressFill');
+  const key = 'mod08-checks';
+  const saved_checks = JSON.parse(localStorage.getItem(key) || '{}');
+  checks.forEach((cb, i) => {
+    if (saved_checks[i]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      const state = {}; checks.forEach((c, j) => state[j] = c.checked);
+      localStorage.setItem(key, JSON.stringify(state));
+      const pct = (Object.values(state).filter(Boolean).length / checks.length) * 100;
+      fill.style.width = pct + '%';
+    });
+  });
+  const initPct = (Object.values(saved_checks).filter(Boolean).length / checks.length) * 100;
+  fill.style.width = (isNaN(initPct) ? 0 : initPct) + '%';
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+</script>
+</body>
+</html>

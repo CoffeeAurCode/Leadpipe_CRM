@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 03 — Authentication &amp; JWT | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin: 1rem 0; }
+    .resource-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .resource-card h4 { font-size: 0.9rem; margin-bottom: 0.4rem; color: var(--text-primary); }
+    .resource-card p { font-size: 0.8rem; margin: 0; }
+    .resource-card a { display: block; font-size: 0.8rem; margin-top: 0.3rem; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    @media print {
+      .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; }
+      .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; }
+      details, details > * { display: block; } h2 { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 03</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 03 — Authentication &amp; JWT</strong></div>
+
+  <h1>Module 03 — Authentication &amp; JWT Validation</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 60 minutes</span>
+    <span>📁 Files: <code>app/dependencies/auth.py</code>, <code>app/dependencies/authenticated_db.py</code></span>
+    <span>🔰 Prerequisites: Modules 00–02</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_02_database_layer.html" class="nav-btn">← Previous: Database Layer</a>
+    <a href="module_04_subscription_stripe.html" class="nav-btn">Next: Subscription Gate →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1" aria-label="Mark section 1 complete"><label for="chk-s1">Mark complete</label></div>
+
+  <p>This module covers the two dependency functions that protect every route: <code>get_current_user</code> validates the JWT from the <code>Authorization</code> header and returns the user's identity; <code>get_authenticated_db</code> takes that same JWT and injects it into the Supabase client so RLS activates. Together they form the security foundation — no JWT means no access, and the right JWT means each manager only sees their own data.</p>
+
+  <div class="diagram">
+  Browser → HTTP request with header:
+  Authorization: Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9...
+
+           ┌─────────────────────────────────────────────────────┐
+           │  auth.py — get_current_user()                       │
+           │                                                      │
+           │  1. HTTPBearer extracts the token string            │
+           │  2. Try ES256 (JWKS) → verify signature             │
+           │  3. Fallback HS256 (JWT secret) → verify signature  │
+           │  4. Return payload: {sub, email, role, ...}         │
+           └───────────────────────────────────────────────────┬─┘
+                                                               │ token + payload
+           ┌───────────────────────────────────────────────────▼─┐
+           │  authenticated_db.py — get_authenticated_db()       │
+           │                                                      │
+           │  db.postgrest.auth(token)  ← injects JWT into client│
+           │  return db                 ← RLS now active          │
+           └─────────────────────────────────────────────────────┘
+  </div>
+
+  <!-- S2 -->
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2" aria-label="Mark section 2 complete"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>JSON Web Tokens (JWT) — structure and verification</summary>
+    <p>A JWT is a compact, self-contained token that proves a user's identity without querying the database on every request. It has three base64-encoded parts separated by dots: <code>header.payload.signature</code>.</p>
+
+    <h4>The three parts</h4>
+    <table>
+      <thead><tr><th>Part</th><th>Contains</th><th>Example (decoded)</th></tr></thead>
+      <tbody>
+        <tr><td>Header</td><td>Algorithm + token type</td><td><code>{"alg": "ES256", "typ": "JWT"}</code></td></tr>
+        <tr><td>Payload</td><td>Claims — user identity + metadata</td><td><code>{"sub": "uuid", "email": "...", "role": "authenticated", "exp": 1700000000}</code></td></tr>
+        <tr><td>Signature</td><td>Cryptographic proof the server issued this token</td><td>Binary data, encoded as base64url</td></tr>
+      </tbody>
+    </table>
+
+    <h4>How verification works</h4>
+    <pre><code><span class="cm"># Anyone can BASE64-decode the header and payload</span>
+<span class="cm"># But only the server can verify the SIGNATURE</span>
+
+<span class="cm"># HS256 (symmetric): same secret used to sign and verify</span>
+import jwt
+token = jwt.encode({<span class="str">"sub"</span>: <span class="str">"user-123"</span>}, <span class="str">"my-secret"</span>, algorithm=<span class="str">"HS256"</span>)
+payload = jwt.decode(token, <span class="str">"my-secret"</span>, algorithms=[<span class="str">"HS256"</span>], audience=<span class="str">"authenticated"</span>)
+<span class="cm"># If the secret doesn't match, jwt.decode raises InvalidTokenError</span>
+
+<span class="cm"># ES256 (asymmetric): private key signs, public key verifies</span>
+<span class="cm"># Server signs with private key → client/backend verifies with public key</span>
+<span class="cm"># Nobody without the private key can forge a valid token</span></code></pre>
+
+    <h4>What's in a Supabase JWT</h4>
+    <pre><code>{
+  <span class="str">"sub"</span>: <span class="str">"550e8400-e29b-41d4-a716-446655440000"</span>,  <span class="cm">// user UUID (= auth.uid() in PostgreSQL)</span>
+  <span class="str">"email"</span>: <span class="str">"manager@example.com"</span>,
+  <span class="str">"role"</span>: <span class="str">"authenticated"</span>,
+  <span class="str">"aud"</span>: <span class="str">"authenticated"</span>,                          <span class="cm">// audience — must match on decode</span>
+  <span class="str">"iat"</span>: <span class="num">1700000000</span>,                               <span class="cm">// issued at (unix timestamp)</span>
+  <span class="str">"exp"</span>: <span class="num">1700003600</span>                                <span class="cm">// expires at (1 hour later)</span>
+}</code></pre>
+
+    <p>The <code>sub</code> (subject) field is the user's UUID — this is what RLS policies use as <code>auth.uid()</code>. The <code>exp</code> field means tokens expire automatically; a user must re-authenticate to get a new one.</p>
+  </details>
+
+  <details open>
+    <summary>ES256 vs HS256 — why two algorithms?</summary>
+    <p>Supabase historically used HS256 (HMAC-SHA256) with a shared secret. Newer Supabase projects use ES256 (ECDSA with P-256 curve) with a public/private key pair. This project supports both for maximum compatibility.</p>
+
+    <table>
+      <thead><tr><th>Algorithm</th><th>Key type</th><th>Security model</th><th>Supabase usage</th></tr></thead>
+      <tbody>
+        <tr><td>HS256</td><td>Shared secret</td><td>Anyone with the secret can sign tokens</td><td>Legacy projects; fallback here</td></tr>
+        <tr><td>ES256</td><td>Public/private key pair</td><td>Only the private key can sign; public key verifies</td><td>New Supabase projects (default)</td></tr>
+      </tbody>
+    </table>
+
+    <p>ES256 is preferable because compromising the backend (which only has the public key) doesn't let an attacker forge tokens — the private key stays on Supabase's servers.</p>
+  </details>
+
+  <details open>
+    <summary>JWKS — JSON Web Key Set</summary>
+    <p>A JWKS is a public endpoint that serves the server's public keys in a standard format. When using ES256, the verifier fetches the public key from the JWKS endpoint instead of needing a pre-shared secret. Supabase serves its JWKS at:</p>
+    <pre><code>https://&lt;project-ref&gt;.supabase.co/auth/v1/.well-known/jwks.json</code></pre>
+    <p>The <code>PyJWKClient</code> class (from <code>python-jose</code>) fetches these keys once and caches them. When a JWT arrives, it reads the <code>kid</code> (key ID) from the JWT header to select the correct public key from the cached set.</p>
+
+    <details>
+      <summary>Try it yourself — inspect a JWKS</summary>
+      <pre><code>import httpx, json
+url = <span class="str">"https://your-project.supabase.co/auth/v1/.well-known/jwks.json"</span>
+keys = httpx.get(url).json()
+<span class="fn">print</span>(json.dumps(keys, indent=<span class="num">2</span>))</code></pre>
+      <p><strong>Success:</strong> you see a JSON object with a <code>"keys"</code> array, each containing an EC (elliptic curve) public key.</p>
+    </details>
+  </details>
+
+  <details open>
+    <summary>FastAPI <code>Depends()</code> — dependency injection</summary>
+    <p>FastAPI's dependency injection system lets route functions declare what they need, and FastAPI automatically calls the dependency functions and passes the results in. Dependencies can depend on other dependencies, forming a chain.</p>
+
+    <h4>Minimal standalone example</h4>
+    <pre><code><span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, Depends
+
+app = FastAPI()
+
+<span class="kw">def</span> <span class="fn">get_user_id</span>() -> <span class="typ">str</span>:
+    <span class="kw">return</span> <span class="str">"user-123"</span>   <span class="cm"># in real code: extract from JWT</span>
+
+<span class="kw">def</span> <span class="fn">get_database</span>(user_id: <span class="typ">str</span> = Depends(get_user_id)) -> <span class="typ">dict</span>:
+    <span class="kw">return</span> {<span class="str">"user_id"</span>: user_id, <span class="str">"connection"</span>: <span class="str">"db-conn"</span>}
+
+<span class="dec">@app.get</span>(<span class="str">"/profile"</span>)
+<span class="kw">async def</span> <span class="fn">profile</span>(db: <span class="typ">dict</span> = Depends(get_database)):
+    <span class="kw">return</span> {<span class="str">"user"</span>: db[<span class="str">"user_id"</span>]}
+<span class="cm"># FastAPI calls: get_user_id() → get_database(user_id) → profile(db)</span></code></pre>
+
+    <h4>How the project uses it</h4>
+    <p>A typical authenticated route signature looks like:</p>
+    <pre><code><span class="dec">@router.get</span>(<span class="str">"/complaints"</span>)
+<span class="kw">async def</span> <span class="fn">list_complaints</span>(
+    db: Client = Depends(get_authenticated_db),   <span class="cm"># ← RLS-scoped DB</span>
+    user: <span class="typ">dict</span> = Depends(get_current_user),       <span class="cm"># ← JWT payload</span>
+    _: <span class="kw">None</span> = Depends(require_active_subscription), <span class="cm"># ← Stripe gate (Module 04)</span>
+):</code></pre>
+    <p>FastAPI resolves each dependency in order (detecting the DAG automatically), calls them, and passes results into the route function. All three run before the route body executes.</p>
+  </details>
+
+  <!-- S3 -->
+  <h2 id="walkthrough">Section 3 — Line-by-Line Walkthrough</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3" aria-label="Mark section 3 complete"><label for="chk-s3">Mark complete</label></div>
+
+  <h3>File: <code>backend/app/dependencies/auth.py</code></h3>
+
+  <pre><code><span class="kw">import</span> jwt
+<span class="kw">from</span> jwt <span class="kw">import</span> PyJWKClient
+<span class="kw">from</span> fastapi <span class="kw">import</span> Depends, HTTPException, status
+<span class="kw">from</span> fastapi.security <span class="kw">import</span> HTTPBearer, HTTPAuthorizationCredentials
+<span class="kw">from</span> app.config <span class="kw">import</span> settings
+
+security = HTTPBearer()</code></pre>
+  <div class="line-exp"><code>HTTPBearer()</code> is a FastAPI security scheme that reads the <code>Authorization: Bearer &lt;token&gt;</code> header. When a route declares <code>credentials: HTTPAuthorizationCredentials = Depends(security)</code>, FastAPI automatically extracts the token string for you. If the header is missing, FastAPI returns 403 before your code even runs.</div>
+
+  <pre><code>_jwks_client: PyJWKClient | <span class="kw">None</span> = <span class="kw">None</span>
+
+<span class="kw">def</span> <span class="fn">_get_jwks_client</span>() -> PyJWKClient:
+    <span class="kw">global</span> _jwks_client
+    <span class="kw">if</span> _jwks_client <span class="kw">is None</span>:
+        jwks_url = <span class="str">f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json"</span>
+        _jwks_client = PyJWKClient(jwks_url, cache_keys=<span class="kw">True</span>)
+    <span class="kw">return</span> _jwks_client</code></pre>
+  <div class="line-exp">
+    <strong>Lazy singleton pattern:</strong> The JWKS client is created on first use, not at import time. This avoids an HTTP call to Supabase's JWKS endpoint during server startup (which could fail if there's no network, or slow startup).
+    <br><br>
+    <code>cache_keys=True</code> tells <code>PyJWKClient</code> to cache the public keys in memory after the first fetch. Supabase's public keys rarely rotate, so this is safe and avoids a network round-trip on every request.
+    <br><br>
+    <code>global _jwks_client</code> — Python requires this declaration to modify a module-level variable from inside a function. Without it, Python would create a new local variable named <code>_jwks_client</code> instead of modifying the module-level one.
+  </div>
+
+  <pre><code><span class="kw">async def</span> <span class="fn">get_current_user</span>(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> <span class="typ">dict</span>:</code></pre>
+  <div class="line-exp">The function is <code>async</code> because FastAPI calls it as part of the async request lifecycle. It declares <code>credentials: HTTPAuthorizationCredentials = Depends(security)</code> — FastAPI calls <code>HTTPBearer()</code> first, which parses the Authorization header and passes the result in.</div>
+
+  <pre><code>    token = credentials.credentials</code></pre>
+  <div class="line-exp"><code>credentials</code> is an <code>HTTPAuthorizationCredentials</code> object with two attributes: <code>scheme</code> (the word "Bearer") and <code>credentials</code> (the actual token string). This line extracts just the token.</div>
+
+  <pre><code>    <span class="kw">try</span>:
+        signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=[<span class="str">"ES256"</span>, <span class="str">"RS256"</span>],
+            audience=<span class="str">"authenticated"</span>,
+        )
+        <span class="kw">return</span> payload
+    <span class="kw">except</span> jwt.ExpiredSignatureError:
+        <span class="kw">raise</span> HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=<span class="str">"Token expired"</span>)
+    <span class="kw">except</span> Exception:
+        <span class="kw">pass</span>   <span class="cm"># fall through to HS256 fallback</span></code></pre>
+  <div class="line-exp">
+    <strong>Step 1 — Try ES256 via JWKS:</strong>
+    <ul>
+      <li><code>get_signing_key_from_jwt(token)</code> reads the <code>kid</code> from the JWT header, fetches the matching public key from the cached JWKS, and returns it.</li>
+      <li><code>jwt.decode()</code> verifies the signature using the public key, checks the expiry (<code>exp</code> claim), and checks the audience (<code>aud</code> must equal <code>"authenticated"</code>). If all checks pass, it returns the payload dict.</li>
+      <li><code>ExpiredSignatureError</code> is caught specifically — it means the token was valid but has expired, and returns a helpful 401 with "Token expired" instead of the generic fallback.</li>
+      <li>Any other exception (invalid signature, malformed token, JWKS fetch failure) falls through to the HS256 fallback with a bare <code>pass</code>.</li>
+    </ul>
+  </div>
+
+  <pre><code>    <span class="kw">try</span>:
+        payload = jwt.decode(
+            token,
+            settings.SUPABASE_JWT_SECRET,
+            algorithms=[<span class="str">"HS256"</span>],
+            audience=<span class="str">"authenticated"</span>,
+        )
+        <span class="kw">return</span> payload
+    <span class="kw">except</span> jwt.ExpiredSignatureError:
+        <span class="kw">raise</span> HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=<span class="str">"Token expired"</span>)
+    <span class="kw">except</span> jwt.InvalidTokenError:
+        <span class="kw">raise</span> HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=<span class="str">"Invalid token"</span>)</code></pre>
+  <div class="line-exp">
+    <strong>Step 2 — Fallback HS256:</strong> If ES256 failed (e.g., legacy Supabase project without JWKS), try HS256 with the JWT secret from config. This time, an <code>InvalidTokenError</code> (the catch-all for all jwt validation failures) raises a 401. No third fallback — if both fail, the request is rejected.
+  </div>
+
+  <h3>File: <code>backend/app/dependencies/authenticated_db.py</code></h3>
+
+  <pre><code><span class="kw">from</span> fastapi <span class="kw">import</span> Depends
+<span class="kw">from</span> fastapi.security <span class="kw">import</span> HTTPBearer, HTTPAuthorizationCredentials
+<span class="kw">from</span> supabase <span class="kw">import</span> Client
+<span class="kw">from</span> app.db.session <span class="kw">import</span> get_db
+
+security = HTTPBearer()</code></pre>
+  <div class="line-exp">Note that <code>security = HTTPBearer()</code> is instantiated again here — a second independent instance. This is intentional: <code>auth.py</code> uses it to extract the token for JWT validation; <code>authenticated_db.py</code> uses it to extract the same token for DB auth injection. They're independent because this file doesn't import from <code>auth.py</code> — it reads the token directly to avoid creating a circular dependency.</div>
+
+  <pre><code><span class="kw">async def</span> <span class="fn">get_authenticated_db</span>(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Client = Depends(get_db),
+) -> Client:
+    db.postgrest.auth(credentials.credentials)
+    <span class="kw">return</span> db</code></pre>
+  <div class="line-exp">
+    <strong>The entire function is three lines.</strong> Here's what each does:
+    <ul>
+      <li><code>credentials: ... = Depends(security)</code> — extracts the Bearer token string.</li>
+      <li><code>db: Client = Depends(get_db)</code> — gets the shared anon Supabase client singleton.</li>
+      <li><code>db.postgrest.auth(credentials.credentials)</code> — sets the JWT on the client's PostgREST connection for this request. After this call, any query via <code>db</code> includes the JWT in the <code>Authorization</code> header sent to PostgREST, which passes it to PostgreSQL as a session variable. RLS policies can now read <code>auth.uid()</code>.</li>
+    </ul>
+    <p><strong>Why doesn't this depend on <code>get_current_user</code>?</strong> Because <code>get_authenticated_db</code> only needs the raw token string (to pass to PostgREST), not the decoded payload. Depending on <code>get_current_user</code> would run the full JWT decoding twice for every request that uses both. FastAPI actually caches dependencies within a request, but the design avoids the dependency anyway.</p>
+  </div>
+
+  <!-- S4 -->
+  <h2 id="design">Section 4 — Why This Design</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4" aria-label="Mark section 4 complete"><label for="chk-s4">Mark complete</label></div>
+
+  <h3>Decision: ES256 first, HS256 fallback</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>ES256 only</td><td>Cleanest; most secure</td><td>Breaks for any manager using a legacy Supabase project with HS256</td></tr>
+      <tr><td>HS256 only</td><td>Simpler code</td><td>Less secure; won't work for new Supabase projects that use ES256 by default</td></tr>
+      <tr><td>Try ES256, fallback to HS256 (chosen)</td><td>Works for both old and new Supabase projects; zero config change needed</td><td>Slightly more code; two try/except blocks; JWKS fetch adds ~50ms on first call</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Decision: <code>get_authenticated_db</code> vs. always using service-role client</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>Authenticated DB (chosen)</td><td>RLS automatically scopes all queries to the current manager; no WHERE clauses needed</td><td>Must set <code>db.postgrest.auth(token)</code> on every request; slightly slower than raw DB</td></tr>
+      <tr><td>Service-role everywhere</td><td>One client, no auth injection</td><td>Must manually add <code>.eq("manager_id", user["sub"])</code> on every query — forgetting it is a data leak</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S5 -->
+  <h2 id="data-flow">Section 5 — How It Connects</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5" aria-label="Mark section 5 complete"><label for="chk-s5">Mark complete</label></div>
+
+  <div class="diagram">
+  HTTP request → Authorization: Bearer &lt;token&gt;
+        │
+        ▼
+  auth.py: get_current_user()
+        │  decodes JWT → {sub: UUID, email, role}
+        │  used by: every authenticated route (for user identity)
+        │           subscription.py (for manager_id)
+        │           property_groups.py (for provisioning)
+        │
+  authenticated_db.py: get_authenticated_db()
+        │  injects token into anon client → RLS activates
+        │  returns: db (anon client with JWT)
+        │  used by: all user-facing CRUD routes
+        │           (complaints, flats, tenants, buildings, rents, ...)
+        │
+  session.py: get_service_db()
+        │  bypasses RLS entirely
+        │  used by: voice.py, payments.py, subscription.py, vapi_provisioning.py
+  </div>
+
+  <!-- S6 -->
+  <h2 id="running">Section 6 — Running &amp; Testing</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6" aria-label="Mark section 6 complete"><label for="chk-s6">Mark complete</label></div>
+
+  <h4>Test JWT decoding manually</h4>
+  <pre><code><span class="cm"># Get a valid JWT from your browser:</span>
+<span class="cm"># 1. Open the React app and log in</span>
+<span class="cm"># 2. In browser devtools → Application → Local Storage</span>
+<span class="cm"># 3. Find the Supabase session key — copy the access_token value</span>
+<span class="cm"># 4. Paste it below:</span>
+
+python -c <span class="str">"
+import jwt, os
+from dotenv import load_dotenv
+load_dotenv()
+token = 'YOUR_TOKEN_HERE'
+payload = jwt.decode(token, options={'verify_signature': False})
+print('sub:', payload.get('sub'))
+print('email:', payload.get('email'))
+print('expires:', payload.get('exp'))
+"</span></code></pre>
+
+  <p><strong>Test a protected route with curl:</strong></p>
+  <pre><code>TOKEN="your-jwt-token-here"
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/complaints</code></pre>
+  <p>Expected: JSON array of complaints. Without the header: <code>{"detail":"Not authenticated"}</code>.</p>
+
+  <table>
+    <thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td><code>401 Token expired</code></td><td>JWT is older than 1 hour</td><td>Refresh the session in the frontend; Supabase auto-refreshes sessions</td></tr>
+      <tr><td><code>401 Invalid token</code></td><td>Wrong JWT secret or token from a different Supabase project</td><td>Check <code>SUPABASE_JWT_SECRET</code> in <code>.env</code></td></tr>
+      <tr><td><code>403 Not authenticated</code></td><td>Missing Authorization header entirely</td><td>Add <code>-H "Authorization: Bearer TOKEN"</code> to curl</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S7 -->
+  <h2 id="checkpoint">Section 7 — Checkpoint ✓</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7" aria-label="Mark section 7 complete"><label for="chk-s7">Mark complete</label></div>
+
+  <div class="card card-success">
+    <h3>Inspect a Supabase JWT</h3>
+    <p>Paste a real Supabase JWT (from your browser session) into <a href="https://jwt.io" target="_blank" rel="noopener">jwt.io</a>. You should see:</p>
+    <ul>
+      <li>Header: <code>{"alg": "ES256", "typ": "JWT"}</code> (or HS256 for older projects)</li>
+      <li>Payload: <code>{"sub": "...", "email": "...", "role": "authenticated", "aud": "authenticated"}</code></li>
+    </ul>
+    <p>This confirms you understand the three-part structure. Now call a protected endpoint with this token and confirm you get data back (not a 401).</p>
+  </div>
+
+  <!-- S8 -->
+  <h2 id="exercises">Section 8 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s8" aria-label="Mark section 8 complete"><label for="chk-s8">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Extract a specific claim from the JWT payload</summary>
+    <p><strong>Problem:</strong> Add a route <code>GET /me</code> that returns the current user's email and UUID (from the JWT payload), without querying the database.</p>
+    <details>
+      <summary>Hints</summary>
+      <p>Add a new route to any router (or directly in <code>main.py</code>). The route depends on <code>get_current_user</code>. The returned <code>user</code> dict has <code>sub</code> (UUID) and <code>email</code> keys.</p>
+    </details>
+    <details>
+      <summary>Solution</summary>
+      <pre><code><span class="kw">from</span> app.dependencies.auth <span class="kw">import</span> get_current_user
+
+<span class="dec">@router.get</span>(<span class="str">"/me"</span>)
+<span class="kw">async def</span> <span class="fn">get_me</span>(user: <span class="typ">dict</span> = Depends(get_current_user)):
+    <span class="kw">return</span> {
+        <span class="str">"user_id"</span>: user[<span class="str">"sub"</span>],
+        <span class="str">"email"</span>: user.get(<span class="str">"email"</span>),
+    }</code></pre>
+      <p><strong>Success:</strong> <code>GET /me</code> with a valid JWT returns <code>{"user_id": "...", "email": "..."}</code> matching your Supabase user.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Add a role check dependency</summary>
+    <p><strong>Problem:</strong> Write a dependency <code>require_admin</code> that raises HTTP 403 if the user's <code>role</code> claim (from the JWT) is not <code>"service_role"</code>. Use it to protect a <code>GET /admin/stats</code> route.</p>
+    <details>
+      <summary>Hints</summary>
+      <p>Write a function that depends on <code>get_current_user</code>. Check <code>user.get("role")</code>. Raise <code>HTTPException(status_code=403, detail="Admin only")</code> if the role is wrong.</p>
+    </details>
+    <details>
+      <summary>Solution</summary>
+      <pre><code><span class="kw">from</span> fastapi <span class="kw">import</span> Depends, HTTPException
+
+<span class="kw">async def</span> <span class="fn">require_admin</span>(user: <span class="typ">dict</span> = Depends(get_current_user)):
+    <span class="kw">if</span> user.get(<span class="str">"role"</span>) != <span class="str">"service_role"</span>:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">403</span>, detail=<span class="str">"Admin only"</span>)
+    <span class="kw">return</span> user
+
+<span class="dec">@router.get</span>(<span class="str">"/admin/stats"</span>)
+<span class="kw">async def</span> <span class="fn">admin_stats</span>(_: <span class="kw">None</span> = Depends(require_admin)):
+    <span class="kw">return</span> {<span class="str">"total_managers"</span>: <span class="num">42</span>}</code></pre>
+        <p><strong>Success:</strong> Regular users get 403. A request with a service-role JWT (from Supabase dashboard) gets the stats response.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Implement token caching with TTL</summary>
+    <p><strong>Problem:</strong> Currently, <code>get_current_user</code> decodes the JWT on every request (fast but does a JWKS lookup on first call). For high-traffic routes, cache the decoded payload keyed by token hash, with a TTL of 5 minutes. Invalid tokens must never be cached.</p>
+    <details>
+      <summary>Hints</summary>
+      <p>Use a module-level dict <code>_cache: dict[str, tuple[dict, float]]</code> where the value is <code>(payload, expire_time)</code>. Hash the token with <code>hashlib.sha256(token.encode()).hexdigest()</code> as the key. Only cache on successful decode. Check <code>time.time() &gt; expire_time</code> to invalidate.</p>
+    </details>
+    <details>
+      <summary>Solution</summary>
+      <pre><code><span class="kw">import</span> hashlib, time
+
+_cache: <span class="typ">dict</span>[<span class="typ">str</span>, <span class="typ">tuple</span>[<span class="typ">dict</span>, <span class="typ">float</span>]] = {}
+
+<span class="kw">async def</span> <span class="fn">get_current_user_cached</span>(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> <span class="typ">dict</span>:
+    token = credentials.credentials
+    key = hashlib.sha256(token.encode()).hexdigest()
+
+    <span class="kw">if</span> key <span class="kw">in</span> _cache:
+        payload, exp = _cache[key]
+        <span class="kw">if</span> time.time() < exp:
+            <span class="kw">return</span> payload
+        <span class="kw">del</span> _cache[key]
+
+    payload = <span class="kw">await</span> get_current_user(credentials)
+    _cache[key] = (payload, time.time() + <span class="num">300</span>)   <span class="cm"># 5 min TTL</span>
+    <span class="kw">return</span> payload</code></pre>
+      <p><strong>Note:</strong> In production, this in-memory cache doesn't work across multiple server processes (e.g., multiple Uvicorn workers). A Redis cache would be needed for multi-process deployments. Also, if a user's JWT is revoked, it remains valid in the cache until TTL expires.</p>
+      <p><strong>Success:</strong> The second request with the same token skips JWT decoding. Add a <code>print("cache hit")</code> to confirm.</p>
+    </details>
+  </details>
+
+  <!-- S9 -->
+  <h2 id="glossary">Section 9 — Glossary</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s9" aria-label="Mark section 9 complete"><label for="chk-s9">Mark complete</label></div>
+
+  <table>
+    <thead><tr><th>Term</th><th>Definition</th><th>First used in</th></tr></thead>
+    <tbody>
+      <tr><td>JWT (JSON Web Token)</td><td>A self-contained token encoding identity claims, signed by the issuer</td><td>Section 2</td></tr>
+      <tr><td><code>sub</code> claim</td><td>Subject — the user's UUID in a Supabase JWT; used by RLS as <code>auth.uid()</code></td><td>Section 2</td></tr>
+      <tr><td><code>aud</code> claim</td><td>Audience — who the token is intended for; Supabase sets this to <code>"authenticated"</code></td><td>Section 2</td></tr>
+      <tr><td>ES256</td><td>ECDSA with P-256 curve + SHA-256 — asymmetric JWT signing algorithm</td><td>Section 2</td></tr>
+      <tr><td>HS256</td><td>HMAC with SHA-256 — symmetric JWT signing algorithm using a shared secret</td><td>Section 2</td></tr>
+      <tr><td>JWKS</td><td>JSON Web Key Set — a public endpoint serving the server's public keys for JWT verification</td><td>Section 2</td></tr>
+      <tr><td><code>PyJWKClient</code></td><td>python-jose class that fetches and caches JWKS keys</td><td>Section 3</td></tr>
+      <tr><td>HTTPBearer</td><td>FastAPI security scheme that extracts Bearer tokens from Authorization headers</td><td>Section 3</td></tr>
+      <tr><td>Dependency injection</td><td>Pattern where FastAPI calls dependency functions and passes their return values to route handlers</td><td>Section 2</td></tr>
+      <tr><td><code>postgrest.auth(token)</code></td><td>Supabase SDK method that injects a JWT into the PostgREST client for RLS activation</td><td>Section 3</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S10 -->
+  <h2 id="resources">Section 10 — Resources</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s10" aria-label="Mark section 10 complete"><label for="chk-s10">Mark complete</label></div>
+
+  <div class="resource-grid">
+    <div class="resource-card">
+      <h4>JWT Introduction</h4>
+      <a href="https://jwt.io/introduction" target="_blank" rel="noopener">jwt.io — Introduction to JWTs</a>
+      <a href="https://auth0.com/docs/secure/tokens/json-web-tokens" target="_blank" rel="noopener">Auth0 — JWT explained</a>
+      <p>jwt.io also has an interactive debugger to decode and verify tokens in your browser.</p>
+    </div>
+    <div class="resource-card">
+      <h4>FastAPI Security</h4>
+      <a href="https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/" target="_blank" rel="noopener">FastAPI JWT tutorial</a>
+      <a href="https://fastapi.tiangolo.com/tutorial/security/http-basic-auth/" target="_blank" rel="noopener">FastAPI security overview</a>
+      <p>The FastAPI JWT tutorial shows the full auth flow including token generation.</p>
+    </div>
+    <div class="resource-card">
+      <h4>python-jose (JWT library)</h4>
+      <a href="https://python-jose.readthedocs.io/en/latest/" target="_blank" rel="noopener">python-jose docs</a>
+      <a href="https://pypi.org/project/python-jose/" target="_blank" rel="noopener">PyPI — python-jose</a>
+      <p>This project uses the <code>jwt</code> module (which is <code>python-jose</code>). The <code>PyJWKClient</code> handles JWKS key fetching.</p>
+    </div>
+    <div class="resource-card">
+      <h4>Supabase Auth</h4>
+      <a href="https://supabase.com/docs/guides/auth" target="_blank" rel="noopener">Supabase Auth overview</a>
+      <a href="https://supabase.com/docs/guides/auth/jwts" target="_blank" rel="noopener">Supabase — Understanding JWTs</a>
+      <p>Explains the full Supabase Auth lifecycle — how Google OAuth translates into a Supabase JWT.</p>
+    </div>
+    <div class="resource-card">
+      <h4>ES256 / Elliptic Curve Cryptography</h4>
+      <a href="https://cryptography.io/en/latest/hazmat/primitives/asymmetric/ec/" target="_blank" rel="noopener">Python cryptography — EC keys</a>
+      <a href="https://blog.cloudflare.com/a-relatively-easy-to-understand-primer-on-elliptic-curve-cryptography/" target="_blank" rel="noopener">Cloudflare — ECC primer</a>
+      <p>The Cloudflare article is the clearest explanation of elliptic curve cryptography for developers.</p>
+    </div>
+    <div class="resource-card">
+      <h4>FastAPI Dependencies</h4>
+      <a href="https://fastapi.tiangolo.com/tutorial/dependencies/" target="_blank" rel="noopener">FastAPI dependencies tutorial</a>
+      <a href="https://fastapi.tiangolo.com/tutorial/dependencies/sub-dependencies/" target="_blank" rel="noopener">Sub-dependencies</a>
+      <p>Understanding sub-dependencies is key to the <code>get_authenticated_db → get_db</code> chain in this module.</p>
+    </div>
+  </div>
+
+  <!-- S11 -->
+  <h2 id="whats-next">Section 11 — What's Next</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s11" aria-label="Mark section 11 complete"><label for="chk-s11">Mark complete</label></div>
+
+  <p><a href="module_04_subscription_stripe.html">Module 04 — Subscription Gate (Stripe)</a> adds a third dependency on top of the auth chain: checking that the authenticated user has an active Stripe subscription before any data is served.</p>
+
+  <div class="card card-info">
+    <button id="markCompleteBtn" onclick="markModuleComplete()" style="background: var(--accent); color: var(--bg-primary); border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius); cursor: pointer; font-size: 1rem; font-weight: 600;">
+      ✓ Mark Module 03 Complete
+    </button>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_02_database_layer.html" class="nav-btn">← Previous: Database Layer</a>
+    <a href="module_04_subscription_stripe.html" class="nav-btn">Next: Subscription Gate →</a>
+  </div>
+</div></div>
+
+<script>
+  const html = document.documentElement;
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  html.setAttribute('data-theme', saved); toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next); localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach((h, i) => {
+    if (!h.id) h.id = 'sec-' + i;
+    const a = document.createElement('a'); a.href = '#' + h.id;
+    a.textContent = h.textContent.replace(/^Section \d+ — /, ''); toc.appendChild(a);
+  });
+  document.querySelectorAll('h2').forEach(h => {
+    const obs = new IntersectionObserver(entries => entries.forEach(e => {
+      if (e.isIntersecting) { document.querySelectorAll('#toc a').forEach(l => l.classList.remove('active'));
+        const a = toc.querySelector(`a[href="#${e.target.id}"]`); if (a) a.classList.add('active'); }
+    }), { rootMargin: '-10% 0px -70% 0px' }); obs.observe(h);
+  });
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button'); btn.className = 'copy-btn'; btn.textContent = 'Copy';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.addEventListener('click', () => { const c = pre.querySelector('code');
+      navigator.clipboard.writeText(c ? c.innerText : pre.innerText).then(() => { btn.textContent = '✓'; setTimeout(() => btn.textContent = 'Copy', 2000); }); });
+    pre.appendChild(btn);
+  });
+  const topBtn = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => topBtn.classList.toggle('visible', window.scrollY > 400));
+  topBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const MODULE_KEY = 'module_03_progress';
+  const checks = document.querySelectorAll('.section-check input[type="checkbox"]');
+  const fill = document.getElementById('progressFill');
+  const sp = JSON.parse(localStorage.getItem(MODULE_KEY) || '{}');
+  checks.forEach(cb => { if (sp[cb.id]) cb.checked = true;
+    cb.addEventListener('change', () => { sp[cb.id] = cb.checked; localStorage.setItem(MODULE_KEY, JSON.stringify(sp)); upd(); }); });
+  function upd() { const t = checks.length, d = [...checks].filter(c => c.checked).length; fill.style.width = t ? (d/t*100)+'%' : '0%'; }
+  upd();
+  function markModuleComplete() {
+    const c = JSON.parse(localStorage.getItem('completed_modules') || '[]');
+    if (!c.includes('03')) c.push('03'); localStorage.setItem('completed_modules', JSON.stringify(c));
+    checks.forEach(cb => { cb.checked = true; sp[cb.id] = true; }); localStorage.setItem(MODULE_KEY, JSON.stringify(sp)); upd();
+    document.getElementById('markCompleteBtn').textContent = '✓ Complete!';
+  }
+</script>
+</body>
+</html>

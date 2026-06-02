@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 00 — Project Setup & Environment | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --accent-hover: #89b4fa; --success: #9ece6a;
+      --warning: #e0af68; --error: #f7768e; --border: #3b4261;
+      --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3);
+      --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --accent-hover: #0550ae; --success: #1a7f37;
+      --warning: #9a6700; --error: #cf222e; --border: #d0d7de;
+      --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; width: 260px; height: 100vh;
+      background: var(--bg-secondary); border-right: 1px solid var(--border);
+      overflow-y: auto; padding: 1.5rem; z-index: 100; transition: transform 0.3s;
+    }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0; font-size: 0.85rem; border-left: 2px solid transparent; padding-left: 0.5rem; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto;
+      position: relative; margin: 1rem 0; counter-reset: line;
+    }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; } .var { color: #c0caf5; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; } [data-theme="light"] .var { color: #24292f; }
+    .copy-btn {
+      position: absolute; top: 0.4rem; right: 0.4rem;
+      background: var(--bg-tertiary); border: 1px solid var(--border);
+      color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px;
+      cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans);
+    }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .lang-label { position: absolute; top: 0.4rem; right: 3.5rem; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-family: var(--font-sans); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; box-shadow: var(--shadow); }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-warning { border-left: 4px solid var(--warning); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-error { border-left: 4px solid var(--error); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; color: var(--text-primary); }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .badge-concept { background: #7aa2f722; color: var(--accent); border: 1px solid var(--accent); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .nav-btn.disabled { opacity: 0.4; pointer-events: none; }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .breadcrumbs a:hover { color: var(--accent); }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: all 0.3s; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin: 1rem 0; }
+    .resource-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .resource-card h4 { font-size: 0.9rem; margin-bottom: 0.4rem; color: var(--text-primary); }
+    .resource-card p { font-size: 0.8rem; margin: 0; }
+    .resource-card a { display: block; font-size: 0.8rem; margin-top: 0.3rem; }
+    .callout { background: var(--bg-secondary); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { border-left: 4px solid var(--warning); }
+    .callout-info { border-left: 4px solid var(--accent); }
+    .callout-success { border-left: 4px solid var(--success); }
+    .callout p { margin: 0; }
+    @media print {
+      .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; }
+      .main-content { margin-left: 0 !important; }
+      body { color: #000; background: #fff; }
+      pre { border: 1px solid #ccc; }
+      details, details > * { display: block; }
+      h2 { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 00</h3>
+  <div id="toc"></div>
+</nav>
+
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content">
+  <div class="container">
+
+    <div class="breadcrumbs">
+      <a href="index.html">Home</a> › <strong>Module 00 — Project Setup &amp; Environment</strong>
+    </div>
+
+    <h1>Module 00 — Project Setup &amp; Environment</h1>
+    <div class="meta-row">
+      <span>⏱ Estimated time: 45 minutes</span>
+      <span>📁 Files: <code>.env.example</code>, <code>requirements.txt</code>, <code>schema.sql</code></span>
+      <span>🔰 Prerequisites: None — start here</span>
+    </div>
+
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div class="nav-buttons">
+      <span class="nav-btn disabled">← No previous module</span>
+      <a href="module_01_fastapi_entry.html" class="nav-btn">Next: FastAPI Entry Point →</a>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s1" aria-label="Mark section 1 complete"><label for="chk-s1">Mark complete</label></div>
+
+    <p>This module prepares your development machine to run the Tenant Management MVP backend. You will create an isolated Python environment, install every dependency from <code>requirements.txt</code>, populate a <code>.env</code> file with credentials, create a Supabase project, and run the backend server for the first time.</p>
+
+    <p>The backend is a <strong>FastAPI</strong> application (Python) that talks to a <strong>Supabase</strong> database (PostgreSQL). Before any code can run, three things must exist: the Python runtime, the dependency packages, and the external service credentials. This module sets up all three.</p>
+
+    <div class="diagram">
+┌─────────────────────────────────────────────────────────────┐
+│                   Your Development Machine                   │
+│                                                             │
+│  Python 3.13+                                               │
+│  └── venv/  (isolated environment)                          │
+│       └── site-packages/  (fastapi, supabase, stripe, ...)  │
+│                                                             │
+│  .env  ──► credentials (Supabase, Stripe, VAPI, ...)        │
+│            loaded at startup by python-dotenv               │
+│                                                             │
+│  $ uvicorn app.main:app --reload                            │
+│         ↓                                                   │
+│  http://localhost:8000  ←── browsers / VAPI / Stripe        │
+└─────────────────────────────────────────────────────────────┘
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s2" aria-label="Mark section 2 complete"><label for="chk-s2">Mark complete</label></div>
+
+    <details open>
+      <summary>Python Virtual Environments (<code>venv</code>)</summary>
+      <p>A virtual environment is an isolated copy of the Python interpreter plus a private package store. Without one, every project on your machine shares the same packages — installing a new version for one project silently breaks another.</p>
+
+      <h4>Minimal standalone example</h4>
+      <pre><code><span class="cm"># Create an isolated environment in a folder called "venv"</span>
+python -m venv venv
+
+<span class="cm"># Activate it (Windows PowerShell)</span>
+.\venv\Scripts\Activate.ps1
+
+<span class="cm"># Activate it (macOS / Linux bash)</span>
+source venv/bin/activate
+
+<span class="cm"># Your prompt now shows (venv) — pip installs go into venv/</span>
+pip install requests       <span class="cm"># only in this environment</span>
+
+<span class="cm"># Deactivate when done</span>
+deactivate</code></pre>
+
+      <h4>How this project uses it</h4>
+      <p>The project's <code>requirements.txt</code> lists every dependency at a pinned version. After creating a venv and running <code>pip install -r requirements.txt</code>, you get an exact replica of the production environment.</p>
+
+      <h4>What breaks without it</h4>
+      <p>If you run <code>pip install -r requirements.txt</code> without a venv, packages install into your system Python. A future project installing a different version of <code>pydantic</code> will silently break this one.</p>
+
+      <details>
+        <summary>Try it yourself</summary>
+        <p>Create a new folder, make a venv inside it, activate it, and confirm Python is isolated:</p>
+        <pre><code>mkdir test_venv && cd test_venv
+python -m venv venv
+.\venv\Scripts\Activate.ps1   <span class="cm"># Windows</span>
+python -c <span class="str">"import sys; print(sys.executable)"</span>
+<span class="cm"># Should show a path INSIDE the venv folder, not system Python</span></code></pre>
+        <p><strong>Success:</strong> the printed path contains <code>venv</code> and does not point to your system Python installation.</p>
+      </details>
+    </details>
+
+    <details open>
+      <summary>Environment Variables and <code>.env</code> Files</summary>
+      <p>An environment variable is a named value the operating system makes available to any process. Applications use them for secrets (API keys, passwords) so that credentials never appear in source code that might be committed to git.</p>
+
+      <h4>Minimal standalone example</h4>
+      <pre><code><span class="cm"># .env file (never commit this)</span>
+DATABASE_URL=postgresql://user:pass@localhost/mydb
+SECRET_KEY=super-secret-value
+
+<span class="cm"># read_env.py</span>
+<span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+
+load_dotenv()   <span class="cm"># reads .env into environment</span>
+
+db_url = os.getenv(<span class="str">"DATABASE_URL"</span>)
+<span class="fn">print</span>(db_url)   <span class="cm"># postgresql://user:pass@localhost/mydb</span></code></pre>
+
+      <h4>How this project uses it</h4>
+      <p><code>config.py</code> calls <code>load_dotenv()</code> at module load time and reads every credential via <code>os.getenv()</code>. The <code>.env.example</code> file is committed to git as a template — it shows every variable that must exist but uses placeholder values.</p>
+
+      <div class="callout callout-warning">
+        <p><strong>Never commit <code>.env</code> to git.</strong> The <code>.gitignore</code> should always contain <code>.env</code>. If you accidentally commit a real secret, rotate the key immediately — git history is public.</p>
+      </div>
+
+      <details>
+        <summary>Try it yourself</summary>
+        <p>Create a <code>test.env</code> file with <code>MY_NAME=Alice</code>, then read it:</p>
+        <pre><code>pip install python-dotenv
+python -c <span class="str">"from dotenv import load_dotenv; import os; load_dotenv('test.env'); print(os.getenv('MY_NAME'))"</span></code></pre>
+        <p><strong>Success:</strong> prints <code>Alice</code>.</p>
+      </details>
+    </details>
+
+    <details open>
+      <summary>Supabase — PostgreSQL as a Service</summary>
+      <p>Supabase is a hosted PostgreSQL database that also provides: authentication (Auth), file storage (Storage), and a REST/GraphQL API auto-generated from your schema (PostgREST). You interact with it using the <code>supabase-py</code> SDK, which wraps HTTP calls to the PostgREST API.</p>
+
+      <h4>Key concepts</h4>
+      <ul>
+        <li><strong>Project URL</strong> — <code>https://&lt;project-ref&gt;.supabase.co</code> — the base URL for all SDK calls.</li>
+        <li><strong>Anon key</strong> — public key. Safe to expose to browsers. Respects Row Level Security (RLS).</li>
+        <li><strong>Service-role key</strong> — private key. Bypasses RLS. <em>Never expose to the frontend.</em></li>
+        <li><strong>JWT Secret</strong> — used to verify Supabase-issued JWTs in your backend.</li>
+      </ul>
+
+      <h4>Minimal standalone example</h4>
+      <pre><code><span class="kw">from</span> supabase <span class="kw">import</span> create_client
+
+client = create_client(
+    <span class="str">"https://abc123.supabase.co"</span>,
+    <span class="str">"your-anon-key"</span>
+)
+
+<span class="cm"># Fetch all rows from "complaints"</span>
+result = client.table(<span class="str">"complaints"</span>).select(<span class="str">"*"</span>).execute()
+<span class="fn">print</span>(result.data)   <span class="cm"># list of dicts</span></code></pre>
+
+      <details>
+        <summary>Try it yourself</summary>
+        <p>After creating your Supabase project (step 3 below), open the Supabase dashboard → SQL Editor and run:</p>
+        <pre><code><span class="kw">SELECT</span> current_timestamp;</code></pre>
+        <p><strong>Success:</strong> the query returns the current UTC timestamp. Your database is live.</p>
+      </details>
+    </details>
+
+    <details open>
+      <summary><code>requirements.txt</code> — Pinned Dependencies</summary>
+      <p>A <code>requirements.txt</code> file lists packages and their exact versions (e.g. <code>fastapi==0.128.0</code>). Pinning versions means every developer, CI server, and production machine installs exactly the same code — no silent upgrades.</p>
+
+      <h4>Key packages in this project</h4>
+      <table>
+        <thead><tr><th>Package</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>fastapi==0.128.0</code></td><td>Web framework — routing, request parsing, OpenAPI docs</td></tr>
+          <tr><td><code>uvicorn==0.40.0</code></td><td>ASGI server — runs the FastAPI app</td></tr>
+          <tr><td><code>supabase==2.27.2</code></td><td>Supabase Python SDK — DB, auth, storage</td></tr>
+          <tr><td><code>pydantic==2.12.5</code></td><td>Data validation — request/response schemas</td></tr>
+          <tr><td><code>python-jose==3.5.0</code></td><td>JWT encoding/decoding</td></tr>
+          <tr><td><code>stripe>=7.0.0</code></td><td>Stripe Payments SDK</td></tr>
+          <tr><td><code>twilio>=8.0.0</code></td><td>SMS sending</td></tr>
+          <tr><td><code>sendgrid>=6.0.0</code></td><td>Email sending</td></tr>
+          <tr><td><code>openai>=1.0.0</code></td><td>OpenAI gpt-4o-mini chatbot</td></tr>
+          <tr><td><code>httpx==0.28.1</code></td><td>Async HTTP client (used for VAPI calls)</td></tr>
+          <tr><td><code>python-dotenv==1.2.1</code></td><td>Loads <code>.env</code> file into environment</td></tr>
+          <tr><td><code>openpyxl>=3.1.0</code></td><td>Excel file parsing for CSV import</td></tr>
+        </tbody>
+      </table>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="walkthrough">Section 3 — Reading the Source Files</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s3" aria-label="Mark section 3 complete"><label for="chk-s3">Mark complete</label></div>
+
+    <h3>File: <code>backend/.env.example</code></h3>
+    <p>This file is a template committed to git. It shows every environment variable the app needs, with placeholder values. Developers copy it to <code>.env</code> and fill in real credentials.</p>
+
+    <pre><code><span class="cm"># Supabase</span>
+SUPABASE_URL=https://xxx.supabase.co         <span class="cm"># Your project URL from Supabase dashboard</span>
+SUPABASE_KEY=your-anon-key                   <span class="cm"># Safe to use in authenticated routes</span>
+SUPABASE_SERVICE_KEY=your-service-role-key   <span class="cm"># NEVER expose; bypasses all security</span>
+SUPABASE_JWT_SECRET=your-jwt-secret          <span class="cm"># Dashboard > Settings > API > JWT Secret</span>
+
+<span class="cm"># Stripe</span>
+STRIPE_SECRET_KEY=sk_test_xxx                <span class="cm"># sk_test_ prefix = test mode (safe)</span>
+STRIPE_WEBHOOK_SECRET=whsec_xxx              <span class="cm"># From Stripe dashboard > Webhooks</span>
+STRIPE_PRICE_ID=price_xxx                    <span class="cm"># The subscription plan price ID</span>
+
+<span class="cm"># URLs</span>
+FRONTEND_URL=http://localhost:5173           <span class="cm"># Where React dev server runs</span>
+BACKEND_URL=https://your-deploy.onrender.com <span class="cm"># Production backend URL</span>
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+
+<span class="cm"># AI / Voice</span>
+OPEN_AI_API=your-openai-api-key             <span class="cm"># For the chatbot</span>
+GROQ_API_KEY=your-groq-api-key              <span class="cm"># For complaint extraction</span>
+PRIVATE_VAPI_API=your-vapi-api-key          <span class="cm"># Server-side VAPI key</span></code></pre>
+
+    <p><strong>Why separate the VAPI assistant IDs per role?</strong> The complaint agent is global (one assistant for all managers). The lease agent is per-manager (provisioned on first use). Separate env vars prevent the complaint endpoint from accidentally using a lease agent ID.</p>
+
+    <h3>File: <code>backend/requirements.txt</code></h3>
+    <p>All 80 lines are exact version pins. Notice the important distinction: some packages use <code>==</code> (exact pin) while others use <code>>=</code> (minimum version). The <code>>=</code> packages (stripe, twilio, openai) are vendor SDKs where the API changes infrequently, so a minimum version is fine. Core framework packages (fastapi, pydantic, supabase) are pinned exactly because minor versions can break things subtly.</p>
+
+    <div class="callout callout-info">
+      <p><strong>SQLAlchemy appears in requirements.txt</strong> (<code>SQLAlchemy==2.0.46</code>) because it was used in the original prototype. The current codebase uses the Supabase SDK instead. The <code>models.py</code> file still exists for historical reference but is never imported by live routes.</p>
+    </div>
+
+    <h3>File: <code>backend/schema.sql</code></h3>
+    <p>This is the <em>initial</em> schema from when the project used a local SQLite/PostgreSQL database. The live Supabase schema has evolved significantly beyond this file — new tables like <code>properties_list</code>, <code>buildings</code>, <code>manager_profiles</code>, <code>subscriptions</code>, and <code>lease_leads</code> don't appear here. Treat this file as a historical artifact, not the current schema definition.</p>
+
+    <p>Key things to notice about the schema structure:</p>
+    <ul>
+      <li><code>SERIAL PRIMARY KEY</code> — auto-incrementing integer ID (legacy; new tables use <code>UUID</code>)</li>
+      <li><code>VARCHAR(20) NOT NULL UNIQUE</code> on <code>flat_number</code> — the DB enforces uniqueness, not just the app</li>
+      <li><code>CONSTRAINT ... CHECK</code> — the DB rejects invalid values even if the app forgets to validate</li>
+      <li><code>ON DELETE CASCADE</code> on foreign keys — deleting a tenant auto-deletes their complaints</li>
+    </ul>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="design">Section 4 — Why This Design</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s4" aria-label="Mark section 4 complete"><label for="chk-s4">Mark complete</label></div>
+
+    <h3>Decision: Supabase vs. self-managed PostgreSQL</h3>
+    <table>
+      <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+      <tbody>
+        <tr><td>Supabase (chosen)</td><td>Free tier, auth built-in, RLS, Storage, PostgREST API, realtime subscriptions, dashboard UI</td><td>Vendor lock-in; SDK API changes between versions; can't run locally without Docker</td></tr>
+        <tr><td>Self-managed PostgreSQL + SQLAlchemy</td><td>Full control; runs 100% locally; no external service needed</td><td>Must implement auth, RLS, storage, API yourself; more setup; harder in serverless</td></tr>
+        <tr><td>Firebase / MongoDB</td><td>Serverless-native; easy horizontal scaling</td><td>NoSQL loses relational integrity; no SQL joins; pricing unpredictable at scale</td></tr>
+      </tbody>
+    </table>
+    <p><strong>When you'd choose differently:</strong> Use self-managed PostgreSQL + SQLAlchemy if your team is strong in SQL and you need complex migrations, stored procedures, or full offline development. Use Supabase if you want to ship fast with auth + storage included.</p>
+
+    <h3>Decision: Python 3.13+ with FastAPI over older stacks</h3>
+    <table>
+      <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+      <tbody>
+        <tr><td>FastAPI (chosen)</td><td>Automatic OpenAPI/Swagger docs; async-native; Pydantic validation built in; fastest Python framework</td><td>Younger ecosystem than Django; fewer batteries included</td></tr>
+        <tr><td>Django REST Framework</td><td>Mature; ORM included; admin panel; huge community</td><td>Synchronous by default; more boilerplate; heavier for microservices</td></tr>
+        <tr><td>Node.js / Express</td><td>Same language as React frontend; massive npm ecosystem</td><td>Dynamic typing; no built-in validation; team must know JS on backend too</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="data-flow">Section 5 — How It Connects</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s5" aria-label="Mark section 5 complete"><label for="chk-s5">Mark complete</label></div>
+
+    <p>Module 00 is the foundation. Nothing else runs until this setup is complete.</p>
+    <div class="diagram">
+Module 00 (this module)
+│
+│  produces:  venv + installed packages
+│             .env with real credentials
+│             Supabase project (live DB)
+│
+▼
+Module 01 — FastAPI Entry Point
+│  needs:  packages (fastapi, uvicorn, etc.) from venv
+│          .env values loaded by config.py
+│
+▼
+Module 02 — Database Layer
+│  needs:  SUPABASE_URL + SUPABASE_KEY from .env
+│          live Supabase project from Module 00
+│
+▼  (all other modules build on Module 02)
+    </div>
+
+    <p><strong>Data flowing INTO this module:</strong> nothing — this is the starting point.</p>
+    <p><strong>Data flowing OUT of this module:</strong> a working Python environment, a live Supabase database, and a populated <code>.env</code> file that all subsequent modules depend on.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="running">Section 6 — Running &amp; Testing</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s6" aria-label="Mark section 6 complete"><label for="chk-s6">Mark complete</label></div>
+
+    <h3>Step-by-step setup</h3>
+
+    <h4>1. Clone the project and create a virtual environment</h4>
+    <pre><code>git clone https://github.com/your-org/Tenant_management_MVP.git
+cd Tenant_management_MVP/backend
+
+python -m venv venv
+
+<span class="cm"># Windows PowerShell</span>
+.\venv\Scripts\Activate.ps1
+<span class="cm"># macOS / Linux</span>
+source venv/bin/activate</code></pre>
+
+    <h4>2. Install all dependencies</h4>
+    <pre><code>pip install -r requirements.txt</code></pre>
+    <p>Expected output: many lines of <code>Downloading ...</code> followed by <code>Successfully installed ...</code>. This takes 1–3 minutes on first run.</p>
+
+    <h4>3. Create your Supabase project</h4>
+    <ol>
+      <li>Go to <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> → New Project</li>
+      <li>Choose a region close to you</li>
+      <li>Copy: Project URL, anon key, service-role key, JWT secret (Dashboard → Settings → API)</li>
+    </ol>
+
+    <h4>4. Populate your <code>.env</code> file</h4>
+    <pre><code>cp .env.example .env
+<span class="cm"># Now edit .env and paste in your real keys</span></code></pre>
+
+    <h4>5. Start the backend</h4>
+    <pre><code>uvicorn app.main:app --reload --host 0.0.0.0 --port 8000</code></pre>
+    <p>Expected output:</p>
+    <pre><code>INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [12345]
+INFO:     Started server process [12346]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.</code></pre>
+
+    <h4>Common failure modes</h4>
+    <table>
+      <thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>ModuleNotFoundError: No module named 'fastapi'</code></td><td>venv not activated or pip install not run</td><td>Activate venv, re-run <code>pip install -r requirements.txt</code></td></tr>
+        <tr><td><code>ValueError: SUPABASE_URL and SUPABASE_KEY must be set</code></td><td><code>.env</code> missing or not in backend directory</td><td>Create <code>backend/.env</code> from the example file</td></tr>
+        <tr><td><code>Address already in use</code></td><td>Port 8000 taken by another process</td><td>Kill the other process or use <code>--port 8001</code></td></tr>
+        <tr><td><code>.\venv\Scripts\Activate.ps1 cannot be loaded</code></td><td>PowerShell execution policy blocks scripts</td><td>Run: <code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser</code></td></tr>
+      </tbody>
+    </table>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="checkpoint">Section 7 — Checkpoint ✓</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s7" aria-label="Mark section 7 complete"><label for="chk-s7">Mark complete</label></div>
+
+    <div class="card card-success">
+      <h3>Verify the backend is running</h3>
+      <p>With the server running, open a second terminal and run:</p>
+      <pre><code>curl http://localhost:8000/</code></pre>
+      <p><strong>Expected output:</strong></p>
+      <pre><code>{"status":"Backend running"}</code></pre>
+      <p>Or open <a href="http://localhost:8000/docs" target="_blank" rel="noopener"><code>http://localhost:8000/docs</code></a> in your browser. You should see the Swagger UI listing all 80+ API endpoints.</p>
+      <p>Takes under 5 seconds. If you see this response, Module 00 is complete.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="exercises">Section 8 — Exercises</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s8" aria-label="Mark section 8 complete"><label for="chk-s8">Mark complete</label></div>
+
+    <details>
+      <summary><span class="badge badge-easy">Easy</span> Add a new environment variable and read it</summary>
+      <p><strong>Problem:</strong> Add a variable <code>COMPANY_NAME=Acme Properties</code> to your <code>.env</code> file and print it when the server starts.</p>
+      <p>Edit <code>config.py</code> to add <code>COMPANY_NAME: str = os.getenv("COMPANY_NAME", "Unknown")</code> to the <code>Settings</code> class. Then in <code>main.py</code>, add a startup event that prints it.</p>
+      <details>
+        <summary>Hints</summary>
+        <p>FastAPI startup events use the <code>@app.on_event("startup")</code> decorator (or the newer <code>lifespan</code> context manager). The <code>settings</code> singleton is imported from <code>app.config</code>.</p>
+      </details>
+      <details>
+        <summary>Solution</summary>
+        <p>In <code>config.py</code>:</p>
+        <pre><code>COMPANY_NAME: <span class="typ">str</span> = os.getenv(<span class="str">"COMPANY_NAME"</span>, <span class="str">"Unknown"</span>)</code></pre>
+        <p>In <code>main.py</code>:</p>
+        <pre><code><span class="dec">@app.on_event</span>(<span class="str">"startup"</span>)
+<span class="kw">async def</span> <span class="fn">startup</span>():
+    <span class="fn">print</span>(<span class="str">f"Starting: {config.COMPANY_NAME}"</span>)</code></pre>
+        <p><strong>You know you got it right when</strong> the server prints <code>Starting: Acme Properties</code> on startup.</p>
+      </details>
+    </details>
+
+    <details>
+      <summary><span class="badge badge-medium">Medium</span> Check for missing required variables at startup</summary>
+      <p><strong>Problem:</strong> The current <code>session.py</code> raises an error when the Supabase client is first created. But <code>STRIPE_SECRET_KEY</code>, <code>OPEN_AI_API</code>, and <code>GROQ_API_KEY</code> are only validated when those routes are first called. Add a startup check that lists all missing required env vars and exits with a clear error message.</p>
+      <details>
+        <summary>Hints</summary>
+        <p>Add a <code>@app.on_event("startup")</code> function in <code>main.py</code>. Import <code>settings</code> from <code>app.config</code>. Check which attributes are empty strings and collect them into a list. Use <code>sys.exit(1)</code> if any are missing.</p>
+      </details>
+      <details>
+        <summary>Solution</summary>
+        <pre><code><span class="kw">import</span> sys
+
+REQUIRED_VARS = [
+    (<span class="str">"STRIPE_SECRET_KEY"</span>, config.STRIPE_SECRET_KEY),
+    (<span class="str">"OPEN_AI_API"</span>, config.OPEN_AI_API),
+    (<span class="str">"GROQ_API_KEY"</span>, config.GROQ_API_KEY),
+]
+
+<span class="dec">@app.on_event</span>(<span class="str">"startup"</span>)
+<span class="kw">async def</span> <span class="fn">check_config</span>():
+    missing = [name <span class="kw">for</span> name, val <span class="kw">in</span> REQUIRED_VARS <span class="kw">if not</span> val]
+    <span class="kw">if</span> missing:
+        <span class="fn">print</span>(<span class="str">f"ERROR: Missing env vars: {', '.join(missing)}"</span>)
+        sys.exit(<span class="num">1</span>)</code></pre>
+        <p><strong>You know you got it right when</strong> removing <code>OPEN_AI_API</code> from <code>.env</code> and restarting causes the server to exit with a clear error listing the missing variable.</p>
+      </details>
+    </details>
+
+    <details>
+      <summary><span class="badge badge-hard">Hard</span> Build a <code>/health</code> endpoint that checks all external services</summary>
+      <p><strong>Problem:</strong> Create a <code>GET /health</code> endpoint that checks whether Supabase, Stripe, and the OpenAI API are reachable, and returns a JSON summary like <code>{"supabase": "ok", "stripe": "ok", "openai": "ok"}</code>. Each check should time out after 3 seconds and return <code>"error"</code> if it fails.</p>
+      <details>
+        <summary>Hints</summary>
+        <p>Use <code>asyncio.gather()</code> with <code>return_exceptions=True</code> to run all three checks in parallel. For Supabase, try a simple <code>.select("id").limit(1)</code> on any table. For Stripe, call <code>stripe.Balance.retrieve()</code>. Wrap each in a try/except that returns <code>"ok"</code> or <code>"error"</code>.</p>
+      </details>
+      <details>
+        <summary>Solution</summary>
+        <pre><code><span class="kw">import</span> asyncio
+<span class="kw">import</span> stripe
+<span class="kw">from</span> openai <span class="kw">import</span> AsyncOpenAI
+
+<span class="dec">@app.get</span>(<span class="str">"/health"</span>)
+<span class="kw">async def</span> <span class="fn">health_check</span>():
+    <span class="kw">async def</span> <span class="fn">check_supabase</span>():
+        <span class="kw">try</span>:
+            get_service_db().table(<span class="str">"manager_profiles"</span>).select(<span class="str">"user_id"</span>).limit(<span class="num">1</span>).execute()
+            <span class="kw">return</span> <span class="str">"ok"</span>
+        <span class="kw">except</span>: <span class="kw">return</span> <span class="str">"error"</span>
+
+    <span class="kw">async def</span> <span class="fn">check_stripe</span>():
+        <span class="kw">try</span>:
+            <span class="kw">await</span> asyncio.to_thread(stripe.Balance.retrieve)
+            <span class="kw">return</span> <span class="str">"ok"</span>
+        <span class="kw">except</span>: <span class="kw">return</span> <span class="str">"error"</span>
+
+    results = <span class="kw">await</span> asyncio.gather(
+        check_supabase(), check_stripe(), return_exceptions=<span class="kw">True</span>
+    )
+    <span class="kw">return</span> {<span class="str">"supabase"</span>: results[<span class="num">0</span>], <span class="str">"stripe"</span>: results[<span class="num">1</span>]}</code></pre>
+        <p><strong>You know you got it right when</strong> <code>GET /health</code> returns <code>{"supabase": "ok", "stripe": "ok"}</code> in under 3 seconds, and returns <code>"error"</code> for any service with wrong credentials.</p>
+      </details>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="glossary">Section 9 — Glossary</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s9" aria-label="Mark section 9 complete"><label for="chk-s9">Mark complete</label></div>
+
+    <table>
+      <thead><tr><th>Term</th><th>Definition</th><th>First used in</th></tr></thead>
+      <tbody>
+        <tr><td>Virtual environment (<code>venv</code>)</td><td>An isolated Python interpreter + package directory so projects don't conflict</td><td>Section 2</td></tr>
+        <tr><td>Environment variable</td><td>A named value set in the OS that processes can read at runtime</td><td>Section 2</td></tr>
+        <tr><td><code>.env</code> file</td><td>A local text file (never committed) that stores secrets as <code>KEY=value</code> lines</td><td>Section 2</td></tr>
+        <tr><td>Supabase</td><td>Hosted PostgreSQL + auth + storage + REST API platform</td><td>Section 2</td></tr>
+        <tr><td>Anon key</td><td>Public Supabase API key that respects Row Level Security</td><td>Section 2</td></tr>
+        <tr><td>Service-role key</td><td>Private Supabase key that bypasses all RLS — never expose to frontend</td><td>Section 2</td></tr>
+        <tr><td>Row Level Security (RLS)</td><td>PostgreSQL feature that restricts which rows a user can see/edit based on their identity</td><td>Section 2</td></tr>
+        <tr><td>PostgREST</td><td>A web server that auto-generates a REST API from a PostgreSQL schema</td><td>Section 3</td></tr>
+        <tr><td>ASGI</td><td>Asynchronous Server Gateway Interface — Python standard for async web apps</td><td>Section 6</td></tr>
+        <tr><td>Uvicorn</td><td>ASGI server that runs FastAPI apps</td><td>Section 6</td></tr>
+        <tr><td>Pinned dependency</td><td>A package version locked to an exact release (<code>==x.y.z</code>) for reproducibility</td><td>Section 2</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="resources">Section 10 — Resources</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s10" aria-label="Mark section 10 complete"><label for="chk-s10">Mark complete</label></div>
+
+    <div class="resource-grid">
+      <div class="resource-card">
+        <h4>Python Virtual Environments</h4>
+        <a href="https://docs.python.org/3/library/venv.html" target="_blank" rel="noopener">Official docs — venv module</a>
+        <a href="https://realpython.com/python-virtual-environments-a-primer/" target="_blank" rel="noopener">Real Python — practical primer</a>
+        <p>Start with the Real Python guide; it explains <em>why</em> venvs exist, not just how.</p>
+      </div>
+      <div class="resource-card">
+        <h4>Environment Variables</h4>
+        <a href="https://12factor.net/config" target="_blank" rel="noopener">12-Factor App — Config</a>
+        <a href="https://pypi.org/project/python-dotenv/" target="_blank" rel="noopener">python-dotenv on PyPI</a>
+        <p>The 12-Factor methodology explains <em>why</em> config belongs in the environment, not in code.</p>
+      </div>
+      <div class="resource-card">
+        <h4>Supabase</h4>
+        <a href="https://supabase.com/docs" target="_blank" rel="noopener">Official Supabase docs</a>
+        <a href="https://supabase.com/docs/reference/python/introduction" target="_blank" rel="noopener">Python SDK reference</a>
+        <p>Read "Database → Tables" and "Auth → Overview" first.</p>
+      </div>
+      <div class="resource-card">
+        <h4>FastAPI</h4>
+        <a href="https://fastapi.tiangolo.com/tutorial/" target="_blank" rel="noopener">FastAPI official tutorial</a>
+        <a href="https://testdriven.io/blog/fastapi-crud/" target="_blank" rel="noopener">TestDriven.io — FastAPI CRUD</a>
+        <p>The official tutorial is unusually good — start there. Module 01 covers FastAPI in depth.</p>
+      </div>
+      <div class="resource-card">
+        <h4>PostgreSQL Basics</h4>
+        <a href="https://www.postgresql.org/docs/current/tutorial.html" target="_blank" rel="noopener">PostgreSQL official tutorial</a>
+        <a href="https://pgexercises.com/" target="_blank" rel="noopener">pgexercises.com — interactive SQL</a>
+        <p>pgexercises has 80+ exercises that go from basic SELECT to window functions.</p>
+      </div>
+      <div class="resource-card">
+        <h4>requirements.txt Best Practices</h4>
+        <a href="https://pip.pypa.io/en/stable/reference/requirements-file-format/" target="_blank" rel="noopener">pip requirements file format</a>
+        <a href="https://realpython.com/what-is-pip/#using-requirement-files" target="_blank" rel="noopener">Real Python — using requirement files</a>
+        <p>Learn the difference between <code>==</code>, <code>&gt;=</code>, <code>~=</code>, and when to use each.</p>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="whats-next">Section 11 — What's Next</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s11" aria-label="Mark section 11 complete"><label for="chk-s11">Mark complete</label></div>
+
+    <p>With the environment running, <a href="module_01_fastapi_entry.html">Module 01 — FastAPI Application Entry Point</a> walks through <code>main.py</code> and <code>config.py</code> line by line — you'll understand exactly how 18 route files get assembled into one web server and how CORS protects your API.</p>
+
+    <div class="card card-info">
+      <button id="markCompleteBtn" onclick="markModuleComplete()" style="background: var(--accent); color: var(--bg-primary); border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius); cursor: pointer; font-size: 1rem; font-weight: 600;">
+        ✓ Mark Module 00 Complete
+      </button>
+    </div>
+
+    <div class="nav-buttons">
+      <span class="nav-btn disabled">← No previous module</span>
+      <a href="module_01_fastapi_entry.html" class="nav-btn">Next: FastAPI Entry Point →</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ── Theme ──
+  const html = document.documentElement;
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  html.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+
+  // ── TOC ──
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach((h, i) => {
+    if (!h.id) h.id = 'section-' + i;
+    const a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.textContent = h.textContent.replace(/^Section \d+ — /, '');
+    toc.appendChild(a);
+  });
+
+  // ── Active section ──
+  const tocLinks = toc.querySelectorAll('a');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        tocLinks.forEach(l => l.classList.remove('active'));
+        const active = toc.querySelector(`a[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -70% 0px' });
+  document.querySelectorAll('h2').forEach(h => obs.observe(h));
+
+  // ── Copy buttons ──
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = 'Copy';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code');
+      const text = code ? code.innerText : pre.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = '✓';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+      });
+    });
+    pre.style.position = 'relative';
+    pre.appendChild(btn);
+  });
+
+  // ── Back to top ──
+  const topBtn = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => topBtn.classList.toggle('visible', window.scrollY > 400));
+  topBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+  // ── Progress ──
+  const MODULE_KEY = 'module_00_progress';
+  const checks = document.querySelectorAll('.section-check input[type="checkbox"]');
+  const fill = document.getElementById('progressFill');
+  const savedProg = JSON.parse(localStorage.getItem(MODULE_KEY) || '{}');
+  checks.forEach(cb => {
+    if (savedProg[cb.id]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      savedProg[cb.id] = cb.checked;
+      localStorage.setItem(MODULE_KEY, JSON.stringify(savedProg));
+      updateProgress();
+    });
+  });
+  function updateProgress() {
+    const total = checks.length;
+    const done = [...checks].filter(c => c.checked).length;
+    fill.style.width = total ? (done / total * 100) + '%' : '0%';
+  }
+  updateProgress();
+
+  // ── Mark complete ──
+  function markModuleComplete() {
+    const completed = JSON.parse(localStorage.getItem('completed_modules') || '[]');
+    if (!completed.includes('00')) completed.push('00');
+    localStorage.setItem('completed_modules', JSON.stringify(completed));
+    checks.forEach(cb => { cb.checked = true; savedProg[cb.id] = true; });
+    localStorage.setItem(MODULE_KEY, JSON.stringify(savedProg));
+    updateProgress();
+    document.getElementById('markCompleteBtn').textContent = '✓ Complete!';
+  }
+</script>
+</body>
+</html>

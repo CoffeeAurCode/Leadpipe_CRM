@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 13 — SMS &amp; Email Notifications | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-warning { border-left: 4px solid var(--warning); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout-error { background: #f7768e11; border-left: 4px solid var(--error); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    .bug-box { background: #f7768e0d; border: 1px solid #f7768e44; border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .bug-box h4 { color: var(--error); margin-bottom: 0.5rem; }
+    @media print { .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; } .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; } details, details > * { display: block; } h2 { page-break-before: always; } }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 13</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 13 — SMS &amp; Email Notifications</strong></div>
+
+  <h1>Module 13 — SMS &amp; Email Notifications</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 55 minutes</span>
+    <span>📁 Files: <code>integrations/twilio_client.py</code>, <code>integrations/email_client.py</code>, <code>services/notifications.py</code></span>
+    <span>🔰 Prerequisites: Modules 00–04</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_12_vapi_provisioning.html" class="nav-btn">← Previous: VAPI Provisioning</a>
+    <a href="module_14_feature_flags.html" class="nav-btn">Next: Feature Flags →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>This module wires up two external notification channels — Twilio for SMS and SendGrid for email — and combines them in a single orchestration service. Whenever an appointment is created, rescheduled, or cancelled, the system fires personalised messages automatically. Crucially, notification failures are <em>never</em> allowed to crash the main request — they are always caught, logged, and silently swallowed.</p>
+
+  <div class="diagram">
+Three-file architecture:
+
+integrations/twilio_client.py  ─── TwilioClient class + singleton getter
+integrations/email_client.py   ─── EmailClient class + singleton getter
+services/notifications.py      ─── Orchestration layer (calls both clients)
+
+Call flow when an appointment is created:
+appointments route
+  └── BackgroundTasks.add_task(notify_manager_appointment_scheduled, appt)
+        └── notifications.py
+              ├── fetch complaint details from DB
+              ├── fetch feature flags (SMS enabled? Email enabled?)
+              ├── build SMS text + HTML email body
+              ├── if sms_enabled  → get_twilio_client().send_sms(...)
+              └── if email_enabled → get_email_client().send_email(...)
+
+Tenant SMS (notify_tenant_appointment):
+appointments route (create / reschedule / cancel / attend / reactivate)
+  └── BackgroundTasks.add_task(notify_tenant_appointment, flat_uuid, event, ...)
+        └── DB lookup: tenants WHERE flat_uuid = ?
+              └── get_twilio_client().send_sms(to=tenant.phone, message=...)</div>
+
+  <!-- S2 -->
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>Twilio Python SDK — how it works</summary>
+    <p>Twilio is a cloud communications platform. To send an SMS, you POST to Twilio's REST API with your account credentials. The Python SDK is just a thin wrapper around those HTTP calls.</p>
+
+    <h4>Minimal standalone example</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">from</span> twilio.rest <span class="kw">import</span> Client
+
+client = Client(<span class="str">"AC..."</span>, <span class="str">"auth_token..."</span>)
+msg = client.messages.create(
+    body=<span class="str">"Hello from Python!"</span>,
+    from_=<span class="str">"+1415XXXXXXX"</span>,   <span class="cm"># your Twilio number</span>
+    to=<span class="str">"+919998064026"</span>       <span class="cm"># recipient — must be E.164 format</span>
+)
+<span class="fn">print</span>(msg.sid)  <span class="cm"># SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span></code></pre>
+
+    <h4>E.164 phone format</h4>
+    <p>Twilio requires phone numbers in E.164 format: <code>+[country code][number]</code> with no spaces or dashes. <code>+919998064026</code> = India (+91) + 10-digit number. If you pass <code>9998064026</code> without the <code>+91</code>, Twilio raises an error. The project stores phones in E.164 in the database, so no conversion is needed at send time.</p>
+
+    <h4>What <code>messages.create()</code> returns</h4>
+    <p>A <code>MessageInstance</code> object. The most useful fields are <code>.sid</code> (message ID, starts with <code>SM</code>), <code>.status</code> (queued / sent / delivered / failed), and <code>.error_code</code> (non-null on failure). The project logs the SID for traceability.</p>
+
+    <div class="callout callout-warning">
+      <p><strong>Twilio numbers and trial accounts:</strong> On a Twilio trial account, you can only send to <em>verified</em> numbers. You must verify each recipient's phone manually in the Twilio console. Unverified numbers get a silent error or a 403 from Twilio. Production accounts have no this restriction.</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>SendGrid Python SDK — how it works</summary>
+    <p>SendGrid is an email delivery service. The Python SDK wraps their HTTP API. Unlike Twilio, which uses account SID + auth token, SendGrid uses a single API key.</p>
+
+    <h4>Minimal standalone example</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">from</span> sendgrid <span class="kw">import</span> SendGridAPIClient
+<span class="kw">from</span> sendgrid.helpers.mail <span class="kw">import</span> Mail, Email, To, Content
+
+client = SendGridAPIClient(<span class="str">"SG.xxx..."</span>)
+message = Mail(
+    from_email=Email(<span class="str">"no-reply@yourdomain.com"</span>),
+    to_emails=To(<span class="str">"manager@example.com"</span>),
+    subject=<span class="str">"New Appointment"</span>,
+    html_content=Content(<span class="str">"text/html"</span>, <span class="str">"&lt;h1&gt;Hello&lt;/h1&gt;"</span>)
+)
+response = client.send(message)
+<span class="fn">print</span>(response.status_code)  <span class="cm"># 202 = accepted (not 200!)</span></code></pre>
+
+    <h4>Why 202, not 200?</h4>
+    <p>SendGrid returns HTTP 202 (Accepted) to mean "we received your request and will deliver it". The email isn't delivered yet — SendGrid queues it. This is why the project checks <code>response.status_code in [200, 201, 202]</code> rather than just <code>== 200</code>. If you checked only for 200 you'd log every email as failed even when it succeeded.</p>
+
+    <h4>Sender verification</h4>
+    <p>SendGrid requires the <code>from_email</code> address to be verified (either as a single sender or via domain authentication). If you use an unverified sender, SendGrid returns 403. This is a common setup mistake — you must verify the sender in the SendGrid dashboard before the first email will go through.</p>
+  </details>
+
+  <details open>
+    <summary>Singleton pattern for API clients</summary>
+    <p>Both <code>TwilioClient</code> and <code>EmailClient</code> use the singleton pattern: a module-level variable is created once and reused on every subsequent call. This avoids re-reading environment variables and re-initializing the SDK on every request.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm"># Module-level variable — None until first call</span>
+_twilio_client = <span class="kw">None</span>
+
+<span class="kw">def</span> <span class="fn">get_twilio_client</span>() -> TwilioClient:
+    <span class="kw">global</span> _twilio_client
+    <span class="kw">if</span> _twilio_client <span class="kw">is None</span>:
+        _twilio_client = TwilioClient()
+    <span class="kw">return</span> _twilio_client</code></pre>
+
+    <p>The first call initializes the client. Every subsequent call returns the same object. In FastAPI, with <code>uvicorn</code> running as a single process, module-level state persists across requests — the client is initialized once at startup and shared.</p>
+
+    <div class="callout callout-info">
+      <p><strong>Why not FastAPI's <code>lifespan</code>?</strong> You could initialize clients in a startup event and store them in <code>app.state</code>. The singleton approach is simpler for a small app — both approaches are valid. The tradeoff is that the singleton is less testable (harder to swap in a mock) but requires zero framework plumbing.</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Non-blocking notifications — errors logged, never raised</summary>
+    <p>Notification failures must never crash the main request. If Twilio is down, the appointment should still be created. This is achieved in two ways:</p>
+
+    <h4>1. Background tasks (FastAPI BackgroundTasks)</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm"># In the appointments route:</span>
+<span class="kw">async def</span> <span class="fn">create_appointment</span>(
+    ...,
+    background_tasks: BackgroundTasks,
+):
+    <span class="cm"># ... create appointment in DB ...</span>
+    background_tasks.add_task(
+        notify_manager_appointment_scheduled,
+        appointment=created_appt
+    )
+    <span class="kw">return</span> created_appt  <span class="cm"># returns immediately; notification runs after</span></code></pre>
+    <p><code>BackgroundTasks.add_task()</code> schedules the function to run <em>after</em> the HTTP response is sent. The client gets their 201 response without waiting for Twilio/SendGrid to respond.</p>
+
+    <h4>2. Try/except catch-all inside every notification function</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">notify_tenant_appointment</span>(...):
+    <span class="kw">try</span>:
+        <span class="cm"># ... all notification logic ...</span>
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        logger.error(<span class="fn">f</span><span class="str">"notify_tenant_appointment failed: {type(e).__name__} - {str(e)}"</span>)
+        <span class="cm"># no re-raise — caller never sees this exception</span></code></pre>
+    <p>Even if the background task itself crashes (unhandled exception), it won't affect other requests. The exception is absorbed inside the try/except and written to the log.</p>
+  </details>
+
+  <details open>
+    <summary>Feature-flag-gated notifications</summary>
+    <p>Notifications are not unconditionally sent. Each flat has per-feature flags (<code>sms_reminders</code>, <code>email_reminders</code>) stored in the <code>property_features</code> table. The manager notification function checks these flags before sending.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">if</span> sms_enabled:
+    twilio_client.send_sms(to=manager_phone, message=sms_message)
+<span class="kw">else</span>:
+    logger.info(<span class="fn">f</span><span class="str">"SMS notification skipped for flat {flat_number} (feature disabled)"</span>)
+
+<span class="kw">if</span> email_enabled:
+    email_client.send_email(subject=email_subject, html_content=email_html)
+<span class="kw">else</span>:
+    logger.info(<span class="fn">f</span><span class="str">"Email notification skipped for flat {flat_number} (feature disabled)"</span>)</code></pre>
+
+    <p>This is important because both SMS and email cost money per message. The default for both features is <code>False</code> — so new flats get no notifications until the manager explicitly enables them in Settings.</p>
+  </details>
+
+  <!-- S3 -->
+  <h2 id="walkthrough">Section 3 — Line-by-Line Walkthrough</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <h3>File: <code>backend/app/integrations/twilio_client.py</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">import</span> os
+<span class="kw">from</span> twilio.rest <span class="kw">import</span> Client
+<span class="kw">from</span> typing <span class="kw">import</span> Optional
+<span class="kw">import</span> logging
+
+logger = logging.<span class="fn">getLogger</span>(__name__)</code></pre>
+  <div class="line-exp">
+    <code>logging.getLogger(__name__)</code> creates a logger named after the module (e.g. <code>app.integrations.twilio_client</code>). This makes it easy to filter logs by module in production. <code>__name__</code> resolves to the fully-qualified module path at import time.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">class</span> <span class="typ">TwilioClient</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>):
+        <span class="kw">self</span>.account_sid = os.<span class="fn">getenv</span>(<span class="str">"TWILIO_ACCOUNT_SID"</span>)
+        <span class="kw">self</span>.auth_token = os.<span class="fn">getenv</span>(<span class="str">"TWILIO_AUTH_TOKEN"</span>)
+        <span class="kw">self</span>.phone_number = os.<span class="fn">getenv</span>(<span class="str">"TWILIO_PHONE_NUMBER"</span>)
+
+        <span class="kw">if not</span> <span class="fn">all</span>([<span class="kw">self</span>.account_sid, <span class="kw">self</span>.auth_token, <span class="kw">self</span>.phone_number]):
+            logger.<span class="fn">warning</span>(<span class="str">"Twilio credentials not fully configured..."</span>)
+            <span class="kw">self</span>.client = <span class="kw">None</span>
+        <span class="kw">else</span>:
+            <span class="kw">self</span>.client = <span class="fn">Client</span>(<span class="kw">self</span>.account_sid, <span class="kw">self</span>.auth_token)</code></pre>
+  <div class="line-exp">
+    <code>all([...])</code> returns <code>True</code> only if every item in the list is truthy. If any env var is missing (returns <code>None</code> which is falsy), the whole check is <code>False</code> and <code>self.client = None</code>.
+    <br><br>
+    Setting <code>self.client = None</code> when credentials are missing is a graceful degradation pattern: the object is created successfully, but SMS calls will be silently skipped. The alternative (raising an exception in <code>__init__</code>) would crash the server on startup if Twilio isn't configured — unacceptable for a feature that may be disabled in some deployments.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">def</span> <span class="fn">send_sms</span>(<span class="kw">self</span>, to: <span class="typ">str</span>, message: <span class="typ">str</span>) -> Optional[<span class="typ">str</span>]:
+        <span class="kw">if not</span> <span class="kw">self</span>.client:
+            logger.<span class="fn">error</span>(<span class="str">"Twilio client not initialized. Check environment variables."</span>)
+            <span class="kw">return</span> <span class="kw">None</span>
+
+        <span class="kw">try</span>:
+            message_obj = <span class="kw">self</span>.client.messages.<span class="fn">create</span>(
+                body=message,
+                from_=<span class="kw">self</span>.phone_number,
+                to=to
+            )
+            logger.<span class="fn">info</span>(<span class="fn">f</span><span class="str">"SMS sent successfully. SID: {message_obj.sid}, To: {to}"</span>)
+            <span class="kw">return</span> message_obj.sid
+        <span class="kw">except</span> Exception <span class="kw">as</span> e:
+            logger.<span class="fn">error</span>(<span class="fn">f</span><span class="str">"Failed to send SMS to {to}: {type(e).__name__} - {str(e)}"</span>)
+            <span class="kw">return</span> <span class="kw">None</span></code></pre>
+  <div class="line-exp">
+    Return type is <code>Optional[str]</code> — either a message SID string on success, or <code>None</code> on failure. The caller checks the return value to determine if the SMS went through.
+    <br><br>
+    <code>from_=self.phone_number</code> — the underscore suffix is because <code>from</code> is a reserved Python keyword. The Twilio SDK parameter is actually named <code>from_</code> in the Python wrapper.
+    <br><br>
+    <code>type(e).__name__</code> — logs the exception class name (e.g. <code>TwilioRestException</code>) alongside the message, which is much more useful for debugging than just the message string.
+  </div>
+
+  <h3>File: <code>backend/app/integrations/email_client.py</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">send_email</span>(<span class="kw">self</span>, subject: <span class="typ">str</span>, html_content: <span class="typ">str</span>,
+               to_email: Optional[<span class="typ">str</span>] = <span class="kw">None</span>) -> <span class="typ">bool</span>:
+    <span class="cm"># Always read fresh from env so .env changes take effect without restart</span>
+    recipient = to_email <span class="kw">or</span> os.<span class="fn">getenv</span>(<span class="str">"MANAGER_EMAIL"</span>) <span class="kw">or</span> <span class="kw">self</span>.manager_email
+    from_email = os.<span class="fn">getenv</span>(<span class="str">"SENDGRID_FROM_EMAIL"</span>) <span class="kw">or</span> <span class="kw">self</span>.from_email</code></pre>
+  <div class="line-exp">
+    <code>os.getenv("MANAGER_EMAIL")</code> is read fresh on every call (not cached in <code>__init__</code>). This means you can update the env var in a running process and the next email will use the new value — useful during debugging without restarting the server.
+    <br><br>
+    The <code>or</code> chain: try <code>to_email</code> param first → fall back to fresh env read → fall back to value cached at init time.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">try</span>:
+        message = Mail(
+            from_email=<span class="fn">Email</span>(from_email),
+            to_emails=<span class="fn">To</span>(recipient),
+            subject=subject,
+            html_content=<span class="fn">Content</span>(<span class="str">"text/html"</span>, html_content)
+        )
+        response = <span class="kw">self</span>.client.<span class="fn">send</span>(message)
+        <span class="kw">return</span> response.status_code <span class="kw">in</span> [<span class="num">200</span>, <span class="num">201</span>, <span class="num">202</span>]
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        logger.<span class="fn">error</span>(<span class="fn">f</span><span class="str">"Failed to send email to {recipient}: {type(e).__name__} - {str(e)}"</span>)
+        <span class="kw">return</span> <span class="kw">False</span></code></pre>
+  <div class="line-exp">
+    <code>response.status_code in [200, 201, 202]</code> — SendGrid almost always returns 202. Checking for all three prevents false negatives. Return type is <code>bool</code> — simpler than returning a status object since the caller only cares whether it succeeded.
+  </div>
+
+  <h3>File: <code>backend/app/services/notifications.py</code> — <code>notify_tenant_appointment()</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">notify_tenant_appointment</span>(
+    flat_uuid: <span class="typ">str</span>,
+    event: <span class="typ">str</span>,   <span class="cm"># "created" | "rescheduled" | "cancelled" | "attended" | "reactivated"</span>
+    flat_number: <span class="typ">str</span>,
+    db: Client,
+    new_date: Optional[<span class="typ">str</span>] = <span class="kw">None</span>,
+) -> <span class="kw">None</span>:</code></pre>
+  <div class="line-exp">
+    This function sends a personalised SMS directly to the tenant. It receives the <code>db</code> client as a parameter — it does NOT create its own client. The caller (the appointments route) passes its already-open DB connection so the function can look up the tenant's phone number without credentials.
+    <br><br>
+    <code>event</code> is a plain string (not an enum) — five event types are handled: <code>created</code>, <code>rescheduled</code>, <code>cancelled</code>, <code>attended</code>, <code>reactivated</code>. Unknown events trigger a warning log and early return.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">try</span>:
+        tenant_resp = (
+            db.table(<span class="str">"tenants"</span>)
+            .select(<span class="str">"name, phone"</span>)
+            .eq(<span class="str">"flat_uuid"</span>, flat_uuid)
+            .maybe_single()
+            .execute()
+        )
+        <span class="kw">if not</span> tenant_resp.data:
+            logger.<span class="fn">warning</span>(<span class="fn">f</span><span class="str">"notify_tenant_appointment: no tenant for flat_uuid={flat_uuid}"</span>)
+            <span class="kw">return</span></code></pre>
+  <div class="line-exp">
+    <code>.maybe_single()</code> — a Supabase SDK modifier that returns a single object or <code>None</code> (as opposed to <code>.single()</code> which raises an error if 0 or 2+ rows are returned). Used here because a flat might be unoccupied — in that case <code>tenant_resp.data</code> is <code>None</code> and we early-return with a warning.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>        formatted_date = new_date <span class="kw">or</span> <span class="str">""</span>
+        <span class="kw">if</span> new_date:
+            <span class="kw">try</span>:
+                dt = datetime.<span class="fn">fromisoformat</span>(new_date.<span class="fn">replace</span>(<span class="str">"T"</span>, <span class="str">" "</span>).<span class="fn">replace</span>(<span class="str">"Z"</span>, <span class="str">""</span>))
+                formatted_date = dt.<span class="fn">strftime</span>(<span class="str">"%d %b %Y at %I:%M %p"</span>)
+            <span class="kw">except</span> Exception:
+                formatted_date = new_date</code></pre>
+  <div class="line-exp">
+    The date coming from the DB is in <code>YYYY-MM-DDTHH:MM:SS</code> format. <code>datetime.fromisoformat()</code> in Python 3.10 doesn't accept the <code>T</code> separator without a timezone — the <code>.replace("T", " ")</code> converts it to a format fromisoformat accepts. <code>.replace("Z", "")</code> strips the UTC timezone indicator if present.
+    <br><br>
+    The inner <code>try/except</code> catches any parse failure and falls back to the raw string. This is defensive: a notification with an ugly date is better than a failed notification.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>        <span class="kw">if</span> event == <span class="str">"created"</span>:
+            message = (<span class="fn">f</span><span class="str">"Hi {tenant_name}, a new maintenance appointment has been "</span>
+                       <span class="fn">f</span><span class="str">"scheduled for flat {flat_number}."</span>)
+        <span class="kw">elif</span> event == <span class="str">"rescheduled"</span>:
+            message = (<span class="fn">f</span><span class="str">"Hi {tenant_name}, your maintenance appointment for flat "</span>
+                       <span class="fn">f</span><span class="str">"{flat_number} has been rescheduled to {formatted_date}."</span>)
+        <span class="cm"># ... cancelled / attended / reactivated ...</span>
+        <span class="kw">else</span>:
+            logger.<span class="fn">warning</span>(<span class="fn">f</span><span class="str">"notify_tenant_appointment: unknown event '{event}'"</span>)
+            <span class="kw">return</span>
+
+        <span class="fn">get_twilio_client</span>().<span class="fn">send_sms</span>(to=phone, message=message)</code></pre>
+  <div class="line-exp">
+    Each event type produces a different personalised message. The <code>else</code> branch with <code>return</code> is a safety guard — if someone adds a new event type in the appointments route but forgets to add it here, the function exits gracefully with a warning log rather than sending a garbled message.
+    <br><br>
+    <code>get_twilio_client().send_sms(...)</code> — calling the singleton getter inline. No need to store the client in a variable first.
+  </div>
+
+  <h3>File: <code>notifications.py</code> — <code>notify_manager_appointment_scheduled()</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">notify_manager_appointment_scheduled</span>(appointment: Dict[<span class="typ">str</span>, Any]) -> <span class="kw">None</span>:
+    <span class="kw">try</span>:
+        <span class="kw">from</span> supabase <span class="kw">import</span> create_client
+        supabase_url = os.<span class="fn">getenv</span>(<span class="str">"SUPABASE_URL"</span>)
+        supabase_key = os.<span class="fn">getenv</span>(<span class="str">"SUPABASE_KEY"</span>)
+        db = <span class="fn">create_client</span>(supabase_url, supabase_key)</code></pre>
+  <div class="line-exp">
+    This function runs as a <code>BackgroundTask</code> — it is called <em>after</em> the HTTP response is returned. At that point, the route's injected <code>db</code> dependency may have been torn down. This is why the function creates its own Supabase client from environment variables rather than accepting a <code>db</code> parameter.
+    <br><br>
+    This is the exact same problem as in the VAPI provisioning module (Module 12) — background tasks must not depend on request-scoped resources. The solution is identical: create a fresh service-role client inside the task.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>        <span class="kw">try</span>:
+            loop = asyncio.<span class="fn">get_event_loop</span>()
+            <span class="kw">if</span> loop.<span class="fn">is_running</span>():
+                <span class="kw">import</span> nest_asyncio
+                nest_asyncio.<span class="fn">apply</span>()
+        <span class="kw">except</span> RuntimeError:
+            loop = asyncio.<span class="fn">new_event_loop</span>()
+            asyncio.<span class="fn">set_event_loop</span>(loop)
+
+        sms_enabled, email_enabled = loop.<span class="fn">run_until_complete</span>(<span class="fn">get_flags</span>())</code></pre>
+  <div class="line-exp">
+    <code>FeatureService.is_feature_enabled()</code> is an <code>async</code> method. But this notification function is synchronous (<code>def</code>, not <code>async def</code>). To call an async function from sync code, you need an event loop.
+    <br><br>
+    The problem: FastAPI runs on uvicorn which already has a running event loop. You can't call <code>asyncio.run()</code> from inside a running loop — it raises <code>RuntimeError: This event loop is already running</code>. The fix is <code>nest_asyncio.apply()</code>, which patches asyncio to allow nested <code>run_until_complete()</code> calls.
+    <br><br>
+    The <code>try/except RuntimeError</code> handles the case where there's no current event loop (rare in production, possible in tests or standalone scripts), in which case a fresh loop is created.
+  </div>
+
+  <!-- S4 -->
+  <h2 id="bugs">Section 4 — Real Bugs &amp; How We Fixed Them</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <div class="bug-box">
+    <h4>Bug 1: All emails showed "Failed" even though they were delivered</h4>
+    <p><strong>Symptom:</strong> Logs showed <code>Failed to send email: status_code=202</code>. The emails actually arrived in the inbox.</p>
+    <p><strong>Root cause:</strong> The original code checked <code>response.status_code == 200</code>. SendGrid always returns 202 for successful sends.</p>
+    <p><strong>Fix:</strong> Changed the check to <code>response.status_code in [200, 201, 202]</code>. Lesson: always check the vendor's API docs for what status code they actually return — don't assume 200.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 2: <code>RuntimeError: This event loop is already running</code> in BackgroundTask</h4>
+    <p><strong>Symptom:</strong> The notification background task crashed with <code>RuntimeError</code> on the <code>loop.run_until_complete(get_flags())</code> line. No notification was sent.</p>
+    <p><strong>Root cause:</strong> FastAPI's event loop is already running. <code>asyncio.run()</code> and a bare <code>run_until_complete()</code> on the existing loop both raise this error.</p>
+    <p><strong>Fix:</strong> Added <code>nest_asyncio.apply()</code> before <code>run_until_complete()</code>. This patches the event loop to permit nested calls. Add <code>nest_asyncio</code> to <code>requirements.txt</code>.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 3: SMS to tenant silently failed — no error, no delivery</h4>
+    <p><strong>Symptom:</strong> Logs showed <code>SMS sent successfully. SID: SM...</code> but the tenant never received the message. Twilio dashboard showed status "undelivered".</p>
+    <p><strong>Root cause:</strong> The tenant's phone number was stored without the country code (e.g. <code>9998064026</code> instead of <code>+919998064026</code>). Twilio requires E.164 format.</p>
+    <p><strong>Fix:</strong> Added a phone number validation note to the tenant creation form. The DB stores phones as entered — you should validate and normalize to E.164 at input time (on the frontend or in the Pydantic schema).</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 4: Notifications fired even when both SMS and email were disabled</h4>
+    <p><strong>Symptom:</strong> On a flat with no features enabled, the notification code still ran all the DB queries (complaint lookup, feature flag check) before deciding to do nothing.</p>
+    <p><strong>Root cause:</strong> The feature flag check happened <em>after</em> all the DB queries. If both are disabled, all that work was wasted.</p>
+    <p><strong>Fix:</strong> This is an efficiency issue, not a correctness bug. In a high-volume system you'd check features first and early-return if both are disabled. In this MVP, the current order is acceptable — the wasted DB queries are fast and rare.</p>
+  </div>
+
+  <!-- S5 -->
+  <h2 id="exercises">Section 5 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <h3>Exercise 1 <span class="badge badge-easy">Easy</span> — Add a new event type</h3>
+  <p>Add an <code>"overdue"</code> event to <code>notify_tenant_appointment()</code> that sends: <em>"Hi [name], your rent for flat [flat_number] is overdue. Please pay as soon as possible."</em></p>
+
+  <details>
+    <summary>Show solution</summary>
+    <p>In <code>notifications.py</code>, inside <code>notify_tenant_appointment()</code>, add before the <code>else</code> branch:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">elif</span> event == <span class="str">"overdue"</span>:
+    message = (
+        <span class="fn">f</span><span class="str">"Hi {tenant_name}, your rent for flat "</span>
+        <span class="fn">f</span><span class="str">"{flat_number} is overdue. Please pay as soon as possible."</span>
+    )</code></pre>
+    <p>That's all — no other files need to change. The caller (wherever you trigger the overdue notification) passes <code>event="overdue"</code>.</p>
+  </details>
+
+  <h3>Exercise 2 <span class="badge badge-medium">Medium</span> — Add CC support to email</h3>
+  <p>Modify <code>EmailClient.send_email()</code> to accept an optional <code>cc_email: Optional[str] = None</code> parameter and include it in the SendGrid message if provided.</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">from</span> sendgrid.helpers.mail <span class="kw">import</span> Mail, Email, To, Content, Cc
+
+<span class="kw">def</span> <span class="fn">send_email</span>(<span class="kw">self</span>, subject: <span class="typ">str</span>, html_content: <span class="typ">str</span>,
+               to_email: Optional[<span class="typ">str</span>] = <span class="kw">None</span>,
+               cc_email: Optional[<span class="typ">str</span>] = <span class="kw">None</span>) -> <span class="typ">bool</span>:
+    <span class="cm"># ... existing recipient/from_email setup ...</span>
+    message = Mail(
+        from_email=<span class="fn">Email</span>(from_email),
+        to_emails=<span class="fn">To</span>(recipient),
+        subject=subject,
+        html_content=<span class="fn">Content</span>(<span class="str">"text/html"</span>, html_content)
+    )
+    <span class="kw">if</span> cc_email:
+        message.cc = [<span class="fn">Cc</span>(cc_email)]
+    response = <span class="kw">self</span>.client.<span class="fn">send</span>(message)
+    <span class="kw">return</span> response.status_code <span class="kw">in</span> [<span class="num">200</span>, <span class="num">201</span>, <span class="num">202</span>]</code></pre>
+    <p><code>Cc</code> is imported from <code>sendgrid.helpers.mail</code>. The <code>.cc</code> attribute accepts a list of <code>Cc</code> objects.</p>
+  </details>
+
+  <h3>Exercise 3 <span class="badge badge-hard">Hard</span> — Make notification failures visible in the API response</h3>
+  <p>Currently, notification failures are invisible to the caller — they're only in logs. Design and implement a way for the appointment creation endpoint to include notification status in the response body (e.g. <code>"notifications": {"sms": "sent", "email": "skipped"}</code>) without breaking the non-blocking pattern.</p>
+
+  <details>
+    <summary>Show solution (one approach)</summary>
+    <p>One approach: change <code>notify_manager_appointment_scheduled</code> to return a dict, and store the result in the DB (e.g. an <code>appointment_notifications</code> table). The frontend polls separately. This avoids breaking the non-blocking pattern because the appointment creation response is still returned immediately.</p>
+    <p>A simpler approach (if you accept a slight coupling): run the notification synchronously (not as a background task) but still catch all exceptions. Return the status in the response:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm"># In the route handler (synchronous notification):</span>
+notif_result = {<span class="str">"sms"</span>: <span class="str">"skipped"</span>, <span class="str">"email"</span>: <span class="str">"skipped"</span>}
+<span class="kw">if</span> sms_enabled:
+    sid = get_twilio_client().<span class="fn">send_sms</span>(to=phone, message=msg)
+    notif_result[<span class="str">"sms"</span>] = <span class="str">"sent"</span> <span class="kw">if</span> sid <span class="kw">else</span> <span class="str">"failed"</span>
+<span class="kw">if</span> email_enabled:
+    ok = get_email_client().<span class="fn">send_email</span>(subject=subj, html_content=html)
+    notif_result[<span class="str">"email"</span>] = <span class="str">"sent"</span> <span class="kw">if</span> ok <span class="kw">else</span> <span class="str">"failed"</span>
+
+<span class="kw">return</span> {<span class="str">"appointment"</span>: created_appt, <span class="str">"notifications"</span>: notif_result}</code></pre>
+    <p>The tradeoff: the HTTP response now waits for Twilio/SendGrid (adds ~200-500ms latency). Acceptable for an admin tool, problematic for a high-traffic API.</p>
+  </details>
+
+  <!-- S6 -->
+  <h2 id="summary">Section 6 — Key Takeaways</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <div class="card card-success">
+    <ul>
+      <li>Both Twilio and SendGrid use <strong>API key credentials</strong> read from env vars — never hardcode these.</li>
+      <li>The <strong>singleton pattern</strong> (<code>_client = None</code> → <code>get_client()</code>) avoids re-initializing expensive objects on every request.</li>
+      <li>Notification functions must <strong>always catch all exceptions</strong> — a failed SMS must never crash the request that triggered it.</li>
+      <li>Use <strong>FastAPI BackgroundTasks</strong> to run notifications after the HTTP response is sent — the user gets an instant response and the notification is fire-and-forget.</li>
+      <li>BackgroundTasks must create <strong>their own DB client</strong> — the route's injected client is request-scoped and may be torn down before the background task runs.</li>
+      <li>SendGrid returns <strong>202, not 200</strong> for successful sends — check <code>status_code in [200, 201, 202]</code>.</li>
+      <li><strong>Feature flags gate spending</strong> — SMS and email are off by default because each message costs money.</li>
+      <li><strong>nest_asyncio</strong> is needed when calling async code from a sync function running inside an already-running event loop (common in background tasks).</li>
+    </ul>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_12_vapi_provisioning.html" class="nav-btn">← Previous: VAPI Provisioning</a>
+    <a href="module_14_feature_flags.html" class="nav-btn">Next: Feature Flags →</a>
+  </div>
+</div></div>
+
+<script>
+  // TOC generation
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+
+  // Active TOC highlight
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+
+  // Theme toggle
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+
+  // Back to top
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+  // Progress bar (checkbox-based)
+  const checkboxes = document.querySelectorAll('.section-check input');
+  function updateProgress() {
+    const checked = [...checkboxes].filter(c => c.checked).length;
+    document.getElementById('progressFill').style.width = (checked / checkboxes.length * 100) + '%';
+  }
+  checkboxes.forEach(c => { c.addEventListener('change', updateProgress); });
+
+  // Copy buttons
+  function copyCode(btn) {
+    const code = btn.nextElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>

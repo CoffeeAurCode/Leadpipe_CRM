@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 04 — Subscription Gate (Stripe) | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin: 1rem 0; }
+    .resource-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .resource-card h4 { font-size: 0.9rem; margin-bottom: 0.4rem; color: var(--text-primary); }
+    .resource-card p { font-size: 0.8rem; margin: 0; }
+    .resource-card a { display: block; font-size: 0.8rem; margin-top: 0.3rem; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    @media print {
+      .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; }
+      .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; }
+      details, details > * { display: block; } h2 { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 04</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 04 — Subscription Gate (Stripe)</strong></div>
+
+  <h1>Module 04 — Subscription Gate (Stripe Basics)</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 65 minutes</span>
+    <span>📁 Files: <code>app/dependencies/subscription.py</code>, <code>app/routes/payments.py</code></span>
+    <span>🔰 Prerequisites: Modules 00–03</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_03_auth_jwt.html" class="nav-btn">← Previous: Auth &amp; JWT</a>
+    <a href="module_05_property_groups_buildings.html" class="nav-btn">Next: Property Groups →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1" aria-label="Mark section 1 complete"><label for="chk-s1">Mark complete</label></div>
+
+  <p>This module adds a payment wall: managers who haven't subscribed via Stripe cannot access any data routes. Two files make this happen: <code>subscription.py</code> provides a FastAPI dependency that checks for an active subscription (raising HTTP 403 if absent), and <code>payments.py</code> implements the Stripe Checkout flow, webhook handler, and subscription status endpoint.</p>
+
+  <div class="diagram">
+  Full authentication + subscription chain on every protected route:
+
+  Request ──► get_current_user()          (Module 03) — validates JWT
+          ──► get_authenticated_db()       (Module 03) — injects JWT into DB
+          ──► require_active_subscription() (Module 04) — checks subscriptions table
+                  │
+                  ├── subscriptions.status IN ('trialing', 'active')
+                  │       ↓ YES
+                  │   route handler runs
+                  │
+                  └── NOT IN list
+                          ↓
+                      HTTP 403 — frontend redirects to pricing page
+
+  Separate: Stripe Checkout &amp; Webhook lifecycle
+  User → /payments/create-checkout-session → Stripe Checkout URL
+  User pays → Stripe fires webhook → /payments/webhook
+           → updates subscriptions table → user now has access
+  </div>
+
+  <!-- S2 -->
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2" aria-label="Mark section 2 complete"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>Stripe Checkout — hosted payment page</summary>
+    <p>Stripe Checkout is a Stripe-hosted payment page. Instead of building your own credit card form, you redirect users to a Stripe URL. Stripe handles PCI compliance, 3DS authentication, and card validation. After payment, Stripe redirects the user back to your configured success URL.</p>
+
+    <h4>Minimal standalone example</h4>
+    <pre><code><span class="kw">import</span> stripe
+stripe.api_key = <span class="str">"sk_test_..."</span>
+
+session = stripe.checkout.Session.create(
+    mode=<span class="str">"subscription"</span>,
+    customer_email=<span class="str">"user@example.com"</span>,
+    line_items=[{<span class="str">"price"</span>: <span class="str">"price_xxx"</span>, <span class="str">"quantity"</span>: <span class="num">1</span>}],
+    success_url=<span class="str">"https://yourapp.com/success?session_id={CHECKOUT_SESSION_ID}"</span>,
+    cancel_url=<span class="str">"https://yourapp.com/pricing?canceled=true"</span>,
+)
+
+<span class="fn">print</span>(session.url)   <span class="cm"># redirect user to this URL</span></code></pre>
+
+    <h4>The <code>{CHECKOUT_SESSION_ID}</code> placeholder</h4>
+    <p>In the <code>success_url</code>, Stripe replaces the literal string <code>{CHECKOUT_SESSION_ID}</code> with the actual session ID after payment. This lets the success page verify the payment by calling your backend with the session ID.</p>
+
+    <h4>Line items — why two in this project?</h4>
+    <pre><code>line_items=[
+    {<span class="cm"># One-time $1 card verification fee</span>
+     <span class="str">"price_data"</span>: {<span class="str">"currency"</span>: <span class="str">"cad"</span>, <span class="str">"product_data"</span>: {<span class="str">"name"</span>: <span class="str">"Card Verification Fee"</span>},
+                    <span class="str">"unit_amount"</span>: <span class="num">100</span>},  <span class="cm"># $1.00 CAD</span>
+     <span class="str">"quantity"</span>: <span class="num">1</span>},
+    {<span class="cm"># Recurring subscription</span>
+     <span class="str">"price"</span>: settings.STRIPE_PRICE_ID,
+     <span class="str">"quantity"</span>: <span class="num">1</span>},
+]</code></pre>
+    <p>The $1 card verification fee prevents users from signing up with fake cards just to get the 14-day trial. It appears as a separate line item on the Checkout page and is charged immediately even during a trial.</p>
+  </details>
+
+  <details open>
+    <summary>Subscription State Machine</summary>
+    <p>A Stripe subscription moves through a defined set of states. Your <code>subscriptions</code> table mirrors these states and determines whether a manager has access.</p>
+
+    <div class="diagram">
+  User completes Checkout
+         │
+         ▼
+     trialing ──────────────────────────────────────────┐
+    (14 days free)                                       │  payment fails
+         │                                               ▼
+         │ trial ends, payment succeeds            past_due
+         ▼                                               │
+      active  ◄──────── invoice.payment_succeeded       │
+         │                                               │ repeated failures
+         │ user cancels                                  ▼
+         ▼                                          canceled / expired
+     canceled
+    </div>
+
+    <p>The <code>require_active_subscription</code> dependency allows <code>trialing</code> and <code>active</code> statuses. Any other status (past_due, canceled, expired) triggers a 403, and the frontend redirects the user to the pricing page.</p>
+  </details>
+
+  <details open>
+    <summary>Stripe Webhooks — why they exist</summary>
+    <p>When a user completes Checkout on Stripe's website, Stripe can't call your JavaScript directly (the user's browser is on stripe.com, not your app). Instead, Stripe sends an HTTP POST to a server-side URL you've configured — this is a webhook. Your server receives it, updates the database, and the user gets access on their next request.</p>
+
+    <h4>Webhook verification</h4>
+    <pre><code><span class="cm"># Stripe signs every webhook payload with STRIPE_WEBHOOK_SECRET</span>
+<span class="cm"># Always verify this signature before processing</span>
+
+event = stripe.Webhook.construct_event(
+    payload=raw_body,      <span class="cm"># raw bytes from request.body()</span>
+    sig_header=request.headers[<span class="str">"stripe-signature"</span>],
+    secret=settings.STRIPE_WEBHOOK_SECRET
+)
+<span class="cm"># If signature is invalid → raises stripe.error.SignatureVerificationError</span>
+<span class="cm"># If valid → event dict with: event["type"], event["data"]["object"]</span></code></pre>
+
+    <div class="callout callout-warning">
+      <p><strong>Never process webhook bodies without verifying the signature.</strong> Without verification, any attacker could POST fake events to your webhook URL and grant themselves free subscriptions. The <code>STRIPE_WEBHOOK_SECRET</code> starts with <code>whsec_</code> and is found in the Stripe dashboard under Webhooks.</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Idempotency — handling duplicate events</summary>
+    <p>Stripe guarantees <em>at-least-once</em> delivery — the same event may be delivered multiple times (if your server returns a non-200, Stripe retries). Idempotency means processing the same event twice has the same effect as processing it once.</p>
+
+    <h4>The pattern used here</h4>
+    <pre><code><span class="kw">def</span> <span class="fn">_is_duplicate_event</span>(db: Client, event_id: <span class="typ">str</span>, event_type: <span class="typ">str</span>) -> <span class="typ">bool</span>:
+    <span class="kw">try</span>:
+        <span class="cm"># Try to INSERT the event_id (UNIQUE constraint)</span>
+        db.table(<span class="str">"stripe_events"</span>).insert({
+            <span class="str">"event_id"</span>: event_id,
+            <span class="str">"event_type"</span>: event_type,
+        }).execute()
+        <span class="kw">return</span> <span class="kw">False</span>   <span class="cm"># insert succeeded → first time we've seen this event</span>
+    <span class="kw">except</span> Exception:
+        <span class="kw">return</span> <span class="kw">True</span>    <span class="cm"># insert failed (UNIQUE violation) → duplicate</span></code></pre>
+
+    <p>The <code>stripe_events</code> table has a UNIQUE constraint on <code>event_id</code>. The first time an event arrives, the INSERT succeeds and processing continues. If Stripe sends the same event again, the INSERT fails (duplicate key), and the function returns <code>True</code> — skipping processing entirely.</p>
+
+    <div class="callout callout-info">
+      <p><strong>This is the "optimistic" approach</strong> — try the operation, catch the conflict. The alternative (SELECT first, INSERT if not found) has a race condition: two concurrent requests could both see "not found" and both proceed to process. INSERT + UNIQUE constraint is atomic and race-safe.</p>
+    </div>
+  </details>
+
+  <!-- S3 -->
+  <h2 id="walkthrough">Section 3 — Line-by-Line Walkthrough</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3" aria-label="Mark section 3 complete"><label for="chk-s3">Mark complete</label></div>
+
+  <h3>File: <code>backend/app/dependencies/subscription.py</code></h3>
+
+  <pre><code><span class="kw">async def</span> <span class="fn">require_active_subscription</span>(
+    user: <span class="typ">dict</span> = Depends(get_current_user),
+    db: Client = Depends(get_service_db),
+) -> <span class="typ">dict</span>:</code></pre>
+  <div class="line-exp">
+    Two dependencies are injected:
+    <ul>
+      <li><code>user</code> from <code>get_current_user</code> — provides the manager's UUID (<code>user["sub"]</code>)</li>
+      <li><code>db</code> from <code>get_service_db</code> — uses the service-role client, bypassing RLS</li>
+    </ul>
+    Why service-role here? The <code>subscriptions</code> table has RLS policies that restrict reads to the owner. But <code>require_active_subscription</code> is checking whether the user has a subscription — if they don't, the anon client with their JWT would also see no rows (correct), but using the service client is more explicit and avoids any edge cases where RLS might block a legitimate subscription check.
+  </div>
+
+  <pre><code>    manager_id = user[<span class="str">"sub"</span>]
+
+    result = (
+        db.table(<span class="str">"subscriptions"</span>)
+        .select(<span class="str">"status, trial_ends_at"</span>)
+        .eq(<span class="str">"manager_id"</span>, manager_id)
+        .in_(<span class="str">"status"</span>, [<span class="str">"trialing"</span>, <span class="str">"active"</span>])
+        .limit(<span class="num">1</span>)
+        .execute()
+    )</code></pre>
+  <div class="line-exp">
+    <code>.in_("status", ["trialing", "active"])</code> — this is the core check. The query only returns rows where the subscription status is "trialing" or "active". Any other status (past_due, canceled) means no rows are returned.
+    <br><br>
+    <code>.limit(1)</code> — optimization. Once we know at least one active subscription exists, we don't need more rows. This prevents a full table scan on managers with multiple subscription records (e.g., after a re-subscription).
+  </div>
+
+  <pre><code>    <span class="kw">if not</span> result.data:
+        <span class="kw">raise</span> HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=<span class="str">"No active subscription. Please subscribe to continue."</span>,
+        )
+    <span class="kw">return</span> user</code></pre>
+  <div class="line-exp">
+    <code>result.data</code> is an empty list (<code>[]</code>) if no subscription row matched. An empty list is falsy in Python, so <code>if not result.data</code> is True when there's no active subscription.
+    <br><br>
+    <strong>Why HTTP 403 (Forbidden) instead of 402 (Payment Required)?</strong> HTTP 402 is technically the "correct" status for payment required, but browser and framework behavior for 402 is inconsistent. 403 is well-supported everywhere and the frontend handles it by redirecting to the pricing page.
+    <br><br>
+    <code>return user</code> — returns the user dict so routes that declare <code>_: None = Depends(require_active_subscription)</code> can also use <code>user: dict = Depends(require_active_subscription)</code> to get the user dict without calling <code>get_current_user</code> separately.
+  </div>
+
+  <h3>File: <code>backend/app/routes/payments.py</code> — Key sections</h3>
+
+  <pre><code><span class="kw">import</span> stripe
+<span class="kw">from</span> app.config <span class="kw">import</span> settings
+
+stripe.api_key = settings.STRIPE_SECRET_KEY   <span class="cm"># set ONCE at module load time</span>
+
+router = APIRouter(prefix=<span class="str">"/payments"</span>, tags=[<span class="str">"Payments"</span>])</code></pre>
+  <div class="line-exp">Setting <code>stripe.api_key</code> at module level configures the global Stripe SDK key. All subsequent <code>stripe.*</code> calls in this file use this key automatically. This is Stripe's SDK convention — one global key, not per-call.</div>
+
+  <pre><code><span class="kw">def</span> <span class="fn">_get_or_create_stripe_customer</span>(email: <span class="typ">str</span>, manager_id: <span class="typ">str</span>) -> <span class="typ">str</span>:
+    existing = stripe.Customer.list(email=email, limit=<span class="num">1</span>)
+    <span class="kw">if</span> existing.data:
+        <span class="kw">return</span> existing.data[<span class="num">0</span>].id
+
+    customer = stripe.Customer.create(
+        email=email,
+        metadata={<span class="str">"manager_id"</span>: manager_id},
+    )
+    <span class="kw">return</span> customer.id</code></pre>
+  <div class="line-exp">
+    This helper prevents creating duplicate Stripe customers for the same email. When a user subscribes, they become a Stripe Customer — a permanent record in Stripe with their payment methods and billing history.
+    <br><br>
+    <code>metadata={"manager_id": manager_id}</code> — Stripe allows attaching arbitrary key-value metadata to any object. Storing the manager's UUID here makes it possible to look up the corresponding database record when Stripe sends webhook events.
+  </div>
+
+  <pre><code>    session = stripe.checkout.Session.create(
+        customer=customer_id,
+        payment_method_types=[<span class="str">"card"</span>],
+        mode=<span class="str">"subscription"</span>,
+        line_items=[
+            {<span class="str">"price_data"</span>: {<span class="str">"currency"</span>: <span class="str">"cad"</span>, <span class="str">"product_data"</span>: {<span class="str">"name"</span>: <span class="str">"Card Verification Fee"</span>},
+                           <span class="str">"unit_amount"</span>: <span class="num">100</span>}, <span class="str">"quantity"</span>: <span class="num">1</span>},
+            {<span class="str">"price"</span>: settings.STRIPE_PRICE_ID, <span class="str">"quantity"</span>: <span class="num">1</span>},
+        ],
+        subscription_data={
+            <span class="str">"trial_period_days"</span>: <span class="num">14</span>,
+            <span class="str">"metadata"</span>: {<span class="str">"manager_id"</span>: manager_id},
+        },
+        metadata={<span class="str">"manager_id"</span>: manager_id},
+        success_url=<span class="str">f"{settings.LANDING_PAGE_URL}/pricing/success?session_id={{CHECKOUT_SESSION_ID}}"</span>,
+        cancel_url=<span class="str">f"{settings.LANDING_PAGE_URL}/pricing?canceled=true"</span>,
+    )</code></pre>
+  <div class="line-exp">
+    <code>trial_period_days: 14</code> — the subscription starts in "trialing" status for 14 days. No payment is taken for the subscription during this period (only the $1 verification fee is charged immediately).
+    <br><br>
+    <code>metadata</code> is set on BOTH the session and the subscription. The session metadata is available when the success page calls <code>GET /payments/verify-session</code>. The subscription metadata is available in all subsequent webhook events about this subscription.
+    <br><br>
+    <code>{{CHECKOUT_SESSION_ID}}</code> — double curly braces are needed because this is an f-string. Single <code>{}</code> would be interpreted as Python string interpolation; <code>{{}}</code> becomes a literal <code>{}</code> in the output, which Stripe then replaces.
+  </div>
+
+  <h3>The Webhook Handler — key patterns</h3>
+
+  <pre><code><span class="dec">@router.post</span>(<span class="str">"/webhook"</span>)
+<span class="kw">async def</span> <span class="fn">stripe_webhook</span>(request: Request, db: Client = Depends(get_service_db)):
+    payload = <span class="kw">await</span> request.body()
+    sig_header = request.headers.get(<span class="str">"stripe-signature"</span>)
+
+    <span class="kw">if not</span> sig_header:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">400</span>, detail=<span class="str">"Missing Stripe signature"</span>)
+
+    <span class="kw">try</span>:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+        )
+    <span class="kw">except</span> stripe.error.SignatureVerificationError:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">400</span>, detail=<span class="str">"Invalid signature"</span>)</code></pre>
+  <div class="line-exp">
+    <code>await request.body()</code> — the raw bytes of the request body. This must be the raw bytes (not parsed JSON) because Stripe's signature verification checks the exact byte sequence, including whitespace. If you parse the body first and re-serialize, the signature won't match.
+    <br><br>
+    <code>construct_event()</code> verifies the signature and returns a parsed event object. On failure, it raises <code>SignatureVerificationError</code> — meaning the request didn't come from Stripe (or someone tampered with it). This is the critical security check.
+  </div>
+
+  <pre><code>    <span class="kw">if</span> _is_duplicate_event(db, event[<span class="str">"id"</span>], event[<span class="str">"type"</span>]):
+        <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"already_processed"</span>}
+
+    import json <span class="kw">as</span> _json
+    raw = _json.loads(payload)
+    data = raw[<span class="str">"data"</span>][<span class="str">"object"</span>]</code></pre>
+  <div class="line-exp">
+    After the idempotency check, the body is re-parsed as JSON to access the event data. <code>data = raw["data"]["object"]</code> is the Stripe object that changed — a Subscription for <code>customer.subscription.*</code> events, an Invoice for <code>invoice.*</code> events.
+    <br><br>
+    <code>import json as _json</code> — imported inside the function with an alias to avoid shadowing any outer <code>json</code> import. Stripe 15.x model objects don't support <code>.get()</code>, so the raw dict (from parsing the payload) is used instead of the SDK's model object.
+  </div>
+
+  <pre><code>    <span class="kw">if</span> event_type == <span class="str">"customer.subscription.created"</span>:
+        manager_id = data.get(<span class="str">"metadata"</span>, {}).get(<span class="str">"manager_id"</span>)
+        <span class="kw">if</span> manager_id:
+            sub_data = {<span class="str">"stripe_customer_id"</span>: data[<span class="str">"customer"</span>],
+                        <span class="str">"stripe_subscription_id"</span>: data[<span class="str">"id"</span>],
+                        <span class="str">"plan"</span>: <span class="str">"trial"</span>, <span class="str">"status"</span>: <span class="str">"trialing"</span>,
+                        <span class="str">"trial_ends_at"</span>: _unix_to_iso(data.get(<span class="str">"trial_end"</span>))}
+            <span class="kw">try</span>:
+                db.table(<span class="str">"subscriptions"</span>).insert({<span class="str">"manager_id"</span>: manager_id, **sub_data}).execute()
+            <span class="kw">except</span> Exception:
+                db.table(<span class="str">"subscriptions"</span>).update({**sub_data, <span class="str">"updated_at"</span>: <span class="str">"now()"</span>}) \
+                    .eq(<span class="str">"manager_id"</span>, manager_id).execute()</code></pre>
+  <div class="line-exp">
+    <strong>Insert-or-update pattern (upsert):</strong> Try to INSERT the subscription row. If a row already exists (e.g., the success page created it first via <code>GET /payments/verify-session</code>), the INSERT raises an exception (duplicate key). The <code>except</code> block then UPDATE the existing row with the real Stripe IDs.
+    <br><br>
+    Supabase SDK has a native <code>.upsert()</code> method, but this project uses try/except to be explicit about which fields to set on INSERT vs. which to update on conflict — they're different.
+  </div>
+
+  <pre><code><span class="kw">def</span> <span class="fn">_unix_to_iso</span>(ts: <span class="typ">int</span> | <span class="kw">None</span>) -> <span class="typ">str</span> | <span class="kw">None</span>:
+    <span class="kw">if</span> ts <span class="kw">is None</span>: <span class="kw">return None</span>
+    <span class="kw">from</span> datetime <span class="kw">import</span> datetime, timezone
+    <span class="kw">return</span> datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()</code></pre>
+  <div class="line-exp">Stripe stores all timestamps as Unix timestamps (seconds since epoch). The database expects ISO 8601 strings. This helper converts between them. The <code>import datetime</code> is inside the function to keep the module-level imports clean — acceptable for a small helper that's called infrequently.</div>
+
+  <!-- S4 -->
+  <h2 id="design">Section 4 — Why This Design</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4" aria-label="Mark section 4 complete"><label for="chk-s4">Mark complete</label></div>
+
+  <h3>Decision: Database-backed subscription check vs. JWT claim check</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>DB check on every request (chosen)</td><td>Always reflects current subscription state; cancelling works instantly</td><td>One extra DB query per request; slower than JWT-based check</td></tr>
+      <tr><td>Add "subscribed" claim to JWT</td><td>Zero extra DB queries; works offline</td><td>JWT is issued at login; status change doesn't reflect until re-login; cancelled users keep access until token expires (up to 1 hour)</td></tr>
+    </tbody>
+  </table>
+  <p>The DB check is chosen because subscription status can change at any moment (Stripe events). A cancelled subscription must take effect immediately, not 1 hour later when the JWT expires.</p>
+
+  <h3>Decision: 14-day trial + $1 card verification vs. free tier</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>Trial + $1 card verify (chosen)</td><td>Filters out non-serious signups; card on file for post-trial billing; reduces fraud</td><td>Some users won't provide card even for $1; loses some top-of-funnel</td></tr>
+      <tr><td>Free tier (no card required)</td><td>Maximum signups; users try before committing</td><td>Many free users never convert; fraud; resource abuse</td></tr>
+      <tr><td>Immediate charge (no trial)</td><td>Maximum revenue per user; serious users only</td><td>Low conversion rate; no chance to experience value first</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S5 -->
+  <h2 id="data-flow">Section 5 — How It Connects</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5" aria-label="Mark section 5 complete"><label for="chk-s5">Mark complete</label></div>
+
+  <div class="diagram">
+  payments.py (routes)
+  │
+  ├── POST /payments/create-checkout-session
+  │        → Stripe Checkout URL  →  user pays  →  Stripe webhook
+  │
+  ├── POST /payments/webhook
+  │        → verifies Stripe signature
+  │        → updates subscriptions table (status: trialing/active/past_due/canceled)
+  │        → idempotency via stripe_events table
+  │
+  ├── GET  /payments/verify-session
+  │        → fallback for missing webhooks (local dev)
+  │        → reads Stripe session, creates subscriptions row
+  │
+  └── GET  /payments/subscription-status
+           → frontend polls this to know if user has access
+
+  subscription.py (dependency)
+  │
+  └── require_active_subscription
+           → reads subscriptions table (service DB, bypasses RLS)
+           → injected into EVERY user-facing route
+           → 403 if no active subscription found
+  </div>
+
+  <!-- S6 -->
+  <h2 id="running">Section 6 — Running &amp; Testing</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6" aria-label="Mark section 6 complete"><label for="chk-s6">Mark complete</label></div>
+
+  <h4>Test subscription gate manually</h4>
+  <pre><code><span class="cm"># Without a subscription row in the DB, any protected endpoint returns 403:</span>
+TOKEN="your-valid-jwt"
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/complaints
+<span class="cm"># Expected: {"detail":"No active subscription. Please subscribe to continue."}</span>
+
+<span class="cm"># Insert a test subscription row directly in Supabase SQL Editor:</span>
+<span class="kw">INSERT INTO</span> subscriptions (manager_id, status, stripe_customer_id, stripe_subscription_id)
+<span class="kw">VALUES</span> (<span class="str">'your-user-uuid'</span>, <span class="str">'trialing'</span>, <span class="str">'cus_test'</span>, <span class="str">'sub_test'</span>);
+
+<span class="cm"># Now the same request should return your complaints data</span></code></pre>
+
+  <h4>Test webhooks locally with Stripe CLI</h4>
+  <pre><code><span class="cm"># Install Stripe CLI (stripe.com/docs/stripe-cli)</span>
+stripe login
+
+<span class="cm"># Forward Stripe events to your local server</span>
+stripe listen --forward-to http://localhost:8000/payments/webhook
+
+<span class="cm"># In another terminal, trigger a test event:</span>
+stripe trigger customer.subscription.created</code></pre>
+
+  <table>
+    <thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td><code>400 Missing Stripe signature</code></td><td>Testing webhook without the Stripe CLI (no <code>stripe-signature</code> header)</td><td>Use Stripe CLI to forward events; never call the webhook endpoint directly</td></tr>
+      <tr><td><code>400 Invalid signature</code></td><td>Wrong <code>STRIPE_WEBHOOK_SECRET</code> — must match the one from Stripe CLI or Stripe dashboard</td><td>Run <code>stripe listen</code> and copy the webhook signing secret it shows</td></tr>
+      <tr><td><code>403</code> after subscription created</td><td>Webhook arrived but subscription row wasn't created (check logs)</td><td>Check <code>manager_id</code> in Stripe metadata matches the user UUID in your DB</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S7 -->
+  <h2 id="checkpoint">Section 7 — Checkpoint ✓</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7" aria-label="Mark section 7 complete"><label for="chk-s7">Mark complete</label></div>
+
+  <div class="card card-success">
+    <h3>Verify the full subscription gate</h3>
+    <p>Run these two curl commands and confirm the results change:</p>
+    <pre><code><span class="cm"># 1. Before subscription row exists → should return 403</span>
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/complaints \
+  | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('detail', 'NO DETAIL'))"
+<span class="cm"># Expected: No active subscription. Please subscribe to continue.</span>
+
+<span class="cm"># 2. After inserting test subscription in Supabase SQL editor → should return []</span>
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/complaints \
+  | python -c "import sys,json; d=json.load(sys.stdin); print(type(d).__name__)"
+<span class="cm"># Expected: list</span></code></pre>
+  </div>
+
+  <!-- S8 -->
+  <h2 id="exercises">Section 8 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s8" aria-label="Mark section 8 complete"><label for="chk-s8">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Add trial days remaining to the subscription status endpoint</summary>
+    <p><strong>Problem:</strong> Modify <code>GET /payments/subscription-status</code> to also return how many days remain in the trial (if status is "trialing"). Return <code>null</code> for non-trialing subscriptions.</p>
+    <details>
+      <summary>Hints</summary>
+      <p>The <code>subscriptions</code> table has a <code>trial_ends_at</code> column. Fetch it alongside <code>status</code>. Calculate days with <code>(trial_end - datetime.now()).days</code>.</p>
+    </details>
+    <details>
+      <summary>Solution</summary>
+      <pre><code><span class="kw">from</span> datetime <span class="kw">import</span> datetime, timezone
+
+<span class="dec">@router.get</span>(<span class="str">"/subscription-status"</span>)
+<span class="kw">async def</span> <span class="fn">subscription_status</span>(user=Depends(get_current_user), db=Depends(get_service_db)):
+    result = (db.table(<span class="str">"subscriptions"</span>).select(<span class="str">"status, trial_ends_at"</span>)
+              .eq(<span class="str">"manager_id"</span>, user[<span class="str">"sub"</span>]).in_(<span class="str">"status"</span>, [<span class="str">"trialing"</span>, <span class="str">"active"</span>])
+              .limit(<span class="num">1</span>).execute())
+    <span class="kw">if not</span> result.data:
+        <span class="kw">return</span> {<span class="str">"subscribed"</span>: <span class="kw">False</span>, <span class="str">"trial_days_remaining"</span>: <span class="kw">None</span>}
+    row = result.data[<span class="num">0</span>]
+    days = <span class="kw">None</span>
+    <span class="kw">if</span> row[<span class="str">"status"</span>] == <span class="str">"trialing"</span> <span class="kw">and</span> row.get(<span class="str">"trial_ends_at"</span>):
+        trial_end = datetime.fromisoformat(row[<span class="str">"trial_ends_at"</span>])
+        days = <span class="fn">max</span>(<span class="num">0</span>, (trial_end - datetime.now(timezone.utc)).days)
+    <span class="kw">return</span> {<span class="str">"subscribed"</span>: <span class="kw">True</span>, <span class="str">"status"</span>: row[<span class="str">"status"</span>], <span class="str">"trial_days_remaining"</span>: days}</code></pre>
+      <p><strong>Success:</strong> trialing users get a number like <code>{"subscribed": true, "status": "trialing", "trial_days_remaining": 12}</code>. Active users get <code>null</code>.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Add a grace period for past_due subscriptions</summary>
+    <p><strong>Problem:</strong> Currently, <code>past_due</code> subscriptions are blocked immediately. Modify <code>require_active_subscription</code> to allow a 3-day grace period: if status is <code>past_due</code> and the subscription was last updated less than 3 days ago, still allow access.</p>
+    <details>
+      <summary>Hints</summary>
+      <p>Fetch <code>updated_at</code> alongside status. Check if <code>(datetime.now() - updated_at).days &lt; 3</code>. You'll need to parse the ISO timestamp from Supabase.</p>
+    </details>
+    <details>
+      <summary>Solution</summary>
+      <pre><code><span class="kw">from</span> datetime <span class="kw">import</span> datetime, timezone, timedelta
+
+<span class="kw">async def</span> <span class="fn">require_active_subscription</span>(user=Depends(get_current_user), db=Depends(get_service_db)):
+    result = (db.table(<span class="str">"subscriptions"</span>).select(<span class="str">"status, updated_at"</span>)
+              .eq(<span class="str">"manager_id"</span>, user[<span class="str">"sub"</span>]).limit(<span class="num">1</span>).execute())
+    <span class="kw">if not</span> result.data:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="num">403</span>, detail=<span class="str">"No active subscription."</span>)
+    row = result.data[<span class="num">0</span>]
+    <span class="kw">if</span> row[<span class="str">"status"</span>] <span class="kw">in</span> (<span class="str">"trialing"</span>, <span class="str">"active"</span>):
+        <span class="kw">return</span> user
+    <span class="kw">if</span> row[<span class="str">"status"</span>] == <span class="str">"past_due"</span> <span class="kw">and</span> row.get(<span class="str">"updated_at"</span>):
+        updated = datetime.fromisoformat(row[<span class="str">"updated_at"</span>])
+        <span class="kw">if</span> datetime.now(timezone.utc) - updated < timedelta(days=<span class="num">3</span>):
+            <span class="kw">return</span> user
+    <span class="kw">raise</span> HTTPException(status_code=<span class="num">403</span>, detail=<span class="str">"No active subscription."</span>)</code></pre>
+      <p><strong>Success:</strong> A past_due subscription updated today still grants access. One updated 4 days ago raises 403.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Add subscription event logging to all webhook events</summary>
+    <p><strong>Problem:</strong> Currently only the <code>stripe_events</code> table records events (for deduplication). Add a detailed <code>subscription_events</code> log table that records every event type, event ID, manager ID, and raw event JSON — useful for debugging "why did my subscription status change?" questions.</p>
+    <details>
+      <summary>Hints</summary>
+      <p>Create the table in Supabase first. In the webhook handler, after the idempotency check passes and event data is parsed, insert a row with <code>event_id</code>, <code>event_type</code>, <code>manager_id</code> (from metadata if available), and <code>raw_data</code> (as JSON string). Do this before the <code>if event_type == ...</code> branching so all events are logged even if no handler matches.</p>
+    </details>
+    <details>
+      <summary>Solution</summary>
+      <pre><code><span class="cm"># In Supabase SQL editor:</span>
+<span class="kw">CREATE TABLE</span> subscription_events (
+    id <span class="typ">BIGSERIAL PRIMARY KEY</span>,
+    event_id <span class="typ">TEXT</span>,
+    event_type <span class="typ">TEXT</span>,
+    manager_id <span class="typ">UUID</span>,
+    raw_data <span class="typ">JSONB</span>,
+    created_at <span class="typ">TIMESTAMPTZ DEFAULT NOW</span>()
+);
+
+<span class="cm"># In the webhook handler, after parsing data:</span>
+<span class="kw">try</span>:
+    manager_id = data.get(<span class="str">"metadata"</span>, {}).get(<span class="str">"manager_id"</span>)
+    db.table(<span class="str">"subscription_events"</span>).insert({
+        <span class="str">"event_id"</span>: event[<span class="str">"id"</span>],
+        <span class="str">"event_type"</span>: event_type,
+        <span class="str">"manager_id"</span>: manager_id,
+        <span class="str">"raw_data"</span>: data,
+    }).execute()
+<span class="kw">except</span> Exception <span class="kw">as</span> e:
+    logger.warning(<span class="str">f"Failed to log subscription event: {e}"</span>)</code></pre>
+      <p><strong>Success:</strong> After triggering a Stripe test event, the <code>subscription_events</code> table in Supabase shows a new row. Errors in logging are swallowed (don't fail the webhook) but logged.</p>
+    </details>
+  </details>
+
+  <!-- S9 -->
+  <h2 id="glossary">Section 9 — Glossary</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s9" aria-label="Mark section 9 complete"><label for="chk-s9">Mark complete</label></div>
+
+  <table>
+    <thead><tr><th>Term</th><th>Definition</th><th>First used in</th></tr></thead>
+    <tbody>
+      <tr><td>Stripe Checkout</td><td>Stripe-hosted payment page — handles card collection, 3DS, and PCI compliance</td><td>Section 2</td></tr>
+      <tr><td>Webhook</td><td>HTTP POST from a third-party service (Stripe) to your server when an event occurs</td><td>Section 2</td></tr>
+      <tr><td>Webhook signature</td><td>HMAC signature Stripe includes in headers to prove the request is from Stripe</td><td>Section 2</td></tr>
+      <tr><td>Idempotency</td><td>Property where processing the same event multiple times has the same effect as once</td><td>Section 2</td></tr>
+      <tr><td>Subscription state machine</td><td>The defined set of states (trialing → active → past_due → canceled) a Stripe subscription moves through</td><td>Section 2</td></tr>
+      <tr><td>Stripe Customer</td><td>A Stripe object representing a user, with their payment methods and billing history</td><td>Section 3</td></tr>
+      <tr><td>Unix timestamp</td><td>Seconds since January 1, 1970 UTC — how Stripe represents all dates</td><td>Section 3</td></tr>
+      <tr><td>STRIPE_PRICE_ID</td><td>The Stripe product price ID (starts with <code>price_</code>) for the subscription plan</td><td>Section 3</td></tr>
+      <tr><td><code>at-least-once delivery</code></td><td>Guarantee that an event is delivered at least once but potentially multiple times</td><td>Section 2</td></tr>
+      <tr><td>PCI compliance</td><td>Payment Card Industry standard for handling card data securely — Stripe handles this so you don't have to</td><td>Section 2</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S10 -->
+  <h2 id="resources">Section 10 — Resources</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s10" aria-label="Mark section 10 complete"><label for="chk-s10">Mark complete</label></div>
+
+  <div class="resource-grid">
+    <div class="resource-card">
+      <h4>Stripe Checkout</h4>
+      <a href="https://stripe.com/docs/checkout/quickstart" target="_blank" rel="noopener">Stripe Checkout quickstart</a>
+      <a href="https://stripe.com/docs/api/checkout/sessions" target="_blank" rel="noopener">Checkout Session API reference</a>
+      <p>The quickstart has a full Python example. The API reference lists every parameter you can set.</p>
+    </div>
+    <div class="resource-card">
+      <h4>Stripe Webhooks</h4>
+      <a href="https://stripe.com/docs/webhooks" target="_blank" rel="noopener">Stripe webhooks overview</a>
+      <a href="https://stripe.com/docs/webhooks/best-practices" target="_blank" rel="noopener">Webhook best practices</a>
+      <p>Best practices covers idempotency, retry handling, and signature verification in depth.</p>
+    </div>
+    <div class="resource-card">
+      <h4>Stripe CLI</h4>
+      <a href="https://stripe.com/docs/stripe-cli" target="_blank" rel="noopener">Stripe CLI docs</a>
+      <a href="https://stripe.com/docs/stripe-cli/reference" target="_blank" rel="noopener">CLI command reference</a>
+      <p>The CLI's <code>stripe listen</code> command is essential for local webhook development.</p>
+    </div>
+    <div class="resource-card">
+      <h4>Stripe Python SDK</h4>
+      <a href="https://stripe.com/docs/api?lang=python" target="_blank" rel="noopener">Stripe Python API reference</a>
+      <a href="https://github.com/stripe/stripe-python" target="_blank" rel="noopener">GitHub — stripe-python</a>
+      <p>Every API object has a Python example. Use the code tab to switch to Python.</p>
+    </div>
+    <div class="resource-card">
+      <h4>Subscription Lifecycle</h4>
+      <a href="https://stripe.com/docs/billing/subscriptions/overview" target="_blank" rel="noopener">Stripe subscriptions overview</a>
+      <a href="https://stripe.com/docs/billing/subscriptions/trials" target="_blank" rel="noopener">Trial periods</a>
+      <p>The lifecycle diagram in the subscriptions overview clarifies all the state transitions.</p>
+    </div>
+    <div class="resource-card">
+      <h4>Idempotency Patterns</h4>
+      <a href="https://stripe.com/docs/api/idempotent_requests" target="_blank" rel="noopener">Stripe idempotency keys</a>
+      <a href="https://brandur.org/idempotency-keys" target="_blank" rel="noopener">Brandur — idempotency keys (deep dive)</a>
+      <p>Brandur's article is the best deep dive into idempotency patterns for payment systems.</p>
+    </div>
+  </div>
+
+  <!-- S11 -->
+  <h2 id="whats-next">Section 11 — What's Next</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s11" aria-label="Mark section 11 complete"><label for="chk-s11">Mark complete</label></div>
+
+  <p>With the full authentication + subscription stack in place, <a href="module_05_property_groups_buildings.html">Module 05 — Property Groups &amp; Buildings</a> begins building the actual SaaS features: hierarchical property management with cascade-delete, background VAPI provisioning, and the first real Supabase CRUD operations under RLS.</p>
+
+  <div class="card card-success">
+    <h3>🎉 Session 1 Complete!</h3>
+    <p>You've finished all 5 foundation modules. You now understand:</p>
+    <ul>
+      <li>How to set up and run the backend (Module 00)</li>
+      <li>How FastAPI assembles 18 routers into one app (Module 01)</li>
+      <li>How the two Supabase clients work and why RLS matters (Module 02)</li>
+      <li>How JWTs are validated and injected into the DB client (Module 03)</li>
+      <li>How Stripe Checkout, webhooks, and the subscription gate work (Module 04)</li>
+    </ul>
+    <p>Proceed to <a href="module_05_property_groups_buildings.html">Module 05</a> to start building the core data layer.</p>
+  </div>
+
+  <div class="card card-info">
+    <button id="markCompleteBtn" onclick="markModuleComplete()" style="background: var(--accent); color: var(--bg-primary); border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius); cursor: pointer; font-size: 1rem; font-weight: 600;">
+      ✓ Mark Module 04 Complete
+    </button>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_03_auth_jwt.html" class="nav-btn">← Previous: Auth &amp; JWT</a>
+    <a href="module_05_property_groups_buildings.html" class="nav-btn">Next: Property Groups →</a>
+  </div>
+</div></div>
+
+<script>
+  const html = document.documentElement;
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  html.setAttribute('data-theme', saved); toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next); localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach((h, i) => {
+    if (!h.id) h.id = 'sec-' + i;
+    const a = document.createElement('a'); a.href = '#' + h.id;
+    a.textContent = h.textContent.replace(/^Section \d+ — /, ''); toc.appendChild(a);
+  });
+  document.querySelectorAll('h2').forEach(h => {
+    const obs = new IntersectionObserver(entries => entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('#toc a').forEach(l => l.classList.remove('active'));
+        const a = toc.querySelector(`a[href="#${e.target.id}"]`); if (a) a.classList.add('active');
+      }
+    }), { rootMargin: '-10% 0px -70% 0px' }); obs.observe(h);
+  });
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button'); btn.className = 'copy-btn'; btn.textContent = 'Copy';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.addEventListener('click', () => { const c = pre.querySelector('code');
+      navigator.clipboard.writeText(c ? c.innerText : pre.innerText).then(() => { btn.textContent = '✓'; setTimeout(() => btn.textContent = 'Copy', 2000); }); });
+    pre.appendChild(btn);
+  });
+  const topBtn = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => topBtn.classList.toggle('visible', window.scrollY > 400));
+  topBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const MODULE_KEY = 'module_04_progress';
+  const checks = document.querySelectorAll('.section-check input[type="checkbox"]');
+  const fill = document.getElementById('progressFill');
+  const sp = JSON.parse(localStorage.getItem(MODULE_KEY) || '{}');
+  checks.forEach(cb => { if (sp[cb.id]) cb.checked = true;
+    cb.addEventListener('change', () => { sp[cb.id] = cb.checked; localStorage.setItem(MODULE_KEY, JSON.stringify(sp)); upd(); }); });
+  function upd() { const t = checks.length, d = [...checks].filter(c => c.checked).length; fill.style.width = t ? (d/t*100)+'%' : '0%'; }
+  upd();
+  function markModuleComplete() {
+    const c = JSON.parse(localStorage.getItem('completed_modules') || '[]');
+    if (!c.includes('04')) c.push('04'); localStorage.setItem('completed_modules', JSON.stringify(c));
+    checks.forEach(cb => { cb.checked = true; sp[cb.id] = true; }); localStorage.setItem(MODULE_KEY, JSON.stringify(sp)); upd();
+    document.getElementById('markCompleteBtn').textContent = '✓ Complete!';
+  }
+</script>
+</body>
+</html>

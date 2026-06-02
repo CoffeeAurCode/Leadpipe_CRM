@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 15 — Bulk Import | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    .bug-box { background: #f7768e0d; border: 1px solid #f7768e44; border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .bug-box h4 { color: var(--error); margin-bottom: 0.5rem; }
+    @media print { .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; } .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; } details, details > * { display: block; } h2 { page-break-before: always; } }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 15</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 15 — Bulk Import (CSV/XLSX + AI Column Mapping)</strong></div>
+
+  <h1>Module 15 — Bulk Import</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 60 minutes</span>
+    <span>📁 Files: <code>routes/import_routes.py</code></span>
+    <span>🔰 Prerequisites: Modules 02–04, 10</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_14_feature_flags.html" class="nav-btn">← Previous: Feature Flags</a>
+    <a href="module_16_leasing.html" class="nav-btn">Next: Leasing Module →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>A manager wants to migrate 200 tenants from an Excel spreadsheet into the system. They shouldn't have to rename all the columns to match the API's expected names first. This module builds a two-step import flow: step 1 analyses the file's columns and uses GPT-4o-mini to produce a column mapping; step 2 uses that mapping to actually import the data.</p>
+
+  <div class="diagram">
+Two-step flow:
+
+STEP 1 — POST /import/analyze
+  ├── Upload file (CSV or XLSX)
+  ├── Parse headers + first 3 rows
+  ├── Check if headers already match required columns
+  │     └── YES → return {needs_mapping: false}  (skip AI, go straight to import)
+  └── NO → call GPT-4o-mini with headers + sample data
+             └── returns {needs_mapping: true, mapping: {"Tenant Name": "name", ...}}
+
+STEP 2 — POST /import/tenants (or /import/properties)
+  ├── Upload same file again + column_mapping (JSON string from step 1)
+  ├── Parse file → apply mapping (rename columns)
+  └── Row-by-row insert:
+        ├── Look up flat by flat_number
+        ├── Check if flat is already occupied
+        ├── INSERT tenant
+        ├── UPDATE flat (tenant_uuid, occupied=true)
+        └── INSERT rent record (if rent_amount provided)
+
+Constants:
+  MAX_ROWS = 1000   (reject files with > 1000 rows)
+  MAX_FILE_BYTES = 5 MB</div>
+
+  <!-- S2 -->
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>CSV parsing with stdlib — no pandas</summary>
+    <p>Python's standard library includes a fully capable CSV parser. Using it avoids the pandas dependency (a 30MB+ library) for a task that doesn't need data analysis.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">import</span> csv, io
+
+<span class="kw">def</span> <span class="fn">_parse_csv</span>(content: <span class="typ">bytes</span>) -> tuple[list[dict], set[str]]:
+    text = content.<span class="fn">decode</span>(<span class="str">"utf-8-sig"</span>)           <span class="cm"># handles BOM</span>
+    reader = csv.<span class="fn">DictReader</span>(io.<span class="fn">StringIO</span>(text))  <span class="cm"># reads header row automatically</span>
+    raw_fields = reader.fieldnames <span class="kw">or</span> []
+    fieldnames = {f.strip().lower() <span class="kw">for</span> f <span class="kw">in</span> raw_fields}  <span class="cm"># normalised set</span>
+    rows = [
+        {k.strip().lower(): (v <span class="kw">or</span> <span class="str">""</span>).strip() <span class="kw">for</span> k, v <span class="kw">in</span> row.items()}
+        <span class="kw">for</span> row <span class="kw">in</span> reader
+    ]
+    <span class="kw">return</span> rows, fieldnames</code></pre>
+
+    <p><code>csv.DictReader</code> reads the first row as headers and returns subsequent rows as dicts automatically. The keys match the header row. <code>io.StringIO</code> wraps the text string so it looks like a file object — required because DictReader expects a file-like object, not a raw string.</p>
+
+    <h4>Why <code>utf-8-sig</code>?</h4>
+    <p>When you export a CSV from Microsoft Excel on Windows, it prepends a BOM (byte order mark: <code>\xef\xbb\xbf</code>) to the file. If you decode with plain <code>utf-8</code>, this BOM becomes the first character of the first column header: <code>"﻿property_name"</code> instead of <code>"property_name"</code>. The <code>utf-8-sig</code> codec automatically strips the BOM.</p>
+
+    <div class="callout callout-warning">
+      <p><strong>This is one of the most common CSV import bugs.</strong> Everything looks fine in a text editor (the BOM is invisible), but the DB lookup for <code>property_name</code> silently fails because the actual key is <code>﻿property_name</code>. The fix is one word: <code>utf-8-sig</code>.</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Excel parsing with openpyxl — no pandas</summary>
+    <p>Excel XLSX files are ZIP archives containing XML. <code>openpyxl</code> reads them natively without converting to CSV first.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">import</span> openpyxl
+
+<span class="kw">def</span> <span class="fn">_parse_xlsx</span>(content: <span class="typ">bytes</span>) -> tuple[list[dict], set[str]]:
+    wb = openpyxl.<span class="fn">load_workbook</span>(io.<span class="fn">BytesIO</span>(content), data_only=<span class="kw">True</span>)
+    ws = wb.active                              <span class="cm"># first sheet</span>
+    rows_iter = ws.<span class="fn">iter_rows</span>(values_only=<span class="kw">True</span>)  <span class="cm"># yield tuples of cell values</span>
+    first_row = <span class="fn">next</span>(rows_iter, <span class="kw">None</span>)          <span class="cm"># header row</span>
+    <span class="kw">if</span> first_row <span class="kw">is None</span>:
+        <span class="kw">return</span> [], <span class="fn">set</span>()
+
+    raw_headers = [<span class="fn">str</span>(h).strip() <span class="kw">if</span> h <span class="kw">is not None</span> <span class="kw">else</span> <span class="str">""</span> <span class="kw">for</span> h <span class="kw">in</span> first_row]
+    fieldnames = {h.lower() <span class="kw">for</span> h <span class="kw">in</span> raw_headers <span class="kw">if</span> h}
+
+    rows = []
+    <span class="kw">for</span> excel_row <span class="kw">in</span> rows_iter:
+        row_dict = {
+            h.strip().lower(): (<span class="fn">str</span>(v).strip() <span class="kw">if</span> v <span class="kw">is not None</span> <span class="kw">else</span> <span class="str">""</span>)
+            <span class="kw">for</span> h, v <span class="kw">in</span> <span class="fn">zip</span>(raw_headers, excel_row)
+            <span class="kw">if</span> h.strip()  <span class="cm"># skip empty header columns</span>
+        }
+        <span class="kw">if</span> <span class="fn">any</span>(row_dict.values()):  <span class="cm"># skip completely empty rows</span>
+            rows.<span class="fn">append</span>(row_dict)
+    <span class="kw">return</span> rows, fieldnames</code></pre>
+
+    <p><code>data_only=True</code> — reads the cached calculated value of formula cells, not the formula string itself. Without this, cells with <code>=SUM(A1:A10)</code> return the formula text instead of the number.</p>
+    <p><code>if v is not None else ""</code> — Excel cells can be <code>None</code> when empty. Converting to string before stripping prevents <code>AttributeError: 'NoneType' object has no attribute 'strip'</code>.</p>
+  </details>
+
+  <details open>
+    <summary>AI column mapping with AsyncOpenAI</summary>
+    <p>A manager's spreadsheet might have columns called "Tenant Full Name", "Mobile Number", "Unit No." instead of the expected "name", "phone", "flat_number". Rather than requiring them to rename everything, GPT-4o-mini maps their column names to the target schema.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>response = <span class="kw">await</span> client.chat.completions.<span class="fn">create</span>(
+    model=<span class="str">"gpt-4o-mini"</span>,
+    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: prompt}],
+    temperature=<span class="num">0</span>,                                <span class="cm"># deterministic output</span>
+    response_format={<span class="str">"type"</span>: <span class="str">"json_object"</span>},      <span class="cm"># force valid JSON</span>
+)</code></pre>
+
+    <p><code>temperature=0</code> — zero temperature means the model always picks the highest-probability token. For a deterministic mapping task (same input → same output), this is correct. Non-zero temperature introduces randomness which would make mappings inconsistent across calls.</p>
+
+    <p><code>response_format={"type": "json_object"}</code> — forces the model to output valid JSON. Without this, the model might add markdown code fences (<code>```json ... ```</code>) or a preamble text, causing <code>json.loads()</code> to fail.</p>
+
+    <div class="callout callout-warning">
+      <p><strong>Important:</strong> When using <code>response_format={"type": "json_object"}</code>, the prompt MUST contain the word "JSON" somewhere. If it doesn't, the OpenAI API returns an error. The prompt in <code>_map_columns_with_ai()</code> ends with: <em>"Return ONLY valid JSON."</em></p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>The <code>_apply_mapping()</code> function</summary>
+    <p>After the AI returns a mapping like <code>{"Tenant Name": "name", "Mobile": "phone"}</code>, every row needs its column names translated before insertion.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">_apply_mapping</span>(rows: list[dict], mapping: dict) -> list[dict]:
+    result = []
+    <span class="kw">for</span> row <span class="kw">in</span> rows:
+        new_row = {}
+        <span class="kw">for</span> orig_key, val <span class="kw">in</span> row.items():
+            target = mapping.<span class="fn">get</span>(orig_key)    <span class="cm"># e.g. "Tenant Name" → "name"</span>
+            <span class="kw">if</span> target:                           <span class="cm"># target is None for unmapped columns</span>
+                new_row[target] = val
+        result.<span class="fn">append</span>(new_row)
+    <span class="kw">return</span> result
+
+<span class="cm"># Before: {"Tenant Name": "Alice", "Mobile": "91...", "Extra Col": "ignored"}</span>
+<span class="cm"># After:  {"name": "Alice", "phone": "91..."}</span></code></pre>
+
+    <p>Columns mapped to <code>None</code> (unmappable) are dropped silently. This is intentional — extra columns in the user's spreadsheet (internal notes, IDs from their old system) don't cause errors.</p>
+  </details>
+
+  <details open>
+    <summary>Cache pattern to avoid redundant DB lookups</summary>
+    <p>Importing 200 rows from the same property would normally trigger 200 identical "find this property by name" queries. The property cache prevents this.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>property_cache: dict[str, str] = {}   <span class="cm"># {prop_name_lower: property_uuid}</span>
+building_cache: dict[tuple, int] = {} <span class="cm"># {(property_uuid, building_name_lower): building_id}</span>
+
+<span class="kw">for</span> row <span class="kw">in</span> rows:
+    prop_key = prop_name.lower()
+    <span class="kw">if</span> prop_key <span class="kw">not in</span> property_cache:
+        <span class="cm"># First time seeing this property — query or create</span>
+        existing = db.table(<span class="str">"properties_list"</span>).<span class="fn">ilike</span>(<span class="str">"name"</span>, prop_name).<span class="fn">execute</span>()
+        <span class="kw">if</span> existing.data:
+            property_cache[prop_key] = existing.data[<span class="num">0</span>][<span class="str">"id"</span>]
+        <span class="kw">else</span>:
+            created = db.table(<span class="str">"properties_list"</span>).insert(payload).<span class="fn">execute</span>()
+            property_cache[prop_key] = created.data[<span class="num">0</span>][<span class="str">"id"</span>]
+    property_uuid = property_cache[prop_key]  <span class="cm"># use cached value for all subsequent rows</span></code></pre>
+
+    <p>Without the cache, a 200-row import of 200 tenants in the same property would fire 200 property lookups + 200 building lookups = 400 unnecessary DB queries. With the cache, it's 1 property lookup + 1 building lookup for the entire file.</p>
+  </details>
+
+  <!-- S3 -->
+  <h2 id="walkthrough">Section 3 — Line-by-Line Walkthrough</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <h3>File: <code>backend/app/routes/import_routes.py</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>MAX_ROWS = <span class="num">1000</span>
+MAX_FILE_BYTES = <span class="num">5</span> * <span class="num">1024</span> * <span class="num">1024</span>
+
+PROPERTIES_REQUIRED = {<span class="str">"property_name"</span>, <span class="str">"building_name"</span>, <span class="str">"flat_number"</span>}
+TENANTS_REQUIRED = {<span class="str">"name"</span>, <span class="str">"phone"</span>, <span class="str">"flat_number"</span>}</code></pre>
+  <div class="line-exp">
+    These four sets are the minimum required columns for each import type. They're defined at module level so they can be referenced in both <code>/analyze</code> (to detect missing columns) and <code>/properties</code> / <code>/tenants</code> (to validate after mapping).
+    <br><br>
+    5 MB limit: a CSV with 1000 rows × 20 columns of text data is well under 1 MB. The 5 MB limit is generous enough to allow large spreadsheets while preventing memory issues from someone uploading a 500 MB video.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="dec">@router.post</span>(<span class="str">"/analyze"</span>)
+<span class="kw">async def</span> <span class="fn">analyze_import</span>(
+    file: UploadFile = <span class="fn">File</span>(...),
+    import_type: <span class="typ">str</span> = <span class="fn">Form</span>(...),
+    user: <span class="typ">dict</span> = <span class="fn">Depends</span>(require_active_subscription),
+    db: Client = <span class="fn">Depends</span>(get_authenticated_db),
+):
+    content = <span class="kw">await</span> file.<span class="fn">read</span>()
+    <span class="kw">if</span> <span class="fn">len</span>(content) > MAX_FILE_BYTES:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(<span class="num">400</span>, <span class="str">"File too large (max 5 MB)"</span>)</code></pre>
+  <div class="line-exp">
+    <code>UploadFile = File(...)</code> — multipart file upload. FastAPI reads the file from the form data and provides it as an <code>UploadFile</code> object. <code>await file.read()</code> loads the entire content into memory as bytes.
+    <br><br>
+    <code>import_type: str = Form(...)</code> — a non-file form field. When a request is <code>multipart/form-data</code> (required for file uploads), all other parameters must also be <code>Form</code> fields — you can't mix <code>Form</code> and JSON body in the same request. This is a FastAPI/HTTP limitation.
+    <br><br>
+    Size check before parsing: we check the size before trying to parse to avoid loading huge data into the CSV parser.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    required = PROPERTIES_REQUIRED <span class="kw">if</span> import_type == <span class="str">"properties"</span> <span class="kw">else</span> TENANTS_REQUIRED
+    missing = required - fieldnames
+
+    <span class="kw">if not</span> missing:
+        <span class="kw">return</span> {<span class="str">"needs_mapping"</span>: <span class="kw">False</span>, <span class="str">"row_count"</span>: <span class="fn">len</span>(rows)}
+
+    headers_list = <span class="fn">sorted</span>(fieldnames)
+    mapping = <span class="kw">await</span> <span class="fn">_map_columns_with_ai</span>(headers_list, rows[:<span class="num">3</span>], import_type)
+
+    mapped_targets = {v <span class="kw">for</span> v <span class="kw">in</span> mapping.values() <span class="kw">if</span> v}
+    unmapped_required = <span class="fn">sorted</span>(required - mapped_targets)
+
+    <span class="kw">return</span> {
+        <span class="str">"needs_mapping"</span>: <span class="kw">True</span>,
+        <span class="str">"mapping"</span>: mapping,
+        <span class="str">"unmapped_required"</span>: unmapped_required,
+        <span class="str">"row_count"</span>: <span class="fn">len</span>(rows),
+    }</code></pre>
+  <div class="line-exp">
+    <code>required - fieldnames</code> — set difference: columns the system needs but the file doesn't have (by exact name). If the set is empty, the headers already match — skip AI mapping entirely.
+    <br><br>
+    <code>rows[:3]</code> — pass only the first 3 rows as sample data to the AI. The AI doesn't need all 200 rows to understand column meaning; sample rows provide context (e.g. seeing <code>"+919998..."</code> in a column helps the AI confirm it's a phone number).
+    <br><br>
+    <code>unmapped_required</code> — required columns that the AI couldn't map. If this is non-empty, the frontend should warn the manager: "We couldn't figure out which column is 'name' — please specify it manually."
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">async def</span> <span class="fn">_map_columns_with_ai</span>(...) -> dict:
+    <span class="kw">try</span>:
+        client = <span class="fn">AsyncOpenAI</span>(api_key=settings.OPEN_AI_API)
+        response = <span class="kw">await</span> client.chat.completions.<span class="fn">create</span>(...)
+        raw = response.choices[<span class="num">0</span>].message.content
+        mapping = json.<span class="fn">loads</span>(raw)
+
+        sanitized: dict = {}
+        <span class="kw">for</span> orig, target <span class="kw">in</span> mapping.items():
+            sanitized[orig] = target <span class="kw">if</span> (target <span class="kw">and</span> target <span class="kw">in</span> all_targets) <span class="kw">else</span> <span class="kw">None</span>
+        <span class="kw">for</span> h <span class="kw">in</span> headers:
+            <span class="kw">if</span> h <span class="kw">not in</span> sanitized:
+                sanitized[h] = <span class="kw">None</span>
+        <span class="kw">return</span> sanitized
+
+    <span class="kw">except</span> Exception:
+        <span class="kw">return</span> {h: <span class="kw">None</span> <span class="kw">for</span> h <span class="kw">in</span> headers}</code></pre>
+  <div class="line-exp">
+    The sanitization loop is critical: the AI might hallucinate a target column that doesn't exist (e.g. <code>"tenant_id"</code> which isn't in the schema). The check <code>target in all_targets</code> validates every AI suggestion against the known set of valid target columns — invalid targets become <code>None</code>.
+    <br><br>
+    The second loop ensures every input header has an entry in the mapping (even if mapped to <code>None</code>). This gives the frontend a complete view: "here are all your columns and what we think they map to."
+    <br><br>
+    <code>except Exception: return {h: None ...}</code> — if the AI call fails entirely, return an all-null mapping. The frontend will see that nothing was mapped and prompt the manager to map columns manually.
+  </div>
+
+  <h3>The tenant import loop — <code>POST /import/tenants</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">for</span> i, row <span class="kw">in</span> <span class="fn">enumerate</span>(rows, start=<span class="num">2</span>):  <span class="cm"># start=2 because row 1 is the header</span>
+        <span class="kw">try</span>:
+            flat_resp = (
+                db.table(<span class="str">"flats"</span>)
+                .select(<span class="str">"uuid, tenant_uuid"</span>)
+                .ilike(<span class="str">"flat_number"</span>, flat_number)
+                .execute()
+            )
+            <span class="kw">if not</span> flat_resp.data:
+                errors.<span class="fn">append</span>(<span class="fn">f</span><span class="str">"Row {i}: flat '{flat_number}' not found"</span>)
+                <span class="kw">continue</span>
+
+            flat = flat_resp.data[<span class="num">0</span>]
+            <span class="kw">if</span> flat.<span class="fn">get</span>(<span class="str">"tenant_uuid"</span>):
+                skipped.<span class="fn">append</span>(<span class="fn">f</span><span class="str">"Row {i}: flat {flat_number} is already occupied"</span>)
+                <span class="kw">continue</span></code></pre>
+  <div class="line-exp">
+    <code>enumerate(rows, start=2)</code> — the spreadsheet row number is <code>i</code> (row 1 = header, row 2 = first data row). Including the row number in error messages lets the manager open their spreadsheet and immediately find the problem row.
+    <br><br>
+    <code>.ilike("flat_number", flat_number)</code> — case-insensitive matching. The manager's CSV might have <code>a-101</code> or <code>A-101</code> — both match the DB entry regardless.
+    <br><br>
+    The flat occupancy check (<code>if flat.get("tenant_uuid")</code>) prevents accidentally overwriting an existing tenant assignment. Occupied flats go to <code>skipped</code> (not <code>errors</code>) — skipping is not a failure, just an informational notice.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>            t_resp = db.table(<span class="str">"tenants"</span>).<span class="fn">insert</span>(tenant_payload).<span class="fn">execute</span>()
+            tenant_uuid = t_resp.data[<span class="num">0</span>][<span class="str">"uuid"</span>]
+
+            db.table(<span class="str">"flats"</span>).<span class="fn">update</span>({
+                <span class="str">"tenant_uuid"</span>: tenant_uuid,
+                <span class="str">"occupied"</span>: <span class="kw">True</span>,
+            }).<span class="fn">eq</span>(<span class="str">"uuid"</span>, flat_uuid).<span class="fn">execute</span>()
+
+            rent_raw = row.<span class="fn">get</span>(<span class="str">"rent_amount"</span>, <span class="str">""</span>)
+            <span class="kw">if</span> rent_raw:
+                <span class="kw">try</span>:
+                    monthly_rent = <span class="fn">float</span>(rent_raw)
+                    db.table(<span class="str">"rents"</span>).<span class="fn">insert</span>({...}).<span class="fn">execute</span>()
+                <span class="kw">except</span> (ValueError, TypeError):
+                    <span class="kw">pass</span>  <span class="cm"># non-numeric rent_amount → silently skip</span>
+
+        <span class="kw">except</span> Exception <span class="kw">as</span> exc:
+            errors.<span class="fn">append</span>(<span class="fn">f</span><span class="str">"Row {i}: {exc}"</span>)</code></pre>
+  <div class="line-exp">
+    Three DB operations per row: INSERT tenant → UPDATE flat → INSERT rent. They're not wrapped in a transaction (Supabase SDK doesn't expose explicit transactions). This means a crash between INSERT and UPDATE leaves a dangling tenant record. For a bulk import tool in an MVP, this is an acceptable risk — failed rows are reported in <code>errors</code>.
+    <br><br>
+    <code>float(rent_raw)</code> in a try/except — the manager might have written "15,000" (with comma) or "15000 INR" — both would fail. The outer import loop's <code>try/except</code> would catch it, but the rent-specific inner try/except produces a cleaner "silently skip invalid rent" behavior rather than failing the whole row.
+    <br><br>
+    The outer per-row <code>try/except</code> means one bad row doesn't abort the entire import. All good rows succeed; bad rows are collected in <code>errors</code> and reported at the end.
+  </div>
+
+  <!-- S4 -->
+  <h2 id="bugs">Section 4 — Real Bugs &amp; How We Fixed Them</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <div class="bug-box">
+    <h4>Bug 1: First column always "not found" — the BOM bug</h4>
+    <p><strong>Symptom:</strong> Import of a CSV exported from Excel always showed <code>"Missing required columns: property_name"</code> even though the column was clearly there. The AI mapping step also failed to map it.</p>
+    <p><strong>Root cause:</strong> The CSV had a UTF-8 BOM. Decoded with <code>utf-8</code>, the first column header became <code>"﻿property_name"</code> instead of <code>"property_name"</code>. The BOM is invisible in most text editors.</p>
+    <p><strong>How we found it:</strong> Added <code>print(repr(fieldnames))</code> temporarily and saw <code>'﻿property_name'</code> in the output.</p>
+    <p><strong>Fix:</strong> Changed <code>content.decode("utf-8")</code> to <code>content.decode("utf-8-sig")</code>. One word, zero side effects on non-BOM files (the <code>-sig</code> codec is a no-op when no BOM is present).</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 2: OpenAI returned invalid JSON (markdown code fence)</h4>
+    <p><strong>Symptom:</strong> Column mapping worked in testing but occasionally failed in production with <code>json.JSONDecodeError</code>. Logs showed the raw response was: <code>```json\n{"name": "name"}\n```</code>.</p>
+    <p><strong>Root cause:</strong> Without <code>response_format={"type": "json_object"}</code>, GPT-4o-mini sometimes wraps JSON in a markdown code fence. <code>json.loads()</code> can't parse fenced output.</p>
+    <p><strong>Fix:</strong> Added <code>response_format={"type": "json_object"}</code> to the API call. Also added the word "JSON" to the prompt (required by OpenAI when using this parameter). The except clause falling back to all-null mapping provides an additional safety net.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 3: Excel cells with formulas returned formula text, not values</h4>
+    <p><strong>Symptom:</strong> Some cells imported as <code>"=A2"</code> or <code>"=SUM(B1:B3)"</code> instead of actual values.</p>
+    <p><strong>Root cause:</strong> <code>openpyxl.load_workbook()</code> without <code>data_only=True</code> reads the formula string, not the cached result.</p>
+    <p><strong>Fix:</strong> Added <code>data_only=True</code> to the <code>load_workbook()</code> call. Note: this reads the cached calculated value — if the Excel file was never opened/saved in Excel after adding formulas, the cache may be empty (openpyxl returns <code>None</code>), which is then converted to <code>""</code> by the <code>if v is not None else ""</code> guard.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 4: AI mapped "Extra Internal ID" to a valid target column incorrectly</h4>
+    <p><strong>Symptom:</strong> Column "SrNo" in the manager's spreadsheet was mapped to <code>"flat_number"</code> by the AI because it was a number and the AI guessed it could be a flat number. All tenants imported with serial numbers as their flat number.</p>
+    <p><strong>Root cause:</strong> The AI prompt showed the column name and the first 3 rows of data. "SrNo" values (1, 2, 3) looked plausible as flat numbers to the AI.</p>
+    <p><strong>Fix (partial):</strong> Included sample row data in the prompt so the AI sees actual values (not just names). For "SrNo" with values 1, 2, 3, the AI now sees it's a sequential number — less likely to map to flat_number. The frontend also shows the proposed mapping before import so the manager can review and correct it. This is the correct safeguard — AI suggestions are proposals, not commands.</p>
+  </div>
+
+  <!-- S5 -->
+  <h2 id="exercises">Section 5 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <h3>Exercise 1 <span class="badge badge-easy">Easy</span> — Add row count validation before parsing</h3>
+  <p>The current code reads the entire file into memory before checking the row count. Add a quick row-count estimate from the raw bytes for CSV files (count newlines) before full parsing.</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">if</span> filename.lower().<span class="fn">endswith</span>(<span class="str">".csv"</span>):
+    <span class="cm"># Quick row count estimate before full parse (newlines ≈ row count)</span>
+    approx_rows = content.<span class="fn">count</span>(<span class="kw">b</span><span class="str">"\n"</span>)
+    <span class="kw">if</span> approx_rows > MAX_ROWS + <span class="num">10</span>:  <span class="cm"># +10 margin for header + empty lines</span>
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(<span class="num">400</span>, <span class="fn">f</span><span class="str">"File exceeds {MAX_ROWS} rows limit"</span>)
+rows, fieldnames = <span class="fn">_detect_and_parse</span>(content, file.filename <span class="kw">or</span> <span class="str">""</span>)</code></pre>
+    <p>Counting newlines in raw bytes is O(n) but extremely fast (just scanning bytes). It's an estimate — some rows may span multiple lines if they contain embedded newlines — hence the margin. The exact check still happens after full parsing.</p>
+  </details>
+
+  <h3>Exercise 2 <span class="badge badge-medium">Medium</span> — Add a dry-run mode</h3>
+  <p>Add an optional <code>dry_run: bool = Form(False)</code> parameter to <code>/import/tenants</code>. In dry-run mode, validate each row (check flat exists, not occupied, required fields present) but do NOT insert anything. Return the same response structure so the manager can preview what would happen.</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="dec">@router.post</span>(<span class="str">"/tenants"</span>)
+<span class="kw">async def</span> <span class="fn">import_tenants</span>(
+    file: UploadFile = <span class="fn">File</span>(...),
+    column_mapping: <span class="typ">str</span> = <span class="fn">Form</span>(<span class="kw">None</span>),
+    dry_run: <span class="typ">bool</span> = <span class="fn">Form</span>(<span class="kw">False</span>),   <span class="cm"># NEW</span>
+    ...
+):
+    <span class="cm"># ... parse, apply mapping, validate as before ...</span>
+    <span class="kw">for</span> i, row <span class="kw">in</span> <span class="fn">enumerate</span>(rows, start=<span class="num">2</span>):
+        <span class="cm"># ... validation checks (flat exists, not occupied) ...</span>
+        <span class="kw">if</span> dry_run:
+            created_tenants += <span class="num">1</span>  <span class="cm"># count as "would create" without inserting</span>
+            <span class="kw">continue</span>
+        <span class="cm"># ... actual DB inserts ...</span>
+
+    <span class="kw">return</span> {
+        <span class="str">"dry_run"</span>: dry_run,
+        <span class="str">"created"</span>: created_tenants,
+        <span class="str">"skipped"</span>: skipped,
+        <span class="str">"errors"</span>: errors,
+    }</code></pre>
+  </details>
+
+  <h3>Exercise 3 <span class="badge badge-hard">Hard</span> — Add duplicate phone number detection</h3>
+  <p>Before inserting each tenant, check if a tenant with the same phone number already exists in the system. If so, add to <code>skipped</code> with a message like "Row 5: tenant with phone +91... already exists as [Name]".</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm"># Inside the per-row try block, before INSERT:</span>
+existing_tenant = (
+    db.table(<span class="str">"tenants"</span>)
+    .select(<span class="str">"name"</span>)
+    .eq(<span class="str">"phone"</span>, phone)
+    .limit(<span class="num">1</span>)
+    .execute()
+)
+<span class="kw">if</span> existing_tenant.data:
+    existing_name = existing_tenant.data[<span class="num">0</span>].<span class="fn">get</span>(<span class="str">"name"</span>, <span class="str">"Unknown"</span>)
+    skipped.<span class="fn">append</span>(
+        <span class="fn">f</span><span class="str">"Row {i}: tenant with phone {phone} already exists as {existing_name}"</span>
+    )
+    <span class="kw">continue</span></code></pre>
+    <p>This adds one DB query per row — trade-off between correctness and speed. For 1000 rows, that's 1000 extra queries. An optimization would be to batch-query all phones upfront: <code>db.table("tenants").select("phone, name").in_("phone", [all_phones])</code> before the loop.</p>
+  </details>
+
+  <!-- S6 -->
+  <h2 id="summary">Section 6 — Key Takeaways</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <div class="card card-success">
+    <ul>
+      <li>Always decode CSV files with <code>utf-8-sig</code> to handle the invisible Excel BOM — this is one of the most common silent import bugs.</li>
+      <li><code>openpyxl.load_workbook(data_only=True)</code> returns calculated values, not formula strings — always use <code>data_only=True</code>.</li>
+      <li><strong>Two-step flow</strong> (analyze → import) lets the user review and correct AI column mapping before any data is written — safer than a single-step import.</li>
+      <li><code>response_format={"type": "json_object"}</code> forces OpenAI to return valid JSON — required for reliable parsing. Your prompt must also mention "JSON".</li>
+      <li><strong>Sanitize AI output</strong> against a known list of valid targets — the AI may hallucinate plausible-sounding column names that don't exist in your schema.</li>
+      <li><strong>Cache property/building lookups</strong> in the import loop — without caching, N rows in the same property = N identical DB queries.</li>
+      <li><strong>Per-row try/except</strong> with <code>errors</code> list — one bad row must not abort the entire import. Report errors at the end.</li>
+      <li>File parameters in multipart requests must use <code>Form()</code>, not JSON body — FastAPI cannot mix the two in one endpoint.</li>
+    </ul>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_14_feature_flags.html" class="nav-btn">← Previous: Feature Flags</a>
+    <a href="module_16_leasing.html" class="nav-btn">Next: Leasing Module →</a>
+  </div>
+</div></div>
+
+<script>
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const checkboxes = document.querySelectorAll('.section-check input');
+  function updateProgress() {
+    const checked = [...checkboxes].filter(c => c.checked).length;
+    document.getElementById('progressFill').style.width = (checked / checkboxes.length * 100) + '%';
+  }
+  checkboxes.forEach(c => c.addEventListener('change', updateProgress));
+  function copyCode(btn) {
+    const code = btn.nextElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>

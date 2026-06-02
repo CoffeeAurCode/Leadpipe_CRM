@@ -8,9 +8,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('../services/apiService', () => ({
     fetchCallStats: vi.fn(),
+    fetchVoiceAgentInfo: vi.fn(),
 }));
 
-import { fetchCallStats } from '../services/apiService';
+import { fetchCallStats, fetchVoiceAgentInfo } from '../services/apiService';
 import VoiceStatsTab from '../components/VoiceStatsTab';
 
 const MOCK_STATS = {
@@ -35,6 +36,7 @@ const MOCK_STATS = {
 beforeEach(() => {
     vi.clearAllMocks();
     fetchCallStats.mockResolvedValue(MOCK_STATS);
+    fetchVoiceAgentInfo.mockResolvedValue(null);
 });
 
 function renderPage() {

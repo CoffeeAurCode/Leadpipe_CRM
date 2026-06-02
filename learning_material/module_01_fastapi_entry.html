@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 01 — FastAPI Entry Point | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --accent-hover: #89b4fa; --success: #9ece6a;
+      --warning: #e0af68; --error: #f7768e; --border: #3b4261;
+      --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --accent-hover: #0550ae; --success: #1a7f37;
+      --warning: #9a6700; --error: #cf222e; --border: #d0d7de;
+      --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; transition: transform 0.3s; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0; font-size: 0.85rem; border-left: 2px solid transparent; padding-left: 0.5rem; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; } .var { color: #c0caf5; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; } [data-theme="light"] .var { color: #24292f; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; box-shadow: var(--shadow); }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-warning { border-left: 4px solid var(--warning); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; color: var(--text-primary); }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin: 1rem 0; }
+    .resource-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .resource-card h4 { font-size: 0.9rem; margin-bottom: 0.4rem; color: var(--text-primary); }
+    .resource-card p { font-size: 0.8rem; margin: 0; }
+    .resource-card a { display: block; font-size: 0.8rem; margin-top: 0.3rem; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout-success { background: #9ece6a11; border-left: 4px solid var(--success); }
+    .callout p { margin: 0; }
+    .line-explanation { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    @media print {
+      .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; }
+      .main-content { margin-left: 0 !important; }
+      body { color: #000; background: #fff; }
+      pre { border: 1px solid #ccc; }
+      details, details > * { display: block; }
+      h2 { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 01</h3>
+  <div id="toc"></div>
+</nav>
+
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content">
+  <div class="container">
+
+    <div class="breadcrumbs">
+      <a href="index.html">Home</a> › <strong>Module 01 — FastAPI Entry Point</strong>
+    </div>
+
+    <h1>Module 01 — FastAPI Application Entry Point</h1>
+    <div class="meta-row">
+      <span>⏱ Estimated time: 50 minutes</span>
+      <span>📁 Files: <code>app/main.py</code>, <code>app/config.py</code></span>
+      <span>🔰 Prerequisites: Module 00</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div class="nav-buttons">
+      <a href="module_00_setup.html" class="nav-btn">← Previous: Project Setup</a>
+      <a href="module_02_database_layer.html" class="nav-btn">Next: Database Layer →</a>
+    </div>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s1" aria-label="Mark section 1 complete"><label for="chk-s1">Mark complete</label></div>
+
+    <p><code>main.py</code> is the application's single entry point — the file that Uvicorn imports to get the FastAPI app object. It does three things: creates the FastAPI app, configures CORS (which origins can call the API), and mounts all 18 route modules. <code>config.py</code> is the application's configuration hub — it reads every environment variable once at import time and exposes them as a typed singleton.</p>
+
+    <div class="diagram">
+                   ┌─ main.py ──────────────────────────────────────────┐
+                   │                                                      │
+  uvicorn ────────►│  app = FastAPI()                                    │
+  (server)        │  app.add_middleware(CORSMiddleware, ...)             │
+                   │  app.include_router(complaints.router)              │
+                   │  app.include_router(voice.router)                   │
+                   │  app.include_router(...)  × 18 routers              │
+                   │                                                      │
+                   │  @app.get("/")  →  health check                     │
+                   └───────────┬──────────────────────────────────────────┘
+                               │ imports
+                   ┌─ config.py ─┐
+                   │  Settings   │◄─── .env file (via python-dotenv)
+                   │  singleton  │
+                   └─────────────┘
+    </div>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s2" aria-label="Mark section 2 complete"><label for="chk-s2">Mark complete</label></div>
+
+    <details open>
+      <summary>FastAPI — How it works</summary>
+      <p>FastAPI is an ASGI web framework. You create an app object, attach routes to it using decorators, and Uvicorn (the ASGI server) receives HTTP requests and calls the appropriate route handler. FastAPI reads your Python type hints to auto-generate request validation, response serialization, and OpenAPI docs.</p>
+
+      <h4>Minimal standalone example</h4>
+      <pre><code><span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI
+
+app = FastAPI()
+
+<span class="dec">@app.get</span>(<span class="str">"/hello"</span>)
+<span class="kw">async def</span> <span class="fn">hello</span>():
+    <span class="kw">return</span> {<span class="str">"message"</span>: <span class="str">"world"</span>}
+
+<span class="cm"># Run with: uvicorn main:app --reload</span>
+<span class="cm"># Visit http://localhost:8000/hello → {"message": "world"}</span>
+<span class="cm"># Visit http://localhost:8000/docs  → Swagger UI auto-generated</span></code></pre>
+
+      <h4>How this project uses it</h4>
+      <p>The app is created in <code>main.py</code> with <code>app = FastAPI(title="AI Complaint System")</code>. The <code>title</code> appears in the Swagger docs. Routes are never defined directly in <code>main.py</code> — they live in separate router files and get mounted via <code>include_router()</code>.</p>
+
+      <h4>What breaks without it</h4>
+      <p>If you removed FastAPI and used raw Python sockets, you'd need to manually parse HTTP headers, validate request bodies, serialize responses to JSON, handle async, and write your own OpenAPI spec. FastAPI automates all of this.</p>
+
+      <details>
+        <summary>Try it yourself</summary>
+        <p>Create a file <code>hello.py</code>, paste the example above, and run <code>uvicorn hello:app --reload</code>. Then visit <code>http://localhost:8000/docs</code>.</p>
+        <p><strong>Success:</strong> you see Swagger UI with one endpoint: <code>GET /hello</code>. Clicking "Try it out" → "Execute" returns <code>{"message": "world"}</code>.</p>
+      </details>
+    </details>
+
+    <details open>
+      <summary><code>APIRouter</code> — Splitting routes across files</summary>
+      <p>An <code>APIRouter</code> is a mini-app that holds a group of related routes. You create one per feature area (complaints, tenants, flats, etc.), attach routes to it with decorators, and then mount it into the main app via <code>app.include_router()</code>. This is the FastAPI equivalent of Express.js's <code>router</code> or Django's URL config.</p>
+
+      <h4>Minimal standalone example</h4>
+      <pre><code><span class="cm"># complaints.py</span>
+<span class="kw">from</span> fastapi <span class="kw">import</span> APIRouter
+
+router = APIRouter(prefix=<span class="str">"/complaints"</span>, tags=[<span class="str">"Complaints"</span>])
+
+<span class="dec">@router.get</span>(<span class="str">""</span>)          <span class="cm"># ← full path becomes GET /complaints</span>
+<span class="kw">async def</span> <span class="fn">list_complaints</span>():
+    <span class="kw">return</span> [<span class="str">"complaint 1"</span>, <span class="str">"complaint 2"</span>]
+
+<span class="dec">@router.post</span>(<span class="str">""</span>)         <span class="cm"># ← POST /complaints</span>
+<span class="kw">async def</span> <span class="fn">create_complaint</span>():
+    <span class="kw">return</span> {<span class="str">"created"</span>: <span class="kw">True</span>}
+
+<span class="cm"># main.py</span>
+<span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI
+<span class="kw">from</span> complaints <span class="kw">import</span> router <span class="kw">as</span> complaints_router
+
+app = FastAPI()
+app.include_router(complaints_router)
+<span class="cm"># Now GET /complaints and POST /complaints both work</span></code></pre>
+
+      <h4>What breaks without it</h4>
+      <p>Without <code>APIRouter</code>, all 80+ route handlers would live in <code>main.py</code>, making it thousands of lines long and impossible to navigate. The <code>prefix</code> parameter prevents repeating <code>/complaints</code> in every route path.</p>
+
+      <div class="callout callout-warning">
+        <p><strong>This project has no <code>/api</code> prefix.</strong> Routes are registered as <code>/complaints</code>, not <code>/api/complaints</code>. The frontend sends requests to <code>/complaints</code> directly. Never add an <code>/api</code> prefix — it would break all existing VAPI and Stripe webhook integrations.</p>
+      </div>
+    </details>
+
+    <details open>
+      <summary>CORS — Cross-Origin Resource Sharing</summary>
+      <p>Browsers block JavaScript from calling APIs on a different origin (domain + port) than the page itself. This is the Same-Origin Policy. CORS is the mechanism that allows a server to explicitly say "I accept requests from this other origin." Without CORS headers, the browser would block all API calls from the React frontend (port 5173) to the FastAPI backend (port 8000).</p>
+
+      <h4>Minimal standalone example</h4>
+      <pre><code><span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI
+<span class="kw">from</span> fastapi.middleware.cors <span class="kw">import</span> CORSMiddleware
+
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[<span class="str">"http://localhost:5173"</span>],  <span class="cm"># only this origin</span>
+    allow_credentials=<span class="kw">True</span>,                   <span class="cm"># allow cookies + auth headers</span>
+    allow_methods=[<span class="str">"*"</span>],                       <span class="cm"># GET, POST, PATCH, DELETE, etc.</span>
+    allow_headers=[<span class="str">"*"</span>],                       <span class="cm"># Authorization, Content-Type, etc.</span>
+)</code></pre>
+
+      <h4>How this project uses it</h4>
+      <p>Allowed origins are read from the <code>ALLOWED_ORIGINS</code> env var (comma-separated). This means dev (<code>localhost:5173</code>) and production (your deployed frontend URL) are both valid without a code change — just update the env var.</p>
+
+      <h4>Why <code>allow_credentials=True</code> matters</h4>
+      <p>This allows the browser to send cookies and the <code>Authorization</code> header in cross-origin requests. Without it, the JWT token in the <code>Authorization: Bearer ...</code> header would be stripped by the browser before reaching the server.</p>
+
+      <div class="callout callout-warning">
+        <p><strong>CORS does NOT apply to server-to-server calls.</strong> Stripe webhooks and VAPI webhooks are sent server-to-server (Stripe's servers → your server), not from a browser. They bypass CORS entirely. You still validate them using signature verification instead.</p>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Settings Singleton — <code>config.py</code></summary>
+      <p>A singleton is an object created once, globally, and reused everywhere. <code>config.py</code> creates one <code>Settings</code> instance and exports it as <code>settings</code>. Any file that imports <code>from app.config import settings</code> gets the exact same object — there's no re-reading of <code>.env</code> on every import.</p>
+
+      <h4>Why a class instead of module-level variables?</h4>
+      <p>Grouping settings in a class makes them easier to pass around, mock in tests, and discover via IDE autocomplete. Compare:</p>
+      <pre><code><span class="cm"># Without class (module-level)</span>
+SUPABASE_URL = os.getenv(<span class="str">"SUPABASE_URL"</span>, <span class="str">""</span>)    <span class="cm"># can't import just the config object</span>
+
+<span class="cm"># With class (this project)</span>
+<span class="kw">class</span> <span class="typ">Settings</span>:
+    SUPABASE_URL: <span class="typ">str</span> = os.getenv(<span class="str">"SUPABASE_URL"</span>, <span class="str">""</span>)
+
+settings = Settings()  <span class="cm"># one instance, imported everywhere</span></code></pre>
+
+      <h4>The default value pattern</h4>
+      <p>Every <code>os.getenv()</code> call has a second argument — the default if the variable is missing. Most defaults are empty strings <code>""</code>. This means the server starts even with missing vars (it fails later, when the missing config is actually used), rather than crashing immediately at import time.</p>
+    </details>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="walkthrough">Section 3 — Line-by-Line Walkthrough</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s3" aria-label="Mark section 3 complete"><label for="chk-s3">Mark complete</label></div>
+
+    <h3>File: <code>backend/app/config.py</code></h3>
+    <p>Read this file first — <code>main.py</code> imports from it, so it runs before <code>main.py</code>'s body executes.</p>
+
+    <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv   <span class="cm"># reads .env file</span>
+<span class="kw">import</span> os
+
+load_dotenv()   <span class="cm"># must run before any os.getenv() call</span></code></pre>
+    <div class="line-explanation">
+      <strong><code>load_dotenv()</code></strong> — reads the <code>.env</code> file in the current working directory (or any parent directory) and injects its key=value pairs into the process's environment. After this line, <code>os.getenv("SUPABASE_URL")</code> returns the value from <code>.env</code>. This must run before the <code>Settings</code> class body, because Python evaluates class-level assignments immediately.
+    </div>
+
+    <pre><code><span class="kw">class</span> <span class="typ">Settings</span>:
+    SUPABASE_URL: <span class="typ">str</span> = os.getenv(<span class="str">"SUPABASE_URL"</span>, <span class="str">""</span>)
+    SUPABASE_KEY: <span class="typ">str</span> = os.getenv(<span class="str">"SUPABASE_KEY"</span>, <span class="str">""</span>)
+    SUPABASE_SERVICE_KEY: <span class="typ">str</span> = os.getenv(<span class="str">"SUPABASE_SERVICE_KEY"</span>, <span class="str">""</span>)
+    SUPABASE_JWT_SECRET: <span class="typ">str</span> = os.getenv(<span class="str">"SUPABASE_JWT_SECRET"</span>, <span class="str">""</span>)</code></pre>
+    <div class="line-explanation">
+      <strong>Class-level attributes with type annotations</strong> — Python evaluates these when the class is defined (at import time, not at instantiation). The <code>: str</code> annotation is a hint only — Python does not enforce it at runtime. The value is set by <code>os.getenv()</code>, which returns the env var's value or the default (<code>""</code>).
+    </div>
+
+    <pre><code>    OPEN_AI_API: <span class="typ">str</span> = os.getenv(<span class="str">"OPEN_AI_API"</span>, <span class="str">""</span>)
+    PRIVATE_VAPI_API: <span class="typ">str</span> = os.getenv(<span class="str">"PRIVATE_VAPI_API"</span>, <span class="str">""</span>)
+    VAPI_COMPLAINT_ASSISTANT_ID: <span class="typ">str</span> = os.getenv(<span class="str">"VAPI_COMPLAINT_ASSISTANT_ID"</span>, <span class="str">""</span>)
+    VAPI_COMPLAINT_NUMBER_ID: <span class="typ">str</span> = os.getenv(<span class="str">"VAPI_COMPLAINT_NUMBER_ID"</span>, <span class="str">""</span>)
+    BACKEND_URL: <span class="typ">str</span> = os.getenv(<span class="str">"BACKEND_URL"</span>, <span class="str">"https://tenant-management-mvp.onrender.com"</span>)
+    DEBUG: <span class="typ">bool</span> = os.getenv(<span class="str">"DEBUG"</span>, <span class="str">"False"</span>).lower() == <span class="str">"true"</span>
+    ALLOWED_ORIGINS: <span class="typ">str</span> = os.getenv(<span class="str">"ALLOWED_ORIGINS"</span>, <span class="str">""</span>)</code></pre>
+    <div class="line-explanation">
+      <strong>Boolean parsing:</strong> environment variables are always strings. <code>os.getenv("DEBUG", "False")</code> returns the string <code>"False"</code>. Comparing it to <code>"true"</code> (lowercase) after calling <code>.lower()</code> converts it to the Python bool <code>False</code>. This is the standard pattern for boolean env vars.
+      <br><br>
+      <strong><code>BACKEND_URL</code> has a non-empty default</strong> — this is intentional. The VAPI agent config uses this URL to build tool call URLs. If the env var is missing, the production URL is used as a fallback so scripts don't accidentally target localhost.
+    </div>
+
+    <pre><code>    STRIPE_SECRET_KEY: <span class="typ">str</span> = os.getenv(<span class="str">"STRIPE_SECRET_KEY"</span>, <span class="str">""</span>)
+    STRIPE_WEBHOOK_SECRET: <span class="typ">str</span> = os.getenv(<span class="str">"STRIPE_WEBHOOK_SECRET"</span>, <span class="str">""</span>)
+    STRIPE_PRICE_ID: <span class="typ">str</span> = os.getenv(<span class="str">"STRIPE_PRICE_ID"</span>, <span class="str">""</span>)
+    FRONTEND_URL: <span class="typ">str</span> = os.getenv(<span class="str">"FRONTEND_URL"</span>, <span class="str">"http://localhost:5173"</span>)
+    LANDING_PAGE_URL: <span class="typ">str</span> = os.getenv(<span class="str">"LANDING_PAGE_URL"</span>, <span class="str">"http://localhost:3000"</span>)
+
+settings = Settings()   <span class="cm"># the singleton — imported everywhere as "from app.config import settings"</span></code></pre>
+    <div class="line-explanation">
+      <strong><code>settings = Settings()</code></strong> — creates exactly one <code>Settings</code> instance. Python's module system caches imports, so every file that writes <code>from app.config import settings</code> receives this exact same object. There is no second instance created anywhere.
+    </div>
+
+    <h3>File: <code>backend/app/main.py</code></h3>
+
+    <pre><code><span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI
+<span class="kw">from</span> fastapi.middleware.cors <span class="kw">import</span> CORSMiddleware
+<span class="kw">from</span> app.routes <span class="kw">import</span> (
+    complaints, voice, call_logs, flats, appointments, tenants,
+    properties, settings, rents, buildings, property_types,
+    property_groups, upload, workflow, chat, payments, notifications,
+    import_routes, leasing,
+)
+<span class="kw">from</span> app.config <span class="kw">import</span> settings <span class="kw">as</span> config</code></pre>
+    <div class="line-explanation">
+      <strong>Import aliasing:</strong> <code>from app.config import settings as config</code> — there's a naming collision: the <code>routes/settings.py</code> module is imported as <code>settings</code>, and the config singleton is also called <code>settings</code>. The alias <code>config</code> resolves the ambiguity. This is the only place this alias appears; all other files import from <code>app.config</code> directly without aliasing.
+    </div>
+
+    <pre><code>app = FastAPI(title=<span class="str">"AI Complaint System"</span>)</code></pre>
+    <div class="line-explanation">
+      <strong><code>FastAPI(title=...)</code></strong> — creates the ASGI application. The <code>title</code> appears in the auto-generated OpenAPI JSON at <code>/openapi.json</code> and in the Swagger UI at <code>/docs</code>. You can also pass <code>version</code>, <code>description</code>, and <code>docs_url</code> here, but the project uses defaults.
+    </div>
+
+    <pre><code>allowed_origins = [
+    origin.strip()
+    <span class="kw">for</span> origin <span class="kw">in</span> config.ALLOWED_ORIGINS.split(<span class="str">","</span>)
+    <span class="kw">if</span> origin.strip()
+]
+<span class="kw">if not</span> allowed_origins:
+    allowed_origins = [<span class="str">"http://localhost:3000"</span>, <span class="str">"http://localhost:5173"</span>]</code></pre>
+    <div class="line-explanation">
+      <strong>List comprehension with filter:</strong> <code>ALLOWED_ORIGINS</code> is a comma-separated string like <code>"http://localhost:3000,http://localhost:5173"</code>. Splitting on <code>","</code> gives a list; <code>.strip()</code> removes accidental spaces around each origin; the <code>if origin.strip()</code> condition discards empty strings (from trailing commas or empty env var).
+      <br><br>
+      The fallback block ensures local development works even if <code>ALLOWED_ORIGINS</code> is not set in <code>.env</code>.
+    </div>
+
+    <pre><code>app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=<span class="kw">True</span>,
+    allow_methods=[<span class="str">"*"</span>],
+    allow_headers=[<span class="str">"*"</span>],
+)</code></pre>
+    <div class="line-explanation">
+      <strong>Middleware registration:</strong> middleware wraps every request/response cycle. <code>CORSMiddleware</code> intercepts preflight OPTIONS requests and adds <code>Access-Control-Allow-Origin</code> headers to all responses. The order matters — middleware registered first executes outermost (first on request, last on response).
+    </div>
+
+    <pre><code>app.include_router(complaints.router)
+app.include_router(voice.router)
+app.include_router(call_logs.router)
+<span class="cm"># ... 15 more routers ...</span>
+app.include_router(leasing.router)</code></pre>
+    <div class="line-explanation">
+      <strong>Router registration order matters for path conflicts.</strong> If two routers have overlapping paths (e.g., <code>GET /tenants/{uuid}</code> and <code>GET /tenants/by-flat/{flat_no}</code>), FastAPI matches the first route that fits. The fixed-path route <code>/tenants/by-flat/{flat_no}</code> must be registered before <code>/tenants/{uuid}</code> — but since these are in the same router file, the order within that file controls this, not the order in <code>main.py</code>.
+    </div>
+
+    <pre><code><span class="dec">@app.get</span>(<span class="str">"/"</span>)
+<span class="kw">async def</span> <span class="fn">root</span>():
+    <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"Backend running"</span>}
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    <span class="kw">import</span> uvicorn
+    uvicorn.run(app, host=<span class="str">"0.0.0.0"</span>, port=<span class="num">8000</span>)</code></pre>
+    <div class="line-explanation">
+      <strong>Health check route:</strong> <code>GET /</code> returns a simple JSON response. Render (the production host) and uptime monitors ping this URL to confirm the server is alive.
+      <br><br>
+      <strong><code>if __name__ == "__main__"</code></strong> — this block runs only when the file is executed directly (<code>python main.py</code>), not when Uvicorn imports it. In production, Uvicorn is always started as a separate command (<code>uvicorn app.main:app</code>), so this block never executes. It exists only as a convenience for local debugging.
+    </div>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="design">Section 4 — Why This Design</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s4" aria-label="Mark section 4 complete"><label for="chk-s4">Mark complete</label></div>
+
+    <h3>Decision: One router per feature file vs. nested routers</h3>
+    <table>
+      <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+      <tbody>
+        <tr><td>One file per feature (chosen)</td><td>Each file is focused; easy to find a route; import errors are localized</td><td>18 import lines in main.py; some features span multiple files</td></tr>
+        <tr><td>Nested routers (APIRouter inside APIRouter)</td><td>Grouping by domain (e.g., all voice routes under one parent)</td><td>More indirection; harder to trace which file handles a URL</td></tr>
+        <tr><td>All routes in main.py</td><td>Zero indirection</td><td>Thousands of lines in one file; merge conflicts; impossible to navigate</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Decision: Plain class for Settings vs. Pydantic BaseSettings</h3>
+    <table>
+      <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+      <tbody>
+        <tr><td>Plain class (chosen)</td><td>No extra dependency; simple; explicit</td><td>No automatic type coercion; no validation; no field aliasing</td></tr>
+        <tr><td>Pydantic <code>BaseSettings</code></td><td>Auto-validates types; auto-reads from environment + .env; field aliases</td><td>Adds <code>pydantic-settings</code> dependency; slightly more complexity</td></tr>
+      </tbody>
+    </table>
+    <p>You'd switch to <code>BaseSettings</code> if you needed automatic type validation (e.g., fail at startup if <code>PORT</code> is not an integer) or multiple environment sources (env vars take priority over .env file, etc.).</p>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="data-flow">Section 5 — How It Connects</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s5" aria-label="Mark section 5 complete"><label for="chk-s5">Mark complete</label></div>
+
+    <div class="diagram">
+  Frontend (React, port 5173)
+        │
+        │  HTTP request (with Authorization: Bearer &lt;JWT&gt;)
+        ▼
+  CORSMiddleware  ──  checks Origin header against allowed_origins
+        │
+        ▼
+  FastAPI router matching  ──  finds the correct route handler
+        │
+        ▼
+  Route handler (in one of 18 router files)
+        │  imports
+        ├──► config.settings  (API keys, URLs)
+        ├──► get_authenticated_db  (Supabase client with user JWT)
+        └──► get_current_user  (JWT payload)
+    </div>
+
+    <p><strong>Data flowing IN:</strong> HTTP requests from the React frontend (or VAPI/Stripe webhooks). Each request carries headers (Authorization, Content-Type) and optionally a JSON body.</p>
+    <p><strong>Data flowing OUT:</strong> JSON responses. The <code>settings</code> singleton is referenced by all route files, the DB session module, and the auth dependency — it's a shared read-only dependency that flows outward from <code>config.py</code>.</p>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="running">Section 6 — Running &amp; Testing</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s6" aria-label="Mark section 6 complete"><label for="chk-s6">Mark complete</label></div>
+
+    <pre><code><span class="cm"># Start the backend with hot-reload (auto-restarts on file changes)</span>
+uvicorn app.main:app --reload --port 8000
+
+<span class="cm"># Check CORS works from a browser console (paste this):</span>
+fetch(<span class="str">'http://localhost:8000/'</span>).then(r => r.json()).then(<span class="fn">console</span>.log)
+<span class="cm"># Expected: {status: "Backend running"}</span>
+
+<span class="cm"># Verify all routers loaded (check Swagger):</span>
+<span class="cm"># http://localhost:8000/docs — should list 80+ endpoints across 18 tags</span></code></pre>
+
+    <p><strong>What each step tests:</strong></p>
+    <ul>
+      <li><code>uvicorn app.main:app</code> — verifies all 18 router imports succeed (no <code>ModuleNotFoundError</code>)</li>
+      <li><code>GET /</code> — verifies the app is alive and returns JSON</li>
+      <li>Swagger UI — verifies all routes registered correctly with their paths and methods</li>
+    </ul>
+
+    <table>
+      <thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>ImportError: cannot import name 'leasing' from 'app.routes'</code></td><td>A new route file was added to main.py but the file doesn't exist yet</td><td>Create <code>app/routes/leasing.py</code> with an empty router</td></tr>
+        <tr><td><code>TypeError: 'NoneType' object is not subscriptable</code> on startup</td><td>An env var is None and code tries to use it before checking</td><td>Add a default value: <code>os.getenv("VAR", "")</code></td></tr>
+        <tr><td>CORS error in browser: "blocked by CORS policy"</td><td>Frontend origin not in <code>ALLOWED_ORIGINS</code></td><td>Add <code>http://localhost:5173</code> to <code>ALLOWED_ORIGINS</code> in <code>.env</code></td></tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="checkpoint">Section 7 — Checkpoint ✓</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s7" aria-label="Mark section 7 complete"><label for="chk-s7">Mark complete</label></div>
+
+    <div class="card card-success">
+      <h3>Verify all routes loaded</h3>
+      <p>Run this in your terminal while the server is running:</p>
+      <pre><code>curl http://localhost:8000/openapi.json | python -c "import sys,json; d=json.load(sys.stdin); print(f'Routes: {len(d[\"paths\"])}')"</code></pre>
+      <p><strong>Expected output:</strong> <code>Routes: 80</code> (or more). If you see a number around 80, all 18 routers loaded successfully. Under 70 means a router failed to import silently.</p>
+    </div>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="exercises">Section 8 — Exercises</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s8" aria-label="Mark section 8 complete"><label for="chk-s8">Mark complete</label></div>
+
+    <details>
+      <summary><span class="badge badge-easy">Easy</span> Add application version to the health check</summary>
+      <p>Modify <code>GET /</code> to return <code>{"status": "Backend running", "version": "1.0.0"}</code>. Store the version in <code>config.py</code> as <code>APP_VERSION: str = "1.0.0"</code>.</p>
+      <details>
+        <summary>Hints</summary>
+        <p>Import <code>config</code> inside <code>main.py</code> (it's already aliased there as <code>config</code>). Return a dict with both fields from the route function.</p>
+      </details>
+      <details>
+        <summary>Solution</summary>
+        <p>In <code>config.py</code>, add: <code>APP_VERSION: str = "1.0.0"</code></p>
+        <p>In <code>main.py</code>, change the root route to:</p>
+        <pre><code><span class="dec">@app.get</span>(<span class="str">"/"</span>)
+<span class="kw">async def</span> <span class="fn">root</span>():
+    <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"Backend running"</span>, <span class="str">"version"</span>: config.APP_VERSION}</code></pre>
+        <p><strong>Success condition:</strong> <code>curl http://localhost:8000/</code> returns <code>{"status":"Backend running","version":"1.0.0"}</code>.</p>
+      </details>
+    </details>
+
+    <details>
+      <summary><span class="badge badge-medium">Medium</span> Add a new feature router from scratch</summary>
+      <p>Create <code>app/routes/analytics.py</code> with a single route <code>GET /analytics/summary</code> that returns <code>{"complaints": 0, "appointments": 0}</code>. Register it in <code>main.py</code>.</p>
+      <details>
+        <summary>Hints</summary>
+        <p>Copy the structure from any existing router file. The router needs <code>prefix="/analytics"</code> and <code>tags=["Analytics"]</code>. The route path is <code>"/summary"</code> (which combines with the prefix to form <code>/analytics/summary</code>).</p>
+      </details>
+      <details>
+        <summary>Solution</summary>
+        <p><code>app/routes/analytics.py</code>:</p>
+        <pre><code><span class="kw">from</span> fastapi <span class="kw">import</span> APIRouter
+
+router = APIRouter(prefix=<span class="str">"/analytics"</span>, tags=[<span class="str">"Analytics"</span>])
+
+<span class="dec">@router.get</span>(<span class="str">"/summary"</span>)
+<span class="kw">async def</span> <span class="fn">summary</span>():
+    <span class="kw">return</span> {<span class="str">"complaints"</span>: <span class="num">0</span>, <span class="str">"appointments"</span>: <span class="num">0</span>}</code></pre>
+        <p>In <code>main.py</code>, add the import and <code>app.include_router(analytics.router)</code>.</p>
+        <p><strong>Success:</strong> <code>GET /analytics/summary</code> returns the JSON and the Swagger UI shows a new "Analytics" section.</p>
+      </details>
+    </details>
+
+    <details>
+      <summary><span class="badge badge-hard">Hard</span> Add request logging middleware</summary>
+      <p>Add custom middleware that logs every incoming request (method + path + response time in ms) to the console. It should not affect the response in any way.</p>
+      <details>
+        <summary>Hints</summary>
+        <p>Use <code>@app.middleware("http")</code> decorator. The middleware receives <code>request: Request</code> and a <code>call_next</code> callable. Call <code>await call_next(request)</code> to get the response, measure time with <code>time.time()</code> before and after, then return the response unchanged.</p>
+      </details>
+      <details>
+        <summary>Solution</summary>
+        <pre><code><span class="kw">import</span> time
+<span class="kw">from</span> fastapi <span class="kw">import</span> Request
+
+<span class="dec">@app.middleware</span>(<span class="str">"http"</span>)
+<span class="kw">async def</span> <span class="fn">log_requests</span>(request: Request, call_next):
+    start = time.time()
+    response = <span class="kw">await</span> call_next(request)
+    ms = <span class="fn">round</span>((time.time() - start) * <span class="num">1000</span>)
+    <span class="fn">print</span>(<span class="str">f"{request.method} {request.url.path} → {response.status_code} ({ms}ms)"</span>)
+    <span class="kw">return</span> response</code></pre>
+        <p><strong>Success:</strong> Every request prints a line like <code>GET / → 200 (2ms)</code> in the server terminal. Response content is unchanged.</p>
+      </details>
+    </details>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="glossary">Section 9 — Glossary</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s9" aria-label="Mark section 9 complete"><label for="chk-s9">Mark complete</label></div>
+
+    <table>
+      <thead><tr><th>Term</th><th>Definition</th><th>First used in</th></tr></thead>
+      <tbody>
+        <tr><td>ASGI</td><td>Asynchronous Server Gateway Interface — Python standard for async web apps</td><td>Section 2</td></tr>
+        <tr><td>Middleware</td><td>Code that wraps every request/response cycle, running before and after route handlers</td><td>Section 2</td></tr>
+        <tr><td>CORS</td><td>Cross-Origin Resource Sharing — mechanism for servers to allow cross-origin browser requests</td><td>Section 2</td></tr>
+        <tr><td>Same-Origin Policy</td><td>Browser security rule blocking JS from calling different-origin APIs by default</td><td>Section 2</td></tr>
+        <tr><td>APIRouter</td><td>FastAPI class that groups related routes; mounted into the main app with <code>include_router()</code></td><td>Section 2</td></tr>
+        <tr><td>Preflight request</td><td>Browser's OPTIONS request asking if a cross-origin call is allowed before sending the real request</td><td>Section 2</td></tr>
+        <tr><td>Singleton</td><td>An object instantiated exactly once and shared globally throughout the application</td><td>Section 2</td></tr>
+        <tr><td>Type annotation</td><td>Python syntax (<code>x: int</code>) that hints at the expected type without runtime enforcement</td><td>Section 3</td></tr>
+        <tr><td>OpenAPI</td><td>Standard format for describing REST APIs; FastAPI auto-generates this from your code</td><td>Section 6</td></tr>
+        <tr><td>Uvicorn</td><td>Production ASGI server that runs FastAPI apps</td><td>Sections 2, 6</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="resources">Section 10 — Resources</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s10" aria-label="Mark section 10 complete"><label for="chk-s10">Mark complete</label></div>
+
+    <div class="resource-grid">
+      <div class="resource-card">
+        <h4>FastAPI Official Tutorial</h4>
+        <a href="https://fastapi.tiangolo.com/tutorial/" target="_blank" rel="noopener">fastapi.tiangolo.com/tutorial</a>
+        <a href="https://fastapi.tiangolo.com/advanced/" target="_blank" rel="noopener">Advanced User Guide</a>
+        <p>The official tutorial is exceptional. Read "First Steps" through "Bigger Applications".</p>
+      </div>
+      <div class="resource-card">
+        <h4>CORS Explained</h4>
+        <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS" target="_blank" rel="noopener">MDN Web Docs — CORS</a>
+        <a href="https://fastapi.tiangolo.com/tutorial/cors/" target="_blank" rel="noopener">FastAPI CORS docs</a>
+        <p>MDN has the authoritative explanation of what CORS is and why it exists.</p>
+      </div>
+      <div class="resource-card">
+        <h4>Uvicorn</h4>
+        <a href="https://www.uvicorn.org/" target="_blank" rel="noopener">uvicorn.org</a>
+        <a href="https://fastapi.tiangolo.com/deployment/server-workers/" target="_blank" rel="noopener">FastAPI deployment with workers</a>
+        <p>Understand <code>--reload</code>, <code>--workers</code>, and when to use Gunicorn in front of Uvicorn.</p>
+      </div>
+      <div class="resource-card">
+        <h4>Python Modules &amp; Imports</h4>
+        <a href="https://realpython.com/python-import/" target="_blank" rel="noopener">Real Python — import system</a>
+        <a href="https://docs.python.org/3/reference/import.html" target="_blank" rel="noopener">Python import system (official)</a>
+        <p>Understanding how Python caches modules explains why the <code>settings</code> singleton works.</p>
+      </div>
+      <div class="resource-card">
+        <h4>OpenAPI Specification</h4>
+        <a href="https://swagger.io/specification/" target="_blank" rel="noopener">OpenAPI 3.0 Specification</a>
+        <a href="https://fastapi.tiangolo.com/how-to/extending-openapi/" target="_blank" rel="noopener">FastAPI — extending OpenAPI</a>
+        <p>FastAPI generates a full OpenAPI JSON at <code>/openapi.json</code>. Understanding the spec helps you customize the docs.</p>
+      </div>
+      <div class="resource-card">
+        <h4>Pydantic V2</h4>
+        <a href="https://docs.pydantic.dev/latest/" target="_blank" rel="noopener">Pydantic V2 docs</a>
+        <a href="https://docs.pydantic.dev/latest/migration/" target="_blank" rel="noopener">V1 → V2 migration guide</a>
+        <p>Module 07 covers Pydantic in depth. For now, note that this project uses V2 — V1 validators (<code>@validator</code>) do not work here.</p>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════ -->
+    <h2 id="whats-next">Section 11 — What's Next</h2>
+    <!-- ══════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s11" aria-label="Mark section 11 complete"><label for="chk-s11">Mark complete</label></div>
+
+    <p><a href="module_02_database_layer.html">Module 02 — Database Layer</a> dives into <code>session.py</code> — the two-client pattern (anon vs service-role) that makes Row Level Security work, and why this project never uses SQLAlchemy despite having SQLAlchemy models in the codebase.</p>
+
+    <div class="card card-info">
+      <button id="markCompleteBtn" onclick="markModuleComplete()" style="background: var(--accent); color: var(--bg-primary); border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius); cursor: pointer; font-size: 1rem; font-weight: 600;">
+        ✓ Mark Module 01 Complete
+      </button>
+    </div>
+
+    <div class="nav-buttons">
+      <a href="module_00_setup.html" class="nav-btn">← Previous: Project Setup</a>
+      <a href="module_02_database_layer.html" class="nav-btn">Next: Database Layer →</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const html = document.documentElement;
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  html.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach((h, i) => {
+    if (!h.id) h.id = 'section-' + i;
+    const a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.textContent = h.textContent.replace(/^Section \d+ — /, '');
+    toc.appendChild(a);
+  });
+  const tocLinks = toc.querySelectorAll('a');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        tocLinks.forEach(l => l.classList.remove('active'));
+        const active = toc.querySelector(`a[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -70% 0px' });
+  document.querySelectorAll('h2').forEach(h => obs.observe(h));
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = 'Copy';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.addEventListener('click', () => {
+      const code = pre.querySelector('code');
+      navigator.clipboard.writeText(code ? code.innerText : pre.innerText).then(() => {
+        btn.textContent = '✓';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+  const topBtn = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => topBtn.classList.toggle('visible', window.scrollY > 400));
+  topBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const MODULE_KEY = 'module_01_progress';
+  const checks = document.querySelectorAll('.section-check input[type="checkbox"]');
+  const fill = document.getElementById('progressFill');
+  const savedProg = JSON.parse(localStorage.getItem(MODULE_KEY) || '{}');
+  checks.forEach(cb => {
+    if (savedProg[cb.id]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      savedProg[cb.id] = cb.checked;
+      localStorage.setItem(MODULE_KEY, JSON.stringify(savedProg));
+      updateProgress();
+    });
+  });
+  function updateProgress() {
+    const total = checks.length, done = [...checks].filter(c => c.checked).length;
+    fill.style.width = total ? (done / total * 100) + '%' : '0%';
+  }
+  updateProgress();
+  function markModuleComplete() {
+    const completed = JSON.parse(localStorage.getItem('completed_modules') || '[]');
+    if (!completed.includes('01')) completed.push('01');
+    localStorage.setItem('completed_modules', JSON.stringify(completed));
+    checks.forEach(cb => { cb.checked = true; savedProg[cb.id] = true; });
+    localStorage.setItem(MODULE_KEY, JSON.stringify(savedProg));
+    updateProgress();
+    document.getElementById('markCompleteBtn').textContent = '✓ Complete!';
+  }
+</script>
+</body>
+</html>

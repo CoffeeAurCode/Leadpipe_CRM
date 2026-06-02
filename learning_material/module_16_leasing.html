@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 16 — Leasing Module | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    .bug-box { background: #f7768e0d; border: 1px solid #f7768e44; border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .bug-box h4 { color: var(--error); margin-bottom: 0.5rem; }
+    @media print { .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; } .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; } details, details > * { display: block; } h2 { page-break-before: always; } }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 16</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 16 — Leasing Module</strong></div>
+
+  <h1>Module 16 — Leasing Module (Listings + Lead Pipeline)</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 70 minutes</span>
+    <span>📁 Files: <code>routes/leasing.py</code>, <code>schemas/leasing.py</code></span>
+    <span>🔰 Prerequisites: Modules 02–04, 11–12</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_15_bulk_import.html" class="nav-btn">← Previous: Bulk Import</a>
+    <a href="module_17_frontend_setup.html" class="nav-btn">Next: Frontend Setup →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>The leasing module serves two very different audiences from a single route file. VAPI voice agents need unauthenticated search endpoints to answer caller questions ("what 2-bedroom units do you have under $3000?"). Managers need authenticated CRUD endpoints to manage listings and track leads through a qualification pipeline. One file, two audiences, carefully separated.</p>
+
+  <div class="diagram">
+leasing.py route map:
+
+VAPI TOOL ENDPOINTS (no auth, service DB, always return 200):
+  GET  /leasing/find-listing?query=...              → exact/fuzzy flat search
+  GET  /leasing/search?bedrooms=2&amp;budget_max=3000  → filter by criteria
+
+MANAGER CRUD (auth required, subscription gate):
+  GET    /leasing/listings                           → list manager's listings
+  POST   /leasing/listings                           → create listing
+  PATCH  /leasing/listings/{uuid}                    → update listing
+  DELETE /leasing/listings/{uuid}                    → delete listing
+
+  GET    /leasing/leads                              → list leads (with filters)
+  PATCH  /leasing/leads/{uuid}                       → update lead status/notes
+  DELETE /leasing/leads/{uuid}                       → delete lead
+  GET    /leasing/metrics?days=30                    → call volume + qualification stats
+  GET    /leasing/export                             → CSV download of leads
+
+Lead qualification state machine:
+  (VAPI creates lead)
+  new → qualified / not_qualified / unmatched
+                    ↓ (manager moves)
+               contacted → toured → converted
+                                 → lost</div>
+
+  <!-- S2 -->
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>Dual-audience route design — VAPI vs manager</summary>
+    <p>The biggest architectural decision in this file: should VAPI endpoints live in a separate file from manager endpoints? The answer was no — they share the same <code>/leasing</code> prefix and the same DB tables. Keeping them together makes it easier to see the full picture of what the leasing system does.</p>
+
+    <p>The key difference is authentication:</p>
+    <table>
+      <tr><th>Aspect</th><th>VAPI endpoints</th><th>Manager endpoints</th></tr>
+      <tr><td>Auth</td><td>None — voice agents can't hold tokens</td><td><code>require_active_subscription</code></td></tr>
+      <tr><td>DB client</td><td><code>get_service_db</code> (service role)</td><td><code>get_authenticated_db</code> or <code>get_service_db</code></td></tr>
+      <tr><td>Error handling</td><td>Always return 200 with <code>found: false</code></td><td>Standard HTTP errors (400, 404, 500)</td></tr>
+      <tr><td>Who calls it</td><td>VAPI voice agent tool</td><td>React frontend</td></tr>
+    </table>
+
+    <div class="callout callout-warning">
+      <p><strong>VAPI endpoints have no authentication</strong> — they're publicly accessible. This is acceptable because they return only publicly-listable data (available listings). They cannot create or modify anything. Never put mutation operations on VAPI-style endpoints.</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>The VAPI empty-string parameter problem</summary>
+    <p>VAPI's voice agent extracts parameters from conversation. If a caller says "I need a 2-bedroom apartment" but doesn't mention budget, VAPI sends <code>budget_max=""</code> (empty string) — not <code>budget_max=null</code> or omitting the parameter entirely.</p>
+
+    <p>This breaks normal Python <code>int()</code> and <code>float()</code>:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="fn">int</span>(<span class="str">""</span>)    <span class="cm"># ValueError: invalid literal for int() with base 10: ''</span>
+<span class="fn">float</span>(<span class="str">""</span>)  <span class="cm"># ValueError: could not convert string to float: ''</span>
+<span class="fn">int</span>(<span class="str">"0"</span>)   <span class="cm"># works, but 0 means "no filter" in this context</span></code></pre>
+
+    <h4>The solution: <code>_parse_int()</code> and <code>_parse_float()</code></h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">_parse_int</span>(v):
+    <span class="kw">try</span>:
+        n = <span class="fn">int</span>(v)
+        <span class="kw">return</span> n <span class="kw">if</span> n > <span class="num">0</span> <span class="kw">else</span> <span class="kw">None</span>   <span class="cm"># 0 means "unspecified" → None</span>
+    <span class="kw">except</span> (TypeError, ValueError):
+        <span class="kw">return</span> <span class="kw">None</span>                     <span class="cm"># "" or None → None</span>
+
+<span class="fn">_parse_int</span>(<span class="str">""</span>)    <span class="cm"># None</span>
+<span class="fn">_parse_int</span>(<span class="str">"2"</span>)   <span class="cm"># 2</span>
+<span class="fn">_parse_int</span>(<span class="str">"0"</span>)   <span class="cm"># None (VAPI sends "0" for unspecified)</span>
+<span class="fn">_parse_int</span>(<span class="kw">None</span>)  <span class="cm"># None</span></code></pre>
+
+    <p>These helpers turn VAPI's quirky empty-string / zero encoding into proper Python <code>None</code>, which then cleanly maps to "skip this filter".</p>
+  </details>
+
+  <details open>
+    <summary>Three-path search strategy in <code>find_listing</code></summary>
+    <p>A caller might say "find the apartment on Maple Street" or "find unit A-101" or "find the south wing". The search tries three increasingly broad strategies in sequence, returning early as soon as something matches.</p>
+
+    <div class="diagram">
+find_listing(query="maple"):
+
+  Path 1: .ilike("flat_number", "%maple%")
+           → fast — DB-level filter — most specific
+           → if results: return immediately
+
+  Path 2: .ilike("title", "%maple%")
+           → DB-level filter on listing title
+           → if results: return immediately
+
+  Path 3: load all active listings (up to 20), filter in Python
+           → checks: flat.address, building.name, building.address, listing.title
+           → catches: "3rd floor, South Block, Maple Tower"
+           → most flexible but does more work</div>
+
+    <p>Path 1 and 2 push the filter to the DB (efficient). Path 3 is a Python-side filter applied after fetching all rows — it handles multi-field address matching that PostgREST's <code>.ilike()</code> can't express in a single call. The 20-row limit on Path 3 prevents excessive memory use.</p>
+  </details>
+
+  <details open>
+    <summary>JSONB <code>custom_rules</code> — nested Pydantic → dict</summary>
+    <p>Each listing can have custom tenant rules (max occupants, pets policy, etc.) stored as JSONB in Postgres. In Python, this is modeled as a nested <code>CustomRules</code> Pydantic model. But Supabase's SDK doesn't accept Pydantic objects — it needs plain dicts.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">class</span> <span class="typ">CustomRules</span>(BaseModel):
+    max_occupants: Optional[<span class="typ">int</span>] = <span class="kw">None</span>
+    income_required: Optional[<span class="typ">bool</span>] = <span class="kw">False</span>
+    pets_allowed: Optional[<span class="typ">str</span>] = <span class="str">"no"</span>
+    vegetarian_only: Optional[<span class="typ">bool</span>] = <span class="kw">False</span>
+    lease_term_months: Optional[<span class="typ">int</span>] = <span class="num">11</span>
+    custom_question: Optional[<span class="typ">str</span>] = <span class="str">""</span>
+
+<span class="cm"># In the route, before DB insert:</span>
+payload = body.<span class="fn">model_dump</span>(exclude_none=<span class="kw">True</span>)
+<span class="kw">if</span> <span class="str">"custom_rules"</span> <span class="kw">in</span> payload <span class="kw">and</span> <span class="fn">hasattr</span>(payload[<span class="str">"custom_rules"</span>], <span class="str">"model_dump"</span>):
+    payload[<span class="str">"custom_rules"</span>] = payload[<span class="str">"custom_rules"</span>].<span class="fn">model_dump</span>()</code></pre>
+
+    <p><code>body.model_dump()</code> converts the top-level model to a dict, but <code>custom_rules</code> remains a <code>CustomRules</code> Pydantic object inside the dict (model_dump is shallow for nested models unless you use <code>mode="json"</code>). The <code>hasattr(..., "model_dump")</code> check detects this and calls <code>.model_dump()</code> on the nested object to convert it to a plain dict that Supabase accepts.</p>
+  </details>
+
+  <details open>
+    <summary>Decimal type and JSON serialization</summary>
+    <p><code>monthly_rent</code> uses Pydantic's <code>Decimal</code> type for precision (avoids floating point errors common with <code>float</code>). But <code>Decimal</code> objects are not JSON-serializable and Supabase's REST client rejects them.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">from</span> decimal <span class="kw">import</span> Decimal
+
+<span class="cm"># After model_dump(), fix Decimal values:</span>
+payload = {k: <span class="fn">float</span>(v) <span class="kw">if</span> <span class="fn">isinstance</span>(v, Decimal) <span class="kw">else</span> v <span class="kw">for</span> k, v <span class="kw">in</span> payload.items()}
+
+<span class="cm"># This converts: {"monthly_rent": Decimal("2500.00")} → {"monthly_rent": 2500.0}</span></code></pre>
+
+    <p>The dict comprehension converts all <code>Decimal</code> values to <code>float</code> in one pass. The loss of arbitrary precision is acceptable here — rent values like 2500.00 are represented exactly as float64.</p>
+  </details>
+
+  <details open>
+    <summary><code>exclude_none</code> vs <code>exclude_unset</code> in Pydantic</summary>
+    <p>This distinction is critical when building CRUD APIs. Getting it wrong silently overwrites data.</p>
+
+    <table>
+      <tr><th>Method</th><th>Excludes</th><th>Use case</th></tr>
+      <tr><td><code>model_dump(exclude_none=True)</code></td><td>Fields where value IS <code>None</code></td><td>CREATE — include all fields the user provided, skip ones they left as None</td></tr>
+      <tr><td><code>model_dump(exclude_unset=True)</code></td><td>Fields the user did NOT send in the request</td><td>PATCH — only update fields explicitly sent; leave others untouched in the DB</td></tr>
+    </table>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm"># PATCH request body: {"title": "New Title"} (only title is being changed)</span>
+
+<span class="cm"># With exclude_none=True:</span>
+<span class="cm"># monthly_rent defaults to None in the model → excluded ✓</span>
+<span class="cm"># But if monthly_rent was EXPLICITLY sent as null → also excluded ✗</span>
+
+<span class="cm"># With exclude_unset=True:</span>
+<span class="cm"># Only {"title": "New Title"} is in the payload</span>
+<span class="cm"># monthly_rent was not sent → excluded ✓ (DB keeps its current value)</span>
+<span class="cm"># If someone sends null explicitly → {"monthly_rent": null} is included ✓</span></code></pre>
+
+    <p>The CREATE endpoint uses <code>exclude_none=True</code>. The PATCH endpoint uses <code>exclude_unset=True</code>. Mixing these up is a subtle bug: using <code>exclude_none</code> on a PATCH would correctly send only non-null fields, but would also drop explicitly-nulled fields. Using <code>exclude_unset</code> on a CREATE would work but might include fields you didn't want if the model has non-None defaults.</p>
+  </details>
+
+  <details open>
+    <summary>PostgreSQL array contains operator — <code>cs.{uuid}</code></summary>
+    <p>A lead can be interested in multiple listings, stored as a UUID array in <code>interested_listing_ids</code>. To query "give me leads interested in listing X", you need the PostgreSQL <code>@&gt;</code> (contains) operator.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm"># Supabase PostgREST syntax for array contains:</span>
+q = q.or_(
+    <span class="fn">f</span><span class="str">"listing_uuid.eq.{listing_uuid},interested_listing_ids.cs.{{{listing_uuid}}}"</span>
+)
+<span class="cm"># Breakdown:</span>
+<span class="cm">#   listing_uuid.eq.{uuid}          → exact match on the primary listing FK</span>
+<span class="cm">#   interested_listing_ids.cs.{uuid} → array CONTAINS the uuid</span>
+<span class="cm">#   cs = contains, {{uuid}} = literal {uuid} in PostgREST query string</span></code></pre>
+
+    <p>The triple braces <code>{{{listing_uuid}}}</code> in the f-string: the outer <code>{{</code> and <code>}}</code> escape to literal <code>{</code> and <code>}</code> in the f-string, and the inner <code>{listing_uuid}</code> is the variable expansion. Result: <code>interested_listing_ids.cs.{actual-uuid-value}</code> — the curly braces are PostgREST's array literal syntax.</p>
+  </details>
+
+  <details open>
+    <summary>CSV export with <code>StreamingResponse</code></summary>
+    <p>The leads export generates a CSV in memory and streams it as a file download — no temp file needed.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">import</span> io, csv
+<span class="kw">from</span> fastapi.responses <span class="kw">import</span> StreamingResponse
+
+output = io.<span class="fn">StringIO</span>()           <span class="cm"># in-memory string buffer</span>
+writer = csv.<span class="fn">writer</span>(output)
+writer.<span class="fn">writerow</span>([<span class="str">"Name"</span>, <span class="str">"Phone"</span>, ...])  <span class="cm"># header row</span>
+<span class="kw">for</span> lead <span class="kw">in</span> leads:
+    writer.<span class="fn">writerow</span>([lead.<span class="fn">get</span>(<span class="str">"caller_name"</span>, <span class="str">""</span>), ...])
+
+output.<span class="fn">seek</span>(<span class="num">0</span>)   <span class="cm"># reset cursor to start before reading</span>
+<span class="kw">return</span> <span class="fn">StreamingResponse</span>(
+    <span class="fn">iter</span>([output.<span class="fn">getvalue</span>()]),
+    media_type=<span class="str">"text/csv"</span>,
+    headers={<span class="str">"Content-Disposition"</span>: <span class="str">"attachment; filename=leads.csv"</span>}
+)</code></pre>
+
+    <p><code>io.StringIO()</code> — an in-memory file-like object that accepts strings. <code>csv.writer</code> writes to it just like a real file. <code>output.seek(0)</code> resets the cursor to the beginning (after writing, the cursor is at the end — reading from there gives an empty string). <code>Content-Disposition: attachment</code> tells the browser to download the response as a file rather than displaying it inline.</p>
+  </details>
+
+  <!-- S3 -->
+  <h2 id="walkthrough">Section 3 — Line-by-Line Walkthrough</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <h3>File: <code>backend/app/schemas/leasing.py</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">class</span> <span class="typ">ListingCreate</span>(BaseModel):
+    flat_uuid: UUID
+    title: Optional[<span class="typ">str</span>] = <span class="kw">None</span>
+    monthly_rent: Decimal
+    description: Optional[<span class="typ">str</span>] = <span class="kw">None</span>
+    available_from: Optional[date] = <span class="kw">None</span>
+    photo_urls: Optional[List[<span class="typ">str</span>]] = <span class="fn">Field</span>(default_factory=<span class="fn">list</span>)
+    is_active: Optional[<span class="typ">bool</span>] = <span class="kw">True</span>
+    custom_rules: Optional[CustomRules] = <span class="fn">Field</span>(default_factory=CustomRules)</code></pre>
+  <div class="line-exp">
+    <code>monthly_rent: Decimal</code> — required field (no default). The Decimal type from Python's <code>decimal</code> module stores exact decimal numbers, unlike float which can have precision errors (e.g. <code>0.1 + 0.2 = 0.30000000000000004</code>). For currency values, Decimal is the correct type.
+    <br><br>
+    <code>Field(default_factory=list)</code> — creates a new empty list for each model instance. Using <code>default=[]</code> would share the same list object across all instances (a classic Python mutable default bug). <code>default_factory</code> is always the correct way to default mutable types in Pydantic.
+    <br><br>
+    <code>Field(default_factory=CustomRules)</code> — same pattern: creates a fresh <code>CustomRules()</code> instance (with all fields at their defaults) for each new listing that doesn't specify custom rules.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">class</span> <span class="typ">LeadResponse</span>(BaseModel):
+    id: <span class="typ">int</span>
+    uuid: UUID
+    listing_uuid: Optional[UUID] = <span class="kw">None</span>
+    interested_listing_ids: Optional[List[UUID]] = <span class="fn">Field</span>(default_factory=<span class="fn">list</span>)
+    caller_name: <span class="typ">str</span>
+    phone: <span class="typ">str</span>
+    qualification_status: <span class="typ">str</span>
+    <span class="cm"># ... many optional fields ...</span>
+    call_duration_seconds: Optional[<span class="typ">int</span>] = <span class="kw">None</span>
+    manager_notes: Optional[<span class="typ">str</span>] = <span class="kw">None</span></code></pre>
+  <div class="line-exp">
+    <code>listing_uuid</code> is the specific listing the VAPI agent was configured for. <code>interested_listing_ids</code> is an array of all listings the caller expressed interest in during the call (a caller might ask about 3 different apartments). Both can be populated: the agent was set up for listing X, and the caller asked about X, Y, and Z.
+  </div>
+
+  <h3>File: <code>backend/app/routes/leasing.py</code> — VAPI endpoints</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="dec">@router.get</span>(<span class="str">"/search"</span>)
+<span class="kw">async def</span> <span class="fn">search_available_listings</span>(
+    bedrooms: Optional[<span class="typ">str</span>] = <span class="fn">Query</span>(<span class="kw">None</span>),  <span class="cm"># str not int — VAPI sends ""</span>
+    budget_max: Optional[<span class="typ">str</span>] = <span class="fn">Query</span>(<span class="kw">None</span>),
+    address: Optional[<span class="typ">str</span>] = <span class="fn">Query</span>(<span class="kw">None</span>),
+    property_group_id: Optional[<span class="typ">str</span>] = <span class="fn">Query</span>(<span class="kw">None</span>),
+    manager_id: Optional[<span class="typ">str</span>] = <span class="fn">Query</span>(<span class="kw">None</span>),
+    db: Client = <span class="fn">Depends</span>(get_service_db),
+):</code></pre>
+  <div class="line-exp">
+    All VAPI-facing parameters are declared as <code>Optional[str]</code> even though logically they're numeric. This is the VAPI empty-string workaround: FastAPI would reject <code>bedrooms=""</code> if declared as <code>Optional[int]</code> (can't parse "" as int). Declaring as string lets the value through, and <code>_parse_int()</code> handles the normalization.
+    <br><br>
+    No <code>user</code> or subscription dependency — this endpoint is deliberately unauthenticated. VAPI agents don't carry user tokens.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">try</span>:
+        bedrooms_filter = <span class="fn">_parse_int</span>(bedrooms)
+        budget_filter = <span class="fn">_parse_float</span>(budget_max)
+
+        q = db.table(<span class="str">"lease_listings"</span>).<span class="fn">select</span>(<span class="str">"..., flats!inner(...)"</span>).<span class="fn">eq</span>(<span class="str">"is_active"</span>, <span class="kw">True</span>)
+        <span class="kw">if</span> budget_filter <span class="kw">is not None</span>:
+            q = q.<span class="fn">lte</span>(<span class="str">"monthly_rent"</span>, budget_filter)
+        results = q.<span class="fn">limit</span>(<span class="num">20</span>).<span class="fn">execute</span>()
+
+        <span class="kw">for</span> listing <span class="kw">in</span> results.data:
+            flat = listing.<span class="fn">get</span>(<span class="str">"flats"</span>) <span class="kw">or</span> {}
+            <span class="kw">if</span> bedrooms_filter <span class="kw">is not None</span> <span class="kw">and</span> flat.<span class="fn">get</span>(<span class="str">"bedrooms"</span>) != bedrooms_filter:
+                <span class="kw">continue</span>
+
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        <span class="fn">print</span>(<span class="fn">f</span><span class="str">"[ERROR] search_available_listings: {e}"</span>)
+        <span class="kw">return</span> {<span class="str">"count"</span>: <span class="num">0</span>, <span class="str">"listings"</span>: []}</code></pre>
+  <div class="line-exp">
+    <code>budget_filter</code> is applied at the DB level (<code>.lte("monthly_rent", budget_filter)</code>) — this reduces the amount of data fetched from the DB before Python filtering.
+    <br><br>
+    <code>bedrooms_filter</code> is applied in Python after fetching — because <code>bedrooms</code> lives on the <code>flats</code> table (joined via <code>flats!inner(...)</code>). PostgREST can filter on joined table columns, but the syntax is complex. Python-side filtering is simpler here.
+    <br><br>
+    The outer <code>try/except</code> returning <code>{"count": 0, "listings": []}</code> ensures VAPI always gets a valid response, never a 500. The VAPI agent can then say "I couldn't find any available units" rather than crashing the call.
+  </div>
+
+  <h3>Manager CRUD — creating a listing</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="dec">@router.post</span>(<span class="str">"/listings"</span>, response_model=ListingResponse, status_code=<span class="num">201</span>)
+<span class="kw">async def</span> <span class="fn">create_listing</span>(
+    body: ListingCreate,
+    user: <span class="typ">dict</span> = <span class="fn">Depends</span>(require_active_subscription),
+    db: Client = <span class="fn">Depends</span>(get_authenticated_db),     <span class="cm"># RLS client for ownership check</span>
+    svc_db: Client = <span class="fn">Depends</span>(get_service_db),        <span class="cm"># service client for INSERT</span>
+):</code></pre>
+  <div class="line-exp">
+    Two DB clients injected: an authenticated (RLS-enforced) client for the ownership check, and a service-role client for the actual INSERT. Why?
+    <br><br>
+    The ownership check uses <code>db</code> (authenticated): <code>db.table("flats").select(...).eq("uuid", flat_uuid)</code>. RLS ensures this only returns flats belonging to the logged-in manager. If the manager passes a UUID they don't own, the query returns no rows → 404 error.
+    <br><br>
+    The INSERT uses <code>svc_db</code> (service role): <code>lease_listings</code> had no RLS INSERT policy at the time this was written. The service client bypasses RLS and can always insert. This is a pragmatic workaround documented in the code comment.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    flat_resp = db.table(<span class="str">"flats"</span>).<span class="fn">select</span>(<span class="str">"flat_number, building_id"</span>).<span class="fn">eq</span>(<span class="str">"uuid"</span>, <span class="fn">str</span>(body.flat_uuid)).<span class="fn">limit</span>(<span class="num">1</span>).<span class="fn">execute</span>()
+    <span class="kw">if not</span> flat_resp.data:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(status_code=<span class="num">404</span>, detail=<span class="str">"Flat not found"</span>)
+
+    flat = flat_resp.data[<span class="num">0</span>]
+    building_resp = db.table(<span class="str">"buildings"</span>).<span class="fn">select</span>(<span class="str">"property_id"</span>).<span class="fn">eq</span>(<span class="str">"id"</span>, flat[<span class="str">"building_id"</span>]).<span class="fn">execute</span>()
+    property_group_id = <span class="fn">str</span>(building_resp.data[<span class="num">0</span>][<span class="str">"property_id"</span>])</code></pre>
+  <div class="line-exp">
+    The route traverses the hierarchy upward: flat → building → property_group. This populates <code>property_group_id</code> on the listing automatically — the manager doesn't need to pass it. The manager just says "create a listing for flat X" and the system fills in which property group it belongs to.
+    <br><br>
+    <code>str(body.flat_uuid)</code> — Pydantic's <code>UUID</code> type stores the value as a Python <code>uuid.UUID</code> object. Supabase's SDK needs it as a string for the query. This is a subtle type mismatch that Python doesn't warn about — it just passes the UUID object and the query returns no results.
+  </div>
+
+  <h3>Updating a lead — status restriction</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>_MANAGER_EDITABLE_STATUSES = {<span class="str">"contacted"</span>, <span class="str">"toured"</span>, <span class="str">"converted"</span>, <span class="str">"lost"</span>}
+
+<span class="kw">if</span> <span class="str">"qualification_status"</span> <span class="kw">in</span> payload <span class="kw">and</span> payload[<span class="str">"qualification_status"</span>] <span class="kw">not in</span> _MANAGER_EDITABLE_STATUSES:
+    <span class="kw">raise</span> <span class="fn">HTTPException</span>(
+        status_code=<span class="num">400</span>,
+        detail=<span class="str">"Managers can only set status to: contacted, toured, converted, lost"</span>,
+    )</code></pre>
+  <div class="line-exp">
+    Leads are created by VAPI with status <code>qualified / not_qualified / unmatched</code>. Managers can move a lead through the pipeline (<code>contacted → toured → converted / lost</code>) but should not be able to set <code>qualified</code> or <code>not_qualified</code> — those are set by the AI agent's qualification logic during the call.
+    <br><br>
+    This enforces the state machine boundary: the AI owns the qualification decision; humans own the follow-up workflow. Without this check, a manager could accidentally mark a lead as "qualified" when it was actually disqualified by the AI.
+  </div>
+
+  <!-- S4 -->
+  <h2 id="bugs">Section 4 — Real Bugs &amp; How We Fixed Them</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <div class="bug-box">
+    <h4>Bug 1: VAPI search crashed with <code>ValueError: invalid literal for int()</code></h4>
+    <p><strong>Symptom:</strong> Voice calls where the caller didn't specify a bedroom count caused the search to crash. VAPI logs showed the call was killed with an error.</p>
+    <p><strong>Root cause:</strong> The original code declared <code>bedrooms: Optional[int]</code> and did <code>int(bedrooms)</code>. VAPI sends <code>bedrooms=""</code> when unspecified. FastAPI accepted <code>""</code> as a string but <code>int("")</code> raised <code>ValueError</code>.</p>
+    <p><strong>Fix:</strong> Changed parameter type to <code>Optional[str]</code> and added <code>_parse_int()</code> helper. The entire endpoint is wrapped in try/except returning <code>{"count": 0}</code> as a final safety net.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 2: <code>Decimal</code> type caused <code>json.JSONDecodeError</code> on DB insert</h4>
+    <p><strong>Symptom:</strong> <code>POST /leasing/listings</code> always failed with a serialization error. The error was not from FastAPI's JSON response — it was from the Supabase Python client trying to serialize the payload.</p>
+    <p><strong>Root cause:</strong> <code>body.model_dump()</code> preserves the <code>Decimal</code> type for <code>monthly_rent</code>. Supabase's SDK uses <code>json.dumps()</code> internally which doesn't know how to serialize <code>Decimal</code> objects.</p>
+    <p><strong>Fix:</strong> Added the dict comprehension <code>{k: float(v) if isinstance(v, Decimal) else v ...}</code> after <code>model_dump()</code>. The same fix was needed in the PATCH endpoint.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 3: Listing created but owned by no manager — RLS filter missed</h4>
+    <p><strong>Symptom:</strong> After switching the INSERT to use the service client (<code>svc_db</code>), some listings appeared in other managers' list views.</p>
+    <p><strong>Root cause:</strong> When using the service-role client for INSERT, <code>manager_id</code> must be set explicitly in the payload. The original code forgot to add it after switching clients. The service client bypasses RLS, so the row was inserted without a <code>manager_id</code>.</p>
+    <p><strong>Fix:</strong> Added <code>payload["manager_id"] = user.get("sub")</code> explicitly before the INSERT. The <code>GET /leasing/listings</code> endpoint filters by <code>.eq("manager_id", user["sub"])</code> so the listing was invisible to all managers including the one who created it.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 4: PATCH listing silently overwrote all optional fields with None</h4>
+    <p><strong>Symptom:</strong> Updating only a listing's title also cleared its <code>available_from</code> date and <code>description</code>.</p>
+    <p><strong>Root cause:</strong> The original PATCH used <code>body.model_dump(exclude_none=True)</code>. <code>ListingUpdate</code> has <code>Optional</code> fields that default to <code>None</code> — the manager only sent <code>{"title": "new"}</code>, but the other fields were <code>None</code>. With <code>exclude_none=True</code>, they were excluded from the payload correctly. But the bug was that <code>available_from</code> had type <code>Optional[date]</code> — when it was not sent, Pydantic defaulted it to <code>None</code>, and <code>exclude_none=True</code> would correctly exclude it. So why was it being overwritten?</p>
+    <p>The actual bug: the test was wrong — the PATCH was being used where a PUT was needed. Once investigated, the real issue was a frontend bug sending all fields every time. The lesson: use <code>exclude_unset=True</code> (not <code>exclude_none</code>) for PATCH endpoints to be safe.</p>
+  </div>
+
+  <!-- S5 -->
+  <h2 id="exercises">Section 5 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <h3>Exercise 1 <span class="badge badge-easy">Easy</span> — Add a <code>floor_preference</code> filter to VAPI search</h3>
+  <p>VAPI should be able to search for listings on a specific floor (e.g. "I want a ground floor unit"). Add <code>floor_preference: Optional[str] = Query(None)</code> and filter results in the Python loop.</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">async def</span> <span class="fn">search_available_listings</span>(
+    ...
+    floor_preference: Optional[<span class="typ">str</span>] = <span class="fn">Query</span>(<span class="kw">None</span>),  <span class="cm"># NEW</span>
+    ...
+):
+    floor_filter = <span class="fn">_parse_int</span>(floor_preference)   <span class="cm"># handles "" and "0"</span>
+
+    <span class="cm"># In the Python filtering loop:</span>
+    <span class="kw">for</span> listing <span class="kw">in</span> results.data:
+        flat = listing.<span class="fn">get</span>(<span class="str">"flats"</span>) <span class="kw">or</span> {}
+        <span class="kw">if</span> bedrooms_filter <span class="kw">is not None</span> <span class="kw">and</span> flat.<span class="fn">get</span>(<span class="str">"bedrooms"</span>) != bedrooms_filter:
+            <span class="kw">continue</span>
+        <span class="kw">if</span> floor_filter <span class="kw">is not None</span> <span class="kw">and</span> flat.<span class="fn">get</span>(<span class="str">"floor_number"</span>) != floor_filter:
+            <span class="kw">continue</span>   <span class="cm"># NEW</span>
+        listings_out.<span class="fn">append</span>({...})</code></pre>
+  </details>
+
+  <h3>Exercise 2 <span class="badge badge-medium">Medium</span> — Add a <code>GET /leasing/leads/{uuid}</code> detail endpoint</h3>
+  <p>The current API only has list and update for leads — no way to fetch a single lead by UUID. Add a GET endpoint that returns a single lead, raising 404 if not found or not owned by the requesting manager.</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="dec">@router.get</span>(<span class="str">"/leads/{lead_uuid}"</span>, response_model=LeadResponse)
+<span class="kw">async def</span> <span class="fn">get_lead</span>(
+    lead_uuid: <span class="typ">str</span>,
+    user: <span class="typ">dict</span> = <span class="fn">Depends</span>(require_active_subscription),
+    db: Client = <span class="fn">Depends</span>(get_service_db),
+):
+    resp = (
+        db.table(<span class="str">"lease_leads"</span>)
+        .select(<span class="str">"*"</span>)
+        .eq(<span class="str">"uuid"</span>, lead_uuid)
+        .eq(<span class="str">"manager_id"</span>, user[<span class="str">"sub"</span>])  <span class="cm"># ownership check</span>
+        .limit(<span class="num">1</span>)
+        .execute()
+    )
+    <span class="kw">if not</span> resp.data:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(status_code=<span class="num">404</span>, detail=<span class="str">"Lead not found"</span>)
+    <span class="kw">return</span> resp.data[<span class="num">0</span>]</code></pre>
+    <p>Important: place this route BEFORE <code>/leads</code> list route in the file if they share a prefix — FastAPI matches routes in order and <code>/leads</code> could shadow <code>/leads/{uuid}</code> if defined first.</p>
+  </details>
+
+  <h3>Exercise 3 <span class="badge badge-hard">Hard</span> — Add lead auto-assignment when a listing is deleted</h3>
+  <p>When a manager deletes a listing, any leads with <code>listing_uuid</code> set to that listing should have their <code>listing_uuid</code> set to <code>null</code> and their <code>notes</code> updated with "Listing was deleted". Implement this in the delete endpoint.</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="dec">@router.delete</span>(<span class="str">"/listings/{listing_uuid}"</span>, status_code=<span class="num">204</span>)
+<span class="kw">async def</span> <span class="fn">delete_listing</span>(
+    listing_uuid: <span class="typ">str</span>,
+    user: <span class="typ">dict</span> = <span class="fn">Depends</span>(require_active_subscription),
+    db: Client = <span class="fn">Depends</span>(get_service_db),
+):
+    <span class="cm"># Nullify listing_uuid on associated leads before deleting</span>
+    db.table(<span class="str">"lease_leads"</span>).<span class="fn">update</span>({
+        <span class="str">"listing_uuid"</span>: <span class="kw">None</span>,
+        <span class="str">"notes"</span>: <span class="str">"Listing was deleted"</span>,
+    }).<span class="fn">eq</span>(<span class="str">"listing_uuid"</span>, listing_uuid).<span class="fn">eq</span>(<span class="str">"manager_id"</span>, user[<span class="str">"sub"</span>]).<span class="fn">execute</span>()
+
+    <span class="cm"># Then delete the listing</span>
+    db.table(<span class="str">"lease_listings"</span>).<span class="fn">delete</span>().<span class="fn">eq</span>(<span class="str">"uuid"</span>, listing_uuid).<span class="fn">eq</span>(<span class="str">"manager_id"</span>, user[<span class="str">"sub"</span>]).<span class="fn">execute</span>()
+    <span class="kw">return</span> <span class="kw">None</span></code></pre>
+    <p>The update fires before the delete — if the listing has a FK constraint to leads, the delete would fail if done first. Update first, delete second is the safe order. You should also add the manager_id filter to the lead update to prevent accidentally clearing another manager's leads.</p>
+  </details>
+
+  <!-- S6 -->
+  <h2 id="summary">Section 6 — Key Takeaways</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <div class="card card-success">
+    <ul>
+      <li><strong>Dual-audience routes</strong> — VAPI (no auth, service DB, always 200) and manager (auth, RLS, standard errors) can coexist in one file; the key is clear separation at the dependency level.</li>
+      <li>VAPI sends <code>""</code> for unspecified numeric params — always use <strong><code>Optional[str]</code></strong> and <strong><code>_parse_int()</code></strong>/<code>_parse_float()</code> for VAPI-facing numeric query params.</li>
+      <li><strong>Three-path search</strong> (exact → title → address/building fuzzy) gives progressively broader coverage while keeping common cases fast.</li>
+      <li><strong>Decimal → float conversion</strong> is required before inserting into Supabase — <code>{k: float(v) if isinstance(v, Decimal) else v ...}</code>.</li>
+      <li><code>model_dump(exclude_unset=True)</code> for PATCH (only update what was sent); <code>model_dump(exclude_none=True)</code> for CREATE (include all non-null provided values).</li>
+      <li><strong>JSONB nested model</strong> needs <code>.model_dump()</code> called explicitly on the nested object before DB insert — <code>model_dump()</code> on the parent is shallow.</li>
+      <li>PostgreSQL array contains in PostgREST: <code>interested_listing_ids.cs.{uuid}</code> — the curly braces are PostgREST's array literal, not f-string syntax.</li>
+      <li><strong>CSV export</strong>: <code>io.StringIO()</code> + <code>csv.writer</code> + <code>StreamingResponse</code> — no temp file, no disk I/O.</li>
+      <li><strong>State machine enforcement</strong>: VAPI owns qualification statuses; managers own the post-qualification pipeline. Enforce boundaries in the PATCH validator.</li>
+    </ul>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_15_bulk_import.html" class="nav-btn">← Previous: Bulk Import</a>
+    <a href="module_17_frontend_setup.html" class="nav-btn">Next: Frontend Setup →</a>
+  </div>
+</div></div>
+
+<script>
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const checkboxes = document.querySelectorAll('.section-check input');
+  function updateProgress() {
+    const checked = [...checkboxes].filter(c => c.checked).length;
+    document.getElementById('progressFill').style.width = (checked / checkboxes.length * 100) + '%';
+  }
+  checkboxes.forEach(c => c.addEventListener('change', updateProgress));
+  function copyCode(btn) {
+    const code = btn.nextElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>

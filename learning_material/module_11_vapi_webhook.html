@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 11 — VAPI Voice Webhook &amp; Call Flow | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-warn { border-left: 4px solid var(--warning); }
+    .card-error { border-left: 4px solid var(--error); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .flow-diagram { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin: 1rem 0; font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-secondary); line-height: 2; }
+    .step-number { display: inline-block; background: var(--accent); color: var(--bg-primary); width: 24px; height: 24px; border-radius: 50%; text-align: center; line-height: 24px; font-size: 0.8rem; font-weight: 700; margin-right: 0.5rem; flex-shrink: 0; }
+    .step { display: flex; align-items: flex-start; margin: 0.5rem 0; }
+    .step-content { flex: 1; }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h3>Module 11</h3>
+  <a href="#overview">Architecture Overview</a>
+  <a href="#always-200">Always-200 Rule</a>
+  <a href="#event-filtering">Step 1: Event Filtering</a>
+  <a href="#call-metadata">Step 2: Call Metadata</a>
+  <a href="#transcript">Step 3: Transcript</a>
+  <a href="#confirmation">Step 4: Confirmation Detection</a>
+  <a href="#idempotency">Step 7: Idempotency</a>
+  <a href="#complaint-creation">Step 10: Complaint Creation</a>
+  <a href="#call-status">Call Status Polling</a>
+  <a href="#lease-webhooks">Lease Lead Webhooks</a>
+  <a href="#outbound">Outbound Calls</a>
+  <a href="#bugs">Bugs &amp; Fixes</a>
+  <a href="#exercises">Exercises</a>
+  <br>
+  <h3>All Modules</h3>
+  <a href="module_10_openai_chatbot.html">← 10: AI Chatbot</a>
+  <a href="module_12_vapi_provisioning.html">12: VAPI Provisioning →</a>
+</nav>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<div class="main-content">
+<div class="container">
+
+  <div class="breadcrumbs">
+    <a href="index.html">Home</a> › Part C — AI &amp; Voice Integration › Module 11
+  </div>
+
+  <h1>Module 11 — VAPI Voice Webhook &amp; Call Flow</h1>
+  <p><strong>Part C — AI &amp; Voice Integration</strong> &nbsp;|&nbsp; Build Session 3</p>
+
+  <div class="progress-bar"><div class="progress-fill" style="width: 42%"></div></div>
+  <p style="font-size:0.85rem; color: var(--text-muted)">Module 11 of 26 — 42% through the course</p>
+
+  <div class="card card-info">
+    <strong>Learner outcome:</strong> Can implement a webhook handler for a voice AI platform, create records from transcript data, and understand why webhooks must always return 200.
+  </div>
+
+  <p><strong>Source file:</strong> <code>backend/app/routes/voice.py</code></p>
+
+  <h2 id="overview">Architecture Overview</h2>
+
+  <div class="flow-diagram">Tenant calls +14382314283 (VAPI phone number)
+           ↓
+    VAPI Voice Agent (Alex) handles conversation
+           ↓
+    Agent calls our FastAPI tools (Verify_phone_number, check_availability...)
+           ↓
+    Tenant says "yes, submit my complaint"
+           ↓
+    Agent calls submit_complaint (function/webhook type)
+           ↓
+    POST /voice/webhook  ← we handle this
+           ↓
+    Save CallLog, create Complaint + Appointment, fire notification
+           ↓
+    Return HTTP 200 (always)
+           ↓
+    Frontend polls GET /voice/call-status every 3s → refreshes dashboard</div>
+
+  <p>There are two separate webhook routes:</p>
+
+  <table>
+    <tr><th>Route</th><th>Handles</th></tr>
+    <tr><td><code>POST /voice/webhook</code></td><td>Complaint agent: <code>tool-calls</code> (when tenant confirms) + <code>end-of-call-report</code></td></tr>
+    <tr><td><code>POST /voice/lease-lead-webhook</code></td><td>Lease agent: <code>submit_lease_lead</code> tool calls (deprecated — now uses direct)</td></tr>
+    <tr><td><code>POST /voice/lease-lead-direct</code></td><td>Lease agent: <code>submit_lease_lead</code> via <code>apiRequest</code> (active)</td></tr>
+    <tr><td><code>POST /voice/lease-eoc-webhook</code></td><td>Lease agent: fallback for calls that ended without submitting a lead</td></tr>
+    <tr><td><code>GET /voice/call-status</code></td><td>Frontend polling — returns <code>_last_call_ended_at</code> timestamp</td></tr>
+    <tr><td><code>POST /voice/call/outbound</code></td><td>Initiate outbound call via complaint or lease agent</td></tr>
+  </table>
+
+  <h2 id="always-200">The Always-200 Rule</h2>
+
+  <div class="card card-error">
+    <strong>Critical VAPI rule:</strong> Every VAPI webhook endpoint MUST return HTTP 200, even on errors.<br><br>
+    If your endpoint returns 4xx or 5xx, VAPI interprets it as a fatal failure and <strong>kills the active call session</strong>. The tenant gets disconnected mid-complaint. From the VAPI dashboard, the call shows as "Failed".<br><br>
+    The correct pattern: catch <em>all</em> exceptions, return a JSON response with an error description, but always with HTTP 200.
+  </div>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># Outer try/except in voice_webhook — ALWAYS returns 200</span>
+<span class="kw">try</span>:
+    payload = <span class="kw">await</span> request.<span class="fn">json</span>()
+    <span class="cm"># ... all processing ...</span>
+    <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"processed"</span>, ...}   <span class="cm"># HTTP 200</span>
+
+<span class="kw">except</span> <span class="typ">Exception</span> as e:
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"[X] UNHANDLED ERROR: {e}"</span>)
+    <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"error"</span>, <span class="str">"message"</span>: <span class="fn">str</span>(e)}  <span class="cm"># still HTTP 200!</span></code></pre>
+
+  <h2 id="event-filtering">Step 1: Event Type Filtering — MUST Be First</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">message = payload.<span class="fn">get</span>(<span class="str">"message"</span>, {})
+message_type = message.<span class="fn">get</span>(<span class="str">"type"</span>)
+
+FINAL_EVENT_TYPES = [<span class="str">"tool-calls"</span>, <span class="str">"end-of-call-report"</span>]
+
+<span class="kw">if</span> message_type <span class="kw">not in</span> FINAL_EVENT_TYPES:
+    <span class="cm"># streaming/status events — safely ignore, NOT an error</span>
+    <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"ignored"</span>, <span class="str">"reason"</span>: <span class="str">"non_final_event"</span>}</code></pre>
+
+  <div class="card card-warn">
+    <strong>Why this MUST be first:</strong> VAPI fires many webhook events per call — <code>status-update</code>, <code>transcript</code>, <code>speech-update</code>, and more. These intermediate events do NOT contain <code>call_id</code> or other metadata. If you try to extract <code>call_id</code> before filtering, you'll crash on <code>None</code> for most events. The event type check is the gate — everything else runs only for final events.
+  </div>
+
+  <table>
+    <tr><th>Event type</th><th>What it means</th><th>Do we process it?</th></tr>
+    <tr><td><code>tool-calls</code></td><td>Agent called a function tool (e.g., submit_complaint)</td><td>Yes — check for submit_complaint</td></tr>
+    <tr><td><code>end-of-call-report</code></td><td>Call ended — final transcript available</td><td>Yes — always create CallLog</td></tr>
+    <tr><td><code>status-update</code></td><td>Call state changed (ringing, answered, etc.)</td><td>No — ignore</td></tr>
+    <tr><td><code>transcript</code></td><td>Partial transcript update</td><td>No — ignore</td></tr>
+    <tr><td><code>speech-update</code></td><td>Speaker started/stopped talking</td><td>No — ignore</td></tr>
+  </table>
+
+  <h2 id="call-metadata">Step 2: Call Metadata Extraction (Priority-Based Fallback)</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">call_id = <span class="kw">None</span>
+phone_number = <span class="kw">None</span>
+
+<span class="cm"># Priority 1: message.call (most common structure)</span>
+<span class="kw">if</span> <span class="str">"call"</span> <span class="kw">in</span> message:
+    call = message.<span class="fn">get</span>(<span class="str">"call"</span>, {})
+    call_id = call.<span class="fn">get</span>(<span class="str">"id"</span>)
+    phone_number = call.<span class="fn">get</span>(<span class="str">"customer"</span>, {}).<span class="fn">get</span>(<span class="str">"number"</span>)
+
+<span class="cm"># Priority 2: message.callId (some final reports use this)</span>
+<span class="kw">if not</span> call_id:
+    call_id = message.<span class="fn">get</span>(<span class="str">"callId"</span>)
+
+<span class="cm"># Priority 3: payload.call (fallback for different webhook versions)</span>
+<span class="kw">if not</span> call_id:
+    call = payload.<span class="fn">get</span>(<span class="str">"call"</span>, {})
+    call_id = call.<span class="fn">get</span>(<span class="str">"id"</span>)
+    phone_number = call.<span class="fn">get</span>(<span class="str">"customer"</span>, {}).<span class="fn">get</span>(<span class="str">"number"</span>)
+
+<span class="kw">if not</span> call_id:
+    <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"processed"</span>, <span class="str">"warning"</span>: <span class="str">"no_call_id"</span>}  <span class="cm"># still 200</span></code></pre>
+
+  <p>VAPI's webhook payload structure has changed across SDK versions. The three-level fallback chain handles all known variants. This was discovered through actual incidents where new VAPI releases sent data in a slightly different location.</p>
+
+  <h2 id="transcript">Step 3: Transcript Extraction</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">artifact = message.<span class="fn">get</span>(<span class="str">"artifact"</span>)
+transcript = <span class="str">""</span>
+
+<span class="kw">if</span> artifact:
+    <span class="cm"># Method 1: messagesOpenAIFormatted — most detailed (user turns only)</span>
+    <span class="kw">if</span> <span class="str">"messagesOpenAIFormatted"</span> <span class="kw">in</span> artifact:
+        messages = artifact.<span class="fn">get</span>(<span class="str">"messagesOpenAIFormatted"</span>, [])
+        user_messages = [
+            msg.<span class="fn">get</span>(<span class="str">"content"</span>, <span class="str">""</span>)
+            <span class="kw">for</span> msg <span class="kw">in</span> messages
+            <span class="kw">if</span> msg.<span class="fn">get</span>(<span class="str">"role"</span>) == <span class="str">"user"</span>
+        ]
+        transcript = <span class="str">"\n"</span>.<span class="fn">join</span>(user_messages)
+
+    <span class="cm"># Method 2: direct transcript field</span>
+    <span class="kw">elif</span> <span class="str">"transcript"</span> <span class="kw">in</span> artifact:
+        transcript = artifact.<span class="fn">get</span>(<span class="str">"transcript"</span>, <span class="str">""</span>)
+
+    <span class="cm"># Method 3: messages array</span>
+    <span class="kw">elif</span> <span class="str">"messages"</span> <span class="kw">in</span> artifact:
+        transcript = <span class="str">"\n"</span>.<span class="fn">join</span>(
+            msg.<span class="fn">get</span>(<span class="str">"content"</span>, <span class="str">""</span>)
+            <span class="kw">for</span> msg <span class="kw">in</span> artifact[<span class="str">"messages"</span>]
+            <span class="kw">if</span> msg.<span class="fn">get</span>(<span class="str">"role"</span>) == <span class="str">"user"</span>
+        )</code></pre>
+
+  <p>We extract only <code>role == "user"</code> messages from the formatted transcript. We don't need the agent's own speech (role "assistant") for complaint extraction — the tenant's words are what matter.</p>
+
+  <h2 id="confirmation">Step 4: Confirmation Detection</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">is_tool_call_event = (message_type == <span class="str">"tool-calls"</span>)
+submit_tool = <span class="kw">None</span>
+
+<span class="kw">if</span> is_tool_call_event:
+    <span class="cm"># Check both locations — Vapi may nest differently</span>
+    tool_calls = []
+    <span class="kw">if</span> artifact:
+        tool_calls = artifact.<span class="fn">get</span>(<span class="str">"toolCalls"</span>, [])
+    <span class="kw">if not</span> tool_calls:
+        tool_calls = message.<span class="fn">get</span>(<span class="str">"toolCalls"</span>, [])
+
+    <span class="kw">for</span> tool <span class="kw">in</span> tool_calls:
+        <span class="cm"># Handle both {function: {name:...}} and {name:...} structures</span>
+        tool_name = (
+            tool.<span class="fn">get</span>(<span class="str">"function"</span>, {}).<span class="fn">get</span>(<span class="str">"name"</span>) <span class="kw">or</span>
+            tool.<span class="fn">get</span>(<span class="str">"name"</span>)
+        )
+        <span class="kw">if</span> tool_name == <span class="str">"submit_complaint"</span>:
+            submit_tool = tool
+            <span class="kw">break</span>
+
+user_confirmed = submit_tool <span class="kw">is not None</span></code></pre>
+
+  <p>A complaint is only created when the tenant explicitly confirmed their submission. The VAPI agent calls <code>submit_complaint</code> only after asking "Just to confirm, this is for flat 204, a plumbing issue... Is that correct?" and the tenant says "yes". The webhook detects this confirmation by looking for the <code>submit_complaint</code> tool in the payload.</p>
+
+  <h2 id="idempotency">Step 7: Idempotency Check</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">response = db.table(<span class="str">"call_logs"</span>).<span class="fn">select</span>(<span class="str">"*"</span>).<span class="fn">eq</span>(<span class="str">"call_id"</span>, call_id).<span class="fn">execute</span>()
+existing_log = response.data[<span class="num">0</span>] <span class="kw">if</span> response.data <span class="kw">else None</span>
+skip_complaint = <span class="kw">False</span>
+
+<span class="kw">if</span> existing_log:
+    <span class="kw">if</span> existing_log.<span class="fn">get</span>(<span class="str">'complaint_id'</span>):
+        skip_complaint = <span class="kw">True</span>    <span class="cm"># already created — don't duplicate</span></code></pre>
+
+  <div class="card card-info">
+    <strong>Why idempotency matters for webhooks:</strong> VAPI may re-send the same event if it doesn't receive a timely 200 response (network hiccup, slow server startup). Without this check, you'd get duplicate <code>CallLog</code> rows and duplicate <code>Complaint</code> records for the same call. The <code>call_id</code> UNIQUE constraint on the <code>call_logs</code> table enforces this at the DB level too — but checking first avoids an unnecessary INSERT attempt.
+  </div>
+
+  <h3>CallLog status state machine</h3>
+
+  <table>
+    <tr><th>Status</th><th>Condition</th></tr>
+    <tr><td><code>pending</code></td><td>User confirmed + data is valid → about to create complaint</td></tr>
+    <tr><td><code>incomplete</code></td><td>User confirmed but required fields missing (no flat number, etc.)</td></tr>
+    <tr><td><code>abandoned</code></td><td>No confirmation (tenant hung up, or end-of-call without submit_complaint)</td></tr>
+    <tr><td><code>created</code></td><td>Complaint successfully created and linked</td></tr>
+    <tr><td><code>failed</code></td><td>Complaint creation attempted but failed (API error, DB error)</td></tr>
+    <tr><td><code>blocked_by_feature_flag</code></td><td>Voice calls feature is disabled for this building</td></tr>
+  </table>
+
+  <h2 id="complaint-creation">Step 10: Complaint Creation Flow</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">should_create = (
+    user_confirmed <span class="kw">and</span>
+    is_valid <span class="kw">and</span>
+    <span class="kw">not</span> skip_complaint
+)
+
+<span class="kw">if</span> should_create:
+    <span class="cm"># 1. Look up flat UUID and check voice_calls feature flag</span>
+    flat_no = complaint_data.<span class="fn">get</span>(<span class="str">"flat_number"</span>)
+    flat_response = db.table(<span class="str">"flats"</span>).<span class="fn">select</span>(<span class="str">"uuid, id"</span>).<span class="fn">eq</span>(<span class="str">"flat_number"</span>, flat_no.<span class="fn">strip</span>().<span class="fn">upper</span>()).<span class="fn">execute</span>()
+    flat_uuid = flat_response.data[<span class="num">0</span>][<span class="str">'uuid'</span>]
+    flat_id   = flat_response.data[<span class="num">0</span>][<span class="str">'id'</span>]
+
+    feature_service = <span class="fn">FeatureService</span>(db)
+    voice_enabled = <span class="kw">await</span> feature_service.<span class="fn">is_feature_enabled</span>(flat_id, Feature.VOICE_CALLS)
+    <span class="kw">if not</span> voice_enabled:
+        db.table(<span class="str">"call_logs"</span>).<span class="fn">update</span>({<span class="str">"complaint_status"</span>: <span class="str">"blocked_by_feature_flag"</span>}).<span class="fn">eq</span>(<span class="str">"id"</span>, call_log_id).<span class="fn">execute</span>()
+        <span class="kw">return</span> {<span class="str">"status"</span>: <span class="str">"processed"</span>, <span class="str">"message"</span>: <span class="str">"feature_disabled"</span>}
+
+    <span class="cm"># 2. Create complaint via HTTP (not a direct DB call)</span>
+    complaint_payload = {
+        <span class="str">"flat_number"</span>: flat_no.<span class="fn">strip</span>().<span class="fn">upper</span>(),
+        <span class="str">"category"</span>: complaint_data.<span class="fn">get</span>(<span class="str">"category"</span>),
+        <span class="str">"priority"</span>: <span class="str">"medium"</span>,    <span class="cm"># default for all voice complaints</span>
+        <span class="str">"description"</span>: description[:<span class="num">1000</span>],
+        <span class="str">"status"</span>: <span class="str">"pending"</span>,
+        <span class="str">"source"</span>: <span class="str">"voice"</span>
+    }
+    <span class="kw">async with</span> httpx.<span class="fn">AsyncClient</span>() <span class="kw">as</span> client:
+        response = <span class="kw">await</span> client.<span class="fn">post</span>(
+            <span class="str">"https://tenant-management-mvp.onrender.com/complaints"</span>,
+            json=complaint_payload,
+            timeout=<span class="num">10.0</span>
+        )</code></pre>
+
+  <div class="card card-warn">
+    <strong>Why HTTP instead of calling the DB directly?</strong><br><br>
+    The complaint route (<code>POST /complaints</code>) does several things beyond a simple INSERT: it links the flat, looks up the tenant UUID, handles RLS, checks for existing complaints, and triggers notification side effects. Duplicating all that logic in the webhook would create a maintenance burden.<br><br>
+    <strong>The known downside:</strong> This HTTP call will break with gunicorn multi-worker deployments (worker A's webhook calls worker B's /complaints endpoint — works in dev, can fail in production with internal routing). For production scale, replace with a direct service function call. The code comment acknowledges this.
+  </div>
+
+  <h3>Module-level call status timestamp</h3>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># Module-level variable — reset on server restart</span>
+<span class="cm"># Not shared across multiple workers (gunicorn with multiple processes)</span>
+_last_call_ended_at: str | <span class="kw">None</span> = <span class="kw">None</span>
+
+<span class="cm"># At the end of voice_webhook, when end-of-call-report arrives:</span>
+<span class="kw">if</span> message_type == <span class="str">"end-of-call-report"</span>:
+    <span class="kw">global</span> _last_call_ended_at
+    _last_call_ended_at = datetime.<span class="fn">now</span>(timezone.utc).<span class="fn">isoformat</span>()</code></pre>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="op">@</span>router.<span class="fn">get</span>(<span class="str">"/voice/call-status"</span>)
+<span class="kw">async def</span> <span class="fn">get_call_status</span>():
+    <span class="kw">return</span> {<span class="str">"last_call_ended_at"</span>: _last_call_ended_at}</code></pre>
+
+  <p>The frontend polls this endpoint every 3 seconds. When the timestamp changes (a new call has ended), it refreshes the complaints and appointments data. This is a lightweight alternative to WebSockets or SSE for this use case.</p>
+
+  <h2 id="lease-webhooks">Lease Lead Webhooks</h2>
+
+  <h3>Three webhook paths, one goal: capture the lead</h3>
+
+  <table>
+    <tr><th>Endpoint</th><th>Trigger</th><th>Status</th></tr>
+    <tr><td><code>/voice/lease-lead-direct</code></td><td>VAPI <code>apiRequest</code> tool — fires during the call when agent calls <code>submit_lease_lead</code></td><td>Active (preferred)</td></tr>
+    <tr><td><code>/voice/lease-lead-webhook</code></td><td>VAPI function/webhook type — old approach via <code>tool-calls</code> event</td><td>Deprecated</td></tr>
+    <tr><td><code>/voice/lease-eoc-webhook</code></td><td>End-of-call fallback — fires if call ended without a lead submission</td><td>Active (fallback)</td></tr>
+  </table>
+
+  <h3>Manager resolution — three fallback paths</h3>
+
+  <p>When a lead comes in from the lease agent, we need to find the manager it belongs to. This is non-trivial because VAPI calls can come from different agents/numbers:</p>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">property_group_id = <span class="kw">None</span>
+manager_id = <span class="kw">None</span>
+resolution_path = <span class="kw">None</span>
+
+<span class="cm"># Path 1: listing_uuid → lease_listings.property_group_id</span>
+<span class="cm"># (most specific — links the lead to an exact listing)</span>
+raw_uuid = lead_data.<span class="fn">get</span>(<span class="str">"listing_uuid"</span>) <span class="kw">or</span> <span class="str">""</span>
+listing_uuid = raw_uuid.<span class="fn">strip</span>() <span class="kw">if</span> UUID_RE.<span class="fn">match</span>(raw_uuid.<span class="fn">strip</span>()) <span class="kw">else None</span>
+<span class="kw">if</span> listing_uuid:
+    row = db.table(<span class="str">"lease_listings"</span>).<span class="fn">select</span>(<span class="str">"property_group_id"</span>).<span class="fn">eq</span>(<span class="str">"uuid"</span>, listing_uuid).<span class="fn">execute</span>()
+    <span class="kw">if</span> row.data:
+        property_group_id = row.data[<span class="num">0</span>].<span class="fn">get</span>(<span class="str">"property_group_id"</span>)
+
+<span class="cm"># Path 2: call.assistantId → manager_vapi_config</span>
+<span class="cm"># (per-manager lease agent was used)</span>
+<span class="kw">if not</span> manager_id <span class="kw">and</span> assistant_id:
+    mvc = db.table(<span class="str">"manager_vapi_config"</span>).<span class="fn">select</span>(<span class="str">"manager_id"</span>).<span class="fn">eq</span>(<span class="str">"vapi_lease_assistant_id"</span>, assistant_id).<span class="fn">execute</span>()
+    <span class="kw">if</span> mvc.data:
+        manager_id = mvc.data[<span class="num">0</span>].<span class="fn">get</span>(<span class="str">"manager_id"</span>)
+
+<span class="cm"># Path 3: call.phoneNumberId → manager_vapi_config</span>
+<span class="cm"># (fallback when assistant ID doesn't match but we know the number)</span>
+<span class="kw">if not</span> manager_id <span class="kw">and</span> phone_number_id:
+    mvc = db.table(<span class="str">"manager_vapi_config"</span>).<span class="fn">select</span>(<span class="str">"manager_id"</span>).<span class="fn">eq</span>(<span class="str">"vapi_phone_number_id"</span>, phone_number_id).<span class="fn">execute</span>()
+    <span class="kw">if</span> mvc.data:
+        manager_id = mvc.data[<span class="num">0</span>].<span class="fn">get</span>(<span class="str">"manager_id"</span>)</code></pre>
+
+  <h3>UUID validation before inserting lead data</h3>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">UUID_RE = re.<span class="fn">compile</span>(
+    <span class="str">r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'</span>,
+    re.IGNORECASE,
+)
+
+<span class="cm"># Validate listing_uuid before trusting it</span>
+raw_uuid = lead_data.<span class="fn">get</span>(<span class="str">"listing_uuid"</span>) <span class="kw">or</span> <span class="str">""</span>
+listing_uuid = raw_uuid.<span class="fn">strip</span>() <span class="kw">if</span> UUID_RE.<span class="fn">match</span>(raw_uuid.<span class="fn">strip</span>()) <span class="kw">else None</span>
+
+<span class="cm"># Same for interested_listing_ids array</span>
+raw_interested = lead_data.<span class="fn">get</span>(<span class="str">"interested_listing_ids"</span>) <span class="kw">or</span> []
+interested_ids = [i <span class="kw">for</span> i <span class="kw">in</span> raw_interested <span class="kw">if</span> <span class="fn">isinstance</span>(i, str) <span class="kw">and</span> UUID_RE.<span class="fn">match</span>(i.<span class="fn">strip</span>())]</code></pre>
+
+  <div class="card card-error">
+    <strong>Bug fixed by UUID validation:</strong> The VAPI lease agent sometimes hallucinates a flat number (e.g., <code>"S-106"</code>) as the <code>listing_uuid</code> field. Without validation, inserting <code>"S-106"</code> as a UUID foreign key into <code>lease_leads.listing_uuid</code> would crash with a PostgreSQL FK violation.<br><br>
+    The regex check: if <code>listing_uuid</code> doesn't match the standard UUID format (<code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>), it's set to <code>None</code> before the INSERT.
+  </div>
+
+  <h2 id="call-status">Call Status Polling Endpoint</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="op">@</span>router.<span class="fn">get</span>(<span class="str">"/voice/call-status"</span>)
+<span class="kw">async def</span> <span class="fn">get_call_status</span>():
+    <span class="kw">return</span> {<span class="str">"last_call_ended_at"</span>: _last_call_ended_at}</code></pre>
+
+  <p><strong>Frontend usage (<code>App.jsx</code>):</strong></p>
+  <pre><code><span class="cm">// Polls every 3000ms</span>
+<span class="kw">const</span> prevTimestamp = useRef(<span class="kw">null</span>);
+setInterval(<span class="kw">async</span> () => {
+  <span class="kw">const</span> data = <span class="kw">await</span> getCallStatus();
+  <span class="kw">if</span> (data.last_call_ended_at !== prevTimestamp.current) {
+    prevTimestamp.current = data.last_call_ended_at;
+    fetchComplaints();     <span class="cm">// re-fetch the complaints list</span>
+    fetchAppointments();   <span class="cm">// re-fetch the calendar</span>
+  }
+}, <span class="num">3000</span>);</code></pre>
+
+  <h2 id="outbound">Outbound Call Endpoint</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="kw">class</span> <span class="typ">OutboundCallRequest</span>(<span class="typ">BaseModel</span>):
+    customer_number: str   <span class="cm"># E.164 format e.g. "+16135551234"</span>
+    first_message: str | <span class="kw">None</span> = <span class="kw">None</span>
+    agent: str = <span class="str">"complaint"</span>   <span class="cm"># "complaint" or "lease"</span>
+
+
+<span class="op">@</span>router.<span class="fn">post</span>(<span class="str">"/voice/call/outbound"</span>)
+<span class="kw">async def</span> <span class="fn">make_outbound_call</span>(
+    req: <span class="typ">OutboundCallRequest</span>,
+    user: dict = <span class="fn">Depends</span>(require_active_subscription),
+    svc_db: <span class="typ">Client</span> = <span class="fn">Depends</span>(get_service_db),
+):
+    <span class="kw">if</span> req.agent == <span class="str">"lease"</span>:
+        <span class="cm"># Look up this manager's provisioned lease assistant</span>
+        mvc_row = svc_db.table(<span class="str">"manager_vapi_config"</span>).<span class="fn">select</span>(...)<span class="fn">.eq</span>(<span class="str">"manager_id"</span>, user[<span class="str">"sub"</span>]).<span class="fn">eq</span>(<span class="str">"vapi_provisioning_status"</span>, <span class="str">"active"</span>).<span class="fn">execute</span>()
+        <span class="kw">if not</span> mvc_row.data:
+            <span class="kw">raise</span> <span class="fn">HTTPException</span>(status_code=<span class="num">500</span>, detail=<span class="str">"No active lease agent found..."</span>)
+        assistant_id = mvc_row.data[<span class="num">0</span>][<span class="str">"vapi_lease_assistant_id"</span>]
+    <span class="kw">else</span>:
+        assistant_id = settings.VAPI_COMPLAINT_ASSISTANT_ID
+
+    <span class="cm"># asyncio.to_thread wraps the synchronous SDK call to avoid blocking the event loop</span>
+    call = <span class="kw">await</span> asyncio.<span class="fn">to_thread</span>(
+        client.calls.create,
+        assistant_id=assistant_id,
+        phone_number_id=phone_number_id,
+        customer=<span class="fn">CreateCustomerDto</span>(number=req.customer_number),
+        assistant_overrides=overrides,
+    )</code></pre>
+
+  <div class="card card-info">
+    <strong>Why asyncio.to_thread?</strong> The VAPI Python SDK uses synchronous HTTP calls internally (no async support). FastAPI runs on an async event loop. Calling a synchronous function that blocks for 2-5 seconds from an async handler would block the entire server, preventing other requests from being processed. <code>asyncio.to_thread()</code> runs the blocking call in a thread pool, freeing the event loop.
+  </div>
+
+  <h2 id="bugs">Bugs &amp; Fixes</h2>
+
+  <h3>Bug 1: tool-calls event processed without submit_complaint → duplicate CallLog</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> Multiple <code>CallLog</code> rows with the same <code>call_id</code>.<br><br>
+    <strong>Root cause:</strong> The agent calls other tools during a call (Verify_phone_number, check_availability). Each triggers a <code>tool-calls</code> event. The early webhook processed ALL tool-call events.<br><br>
+    <strong>Fix:</strong> The webhook always checks for <code>submit_complaint</code> specifically. Only that tool creates a complaint. All other tool-call events are still processed to create the CallLog (which uses the idempotency check), but no complaint is created.
+  </div>
+
+  <h3>Bug 2: call_id extracted before event type check → NoneType crash on intermediate events</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> <code>AttributeError: 'NoneType' object has no attribute 'get'</code> on most webhook events.<br><br>
+    <strong>Root cause:</strong> Code tried to do <code>message.get("call", {}).get("id")</code> on intermediate events that have no "call" key.<br><br>
+    <strong>Fix:</strong> Event type filtering is now STEP 1 — before any metadata extraction. Only final events (tool-calls, end-of-call-report) reach the metadata extraction code.
+  </div>
+
+  <h3>Bug 3: VAPI showing call as "Failed" in dashboard</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> VAPI dashboard marks calls as failed. Tenants report the call dropped suddenly.<br><br>
+    <strong>Root cause:</strong> A DB error (Supabase network timeout) raised an exception in the webhook. The exception propagated to FastAPI which returned HTTP 500.<br><br>
+    <strong>Fix:</strong> Wrapped the entire function in try/except and return 200 even on errors. The error is logged but the VAPI session is not killed.
+  </div>
+
+  <h2 id="exercises">Exercises</h2>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> &nbsp; Why does the voice webhook use get_service_db and not get_authenticated_db?</summary>
+    <p>VAPI webhook calls arrive from VAPI's servers, not from a logged-in user. There is no JWT token in the request. <code>get_authenticated_db</code> reads the <code>Authorization: Bearer</code> header and would fail with a 401 or 403 if the header is missing. <code>get_service_db</code> uses the service role key (from the server's environment variable) which bypasses RLS and works without a user JWT.</p>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> &nbsp; What is the purpose of _last_call_ended_at being module-level (not in a database)?</summary>
+    <p>The frontend polls <code>GET /voice/call-status</code> every 3 seconds. Storing this in a DB would require a write on every call end and a read every 3 seconds — unnecessary overhead for a simple "has anything changed?" signal. Module-level is faster (in-memory) and sufficient for single-worker deployments. The known limitation: it resets on server restart and doesn't work correctly with multiple server workers (Gunicorn multi-process). For production with multiple workers, this should be stored in Redis or the DB.</p>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> &nbsp; A tenant calls, says "my flat is A-101, there's a water leak, schedule for tomorrow 2pm" and confirms. Trace the entire webhook flow step by step.</summary>
+    <details style="margin-top: 0.75rem">
+      <summary>Show solution</summary>
+      <ol>
+        <li><strong>VAPI fires <code>tool-calls</code> event</strong> with <code>submit_complaint</code> tool: <code>{flat_number: "A-101", category: "water", description: "water leak", appointment_date: "2026-06-04T14:00:00"}</code></li>
+        <li><strong>Step 1:</strong> <code>message_type = "tool-calls"</code> — passes the event filter</li>
+        <li><strong>Step 2:</strong> Extracts <code>call_id = "call_xyz123"</code>, <code>phone_number = "+16135551234"</code></li>
+        <li><strong>Step 3:</strong> Extracts user messages from transcript</li>
+        <li><strong>Step 4:</strong> Finds <code>submit_complaint</code> in tool calls → <code>user_confirmed = True</code></li>
+        <li><strong>Step 5:</strong> Parses <code>complaint_data = {flat_number: "A-101", ...}</code></li>
+        <li><strong>Step 6:</strong> <code>validate_complaint()</code> → <code>is_complete = True</code> (has flat_number, category, appointment_date)</li>
+        <li><strong>Step 7:</strong> Check DB for existing CallLog with <code>call_id = "call_xyz123"</code> → None (first time)</li>
+        <li><strong>Step 8:</strong> <code>status = "pending"</code></li>
+        <li><strong>Step 9:</strong> Insert new CallLog row</li>
+        <li><strong>Step 10:</strong> Look up flat A-101 UUID, check voice_calls feature flag → enabled</li>
+        <li>POST to <code>/complaints</code> — creates complaint record</li>
+        <li>INSERT into appointments with <code>appointment_date = "2026-06-04T14:00:00"</code></li>
+        <li>Update CallLog: <code>complaint_status = "created"</code>, link <code>complaint_id</code></li>
+        <li>Fire background notification to manager</li>
+        <li>Return <code>{"status": "processed", "call_id": "call_xyz123", "complaint_created": True}</code> with HTTP 200</li>
+      </ol>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> &nbsp; The HTTP call to /complaints inside the webhook will break with multiple Gunicorn workers. Design a solution that doesn't have this problem.</summary>
+    <details style="margin-top: 0.75rem">
+      <summary>Show solution</summary>
+      <p><strong>Problem:</strong> Worker A handles the webhook. It makes an HTTP call to <code>localhost:8000/complaints</code>. With Gunicorn + 4 workers, localhost:8000 round-robins between all workers. The request may land on worker B which has a different DB session context. This can cause race conditions or the authenticated DB client not being set up correctly.</p>
+      <p><strong>Solution — direct service function call:</strong></p>
+      <p>Extract the complaint creation logic from the route handler into a service function that accepts a DB client:</p>
+      <pre><code><span class="cm"># backend/app/services/complaint_service.py</span>
+<span class="kw">async def</span> <span class="fn">create_complaint_from_voice</span>(complaint_data: dict, db: Client) -> dict:
+    <span class="cm"># Same logic as POST /complaints but as a direct function</span>
+    flat_no = complaint_data[<span class="str">"flat_number"</span>].<span class="fn">strip</span>().<span class="fn">upper</span>()
+    flat = db.table(<span class="str">"flats"</span>).<span class="fn">select</span>(<span class="str">"uuid, id"</span>).<span class="fn">eq</span>(<span class="str">"flat_number"</span>, flat_no).<span class="fn">execute</span>()
+    <span class="cm"># ... rest of complaint creation ...</span>
+    result = db.table(<span class="str">"complaints"</span>).<span class="fn">insert</span>(payload).<span class="fn">execute</span>()
+    <span class="kw">return</span> result.data[<span class="num">0</span>]
+
+<span class="cm"># In voice.py webhook, replace the httpx call with:</span>
+complaint = <span class="kw">await</span> <span class="fn">create_complaint_from_voice</span>(complaint_data, db)
+complaint_id = complaint[<span class="str">"id"</span>]</code></pre>
+      <p>This eliminates the HTTP call entirely. The service function uses the same <code>db</code> client that was injected into the webhook handler. No inter-worker communication, no network overhead, no timeout risk.</p>
+    </details>
+  </details>
+
+  <div class="nav-buttons">
+    <a href="module_10_openai_chatbot.html" class="nav-btn">← Module 10: AI Chatbot</a>
+    <a href="module_12_vapi_provisioning.html" class="nav-btn">Module 12: VAPI Provisioning →</a>
+  </div>
+
+</div>
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  document.querySelector('.theme-toggle').textContent = html.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+}
+function copyCode(btn) {
+  const code = btn.parentElement.querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(() => { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 2000); });
+}
+window.addEventListener('scroll', () => {
+  document.getElementById('backToTop').classList.toggle('visible', window.scrollY > 400);
+});
+const links = document.querySelectorAll('.sidebar a');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const id = e.target.getAttribute('id');
+      const active = document.querySelector(`.sidebar a[href="#${id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('h2[id], h3[id]').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 02 — Database Layer | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; transition: transform 0.3s; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin: 1rem 0; }
+    .resource-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .resource-card h4 { font-size: 0.9rem; margin-bottom: 0.4rem; color: var(--text-primary); }
+    .resource-card p { font-size: 0.8rem; margin: 0; }
+    .resource-card a { display: block; font-size: 0.8rem; margin-top: 0.3rem; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout-error { background: #f7768e11; border-left: 4px solid var(--error); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    @media print {
+      .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; }
+      .main-content { margin-left: 0 !important; }
+      body { color: #000; background: #fff; }
+      details, details > * { display: block; }
+      h2 { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 02</h3>
+  <div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 02 — Database Layer</strong></div>
+
+  <h1>Module 02 — Database Layer (Supabase SDK)</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 55 minutes</span>
+    <span>📁 Files: <code>app/db/session.py</code>, <code>app/db/models.py</code></span>
+    <span>🔰 Prerequisites: Modules 00, 01</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_01_fastapi_entry.html" class="nav-btn">← Previous: FastAPI Entry Point</a>
+    <a href="module_03_auth_jwt.html" class="nav-btn">Next: Auth &amp; JWT →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1" aria-label="Mark section 1 complete"><label for="chk-s1">Mark complete</label></div>
+
+  <p><code>session.py</code> is the gateway to the database. It creates two Supabase clients — one that respects Row Level Security (RLS) for user-facing routes, and one that bypasses it for webhooks and admin operations. Every route handler that reads or writes data gets one of these two clients injected via FastAPI's dependency system.</p>
+
+  <div class="diagram">
+Two clients created ONCE at module import time (singletons):
+
+┌─────────────────────────────────────────────────┐
+│  _anon_client  (uses SUPABASE_KEY)              │
+│  → Respects RLS                                 │
+│  → Used with get_authenticated_db (Module 03)   │
+│  → User sees only their own manager's data      │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│  _service_client  (uses SUPABASE_SERVICE_KEY)   │
+│  → Bypasses ALL RLS                             │
+│  → Used in webhooks (Stripe, VAPI)              │
+│  → Used in admin operations                     │
+│  → Sees ALL data across ALL managers            │
+└─────────────────────────────────────────────────┘
+  </div>
+
+  <!-- S2 -->
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2" aria-label="Mark section 2 complete"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>Row Level Security (RLS) — PostgreSQL's per-row access control</summary>
+    <p>Row Level Security is a PostgreSQL feature that adds a WHERE clause to every query automatically, based on who is running the query. When enabled on a table, a policy defines which rows each user can see or modify. Without RLS, every authenticated user can read every row in the database.</p>
+
+    <h4>How it works conceptually</h4>
+    <pre><code><span class="cm">-- Without RLS: any authenticated user can do this</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> complaints;  <span class="cm">-- returns ALL complaints from ALL managers</span>
+
+<span class="cm">-- With RLS policy: "manager_id = auth.uid()"</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> complaints;  <span class="cm">-- PostgreSQL silently adds:</span>
+<span class="cm">-- WHERE manager_id = '&lt;current user UUID&gt;'</span>
+<span class="cm">-- Returns only THIS manager's complaints</span></code></pre>
+
+    <h4>How <code>auth.uid()</code> gets the current user</h4>
+    <p>Supabase Auth sets a session-level variable <code>request.jwt.claims</code> that PostgreSQL can read via <code>auth.uid()</code>. When you call <code>db.postgrest.auth(token)</code> in Python, the anon client includes the JWT in every subsequent PostgREST request. PostgREST passes it to PostgreSQL as a session variable — and PostgreSQL's RLS policies read it via <code>auth.uid()</code>.</p>
+
+    <h4>The service-role key bypasses RLS entirely</h4>
+    <p>Supabase's service-role key carries a special JWT claim (<code>"role": "service_role"</code>) that PostgreSQL recognizes as a superuser bypass. RLS policies are simply not evaluated. This is what makes it dangerous — and why it must never reach the frontend.</p>
+
+    <details>
+      <summary>Try it yourself — see RLS in action</summary>
+      <p>In Supabase SQL editor, run:</p>
+      <pre><code><span class="cm">-- Enable RLS on a table</span>
+<span class="kw">ALTER TABLE</span> test_table <span class="kw">ENABLE ROW LEVEL SECURITY</span>;
+
+<span class="cm">-- Create a policy: users only see their own rows</span>
+<span class="kw">CREATE POLICY</span> own_rows <span class="kw">ON</span> test_table
+  <span class="kw">USING</span> (user_id = auth.uid());</code></pre>
+      <p><strong>Success:</strong> After applying the policy, querying via the anon key (with a user JWT) returns only rows where <code>user_id</code> matches the logged-in user. The service-role key still returns all rows.</p>
+    </details>
+  </details>
+
+  <details open>
+    <summary>Supabase Python SDK — PostgREST query builder</summary>
+    <p>The Supabase Python SDK wraps HTTP calls to the PostgREST REST API. You don't write SQL — you chain method calls that build a query. PostgREST translates them to SQL and runs them against PostgreSQL.</p>
+
+    <h4>Common query patterns (standalone example)</h4>
+    <pre><code><span class="kw">from</span> supabase <span class="kw">import</span> create_client
+
+db = create_client(<span class="str">"https://xxx.supabase.co"</span>, <span class="str">"your-key"</span>)
+
+<span class="cm"># SELECT * FROM complaints WHERE status = 'pending' ORDER BY created_at DESC</span>
+result = (
+    db.table(<span class="str">"complaints"</span>)
+    .select(<span class="str">"*"</span>)
+    .eq(<span class="str">"status"</span>, <span class="str">"pending"</span>)
+    .order(<span class="str">"created_at"</span>, desc=<span class="kw">True</span>)
+    .execute()
+)
+rows = result.data   <span class="cm"># list of dicts</span>
+
+<span class="cm"># INSERT INTO complaints (...) VALUES (...) RETURNING *</span>
+new = (
+    db.table(<span class="str">"complaints"</span>)
+    .insert({<span class="str">"flat_number"</span>: <span class="str">"101"</span>, <span class="str">"category"</span>: <span class="str">"water"</span>})
+    .execute()
+)
+created = new.data[<span class="num">0</span>]   <span class="cm"># the inserted row</span>
+
+<span class="cm"># UPDATE complaints SET status='resolved' WHERE uuid='...' RETURNING *</span>
+updated = (
+    db.table(<span class="str">"complaints"</span>)
+    .update({<span class="str">"status"</span>: <span class="str">"resolved"</span>})
+    .eq(<span class="str">"uuid"</span>, <span class="str">"some-uuid"</span>)
+    .execute()
+)
+
+<span class="cm"># DELETE FROM complaints WHERE uuid='...'</span>
+db.table(<span class="str">"complaints"</span>).delete().eq(<span class="str">"uuid"</span>, <span class="str">"some-uuid"</span>).execute()
+
+<span class="cm"># JOIN: select complaints with nested appointment data</span>
+result = (
+    db.table(<span class="str">"complaints"</span>)
+    .select(<span class="str">"*, appointments(*)"</span>)   <span class="cm"># nested select = JOIN</span>
+    .execute()
+)</code></pre>
+
+    <h4>Key methods reference</h4>
+    <table>
+      <thead><tr><th>Method</th><th>SQL equivalent</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>.select("*")</code></td><td><code>SELECT *</code></td><td>Comma-separated column names to limit fields</td></tr>
+        <tr><td><code>.eq("col", val)</code></td><td><code>WHERE col = val</code></td><td>Chain multiple for AND conditions</td></tr>
+        <tr><td><code>.ilike("col", "%val%")</code></td><td><code>WHERE col ILIKE '%val%'</code></td><td>Case-insensitive search</td></tr>
+        <tr><td><code>.in_("col", [a, b])</code></td><td><code>WHERE col IN (a, b)</code></td><td>Note the underscore — <code>in</code> is a Python keyword</td></tr>
+        <tr><td><code>.order("col", desc=True)</code></td><td><code>ORDER BY col DESC</code></td><td></td></tr>
+        <tr><td><code>.limit(n)</code></td><td><code>LIMIT n</code></td><td></td></tr>
+        <tr><td><code>.maybeSingle()</code></td><td><code>LIMIT 1</code></td><td>Returns <code>None</code> if no row, dict if one row, error if multiple</td></tr>
+        <tr><td><code>.execute()</code></td><td>(sends the HTTP request)</td><td>Must always be the final call</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-warning">
+      <p><strong>Always chain <code>.execute()</code> last.</strong> Without it, the query is never sent. The SDK is lazy — it builds the query object without running it until <code>.execute()</code> is called.</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Why NOT SQLAlchemy with Supabase</summary>
+    <p>SQLAlchemy is Python's most popular ORM. It lets you write Python code (not SQL) to query a database. So why doesn't this project use it?</p>
+
+    <p><strong>Problem 1: SQLAlchemy bypasses RLS.</strong> SQLAlchemy connects directly to PostgreSQL via a connection pool. It doesn't know anything about Supabase Auth, JWT tokens, or <code>auth.uid()</code>. Running a query via SQLAlchemy means RLS doesn't activate — you'd see all rows for all managers, not just the current user's data. You'd have to manually add <code>WHERE manager_id = ?</code> to every single query — which is exactly what RLS automates.</p>
+
+    <p><strong>Problem 2: Connection pooling conflicts.</strong> Supabase uses PgBouncer for connection pooling in transaction mode. SQLAlchemy's session-level configuration doesn't survive PgBouncer transaction mode, causing subtle failures.</p>
+
+    <p><strong>What <code>models.py</code> is doing here:</strong> It was written during the prototype phase when the app used SQLite locally. The current codebase never imports from <code>models.py</code> in any live route. It exists as a historical artifact and can be ignored.</p>
+  </details>
+
+  <!-- S3 -->
+  <h2 id="walkthrough">Section 3 — Line-by-Line Walkthrough</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3" aria-label="Mark section 3 complete"><label for="chk-s3">Mark complete</label></div>
+
+  <h3>File: <code>backend/app/db/session.py</code></h3>
+
+  <pre><code><span class="kw">from</span> supabase <span class="kw">import</span> create_client, Client
+<span class="kw">from</span> app.config <span class="kw">import</span> settings</code></pre>
+  <div class="line-exp"><code>Client</code> is the type hint for a Supabase client object. Importing it here lets you annotate function return types and use IDE autocomplete on the client object in route files.</div>
+
+  <pre><code><span class="kw">if not</span> settings.SUPABASE_URL <span class="kw">or not</span> settings.SUPABASE_KEY:
+    <span class="kw">raise</span> <span class="typ">ValueError</span>(<span class="str">"SUPABASE_URL and SUPABASE_KEY must be set in environment variables"</span>)</code></pre>
+  <div class="line-exp">This guard runs at module import time (i.e., when Uvicorn starts). If the env vars are missing, the server fails immediately with a clear error rather than crashing on the first database call with an opaque SDK error. <em>Fast fail</em> makes the root cause obvious.</div>
+
+  <pre><code>_anon_client: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)</code></pre>
+  <div class="line-exp"><code>create_client()</code> creates the Supabase client using the <strong>anon key</strong>. This client respects RLS. It's a module-level variable (created once at import time). The leading underscore in <code>_anon_client</code> signals "private to this module — access via the <code>get_db()</code> function, not directly."</div>
+
+  <pre><code>_service_client: Client | <span class="kw">None</span> = <span class="kw">None</span>
+<span class="kw">if</span> settings.SUPABASE_SERVICE_KEY:
+    _service_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)</code></pre>
+  <div class="line-exp">The service client is optional — it's only created if <code>SUPABASE_SERVICE_KEY</code> is set. This allows the app to run in limited mode without the service key (useful for read-only development). The <code>Client | None</code> type hint means it can be either a Client or None — routes that need the service client check for None and raise an error.</div>
+
+  <pre><code><span class="kw">def</span> <span class="fn">get_db</span>() -> Client:
+    <span class="kw">return</span> _anon_client
+
+<span class="kw">def</span> <span class="fn">get_service_db</span>() -> Client:
+    <span class="kw">if</span> _service_client <span class="kw">is None</span>:
+        <span class="kw">raise</span> <span class="typ">ValueError</span>(<span class="str">"SUPABASE_SERVICE_KEY is not configured"</span>)
+    <span class="kw">return</span> _service_client</code></pre>
+  <div class="line-exp">
+    These are <em>dependency functions</em> — they're passed to FastAPI's <code>Depends()</code> in route signatures. <code>get_db()</code> just returns the singleton anon client. <code>get_service_db()</code> guards against the service key being missing.
+    <br><br>
+    Why functions instead of exporting the variables directly? Because <code>Depends(get_db)</code> is how FastAPI knows to inject a DB client — it calls the function for you. Exporting <code>_anon_client</code> directly would work but would bypass FastAPI's dependency injection system and make testing harder.
+  </div>
+
+  <h3>File: <code>backend/app/db/models.py</code> — Why it exists but isn't used</h3>
+
+  <p>This file defines SQLAlchemy ORM models for the original schema. It was the database layer during the prototype. Notice that the models define tables that have since been replaced in Supabase:</p>
+
+  <pre><code><span class="kw">class</span> <span class="typ">Tenant</span>(Base):
+    __tablename__ = <span class="str">"tenants"</span>
+    id = Column(Integer, primary_key=<span class="kw">True</span>)         <span class="cm"># legacy int PK</span>
+    name = Column(String(<span class="num">100</span>), nullable=<span class="kw">False</span>)
+    phone = Column(String(<span class="num">20</span>), unique=<span class="kw">True</span>, nullable=<span class="kw">False</span>)
+    unit_id = Column(Integer, ForeignKey(<span class="str">"units.id"</span>))
+    <span class="cm"># ... etc</span></code></pre>
+  <div class="line-exp">The live Supabase tenants table uses <code>uuid</code> as the primary key (not <code>id</code>), has <code>flat_uuid</code> instead of <code>unit_id</code>, and has many more fields. <strong>Never use these model classes in new code.</strong> They're kept here because removing them would require updating the Alembic migration history — a low-priority cleanup task.</div>
+
+  <!-- S4 -->
+  <h2 id="design">Section 4 — Why This Design</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4" aria-label="Mark section 4 complete"><label for="chk-s4">Mark complete</label></div>
+
+  <h3>Decision: Two global clients vs. one client per request</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>Two module-level singletons (chosen)</td><td>Zero connection overhead per request; predictable memory; simple</td><td>Thread-safety concern (mitigated because postgrest.auth() is called per-request in get_authenticated_db)</td></tr>
+      <tr><td>New client per request</td><td>Perfect isolation; no shared state concerns</td><td>Supabase client creation is slow (DNS lookup, SSL handshake); 100 req/s = 100 clients created/destroyed</td></tr>
+      <tr><td>Connection pool (SQLAlchemy)</td><td>Efficient; well-tested; battle-hardened</td><td>Bypasses RLS; conflict with Supabase's PgBouncer; requires manual WHERE manager_id</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-info">
+    <p><strong>The key insight:</strong> The anon client singleton is safe because <code>get_authenticated_db</code> (Module 03) calls <code>db.postgrest.auth(token)</code> on every request — this sets the JWT for that request's PostgREST calls only. It's effectively per-request scoping even with a shared client object.</p>
+  </div>
+
+  <h3>Decision: Supabase SDK vs. direct PostgreSQL (psycopg2/asyncpg)</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>Supabase SDK (chosen)</td><td>RLS automatic; Storage + Auth same SDK; simpler for CRUD</td><td>HTTP overhead vs. raw PostgreSQL; limited query expressiveness</td></tr>
+      <tr><td>asyncpg / psycopg3</td><td>Full SQL power; async-native; fastest Python PostgreSQL driver</td><td>Must implement RLS token passing manually; must manage connection pool</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S5 -->
+  <h2 id="data-flow">Section 5 — How It Connects</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5" aria-label="Mark section 5 complete"><label for="chk-s5">Mark complete</label></div>
+
+  <div class="diagram">
+  session.py
+  │
+  ├── get_db() → _anon_client
+  │       │
+  │       └──► get_authenticated_db (Module 03)
+  │                   │  calls db.postgrest.auth(jwt_token)
+  │                   └──► injected into user-facing routes
+  │                        (complaints, flats, tenants, buildings, ...)
+  │
+  └── get_service_db() → _service_client
+              │
+              └──► webhooks: voice.py, payments.py
+              └──► admin: vapi_provisioning.py
+              └──► subscription checks: subscription.py
+  </div>
+
+  <p><strong>Data flowing IN:</strong> <code>settings.SUPABASE_URL</code> and <code>settings.SUPABASE_KEY / SUPABASE_SERVICE_KEY</code> — the connection credentials from config.py.</p>
+  <p><strong>Data flowing OUT:</strong> Two <code>Client</code> objects that all route handlers depend on. The anon client is always used via <code>get_authenticated_db()</code> (never directly). The service client is used directly in webhook routes and admin operations.</p>
+
+  <!-- S6 -->
+  <h2 id="running">Section 6 — Running &amp; Testing</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6" aria-label="Mark section 6 complete"><label for="chk-s6">Mark complete</label></div>
+
+  <pre><code><span class="cm"># Test the DB connection directly from a Python shell</span>
+cd backend
+python -c <span class="str">"
+from app.db.session import get_service_db
+db = get_service_db()
+result = db.table('manager_profiles').select('user_id').limit(1).execute()
+print('DB connected:', result.data)
+"</span></code></pre>
+
+  <p><strong>Expected output:</strong> <code>DB connected: []</code> (empty list if no profiles yet) or <code>DB connected: [{'user_id': 'some-uuid'}]</code>.</p>
+
+  <table>
+    <thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td><code>ValueError: SUPABASE_URL and SUPABASE_KEY must be set</code></td><td>Missing env vars</td><td>Check <code>backend/.env</code> exists and has the correct keys</td></tr>
+      <tr><td><code>postgrest.exceptions.APIError: relation "x" does not exist</code></td><td>Table not created in Supabase yet</td><td>Run the migration SQL in Supabase SQL Editor</td></tr>
+      <tr><td><code>ConnectionError</code> or timeout</td><td>SUPABASE_URL is wrong or Supabase project is paused</td><td>Check the URL; unpause the project in Supabase dashboard</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S7 -->
+  <h2 id="checkpoint">Section 7 — Checkpoint ✓</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7" aria-label="Mark section 7 complete"><label for="chk-s7">Mark complete</label></div>
+
+  <div class="card card-success">
+    <h3>Test both clients</h3>
+    <pre><code><span class="cm"># Run from backend/ directory with venv active</span>
+python -c <span class="str">"
+from app.db.session import get_db, get_service_db
+anon = get_db()
+svc = get_service_db()
+print('Anon client:', type(anon).__name__)
+print('Service client:', type(svc).__name__)
+print('Both created successfully')
+"</span></code></pre>
+    <p><strong>Expected output:</strong></p>
+    <pre><code>Anon client: Client
+Service client: Client
+Both created successfully</code></pre>
+    <p>This confirms both Supabase keys are valid and both clients were created without errors.</p>
+  </div>
+
+  <!-- S8 -->
+  <h2 id="exercises">Section 8 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s8" aria-label="Mark section 8 complete"><label for="chk-s8">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Write a function that fetches a row by UUID</summary>
+    <p><strong>Problem:</strong> Write a standalone Python function <code>get_complaint(db, uuid: str) -> dict | None</code> that fetches a single complaint by UUID and returns it as a dict, or <code>None</code> if not found.</p>
+    <details>
+      <summary>Hints</summary>
+      <p>Use <code>.maybeSingle()</code> instead of <code>.execute()</code> — it returns <code>None</code> if no row is found, instead of an empty list. Filter with <code>.eq("uuid", uuid)</code>.</p>
+    </details>
+    <details>
+      <summary>Solution</summary>
+      <pre><code><span class="kw">from</span> supabase <span class="kw">import</span> Client
+
+<span class="kw">def</span> <span class="fn">get_complaint</span>(db: Client, uuid: <span class="typ">str</span>) -> <span class="typ">dict</span> | <span class="kw">None</span>:
+    result = (
+        db.table(<span class="str">"complaints"</span>)
+        .select(<span class="str">"*"</span>)
+        .eq(<span class="str">"uuid"</span>, uuid)
+        .maybeSingle()
+        .execute()
+    )
+    <span class="kw">return</span> result.data   <span class="cm"># None or dict</span></code></pre>
+      <p><strong>Success:</strong> calling with a valid UUID returns a dict; calling with a non-existent UUID returns <code>None</code> (not an empty list, not an error).</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Add a third client function for read-only access</summary>
+    <p><strong>Problem:</strong> Add a <code>get_readonly_db()</code> function in <code>session.py</code> that returns the anon client but raises an error if someone tries to call <code>.insert()</code>, <code>.update()</code>, or <code>.delete()</code> on it. This is a conceptual exercise — implement it using Python's <code>__getattr__</code> wrapping.</p>
+    <details>
+      <summary>Hints</summary>
+      <p>Create a wrapper class that proxies all attribute access to the underlying client but intercepts <code>.table()</code> and returns a restricted table object that blocks mutation methods.</p>
+    </details>
+    <details>
+      <summary>Solution</summary>
+      <pre><code><span class="kw">class</span> <span class="typ">ReadOnlyClient</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, client: Client):
+        self._client = client
+
+    <span class="kw">def</span> <span class="fn">table</span>(self, name: <span class="typ">str</span>):
+        tbl = self._client.table(name)
+        <span class="kw">def</span> <span class="fn">block</span>(*args, **kwargs):
+            <span class="kw">raise</span> PermissionError(<span class="str">"Read-only client — mutations not allowed"</span>)
+        tbl.insert = block
+        tbl.update = block
+        tbl.delete = block
+        <span class="kw">return</span> tbl
+
+<span class="kw">def</span> <span class="fn">get_readonly_db</span>() -> <span class="typ">ReadOnlyClient</span>:
+    <span class="kw">return</span> ReadOnlyClient(_anon_client)</code></pre>
+      <p><strong>Success:</strong> <code>get_readonly_db().table("x").select("*").execute()</code> works; <code>get_readonly_db().table("x").insert({}).execute()</code> raises <code>PermissionError</code>.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Implement a query helper with automatic RLS token injection</summary>
+    <p><strong>Problem:</strong> Currently, every route that uses the anon client must first call <code>get_authenticated_db</code> (which sets the JWT). Write a context manager <code>with_rls(token: str)</code> that temporarily injects the JWT into the anon client and removes it after:</p>
+    <pre><code><span class="kw">with</span> with_rls(token) <span class="kw">as</span> db:
+    result = db.table(<span class="str">"complaints"</span>).select(<span class="str">"*"</span>).execute()</code></pre>
+    <details>
+      <summary>Hints</summary>
+      <p>Use <code>contextlib.contextmanager</code>. Call <code>_anon_client.postgrest.auth(token)</code> on enter, and clear it (<code>auth(None)</code>) on exit. Use a <code>try/finally</code> to ensure cleanup even on exceptions.</p>
+    </details>
+    <details>
+      <summary>Solution</summary>
+      <pre><code><span class="kw">from</span> contextlib <span class="kw">import</span> contextmanager
+
+<span class="dec">@contextmanager</span>
+<span class="kw">def</span> <span class="fn">with_rls</span>(token: <span class="typ">str</span>):
+    _anon_client.postgrest.auth(token)
+    <span class="kw">try</span>:
+        <span class="kw">yield</span> _anon_client
+    <span class="kw">finally</span>:
+        _anon_client.postgrest.auth(<span class="kw">None</span>)   <span class="cm"># always clear token</span></code></pre>
+      <p><strong>Note:</strong> This approach has a race condition in async code — two concurrent requests could overwrite each other's tokens. The project avoids this by using FastAPI's <code>Depends(get_authenticated_db)</code> which calls <code>auth(token)</code> per request before each query chain. This exercise is conceptual — the context manager pattern is cleaner but breaks under concurrency.</p>
+      <p><strong>Success:</strong> The context manager sets the auth token on entry and clears it on exit, even if an exception occurs inside the block.</p>
+    </details>
+  </details>
+
+  <!-- S9 -->
+  <h2 id="glossary">Section 9 — Glossary</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s9" aria-label="Mark section 9 complete"><label for="chk-s9">Mark complete</label></div>
+
+  <table>
+    <thead><tr><th>Term</th><th>Definition</th><th>First used in</th></tr></thead>
+    <tbody>
+      <tr><td>Row Level Security (RLS)</td><td>PostgreSQL feature that adds per-row access controls based on the current user's identity</td><td>Section 2</td></tr>
+      <tr><td><code>auth.uid()</code></td><td>PostgreSQL function that returns the current user's UUID from the JWT claim</td><td>Section 2</td></tr>
+      <tr><td>Anon key</td><td>Supabase public key — respects RLS, safe to use in authenticated routes</td><td>Section 2</td></tr>
+      <tr><td>Service-role key</td><td>Supabase private key — bypasses RLS, must never reach the frontend</td><td>Section 2</td></tr>
+      <tr><td>PostgREST</td><td>REST API layer that Supabase puts in front of PostgreSQL; translates HTTP requests to SQL</td><td>Section 2</td></tr>
+      <tr><td>Singleton</td><td>Object created exactly once and reused globally</td><td>Section 3</td></tr>
+      <tr><td><code>.maybeSingle()</code></td><td>PostgREST modifier that returns None (not empty list) when no row matches</td><td>Exercise 1</td></tr>
+      <tr><td>ORM</td><td>Object-Relational Mapper — library that maps database tables to Python classes (SQLAlchemy is an ORM)</td><td>Section 2</td></tr>
+      <tr><td>PgBouncer</td><td>PostgreSQL connection pooler used by Supabase to limit DB connections</td><td>Section 2</td></tr>
+      <tr><td>Dependency injection</td><td>Pattern where a component's dependencies are passed in from outside rather than created internally</td><td>Section 3</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S10 -->
+  <h2 id="resources">Section 10 — Resources</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s10" aria-label="Mark section 10 complete"><label for="chk-s10">Mark complete</label></div>
+
+  <div class="resource-grid">
+    <div class="resource-card">
+      <h4>Supabase Python SDK</h4>
+      <a href="https://supabase.com/docs/reference/python/introduction" target="_blank" rel="noopener">Python SDK reference</a>
+      <a href="https://github.com/supabase-community/supabase-py" target="_blank" rel="noopener">GitHub — supabase-py</a>
+      <p>The reference docs list every method with examples. Essential for working with the SDK.</p>
+    </div>
+    <div class="resource-card">
+      <h4>Row Level Security</h4>
+      <a href="https://supabase.com/docs/guides/database/postgres/row-level-security" target="_blank" rel="noopener">Supabase RLS guide</a>
+      <a href="https://www.postgresql.org/docs/current/ddl-rowsecurity.html" target="_blank" rel="noopener">PostgreSQL RLS docs</a>
+      <p>Supabase's guide has real-world policy examples. PostgreSQL docs explain the internals.</p>
+    </div>
+    <div class="resource-card">
+      <h4>PostgREST</h4>
+      <a href="https://postgrest.org/en/stable/references/api.html" target="_blank" rel="noopener">PostgREST API reference</a>
+      <a href="https://supabase.com/docs/guides/database/api" target="_blank" rel="noopener">Supabase — Using the API</a>
+      <p>Understanding PostgREST helps you debug queries and understand what the SDK generates under the hood.</p>
+    </div>
+    <div class="resource-card">
+      <h4>SQLAlchemy (for comparison)</h4>
+      <a href="https://docs.sqlalchemy.org/en/20/" target="_blank" rel="noopener">SQLAlchemy 2.0 docs</a>
+      <a href="https://realpython.com/python-sqlalchemy/" target="_blank" rel="noopener">Real Python — SQLAlchemy tutorial</a>
+      <p>Read to understand why it's powerful — and why it doesn't fit here.</p>
+    </div>
+    <div class="resource-card">
+      <h4>PostgreSQL Fundamentals</h4>
+      <a href="https://www.postgresql.org/docs/current/sql-createpolicy.html" target="_blank" rel="noopener">CREATE POLICY syntax</a>
+      <a href="https://pgexercises.com/" target="_blank" rel="noopener">pgexercises.com</a>
+      <p>Understanding SQL policies at the PostgreSQL level makes RLS debugging much easier.</p>
+    </div>
+    <div class="resource-card">
+      <h4>FastAPI Dependency Injection</h4>
+      <a href="https://fastapi.tiangolo.com/tutorial/dependencies/" target="_blank" rel="noopener">FastAPI dependencies tutorial</a>
+      <a href="https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/" target="_blank" rel="noopener">Dependencies with yield</a>
+      <p>The dependencies tutorial explains how <code>Depends(get_db)</code> works — critical for Module 03.</p>
+    </div>
+  </div>
+
+  <!-- S11 -->
+  <h2 id="whats-next">Section 11 — What's Next</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s11" aria-label="Mark section 11 complete"><label for="chk-s11">Mark complete</label></div>
+
+  <p><a href="module_03_auth_jwt.html">Module 03 — Authentication &amp; JWT</a> shows how the anon client gets the JWT token injected — turning the shared singleton into a per-user-scoped database client that makes RLS work correctly for every request.</p>
+
+  <div class="card card-info">
+    <button id="markCompleteBtn" onclick="markModuleComplete()" style="background: var(--accent); color: var(--bg-primary); border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius); cursor: pointer; font-size: 1rem; font-weight: 600;">
+      ✓ Mark Module 02 Complete
+    </button>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_01_fastapi_entry.html" class="nav-btn">← Previous: FastAPI Entry Point</a>
+    <a href="module_03_auth_jwt.html" class="nav-btn">Next: Auth &amp; JWT →</a>
+  </div>
+</div></div>
+
+<script>
+  const html = document.documentElement;
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  html.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next); localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach((h, i) => {
+    if (!h.id) h.id = 'sec-' + i;
+    const a = document.createElement('a'); a.href = '#' + h.id;
+    a.textContent = h.textContent.replace(/^Section \d+ — /, ''); toc.appendChild(a);
+  });
+  const tocLinks = toc.querySelectorAll('a');
+  new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.isIntersecting) { tocLinks.forEach(l => l.classList.remove('active'));
+      const a = toc.querySelector(`a[href="#${e.target.id}"]`); if (a) a.classList.add('active'); }
+  }), { rootMargin: '-10% 0px -70% 0px' }).observe ? document.querySelectorAll('h2').forEach(h => {
+    const obs = new IntersectionObserver(entries => entries.forEach(e => {
+      if (e.isIntersecting) { tocLinks.forEach(l => l.classList.remove('active'));
+        const a = toc.querySelector(`a[href="#${e.target.id}"]`); if (a) a.classList.add('active'); }
+    }), { rootMargin: '-10% 0px -70% 0px' }); obs.observe(h);
+  }) : null;
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button'); btn.className = 'copy-btn'; btn.textContent = 'Copy';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.addEventListener('click', () => { const c = pre.querySelector('code');
+      navigator.clipboard.writeText(c ? c.innerText : pre.innerText).then(() => { btn.textContent = '✓'; setTimeout(() => btn.textContent = 'Copy', 2000); }); });
+    pre.appendChild(btn);
+  });
+  const topBtn = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => topBtn.classList.toggle('visible', window.scrollY > 400));
+  topBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const MODULE_KEY = 'module_02_progress';
+  const checks = document.querySelectorAll('.section-check input[type="checkbox"]');
+  const fill = document.getElementById('progressFill');
+  const sp = JSON.parse(localStorage.getItem(MODULE_KEY) || '{}');
+  checks.forEach(cb => { if (sp[cb.id]) cb.checked = true;
+    cb.addEventListener('change', () => { sp[cb.id] = cb.checked; localStorage.setItem(MODULE_KEY, JSON.stringify(sp)); upd(); }); });
+  function upd() { const t = checks.length, d = [...checks].filter(c => c.checked).length; fill.style.width = t ? (d/t*100)+'%' : '0%'; }
+  upd();
+  function markModuleComplete() {
+    const c = JSON.parse(localStorage.getItem('completed_modules') || '[]');
+    if (!c.includes('02')) c.push('02'); localStorage.setItem('completed_modules', JSON.stringify(c));
+    checks.forEach(cb => { cb.checked = true; sp[cb.id] = true; }); localStorage.setItem(MODULE_KEY, JSON.stringify(sp)); upd();
+    document.getElementById('markCompleteBtn').textContent = '✓ Complete!';
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 12 — VAPI Agent Configuration &amp; Provisioning | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-warn { border-left: 4px solid var(--warning); }
+    .card-error { border-left: 4px solid var(--error); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .flow-diagram { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin: 1rem 0; font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-secondary); line-height: 2; }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h3>Module 12</h3>
+  <a href="#overview">Architecture Overview</a>
+  <a href="#agent-types">Two Agent Types</a>
+  <a href="#tool-types">apiRequest vs function Tools</a>
+  <a href="#server-messages">server_messages Trap</a>
+  <a href="#voice-config">Voice &amp; Transcriber Config</a>
+  <a href="#bilingual">Bilingual Language Policy</a>
+  <a href="#provisioning">Provisioning Flow</a>
+  <a href="#pool">Twilio Number Pool</a>
+  <a href="#race-guard">Race Condition Guard</a>
+  <a href="#sdk-bug">SDK Bug — httpx Workaround</a>
+  <a href="#background-task">BackgroundTask DB Client</a>
+  <a href="#deploy-scripts">Deploy Scripts</a>
+  <a href="#bugs">Bugs &amp; Fixes</a>
+  <a href="#exercises">Exercises</a>
+  <br>
+  <h3>All Modules</h3>
+  <a href="module_11_vapi_webhook.html">← 11: VAPI Webhook</a>
+  <a href="module_13_notifications.html">13: Notifications →</a>
+</nav>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<div class="main-content">
+<div class="container">
+
+  <div class="breadcrumbs">
+    <a href="index.html">Home</a> › Part C — AI &amp; Voice Integration › Module 12
+  </div>
+
+  <h1>Module 12 — VAPI Agent Configuration &amp; Provisioning</h1>
+  <p><strong>Part C — AI &amp; Voice Integration</strong> &nbsp;|&nbsp; Build Session 3</p>
+
+  <div class="progress-bar"><div class="progress-fill" style="width: 46%"></div></div>
+  <p style="font-size:0.85rem; color: var(--text-muted)">Module 12 of 26 — 46% through the course</p>
+
+  <div class="card card-info">
+    <strong>Learner outcome:</strong> Can configure a VAPI assistant programmatically, provision per-manager phone numbers from a pool, and handle race conditions in background tasks.
+  </div>
+
+  <p><strong>Source files:</strong> <code>backend/app/services/vapi_agent_config.py</code>, <code>backend/app/services/vapi_provisioning.py</code>, <code>backend/scripts/update_lease_agents.py</code></p>
+
+  <h2 id="overview">Architecture Overview</h2>
+
+  <div class="flow-diagram">Manager signs up → Google OAuth → creates first property group
+                                         ↓
+                                  POST /property-groups
+                                         ↓
+                          (first group only) → BackgroundTask
+                                         ↓
+                          provision_vapi_for_manager(manager_id, db)
+                                         ↓
+                    ┌──────────────────────────────────────────┐
+                    │  1. Check if already active → skip if yes │
+                    │  2. Claim a Twilio number from pool       │
+                    │  3. Create VAPI assistant (per-manager)   │
+                    │  4. Link number to assistant (httpx PATCH)│
+                    │  5. Save to manager_vapi_config           │
+                    └──────────────────────────────────────────┘
+                                         ↓
+                          manager_vapi_config.status = "active"
+                                         ↓
+                    LeasingTab shows: "Your lease line: +1 (613) 555-1234"</div>
+
+  <h2 id="agent-types">Two Agent Types</h2>
+
+  <table>
+    <tr><th></th><th>Complaint Agent</th><th>Lease Agent</th></tr>
+    <tr><td>Purpose</td><td>Existing tenants → maintenance requests</td><td>Prospective tenants → lead capture</td></tr>
+    <tr><td>Scope</td><td>Global — one agent for all managers</td><td>Per-manager — each manager gets their own</td></tr>
+    <tr><td>Phone number</td><td><code>+14382314283</code> (fixed)</td><td>From Twilio pool (provisioned on signup)</td></tr>
+    <tr><td>Config function</td><td><code>build_complaint_config(backend_url)</code></td><td><code>build_lease_config(backend_url, manager_id)</code></td></tr>
+    <tr><td>server_messages</td><td><code>["end-of-call-report", "tool-calls"]</code></td><td><code>["end-of-call-report"]</code> only</td></tr>
+    <tr><td>Webhook</td><td><code>POST /voice/webhook</code></td><td><code>POST /voice/lease-eoc-webhook</code></td></tr>
+    <tr><td>Tools</td><td>Verify_phone_number, submit_complaint, view/update/cancel appointments</td><td>find_listing, search_available_listings, submit_lease_lead</td></tr>
+  </table>
+
+  <h2 id="tool-types">apiRequest vs function Tools</h2>
+
+  <p>VAPI supports two types of tools. Understanding the difference is critical:</p>
+
+  <table>
+    <tr><th>Type</th><th>How it works</th><th>When to use</th></tr>
+    <tr><td><code>apiRequest</code></td><td>VAPI calls your endpoint directly during the call. The agent waits for the HTTP response and uses it in the conversation.</td><td>Fast lookups: verify phone, check availability, fetch appointments, search listings</td></tr>
+    <tr><td><code>function</code> (webhook)</td><td>VAPI fires a webhook event (<code>tool-calls</code>) to the server_messages URL. The agent does NOT wait — it continues speaking. Your server processes asynchronously.</td><td>Slow writes: submit_complaint (creates DB records, fires notifications)</td></tr>
+  </table>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># apiRequest tool — agent waits for this response</span>
+{
+    <span class="str">"type"</span>: <span class="str">"apiRequest"</span>,
+    <span class="str">"name"</span>: <span class="str">"Verify_phone_number"</span>,
+    <span class="str">"async"</span>: <span class="kw">False</span>,
+    <span class="str">"url"</span>: <span class="fn">f</span><span class="str">"{backend_url}/flats/verify-phone?phone_number={{{{customer.number}}}}"</span>,
+    <span class="str">"method"</span>: <span class="str">"POST"</span>,
+    <span class="str">"body"</span>: { <span class="str">"type"</span>: <span class="str">"object"</span>, <span class="str">"required"</span>: [<span class="str">"flat_number"</span>], ... },
+    <span class="str">"variableExtractionPlan"</span>: {   <span class="cm"># tells VAPI which fields to pull from response</span>
+        <span class="str">"schema"</span>: {
+            <span class="str">"properties"</span>: {
+                <span class="str">"result"</span>: {<span class="str">"type"</span>: <span class="str">"string"</span>},
+                <span class="str">"status"</span>: {<span class="str">"type"</span>: <span class="str">"string"</span>},
+                <span class="str">"datetime"</span>: {<span class="str">"type"</span>: <span class="str">"string"</span>},
+            }
+        }
+    }
+}
+
+<span class="cm"># function/webhook tool — agent fires and forgets</span>
+{
+    <span class="str">"type"</span>: <span class="str">"function"</span>,
+    <span class="str">"async"</span>: <span class="kw">True</span>,
+    <span class="str">"function"</span>: {
+        <span class="str">"name"</span>: <span class="str">"submit_complaint"</span>,
+        <span class="str">"strict"</span>: <span class="kw">True</span>,   <span class="cm"># enforces all required params are present</span>
+        <span class="str">"parameters"</span>: { ... },
+    },
+    <span class="str">"server"</span>: {
+        <span class="str">"url"</span>: <span class="fn">f</span><span class="str">"{backend_url}/voice/webhook"</span>,
+        <span class="str">"timeoutSeconds"</span>: <span class="num">20</span>,
+    }
+}</code></pre>
+
+  <p>The <code>{{{{customer.number}}}}</code> double-brace syntax is VAPI's template variable injection. VAPI replaces <code>{{customer.number}}</code> with the actual caller's phone number at call time. In Python f-strings, curly braces must be doubled to escape them: <code>{{{{</code> → <code>{{</code> → VAPI template.</p>
+
+  <h2 id="server-messages">The server_messages Trap</h2>
+
+  <div class="card card-error">
+    <strong>Critical bug that cost hours to debug:</strong><br><br>
+    <strong>Lease agent config must have <code>server_messages: ["end-of-call-report"]</code> ONLY.</strong><br><br>
+    If you add <code>"tool-calls"</code> to this list, VAPI will fire a webhook event every time ANY tool is called. The lease agent calls <code>search_available_listings</code> and <code>find_listing</code> as <code>apiRequest</code> tools during the call. Adding <code>tool-calls</code> to server_messages causes VAPI to also fire a server event for these — and when our webhook receives a <code>tool-calls</code> event, it looks for <code>submit_lease_lead</code> (not found), and returns an unexpected response that VAPI interprets as a tool failure. This silently breaks all lease agent tools.<br><br>
+    <strong>Complaint agent:</strong> Needs <code>["end-of-call-report", "tool-calls"]</code> because <code>submit_complaint</code> is a <code>function</code> type tool that fires via server events.<br><br>
+    <strong>Lease agent:</strong> <code>["end-of-call-report"]</code> only. All lease tools are <code>apiRequest</code> type — they don't use the server_messages channel at all.
+  </div>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># Complaint agent — needs tool-calls for submit_complaint webhook</span>
+<span class="str">"server_messages"</span>: [<span class="str">"end-of-call-report"</span>, <span class="str">"tool-calls"</span>],
+
+<span class="cm"># Lease agent — ONLY end-of-call-report (all tools are apiRequest)</span>
+<span class="str">"server_messages"</span>: [<span class="str">"end-of-call-report"</span>],  <span class="cm"># DO NOT ADD "tool-calls" HERE</span></code></pre>
+
+  <h2 id="voice-config">Voice &amp; Transcriber Configuration</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">TRANSCRIBER_CONFIG = {
+    <span class="str">"provider"</span>: <span class="str">"deepgram"</span>,
+    <span class="str">"model"</span>: <span class="str">"nova-3"</span>,
+    <span class="str">"language"</span>: <span class="str">"multi"</span>,         <span class="cm"># auto-detects English AND French</span>
+    <span class="str">"numerals"</span>: <span class="kw">True</span>,             <span class="cm"># transcribes "two" as "2" — better for flat numbers</span>
+    <span class="str">"confidenceThreshold"</span>: <span class="num">0.4</span>,   <span class="cm"># lower threshold = fewer missed words</span>
+    <span class="str">"fallbackPlan"</span>: {
+        <span class="str">"transcribers"</span>: [{
+            <span class="str">"provider"</span>: <span class="str">"openai"</span>,
+            <span class="str">"model"</span>: <span class="str">"gpt-4o-transcribe"</span>,   <span class="cm"># backup if Deepgram fails</span>
+        }]
+    },
+}
+
+VOICE_CONFIG = {
+    <span class="str">"provider"</span>: <span class="str">"11labs"</span>,
+    <span class="str">"voiceId"</span>: <span class="str">"E4GQ42zEV1kwul03Bl16"</span>,    <span class="cm"># Wilkins — bilingual EN/FR voice</span>
+    <span class="str">"model"</span>: <span class="str">"eleven_turbo_v2_5"</span>,          <span class="cm"># lowest latency ElevenLabs model</span>
+    <span class="str">"stability"</span>: <span class="num">0.6</span>,
+    <span class="str">"useSpeakerBoost"</span>: <span class="kw">True</span>,
+    <span class="str">"optimizeStreamingLatency"</span>: <span class="num">1</span>,        <span class="cm"># 1 = moderate optimization</span>
+}</code></pre>
+
+  <table>
+    <tr><th>Config choice</th><th>Why</th></tr>
+    <tr><td>Deepgram nova-3 with "multi" language</td><td>Handles both English and French callers in the same call without needing to switch transcribers. Critical for Quebec market.</td></tr>
+    <tr><td>numerals: True</td><td>Flat numbers like "A-101" are spoken aloud. Without numerals mode, "A one hundred and one" might be transcribed incorrectly.</td></tr>
+    <tr><td>confidenceThreshold: 0.4</td><td>Lower threshold means more words are accepted even if Deepgram is uncertain. Phone audio quality varies — higher threshold drops too many legitimate words.</td></tr>
+    <tr><td>ElevenLabs eleven_turbo_v2_5</td><td>Lowest latency ElevenLabs model — essential for a responsive voice conversation. Standard models have 400-800ms TTS latency; turbo v2.5 is ~100-200ms.</td></tr>
+    <tr><td>voiceId E4GQ42zEV1kwul03Bl16</td><td>Wilkins — a bilingual voice that sounds natural in both English and French without switching voice providers.</td></tr>
+    <tr><td>waitSeconds: 0.1</td><td>Start speaking after 0.1s of silence. Lower = more responsive. Too low and the agent cuts in while the caller is still thinking.</td></tr>
+    <tr><td>stopSpeakingPlan numWords: 2</td><td>Agent stops speaking if the caller interrupts with 2+ words. Allows natural barge-in behavior.</td></tr>
+  </table>
+
+  <h2 id="bilingual">Bilingual Language Policy</h2>
+
+  <p>The system serves Canadian tenants who may speak English or Quebec French. The language policy is enforced through the system prompt:</p>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button">first_message = <span class="str">"Hi, thanks for calling — this is Alex. What's your flat number? / Bonjour, merci d'appeler — je suis Alex. Quel est votre numéro d'appartement?"</span>
+
+<span class="cm"># System prompt language rules (critical section):</span>
+"""
+Once the caller speaks their first word, detect their language and lock to it:
+  - Caller speaks English → respond in ENGLISH ONLY for all remaining turns
+  - Caller speaks French  → respond in FRENCH ONLY for all remaining turns
+  - Language unclear      → ask "Would you prefer English or French? / Préférez-vous l'anglais ou le français?" then lock
+
+After language is detected, FORBIDDEN in ALL responses:
+  - Mixing English and French in the same sentence
+  - Appending a translation (e.g. "Thank you. / Merci.")
+  - Switching language mid-call for any reason
+
+Tool data rule:
+  - All text values submitted to tools must be in English
+  - If the caller described something in French, silently translate before calling any tool
+"""</code></pre>
+
+  <div class="card card-info">
+    <strong>Why translate to English before tool calls?</strong> The backend validates <code>category</code> against <code>ALLOWED_CATEGORIES = ["water", "electricity", ...]</code>. If the caller says "il y a une fuite d'eau" and the agent submits <code>category: "eau"</code>, the DB check constraint rejects it. The agent silently translates "eau" → "water" before submitting the tool call.
+  </div>
+
+  <h2 id="provisioning">Provisioning Flow — provision_vapi_for_manager()</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="kw">def</span> <span class="fn">provision_vapi_for_manager</span>(manager_id: str, db: <span class="typ">Client</span>) -> <span class="kw">None</span>:
+    <span class="kw">from</span> vapi <span class="kw">import</span> Vapi
+    <span class="kw">from</span> app.config <span class="kw">import</span> settings
+    <span class="kw">from</span> app.services.vapi_agent_config <span class="kw">import</span> build_lease_config
+
+    svc_db = <span class="fn">get_service_db</span>()     <span class="cm"># IMPORTANT: fresh service DB, not request-scoped</span>
+    client = <span class="fn">Vapi</span>(token=settings.PRIVATE_VAPI_API)
+
+    <span class="kw">try</span>:
+        <span class="cm"># Guard 1: Already active → skip entirely</span>
+        existing = svc_db.table(<span class="str">"manager_vapi_config"</span>).<span class="fn">select</span>(...)<span class="fn">.eq</span>(<span class="str">"manager_id"</span>, manager_id).<span class="fn">execute</span>()
+        <span class="kw">if</span> existing.data <span class="kw">and</span> existing.data[<span class="num">0</span>].<span class="fn">get</span>(<span class="str">"vapi_provisioning_status"</span>) == <span class="str">"active"</span>:
+            <span class="fn">print</span>(<span class="fn">f</span><span class="str">"[VAPI PROVISION] Manager {manager_id} already active, skipping"</span>)
+            <span class="kw">return</span>
+
+        existing_assistant_id = existing.data[<span class="num">0</span>].<span class="fn">get</span>(<span class="str">"vapi_lease_assistant_id"</span>) <span class="kw">if</span> existing.data <span class="kw">else None</span>
+
+        <span class="cm"># Guard 2: Already claimed a pool number (retry scenario)</span>
+        already_claimed = svc_db.table(<span class="str">"twilio_number_pool"</span>).<span class="fn">select</span>(...)<span class="fn">.eq</span>(<span class="str">"assigned_manager_id"</span>, manager_id).<span class="fn">execute</span>()
+        <span class="kw">if</span> already_claimed.data:
+            pool_row = already_claimed.data[<span class="num">0</span>]
+            <span class="fn">print</span>(<span class="fn">f</span><span class="str">"[VAPI PROVISION] Manager {manager_id} already has pool row, reusing"</span>)
+        <span class="kw">else</span>:
+            <span class="cm"># Claim the oldest available number</span>
+            pool_resp = svc_db.table(<span class="str">"twilio_number_pool"</span>).<span class="fn">select</span>(...)<span class="fn">.eq</span>(<span class="str">"status"</span>, <span class="str">"available"</span>).<span class="fn">order</span>(<span class="str">"created_at"</span>).<span class="fn">limit</span>(<span class="num">1</span>).<span class="fn">execute</span>()
+            <span class="kw">if not</span> pool_resp.data:
+                <span class="fn">print</span>(<span class="fn">f</span><span class="str">"[VAPI PROVISION] Pool empty — marking failed"</span>)
+                svc_db.table(<span class="str">"manager_vapi_config"</span>).<span class="fn">upsert</span>({
+                    <span class="str">"manager_id"</span>: manager_id,
+                    <span class="str">"vapi_provisioning_status"</span>: <span class="str">"failed"</span>
+                }, on_conflict=<span class="str">"manager_id"</span>).<span class="fn">execute</span>()
+                <span class="kw">return</span>
+
+            pool_row = pool_resp.data[<span class="num">0</span>]
+            <span class="cm"># Atomic claim — only updates if still "available"</span>
+            svc_db.table(<span class="str">"twilio_number_pool"</span>).<span class="fn">update</span>({
+                <span class="str">"status"</span>: <span class="str">"assigned"</span>,
+                <span class="str">"assigned_manager_id"</span>: manager_id,
+                <span class="str">"assigned_at"</span>: datetime.<span class="fn">now</span>(timezone.utc).<span class="fn">isoformat</span>(),
+            }).<span class="fn">eq</span>(<span class="str">"id"</span>, pool_row[<span class="str">"id"</span>]).<span class="fn">eq</span>(<span class="str">"status"</span>, <span class="str">"available"</span>).<span class="fn">execute</span>()   <span class="cm"># ← double eq</span>
+
+        pool_id = pool_row[<span class="str">"id"</span>]
+        vapi_phone_number_id = pool_row[<span class="str">"vapi_phone_number_id"</span>]
+        phone_number = pool_row[<span class="str">"phone_number"</span>]
+
+        <span class="cm"># Create (or update) the VAPI assistant</span>
+        lease_cfg = <span class="fn">build_lease_config</span>(BACKEND_URL, manager_id)
+        <span class="kw">if</span> existing_assistant_id:
+            lease = client.assistants.<span class="fn">update</span>(id=existing_assistant_id, <span class="op">**</span>lease_cfg)
+        <span class="kw">else</span>:
+            lease = client.assistants.<span class="fn">create</span>(<span class="op">**</span>lease_cfg)
+
+        <span class="cm"># Link number to assistant via direct HTTP (SDK bug — see below)</span>
+        resp = httpx.<span class="fn">patch</span>(
+            <span class="fn">f</span><span class="str">"{VAPI_API_BASE}/phone-number/{vapi_phone_number_id}"</span>,
+            headers={<span class="str">"Authorization"</span>: <span class="fn">f</span><span class="str">"Bearer {settings.PRIVATE_VAPI_API}"</span>},
+            json={<span class="str">"assistantId"</span>: lease.id},
+            timeout=<span class="num">30</span>,
+        )
+        resp.<span class="fn">raise_for_status</span>()
+
+        <span class="cm"># Save to DB</span>
+        svc_db.table(<span class="str">"manager_vapi_config"</span>).<span class="fn">upsert</span>({
+            <span class="str">"manager_id"</span>: manager_id,
+            <span class="str">"vapi_lease_assistant_id"</span>: lease.id,
+            <span class="str">"vapi_phone_number_id"</span>: vapi_phone_number_id,
+            <span class="str">"vapi_phone_number"</span>: phone_number,
+            <span class="str">"vapi_provisioning_status"</span>: <span class="str">"active"</span>,
+            <span class="str">"pool_row_id"</span>: pool_id,
+        }, on_conflict=<span class="str">"manager_id"</span>).<span class="fn">execute</span>()
+
+    <span class="kw">except</span> <span class="typ">Exception</span> as e:
+        <span class="fn">print</span>(<span class="fn">f</span><span class="str">"[VAPI PROVISION] Failed for manager {manager_id}: {e}"</span>)
+        svc_db.table(<span class="str">"manager_vapi_config"</span>).<span class="fn">upsert</span>({
+            <span class="str">"manager_id"</span>: manager_id,
+            <span class="str">"vapi_provisioning_status"</span>: <span class="str">"failed"</span>
+        }, on_conflict=<span class="str">"manager_id"</span>).<span class="fn">execute</span>()
+        <span class="kw">raise</span></code></pre>
+
+  <h2 id="pool">Twilio Number Pool</h2>
+
+  <p>The pool is a pre-purchased set of Twilio numbers stored in the <code>twilio_number_pool</code> table. Numbers must be added manually before they can be assigned to managers.</p>
+
+  <pre><code><span class="cm"># twilio_number_pool table</span>
+id                  UUID PK
+phone_number        text UNIQUE   <span class="cm"># "+14313415768"</span>
+vapi_phone_number_id text UNIQUE  <span class="cm"># VAPI's internal ID for this number</span>
+status              text          <span class="cm"># "available" or "assigned"</span>
+assigned_manager_id UUID          <span class="cm"># NULL when available</span>
+assigned_at         timestamptz</code></pre>
+
+  <p>To add a new number to the pool:</p>
+  <pre><code>python backend/scripts/add_twilio_number_to_vapi.py +14313556789</code></pre>
+
+  <p>This script claims the number in Twilio, registers it in VAPI, and inserts a row into <code>twilio_number_pool</code> with <code>status = "available"</code>.</p>
+
+  <h2 id="race-guard">Race Condition Guard</h2>
+
+  <p>Two scenarios can cause the same manager to claim two different numbers:</p>
+
+  <ol>
+    <li>Manager creates two property groups in rapid succession (both trigger provisioning)</li>
+    <li>Manager clicks "Retry provisioning" while the first attempt is still running</li>
+  </ol>
+
+  <h3>Application-level guard</h3>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># Guard 2 — check before claiming a new number</span>
+already_claimed = svc_db.table(<span class="str">"twilio_number_pool"</span>).<span class="fn">select</span>(...)<span class="fn">.eq</span>(<span class="str">"assigned_manager_id"</span>, manager_id).<span class="fn">execute</span>()
+<span class="kw">if</span> already_claimed.data:
+    pool_row = already_claimed.data[<span class="num">0</span>]   <span class="cm"># reuse the existing claim, don't claim a new one</span>
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"[VAPI PROVISION] Manager {manager_id} already has pool row, reusing"</span>)
+<span class="kw">else</span>:
+    <span class="cm"># Atomic claim — eq("status", "available") prevents claiming an already-assigned row</span>
+    svc_db.table(<span class="str">"twilio_number_pool"</span>).<span class="fn">update</span>({
+        <span class="str">"status"</span>: <span class="str">"assigned"</span>, ...
+    }).<span class="fn">eq</span>(<span class="str">"id"</span>, pool_row[<span class="str">"id"</span>]).<span class="fn">eq</span>(<span class="str">"status"</span>, <span class="str">"available"</span>).<span class="fn">execute</span>()
+    <span class="cm"># If another worker claimed it first, this UPDATE matches 0 rows — no double-claim</span></code></pre>
+
+  <h3>Database-level guard (belt and suspenders)</h3>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm">-- Migration 016: Prevent two concurrent provisioning tasks from claiming</span>
+<span class="cm">-- two different numbers for the same manager at the DB level</span>
+CREATE UNIQUE INDEX twilio_number_pool_one_per_manager
+  ON twilio_number_pool (assigned_manager_id)
+  WHERE assigned_manager_id IS NOT NULL;
+
+<span class="cm">-- If app-level guard fails and two UPDATEs land simultaneously,</span>
+<span class="cm">-- one will succeed and the other will get a unique constraint violation.</span>
+<span class="cm">-- The second task then fails gracefully → status = "failed" → manager retries.</span></code></pre>
+
+  <div class="card card-info">
+    <strong>Why both guards?</strong> The application-level guard handles the common case efficiently (no DB error, clean code path). The DB-level unique index is the safety net for the rare case where two workers reach the claim step simultaneously before either has written to the pool. Defense in depth.
+  </div>
+
+  <h2 id="sdk-bug">SDK Bug — Why We Use httpx Directly</h2>
+
+  <div class="card card-error">
+    <strong>VAPI Python SDK bug:</strong> <code>client.phone_numbers.update(id=..., assistant_id=...)</code> fails with a validation error about a missing <code>provider</code> field. The SDK's <code>UpdatePhoneNumberDto</code> discriminated union type always serializes the <code>provider</code> field, and VAPI's update endpoint rejects it.
+  </div>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># BROKEN — SDK serializes 'provider' field which VAPI rejects</span>
+<span class="cm"># client.phone_numbers.update(id=vapi_phone_number_id, assistantId=lease.id)</span>
+
+<span class="cm"># WORKING — direct HTTP PATCH bypasses the SDK's type serialization</span>
+resp = httpx.<span class="fn">patch</span>(
+    <span class="fn">f</span><span class="str">"https://api.vapi.ai/phone-number/{vapi_phone_number_id}"</span>,
+    headers={
+        <span class="str">"Authorization"</span>: <span class="fn">f</span><span class="str">"Bearer {settings.PRIVATE_VAPI_API}"</span>,
+        <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>,
+    },
+    json={<span class="str">"assistantId"</span>: lease.id},
+    timeout=<span class="num">30</span>,
+)
+resp.<span class="fn">raise_for_status</span>()</code></pre>
+
+  <p>This is a documented workaround — the code comment explicitly says "SDK update endpoint is broken; direct HTTP patch is the only working path." When the VAPI SDK is updated to fix this, the httpx call can be replaced with the SDK call.</p>
+
+  <h2 id="background-task">BackgroundTask DB Client — Critical Rule</h2>
+
+  <div class="card card-error">
+    <strong>Rule: The background task MUST create its own service DB client. It cannot use the request-scoped DB client.</strong><br><br>
+    <strong>Why:</strong> FastAPI's <code>Depends(get_authenticated_db)</code> creates a DB client scoped to the HTTP request lifecycle. When the request handler returns (sends the HTTP response), the request context is torn down — including the DB client. BackgroundTasks run AFTER the response is sent. If the background task uses the request-scoped client, it will crash with "client already closed" errors.
+  </div>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># In property_groups.py route handler:</span>
+<span class="op">@</span>router.<span class="fn">post</span>(<span class="str">""</span>)
+<span class="kw">async def</span> <span class="fn">create_property_group</span>(
+    background_tasks: <span class="typ">BackgroundTasks</span>,
+    db: <span class="typ">Client</span> = <span class="fn">Depends</span>(get_authenticated_db),
+    ...
+):
+    <span class="cm"># ... create property group ...</span>
+
+    <span class="kw">if</span> is_first_group:
+        <span class="cm"># Pass manager_id (a string) — NOT the db client</span>
+        background_tasks.<span class="fn">add_task</span>(provision_vapi_for_manager, manager_id)
+        <span class="cm"># provision_vapi_for_manager creates its OWN service DB client inside</span>
+
+<span class="cm"># In provision_vapi_for_manager:</span>
+<span class="kw">def</span> <span class="fn">provision_vapi_for_manager</span>(manager_id: str, db: <span class="typ">Client</span>) -> <span class="kw">None</span>:
+    svc_db = <span class="fn">get_service_db</span>()    <span class="cm"># creates fresh service DB — not the request-scoped one</span>
+    ...</code></pre>
+
+  <h2 id="deploy-scripts">Deploy Scripts</h2>
+
+  <p>After changing agent config in <code>vapi_agent_config.py</code>, the live agents must be updated. Two scripts handle this:</p>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button"><span class="cm"># Update the shared complaint agent + shared lease agent</span>
+python backend/scripts/update_shared_agents.py
+
+<span class="cm"># Update ALL active per-manager lease assistants</span>
+<span class="cm"># Iterates manager_vapi_config where status = "active"</span>
+<span class="cm"># Always uses hardcoded production URL — never localhost from .env</span>
+python backend/scripts/update_lease_agents.py</code></pre>
+
+  <div class="card card-warn">
+    <strong>Why hardcoded production URL in update_lease_agents.py?</strong> The script injects the backend URL into every tool definition (e.g., <code>f"{backend_url}/flats/verify-phone"</code>). If it picked up <code>BACKEND_URL=http://localhost:8000</code> from a developer's <code>.env</code>, all live agents would point their tool calls to the developer's laptop instead of the production server. Hardcoding prevents this class of mistake.
+  </div>
+
+  <h2 id="bugs">Real Bugs Faced &amp; How We Fixed Them</h2>
+
+  <h3>Bug 1: Duplicate agents created per manager</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> A manager with 3 property groups had 3 identical VAPI assistants and 3 Twilio numbers claimed from the pool.<br><br>
+    <strong>Root cause:</strong> Early code triggered provisioning on EVERY property group creation, not just the first.<br><br>
+    <strong>Fix:</strong> The route checks how many property groups the manager already has BEFORE adding the background task. If count &gt; 1 (this group makes it the first group or more), don't provision. Also added Guard 1 inside <code>provision_vapi_for_manager()</code>: if <code>status == "active"</code>, return immediately.
+  </div>
+
+  <h3>Bug 2: Race condition — two background tasks claim two different numbers</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> Manager has two numbers assigned (<code>assigned_manager_id = same UUID</code> on two rows). DB unique index violated on the second insert → 500 error.<br><br>
+    <strong>Root cause:</strong> Two background tasks ran simultaneously (server restart during provisioning triggered a retry that overlapped with the original). Both checked the pool, both saw number A as available, both claimed it.<br><br>
+    <strong>Fix:</strong> Application-level reuse check (Guard 2) + DB-level unique index on <code>(assigned_manager_id)</code>. The double guard means it's impossible to double-claim at the DB level even if the app-level check is missed.
+  </div>
+
+  <h3>Bug 3: server_messages with "tool-calls" silently broke all lease agent tools</h3>
+  <div class="card card-error">
+    <strong>Already covered in the server_messages section above.</strong> Short version: lease agent must use only <code>["end-of-call-report"]</code>. Adding <code>"tool-calls"</code> causes the eoc-webhook to receive and attempt to handle all tool events, breaking apiRequest tools mid-call.
+  </div>
+
+  <h3>Bug 4: Background task crashed because the DB client was closed</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> <code>postgrest.exceptions.APIError: Connection closed</code> during provisioning, always starting 50ms after the HTTP response was sent.<br><br>
+    <strong>Root cause:</strong> The background task was passed the request-scoped <code>db</code> client. FastAPI closes it when the response is sent. The task ran milliseconds later on a closed connection.<br><br>
+    <strong>Fix:</strong> Create a fresh <code>svc_db = get_service_db()</code> at the start of <code>provision_vapi_for_manager()</code> instead of accepting the <code>db</code> parameter from the caller.
+  </div>
+
+  <h2 id="exercises">Exercises</h2>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> &nbsp; What is the purpose of "strict": True in the submit_complaint function tool?</summary>
+    <p>OpenAI strict mode enforces that all parameters listed in <code>required</code> must be present when the agent calls the tool. Without strict mode, the model can call the tool with missing parameters (e.g., no <code>appointment_date</code>) and the tool schema doesn't reject it. With strict mode, the model cannot invoke the tool unless all required fields are filled in — preventing incomplete complaint submissions.</p>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> &nbsp; Why does build_lease_config() inject manager_id into the tool URLs?</summary>
+    <p>The lease agent searches listings. Each manager owns multiple property groups. Without a <code>manager_id</code> filter, the search would return listings from ALL managers' properties — a massive data privacy problem. The <code>?manager_id=&lt;UUID&gt;</code> query parameter is injected at agent-build time so the VAPI tool URL includes the manager's scope. The backend <code>GET /leasing/search</code> route then filters results to only this manager's listings.</p>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> &nbsp; A new manager signs up but the Twilio pool is empty. What happens and what should you do?</summary>
+    <details style="margin-top: 0.75rem">
+      <summary>Show solution</summary>
+      <p><strong>What happens:</strong></p>
+      <ol>
+        <li>Manager creates first property group</li>
+        <li>Background task runs <code>provision_vapi_for_manager()</code></li>
+        <li>Pool query returns 0 rows</li>
+        <li>Provisioning upserts <code>manager_vapi_config.vapi_provisioning_status = "failed"</code></li>
+        <li>Function returns without error</li>
+      </ol>
+      <p>In the LeasingTab UI, the manager sees a "Provisioning failed" banner with a "Retry" button.</p>
+      <p><strong>What to do:</strong></p>
+      <pre><code><span class="cm"># Step 1: Buy a new Twilio number in Twilio console
+# Step 2: Add it to VAPI and insert into pool</span>
+python backend/scripts/add_twilio_number_to_vapi.py +14315559999
+
+<span class="cm"># Step 3: Manager clicks "Retry" in the UI
+# OR manually trigger via API:</span>
+POST /property-groups/users/me/provision-voice   <span class="cm"># with manager's JWT</span>
+
+<span class="cm"># This upserts status="pending" and re-runs the background task</span></code></pre>
+      <p>The retry endpoint has its own guard: if <code>status == "active"</code> already, it returns early without spawning a new task — preventing accidental re-provisioning for already-active managers.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> &nbsp; You need to roll out a system prompt update to all 50 active per-manager lease agents. How does update_lease_agents.py work, and what could go wrong?</summary>
+    <details style="margin-top: 0.75rem">
+      <summary>Show solution</summary>
+      <p><strong>How it works:</strong></p>
+      <pre><code><span class="cm"># update_lease_agents.py (simplified)</span>
+BACKEND_URL = <span class="str">"https://tenant-management-mvp.onrender.com"</span>   <span class="cm"># hardcoded</span>
+
+rows = svc_db.table(<span class="str">"manager_vapi_config"</span>).<span class="fn">select</span>(<span class="str">"manager_id, vapi_lease_assistant_id"</span>).<span class="fn">eq</span>(<span class="str">"vapi_provisioning_status"</span>, <span class="str">"active"</span>).<span class="fn">execute</span>()
+
+<span class="kw">for</span> row <span class="kw">in</span> rows.data:
+    manager_id = row[<span class="str">"manager_id"</span>]
+    assistant_id = row[<span class="str">"vapi_lease_assistant_id"</span>]
+
+    cfg = <span class="fn">build_lease_config</span>(BACKEND_URL, manager_id)
+    client.assistants.<span class="fn">update</span>(id=assistant_id, <span class="op">**</span>cfg)
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"Updated {assistant_id} for manager {manager_id}"</span>)</code></pre>
+      <p><strong>What could go wrong:</strong></p>
+      <ul>
+        <li><strong>VAPI API rate limiting:</strong> 50 consecutive assistant updates may hit rate limits. Fix: add <code>time.sleep(0.5)</code> between updates.</li>
+        <li><strong>Partial failure:</strong> Updates 1-30 succeed, update 31 fails with a network error. Managers 31-50 still have the old prompt. Fix: log which managers were updated and add a dry-run mode to re-run only failed ones.</li>
+        <li><strong>Wrong BACKEND_URL:</strong> If you accidentally run this from a dev machine with <code>BACKEND_URL=http://localhost:8000</code> in your env, all agents will have broken tool URLs. The hardcoded constant prevents this — but double-check before running.</li>
+        <li><strong>Live call disruption:</strong> A manager's tenant might be mid-call when their agent is updated. VAPI applies config changes to the NEXT call, not the current one — so this is generally safe.</li>
+      </ul>
+    </details>
+  </details>
+
+  <div class="card card-success">
+    <strong>Session 3 Complete!</strong> You've covered all four modules: Groq extraction (09), OpenAI chatbot with tool calling (10), VAPI webhook handling (11), and VAPI agent provisioning (12). The next session covers integrations: Twilio SMS/email notifications (13), feature flags (14), bulk CSV import with AI column mapping (15), and the leasing module (16).
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_11_vapi_webhook.html" class="nav-btn">← Module 11: VAPI Webhook</a>
+    <a href="module_13_notifications.html" class="nav-btn">Module 13: Notifications →</a>
+  </div>
+
+</div>
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  document.querySelector('.theme-toggle').textContent = html.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+}
+function copyCode(btn) {
+  const code = btn.parentElement.querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(() => { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 2000); });
+}
+window.addEventListener('scroll', () => {
+  document.getElementById('backToTop').classList.toggle('visible', window.scrollY > 400);
+});
+const links = document.querySelectorAll('.sidebar a');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const id = e.target.getAttribute('id');
+      const active = document.querySelector(`.sidebar a[href="#${id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('h2[id], h3[id]').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

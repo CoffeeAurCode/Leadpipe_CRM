@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 14 — Feature Flags | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    .bug-box { background: #f7768e0d; border: 1px solid #f7768e44; border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .bug-box h4 { color: var(--error); margin-bottom: 0.5rem; }
+    @media print { .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; } .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; } details, details > * { display: block; } h2 { page-break-before: always; } }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 14</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 14 — Feature Flags</strong></div>
+
+  <h1>Module 14 — Feature Flags</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 50 minutes</span>
+    <span>📁 Files: <code>core/features.py</code>, <code>dependencies/features.py</code>, <code>services/feature_service.py</code>, <code>routes/settings.py</code></span>
+    <span>🔰 Prerequisites: Modules 02–04</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_13_notifications.html" class="nav-btn">← Previous: Notifications</a>
+    <a href="module_15_bulk_import.html" class="nav-btn">Next: Bulk Import →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>A feature flag system that lets managers turn individual features on or off per flat (unit). Some features like SMS notifications cost money — you don't want them on by default for every flat. Others like voice calls require a Twilio setup that not every manager has done. This system gives granular per-unit control, with bulk-apply operations at the building and property level.</p>
+
+  <div class="diagram">
+Four-file architecture:
+
+core/features.py          ─── Feature enum + FEATURE_METADATA dict (single source of truth)
+services/feature_service.py ─── Business logic: get/set at unit/building/property scope
+dependencies/features.py  ─── FastAPI Depends() wrappers (inject FeatureService, gate routes)
+routes/settings.py        ─── HTTP endpoints (GET/PATCH at unit/building/property scope)
+
+DB table: property_features
+  unit_id (FK → flats.id) │ feature_key (text) │ enabled (bool)
+  ────────────────────────┼────────────────────┼───────────────
+  42                      │ sms_reminders      │ true
+  42                      │ email_reminders     │ false
+  43                      │ sms_reminders      │ false
+
+  ONE ROW PER UNIT PER FEATURE.
+  If no row exists for a feature → use default_enabled from FEATURE_METADATA.
+  No inheritance, no cascading reads — just flat storage + bulk writes.</div>
+
+  <!-- S2 -->
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>Feature(str, Enum) — why inherit from str</summary>
+    <p>Python enums can inherit from a built-in type. <code>Feature(str, Enum)</code> means each enum member is <em>also</em> a string. This eliminates the need to call <code>.value</code> in most contexts.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">class</span> <span class="typ">Feature</span>(<span class="typ">str</span>, Enum):
+    SMS_REMINDERS = <span class="str">"sms_reminders"</span>
+    EMAIL_REMINDERS = <span class="str">"email_reminders"</span>
+
+<span class="cm"># Without str inheritance:</span>
+Feature.SMS_REMINDERS.value  <span class="cm"># "sms_reminders"</span>
+<span class="fn">str</span>(Feature.SMS_REMINDERS)   <span class="cm"># "Feature.SMS_REMINDERS" (ugly)</span>
+
+<span class="cm"># With str inheritance:</span>
+Feature.SMS_REMINDERS        <span class="cm"># IS "sms_reminders" (compares equal to the string)</span>
+db.eq(<span class="str">"feature_key"</span>, Feature.SMS_REMINDERS)  <span class="cm"># works — no .value needed</span></code></pre>
+
+    <p>The enum values match the exact strings stored in the DB's <code>feature_key</code> column. This means you can pass <code>Feature.SMS_REMINDERS</code> directly to a Supabase <code>.eq()</code> call and it works without conversion.</p>
+  </details>
+
+  <details open>
+    <summary>FEATURE_METADATA — single source of truth for UI</summary>
+    <p>Rather than scattering display names and defaults across the codebase, a single dict holds all the metadata for each feature. The UI reads this to know what to show, and the backend reads it to know what defaults to apply.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>FEATURE_METADATA: Dict[Feature, dict] = {
+    Feature.SMS_REMINDERS: {
+        <span class="str">"category"</span>: <span class="str">"Communication"</span>,
+        <span class="str">"display_name"</span>: <span class="str">"SMS Reminders"</span>,
+        <span class="str">"description"</span>: <span class="str">"Automated rent reminders via SMS"</span>,
+        <span class="str">"default_enabled"</span>: <span class="kw">False</span>   <span class="cm"># off by default — costs money</span>
+    },
+    Feature.RENT_MANAGEMENT: {
+        <span class="str">"category"</span>: <span class="str">"Financial"</span>,
+        <span class="str">"display_name"</span>: <span class="str">"Rent Management"</span>,
+        <span class="str">"description"</span>: <span class="str">"Set and manage rent amounts"</span>,
+        <span class="str">"default_enabled"</span>: <span class="kw">True</span>    <span class="cm"># on by default — everyone needs this</span>
+    },
+}</code></pre>
+
+    <p>Default-on features (like <code>RENT_MANAGEMENT</code>) are enabled for every flat out of the box — no row in <code>property_features</code> is needed. Default-off features (like <code>SMS_REMINDERS</code>) require an explicit opt-in — the manager must toggle them on per flat or per building.</p>
+  </details>
+
+  <details open>
+    <summary>No-inheritance architecture — flat storage + bulk writes</summary>
+    <p>An alternative design would be: store one setting at the property level, let buildings inherit from the property, let units inherit from the building (with per-unit overrides). This is complex to query and maintain.</p>
+
+    <p>This project uses a simpler approach: <strong>all flags are stored at the unit level</strong>. Bulk writes to a building or property resolve all child units and upsert each one individually. Reads are always from the unit level directly.</p>
+
+    <div class="diagram">
+"Apply SMS_REMINDERS=true to Building 5" operation:
+
+  set_building_features("5", {"sms_reminders": True})
+      │
+      ├── _get_units_for_building("5")  →  [unit_id=42, unit_id=43, unit_id=44]
+      │
+      ├── _upsert_unit_features(42, {"sms_reminders": True})
+      ├── _upsert_unit_features(43, {"sms_reminders": True})
+      └── _upsert_unit_features(44, {"sms_reminders": True})
+
+  Result: 3 rows upserted in property_features.
+  Reading unit 42 later sees sms_reminders=True directly — no "walk up the hierarchy" needed.</div>
+  </details>
+
+  <details open>
+    <summary>Upsert with composite conflict key</summary>
+    <p>The <code>property_features</code> table has a UNIQUE constraint on <code>(unit_id, feature_key)</code>. Inserting the same feature twice would normally fail. The solution is an <strong>upsert</strong> — insert if not exists, update if exists.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>self.db.table(<span class="str">"property_features"</span>) \
+    .<span class="fn">upsert</span>(
+        [{<span class="str">"unit_id"</span>: <span class="num">42</span>, <span class="str">"feature_key"</span>: <span class="str">"sms_reminders"</span>, <span class="str">"enabled"</span>: <span class="kw">True</span>}],
+        on_conflict=<span class="str">"unit_id,feature_key"</span>   <span class="cm"># composite key</span>
+    ) \
+    .<span class="fn">execute</span>()</code></pre>
+
+    <p><code>on_conflict="unit_id,feature_key"</code> tells PostgREST: if a row already exists with this (unit_id, feature_key) combination, update the other columns (<code>enabled</code>) instead of raising a duplicate key error. This is the idiomatic way to handle "create or update" operations without a SELECT first.</p>
+  </details>
+
+  <details open>
+    <summary>Majority-vote aggregation for building/property views</summary>
+    <p>When the manager opens settings for a building with 10 units, what should the toggle show? This project uses majority voting: if &ge;50% of units have a feature enabled, show the toggle as "on".</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm"># Pseudocode of get_building_features():</span>
+unit_ids = _get_units_for_building(building_id)  <span class="cm"># [42, 43, 44]</span>
+counts = {}  <span class="cm"># feature_key → count of units with enabled=True</span>
+
+<span class="kw">for</span> uid <span class="kw">in</span> unit_ids:
+    raw = _get_unit_features_raw(uid)  <span class="cm"># {feature_key: bool}</span>
+    <span class="kw">for</span> key, val <span class="kw">in</span> raw.items():
+        counts.setdefault(key, <span class="num">0</span>)
+        <span class="kw">if</span> val:
+            counts[key] += <span class="num">1</span>
+
+n = len(unit_ids)   <span class="cm"># 3</span>
+<span class="cm"># majority: enabled if count >= n/2</span>
+agg_raw = {key: (counts[key] >= n / <span class="num">2</span>) <span class="kw">for</span> key <span class="kw">in</span> counts}</code></pre>
+
+    <p>This is only used for display (the toggle starting position in the UI). When the manager saves, the new value is applied to all units regardless of what the aggregate was.</p>
+  </details>
+
+  <details open>
+    <summary>FastAPI dependency factory — <code>requires_feature()</code></summary>
+    <p>A <strong>dependency factory</strong> is a function that returns a dependency function. This lets you parameterise a dependency — here, the feature key.</p>
+
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">requires_feature</span>(feature: Feature):
+    <span class="cm"># Returns a new async function each call</span>
+    <span class="kw">async def</span> <span class="fn">check_feature</span>(
+        property_uuid: <span class="typ">str</span>,
+        service: FeatureService = <span class="fn">Depends</span>(get_feature_service)
+    ):
+        is_enabled = <span class="kw">await</span> service.<span class="fn">is_feature_enabled</span>(property_uuid, feature)
+        <span class="kw">if not</span> is_enabled:
+            <span class="kw">raise</span> <span class="fn">HTTPException</span>(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    <span class="str">"error"</span>: <span class="str">"feature_disabled"</span>,
+                    <span class="str">"feature"</span>: feature.value
+                }
+            )
+    <span class="kw">return</span> check_feature
+
+<span class="cm"># Usage on a route:</span>
+<span class="dec">@router.post</span>(<span class="str">"/rent"</span>, dependencies=[<span class="fn">Depends</span>(<span class="fn">requires_feature</span>(Feature.RENT_MANAGEMENT))])
+<span class="kw">async def</span> <span class="fn">set_rent</span>(...):
+    ...</code></pre>
+
+    <p>Each call to <code>requires_feature(Feature.X)</code> creates a new <code>check_feature</code> closure that captures the specific feature enum. FastAPI evaluates the dependency before running the route handler — the route only runs if the feature is enabled.</p>
+
+    <div class="callout callout-info">
+      <p><strong>Why return a function instead of being a function?</strong> If <code>requires_feature</code> itself were a dependency, it couldn't accept a <code>feature</code> parameter (FastAPI injects dependencies by type, not by value). The factory pattern lets you pre-bind the feature value.</p>
+    </div>
+  </details>
+
+  <!-- S3 -->
+  <h2 id="walkthrough">Section 3 — Line-by-Line Walkthrough</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <h3>File: <code>backend/app/core/features.py</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">class</span> <span class="typ">Feature</span>(<span class="typ">str</span>, Enum):
+    RENT_MANAGEMENT = <span class="str">"rent_management"</span>
+    RENT_DUE_DATE = <span class="str">"rent_due_date"</span>
+    FLAT_DETAILS = <span class="str">"flat_details"</span>
+    VOICE_CALLS = <span class="str">"voice_calls"</span>
+    SMS_REMINDERS = <span class="str">"sms_reminders"</span>
+    EMAIL_REMINDERS = <span class="str">"email_reminders"</span>
+    TENANT_DETAILS = <span class="str">"tenant_details"</span>
+    TENANT_DOCUMENTS = <span class="str">"tenant_documents"</span></code></pre>
+  <div class="line-exp">
+    Eight features across four categories. The string values are exactly what gets stored in the <code>feature_key</code> column of <code>property_features</code>. If you add a new feature, you add it here, add its metadata to <code>FEATURE_METADATA</code>, and the rest of the system (service, routes, UI) picks it up automatically via <code>for feature in Feature:</code> iteration.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">get_default_state</span>(feature: Feature) -> <span class="typ">bool</span>:
+    <span class="kw">return</span> FEATURE_METADATA.<span class="fn">get</span>(feature, {}).<span class="fn">get</span>(<span class="str">"default_enabled"</span>, <span class="kw">False</span>)</code></pre>
+  <div class="line-exp">
+    Double <code>.get()</code> with defaults at both levels. If <code>feature</code> isn't in <code>FEATURE_METADATA</code> (shouldn't happen, but defensive), returns an empty dict. If <code>default_enabled</code> isn't in that dict, returns <code>False</code> (safe default — don't accidentally enable paid features).
+  </div>
+
+  <h3>File: <code>backend/app/services/feature_service.py</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">_get_unit_features_raw</span>(<span class="kw">self</span>, unit_id: <span class="typ">int</span>) -> Dict[<span class="typ">str</span>, <span class="typ">bool</span>]:
+    result = (
+        <span class="kw">self</span>.db.table(<span class="str">"property_features"</span>)
+        .select(<span class="str">"feature_key, enabled"</span>)
+        .eq(<span class="str">"unit_id"</span>, unit_id)
+        .execute()
+    )
+    <span class="kw">return</span> {row[<span class="str">"feature_key"</span>]: row[<span class="str">"enabled"</span>] <span class="kw">for</span> row <span class="kw">in</span> (result.data <span class="kw">or</span> [])}</code></pre>
+  <div class="line-exp">
+    Returns a dict like <code>{"sms_reminders": True, "email_reminders": False}</code>. Only features that have been explicitly set have entries — features with no row are absent from this dict. The caller (<code>_build_feature_map</code>) handles absent features by falling back to defaults.
+    <br><br>
+    <code>result.data or []</code> — Supabase returns <code>None</code> instead of <code>[]</code> on some error conditions. The <code>or []</code> ensures the dict comprehension always has something to iterate over.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">def</span> <span class="fn">_build_feature_map</span>(<span class="kw">self</span>, raw: Dict[<span class="typ">str</span>, <span class="typ">bool</span>]) -> Dict[<span class="typ">str</span>, dict]:
+    feature_map = {}
+    <span class="kw">for</span> feature <span class="kw">in</span> Feature:     <span class="cm"># iterates all 8 Feature enum members</span>
+        metadata = FEATURE_METADATA.<span class="fn">get</span>(feature, {})
+        key = feature.value
+        enabled = raw.<span class="fn">get</span>(key)   <span class="cm"># None if not set in DB</span>
+        <span class="kw">if</span> enabled <span class="kw">is None</span>:
+            enabled = <span class="fn">get_default_state</span>(feature)
+            source = <span class="str">"default"</span>
+        <span class="kw">else</span>:
+            source = <span class="str">"set"</span>
+        feature_map[key] = {
+            <span class="str">"enabled"</span>: enabled,
+            <span class="str">"source"</span>: source,       <span class="cm"># "default" or "set"</span>
+            <span class="str">"category"</span>: metadata.<span class="fn">get</span>(<span class="str">"category"</span>, <span class="str">"Other"</span>),
+            <span class="str">"display_name"</span>: metadata.<span class="fn">get</span>(<span class="str">"display_name"</span>, key),
+            <span class="str">"description"</span>: metadata.<span class="fn">get</span>(<span class="str">"description"</span>, <span class="str">""</span>),
+        }
+    <span class="kw">return</span> feature_map</code></pre>
+  <div class="line-exp">
+    <code>for feature in Feature:</code> — iterating over an enum yields all its members in definition order. This ensures the response always contains all 8 features, even if only some have DB rows.
+    <br><br>
+    The <code>source</code> field ("default" vs "set") is surfaced to the frontend. The settings UI can show a subtle indicator like "using default" on features the manager hasn't explicitly configured, which helps them understand what they've actually changed vs what's inherited.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">async def</span> <span class="fn">is_feature_enabled</span>(<span class="kw">self</span>, unit_id: <span class="typ">int</span>, feature: Feature) -> <span class="typ">bool</span>:
+        <span class="kw">try</span>:
+            result = (
+                <span class="kw">self</span>.db.table(<span class="str">"property_features"</span>)
+                .select(<span class="str">"enabled"</span>)
+                .eq(<span class="str">"unit_id"</span>, unit_id)
+                .eq(<span class="str">"feature_key"</span>, feature.value)
+                .execute()
+            )
+            <span class="kw">if not</span> result.data:
+                <span class="kw">return</span> <span class="fn">get_default_state</span>(feature)
+            <span class="kw">return</span> result.data[<span class="num">0</span>].<span class="fn">get</span>(<span class="str">"enabled"</span>, <span class="kw">False</span>)
+        <span class="kw">except</span> Exception <span class="kw">as</span> e:
+            <span class="fn">print</span>(<span class="fn">f</span><span class="str">"[FeatureService] Error checking feature {feature.value} for unit {unit_id}: {e}"</span>)
+            <span class="kw">return</span> <span class="fn">get_default_state</span>(feature)</code></pre>
+  <div class="line-exp">
+    This is the fast path used by middleware and guards — only reads a single column for a single feature. Much cheaper than loading the full feature map.
+    <br><br>
+    <code>if not result.data:</code> — no row found → feature was never explicitly set → fall back to default. This is the "default-on / default-off" mechanism.
+    <br><br>
+    The outer <code>try/except</code> returns the default state on any DB error. This is intentionally permissive: a DB error during a feature check should not block the user from using the feature — failing open is safer than failing closed (blocking all access) for most features.
+  </div>
+
+  <h3>File: <code>backend/app/routes/settings.py</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">class</span> <span class="typ">FeatureToggleRequest</span>(BaseModel):
+    features: Dict[<span class="typ">str</span>, <span class="typ">bool</span>]
+
+    <span class="dec">@validator</span>(<span class="str">"features"</span>)
+    <span class="kw">def</span> <span class="fn">validate_feature_keys</span>(cls, v):
+        valid = {f.value <span class="kw">for</span> f <span class="kw">in</span> Feature}
+        bad = <span class="fn">set</span>(v.keys()) - valid
+        <span class="kw">if</span> bad:
+            <span class="kw">raise</span> <span class="fn">ValueError</span>(<span class="fn">f</span><span class="str">"Invalid feature keys: {', '.join(bad)}"</span>)
+        <span class="kw">return</span> v</code></pre>
+  <div class="line-exp">
+    The request body is a simple dict: <code>{"sms_reminders": true, "email_reminders": false}</code>. The validator computes the set of valid keys from the enum at request time — so adding a new <code>Feature</code> enum member automatically makes it valid here without touching this file.
+    <br><br>
+    <code>set(v.keys()) - valid</code> — set difference: keys in the request that are not in the valid set. If <code>bad</code> is non-empty, the request is rejected with a clear error listing the invalid keys.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="dec">@router.patch</span>(<span class="str">"/properties/{property_uuid}/settings"</span>)
+<span class="kw">async def</span> <span class="fn">bulk_update_property_settings</span>(
+    property_uuid: <span class="typ">str</span>,
+    request: FeatureToggleRequest,
+    user: <span class="typ">dict</span> = <span class="fn">Depends</span>(require_active_subscription),
+    service: FeatureService = <span class="fn">Depends</span>(get_feature_service),
+):
+    units_updated = <span class="kw">await</span> service.<span class="fn">set_property_features</span>(property_uuid, request.features)
+    updated = <span class="kw">await</span> service.<span class="fn">get_property_features</span>(property_uuid)
+    <span class="kw">return</span> {
+        <span class="str">"scope"</span>: <span class="str">"property"</span>,
+        <span class="str">"property_uuid"</span>: property_uuid,
+        <span class="str">"units_updated"</span>: units_updated,
+        <span class="str">"features"</span>: updated,
+        <span class="str">"message"</span>: <span class="fn">f</span><span class="str">"Bulk-applied {len(request.features)} feature(s) to {units_updated} unit(s)"</span>,
+    }</code></pre>
+  <div class="line-exp">
+    After writing, the response contains a fresh read of the current state (<code>get_property_features()</code>). This confirms what was actually written and gives the frontend up-to-date data in a single round trip — no need for a separate GET after the PATCH.
+    <br><br>
+    <code>units_updated</code> is returned so the manager can see that "3 units were updated" — useful feedback when the property has many units.
+  </div>
+
+  <!-- S4 -->
+  <h2 id="bugs">Section 4 — Real Bugs &amp; How We Fixed Them</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <div class="bug-box">
+    <h4>Bug 1: Feature key mismatch — enum vs string</h4>
+    <p><strong>Symptom:</strong> <code>is_feature_enabled(unit_id, Feature.SMS_REMINDERS)</code> always returned the default value even when the flag was set in the DB.</p>
+    <p><strong>Root cause:</strong> An early version passed <code>feature</code> (the enum object) directly to <code>.eq("feature_key", feature)</code>. The DB stored <code>"sms_reminders"</code> (string) but the query sent <code>Feature.SMS_REMINDERS</code> (Python object). Without <code>str</code> inheritance, this comparison fails silently — no rows match.</p>
+    <p><strong>Fix:</strong> Two options: (1) use <code>feature.value</code> explicitly in every query, or (2) make <code>Feature</code> inherit from <code>str</code> so the enum IS the string. The project chose option 2 — cleaner at the call site.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 2: Upsert failed — composite conflict key format</h4>
+    <p><strong>Symptom:</strong> First feature save worked. Second save raised a unique constraint violation instead of updating.</p>
+    <p><strong>Root cause:</strong> The upsert was called with <code>on_conflict="unit_id"</code> (single column). The UNIQUE constraint in the DB is on <code>(unit_id, feature_key)</code> — two columns. PostgREST requires the comma-separated list of ALL columns in the constraint.</p>
+    <p><strong>Fix:</strong> Changed to <code>on_conflict="unit_id,feature_key"</code>. Lesson: the <code>on_conflict</code> parameter must match the constraint exactly — both columns, in the same order as the constraint definition.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 3: <code>@validator</code> deprecation warning in Pydantic V2</h4>
+    <p><strong>Symptom:</strong> <code>PydanticDeprecatedSince20: Support for class-based `config` is deprecated...</code> and a separate warning about <code>@validator</code> being deprecated.</p>
+    <p><strong>Root cause:</strong> <code>routes/settings.py</code> uses the old <code>@validator</code> decorator from Pydantic V1. The rest of the codebase uses <code>@field_validator</code> / <code>@model_validator</code> (Pydantic V2).</p>
+    <p><strong>Status:</strong> This is a known inconsistency. The validator still works (V2 has a compatibility layer) but produces warnings. The correct fix is to replace it with <code>@field_validator("features")</code> + <code>@classmethod</code>. It's in the backlog.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug 4: Building-level toggle applied to wrong units</h4>
+    <p><strong>Symptom:</strong> Toggling SMS on for Building A accidentally enabled it on Building B units as well.</p>
+    <p><strong>Root cause:</strong> <code>_get_units_for_building()</code> fetched all flats where <code>building_id = ?</code>. The bug was that <code>building_id</code> was being passed as a string but stored as an integer in the DB — the query matched nothing initially, then fell through to an unfiltered query that returned all flats.</p>
+    <p><strong>Fix:</strong> Ensured <code>building_id</code> is always passed as the correct type (integer for numeric IDs). Added <code>str(b["id"])</code> conversion in <code>_get_units_for_property()</code> where building IDs come from a mixed-type query result.</p>
+  </div>
+
+  <!-- S5 -->
+  <h2 id="exercises">Section 5 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <h3>Exercise 1 <span class="badge badge-easy">Easy</span> — Add a new feature flag</h3>
+  <p>Add a new feature called <code>MAINTENANCE_PHOTOS</code> ("Allow tenants to upload photos with complaints") that is <strong>off by default</strong> and belongs to the "Tenant Management" category.</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <p>In <code>core/features.py</code>, add to the enum:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">class</span> <span class="typ">Feature</span>(<span class="typ">str</span>, Enum):
+    <span class="cm"># ... existing entries ...</span>
+    MAINTENANCE_PHOTOS = <span class="str">"maintenance_photos"</span></code></pre>
+    <p>Then add to <code>FEATURE_METADATA</code>:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>Feature.MAINTENANCE_PHOTOS: {
+    <span class="str">"category"</span>: <span class="str">"Tenant Management"</span>,
+    <span class="str">"display_name"</span>: <span class="str">"Maintenance Photos"</span>,
+    <span class="str">"description"</span>: <span class="str">"Allow tenants to upload photos with complaints"</span>,
+    <span class="str">"default_enabled"</span>: <span class="kw">False</span>
+},</code></pre>
+    <p>That's all. The settings routes, FeatureService, and <code>_build_feature_map()</code> all iterate <code>Feature</code> automatically — no other file changes needed.</p>
+  </details>
+
+  <h3>Exercise 2 <span class="badge badge-medium">Medium</span> — Add <code>initialize_unit_features()</code> call on flat creation</h3>
+  <p>When a new flat is created via <code>POST /flats</code>, the feature service should automatically set all default feature values for that unit. Find where flats are created and add the call.</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <p>In <code>routes/flats.py</code>, in the flat creation route, after the flat is inserted:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">from</span> app.services.feature_service <span class="kw">import</span> FeatureService
+
+<span class="cm"># After inserting the flat and getting its ID:</span>
+new_flat_id = created_flat[<span class="str">"id"</span>]
+
+feature_service = <span class="fn">FeatureService</span>(db)
+<span class="kw">await</span> feature_service.<span class="fn">initialize_unit_features</span>(new_flat_id)</code></pre>
+    <p>The <code>initialize_unit_features()</code> method in <code>feature_service.py</code> already exists — it writes all defaults in one upsert call. Calling it on creation means the DB always has explicit rows for every feature, avoiding the "use default" fallback path on every read.</p>
+  </details>
+
+  <h3>Exercise 3 <span class="badge badge-hard">Hard</span> — Implement a <code>GET /units/{unit_id}/settings/check?feature=sms_reminders</code> endpoint</h3>
+  <p>Add a lightweight endpoint that returns just <code>{"enabled": true/false}</code> for a single feature on a single unit. This is for mobile clients that don't need the full feature map.</p>
+
+  <details>
+    <summary>Show solution</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="dec">@router.get</span>(<span class="str">"/units/{unit_id}/settings/check"</span>)
+<span class="kw">async def</span> <span class="fn">check_unit_feature</span>(
+    unit_id: <span class="typ">int</span>,
+    feature: <span class="typ">str</span> = <span class="fn">Query</span>(...),
+    user: <span class="typ">dict</span> = <span class="fn">Depends</span>(require_active_subscription),
+    service: FeatureService = <span class="fn">Depends</span>(get_feature_service),
+):
+    <span class="kw">try</span>:
+        feature_enum = <span class="fn">Feature</span>(feature)   <span class="cm"># raises ValueError if invalid</span>
+    <span class="kw">except</span> ValueError:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(<span class="num">400</span>, detail=<span class="fn">f</span><span class="str">"Unknown feature: {feature}"</span>)
+
+    enabled = <span class="kw">await</span> service.<span class="fn">is_feature_enabled</span>(unit_id, feature_enum)
+    <span class="kw">return</span> {<span class="str">"unit_id"</span>: unit_id, <span class="str">"feature"</span>: feature, <span class="str">"enabled"</span>: enabled}</code></pre>
+    <p><code>Feature(feature)</code> converts the query string to the enum — raises <code>ValueError</code> if the string isn't a valid feature key, which we convert to an HTTP 400.</p>
+  </details>
+
+  <!-- S6 -->
+  <h2 id="summary">Section 6 — Key Takeaways</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <div class="card card-success">
+    <ul>
+      <li><code>Feature(str, Enum)</code> makes enum values directly usable as strings — no <code>.value</code> needed in most contexts.</li>
+      <li><strong>FEATURE_METADATA</strong> is the single source of truth for display names, categories, and defaults — change it once, the whole system updates.</li>
+      <li><strong>All flags live at the unit level</strong> — building/property views are aggregations, not separate rows. Reads are always O(1) per unit.</li>
+      <li><strong>Upsert with composite conflict</strong>: <code>on_conflict="unit_id,feature_key"</code> must match the exact DB constraint columns.</li>
+      <li><strong>Default state</strong> is returned when no DB row exists — this avoids needing to seed the DB on flat creation (though calling <code>initialize_unit_features()</code> on creation is cleaner).</li>
+      <li>The <strong>dependency factory</strong> pattern (<code>requires_feature(Feature.X)</code>) lets you gate any route on any feature with one line.</li>
+      <li><strong>Fail open</strong> on DB errors during feature checks — a broken DB should not block users from using features that would otherwise be allowed.</li>
+    </ul>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_13_notifications.html" class="nav-btn">← Previous: Notifications</a>
+    <a href="module_15_bulk_import.html" class="nav-btn">Next: Bulk Import →</a>
+  </div>
+</div></div>
+
+<script>
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const checkboxes = document.querySelectorAll('.section-check input');
+  function updateProgress() {
+    const checked = [...checkboxes].filter(c => c.checked).length;
+    document.getElementById('progressFill').style.width = (checked / checkboxes.length * 100) + '%';
+  }
+  checkboxes.forEach(c => c.addEventListener('change', updateProgress));
+  function copyCode(btn) {
+    const code = btn.nextElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>

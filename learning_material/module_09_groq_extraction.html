@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 09 — AI Complaint Extraction (Groq) | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-warn { border-left: 4px solid var(--warning); }
+    .card-error { border-left: 4px solid var(--error); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .flow-diagram { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin: 1rem 0; font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-secondary); line-height: 2; }
+    .highlight-box { background: var(--bg-tertiary); border: 2px solid var(--accent); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h3>Module 09</h3>
+  <a href="#overview">Overview</a>
+  <a href="#constants">constants.py</a>
+  <a href="#validator">validator.py</a>
+  <a href="#ai-extractor">AI Extractor (Groq)</a>
+  <a href="#system-prompt">System Prompt Engineering</a>
+  <a href="#rule-extractor">Rule-Based Extractor</a>
+  <a href="#regex-priority">Regex Priority Order</a>
+  <a href="#bugs">Bugs & Fixes</a>
+  <a href="#exercises">Exercises</a>
+  <br>
+  <h3>All Modules</h3>
+  <a href="module_08_complaints_appointments.html">← 08: Complaints & Appointments</a>
+  <a href="module_10_openai_chatbot.html">10: AI Chatbot →</a>
+</nav>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<div class="main-content">
+<div class="container">
+
+  <div class="breadcrumbs">
+    <a href="index.html">Home</a> › Part C — AI &amp; Voice Integration › Module 09
+  </div>
+
+  <h1>Module 09 — AI Complaint Extraction (Groq)</h1>
+  <p><strong>Part C — AI &amp; Voice Integration</strong> &nbsp;|&nbsp; Build Session 3</p>
+
+  <div class="progress-bar"><div class="progress-fill" style="width: 34%"></div></div>
+  <p style="font-size:0.85rem; color: var(--text-muted)">Module 9 of 26 — 34% through the course</p>
+
+  <div class="card card-info">
+    <strong>Learner outcome:</strong> Can call the Groq LLM API to extract structured data from free-text, validate the output, and handle LLM unreliability with both AI-based and rule-based fallbacks.
+  </div>
+
+  <h2 id="overview">Why Two Extractors?</h2>
+
+  <p>When a tenant finishes a VAPI voice call, the backend receives a raw transcript like:</p>
+  <pre><code><span class="str">"Hi, my name is John, I live in unit A-101. The kitchen tap has been leaking for two days and it's getting worse. I'd like someone to come this Thursday around 2pm if possible."</span></code></pre>
+
+  <p>We need to turn this into a structured complaint record:</p>
+  <pre><code>{
+  <span class="str">"flat_number"</span>: <span class="str">"A-101"</span>,
+  <span class="str">"category"</span>: <span class="str">"water"</span>,
+  <span class="str">"priority"</span>: <span class="str">"medium"</span>,
+  <span class="str">"description"</span>: <span class="str">"Kitchen tap leaking for two days, getting worse"</span>
+}</code></pre>
+
+  <p>The codebase uses <strong>two approaches</strong>:</p>
+  <table>
+    <tr><th>Approach</th><th>Function</th><th>How it works</th><th>When to use</th></tr>
+    <tr><td>AI extraction</td><td><code>extract_complaint_from_transcript()</code></td><td>Groq LLM reads the transcript and returns JSON</td><td>Voice transcripts — natural language, messy</td></tr>
+    <tr><td>Rule-based extraction</td><td><code>extract_fields()</code></td><td>Regex + keyword lists</td><td>Shorter text inputs, deterministic fallback</td></tr>
+  </table>
+
+  <div class="card card-warn">
+    <strong>Model note:</strong> The extractor file uses <code>llama-3.1-8b-instant</code> (fast, cheap, small). For the chatbot in Module 10, we use OpenAI <code>gpt-4o-mini</code> because it handles complex multi-turn tool calling more reliably. The rule <em>never use llama-3.1-70b-versatile</em> (decommissioned) applies to the larger model — the 8b-instant variant is still active.
+  </div>
+
+  <h2 id="constants">constants.py — The Single Source of Truth</h2>
+
+  <p>Before looking at the extractor, understand what it validates against. Every allowed value in the system lives in <code>backend/app/core/constants.py</code>.</p>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="kw">from</span> enum <span class="kw">import</span> Enum
+
+
+<span class="cm"># ========== COMPLAINT CATEGORIES ==========</span>
+
+ALLOWED_CATEGORIES = [
+    <span class="str">"water"</span>,
+    <span class="str">"electricity"</span>,
+    <span class="str">"cleaning"</span>,
+    <span class="str">"noise"</span>,
+    <span class="str">"maintenance"</span>,
+    <span class="str">"security"</span>,
+    <span class="str">"other"</span>
+]
+
+
+<span class="cm"># ========== COMPLAINT STATUSES ==========</span>
+
+<span class="kw">class</span> <span class="typ">ComplaintStatus</span>(<span class="typ">str</span>, Enum):
+    PENDING = <span class="str">"pending"</span>
+    IN_PROGRESS = <span class="str">"in-progress"</span>
+    RESOLVED = <span class="str">"resolved"</span>
+
+ALLOWED_STATUSES = [status.value <span class="kw">for</span> status <span class="kw">in</span> ComplaintStatus]
+
+
+<span class="cm"># ========== PRIORITY (kept for backward compat) ==========</span>
+PRIORITY_ENUM = [<span class="str">"low"</span>, <span class="str">"medium"</span>, <span class="str">"high"</span>]</code></pre>
+
+  <div class="card card-info">
+    <strong>Design pattern — single source of truth:</strong> <code>ALLOWED_CATEGORIES</code> is imported by the extractor, the route validator, the VAPI agent config (as an <code>enum</code> field), and the frontend's <code>status.js</code>. If you ever add a new category (e.g. <code>"pest"</code>), you add it here once and every layer picks it up automatically. Forgetting to update the DB <code>CHECK</code> constraint is the one common mistake.
+  </div>
+
+  <h3>Why <code>ComplaintStatus(str, Enum)</code>?</h3>
+  <p>Inheriting from both <code>str</code> and <code>Enum</code> means each enum member IS a string. This lets you do:</p>
+  <pre><code><span class="cm"># Both of these work:</span>
+db.table(<span class="str">"complaints"</span>).insert({<span class="str">"status"</span>: ComplaintStatus.PENDING})   <span class="cm"># works — is "pending"</span>
+db.table(<span class="str">"complaints"</span>).insert({<span class="str">"status"</span>: <span class="str">"pending"</span>})               <span class="cm"># works too</span>
+ComplaintStatus.PENDING == <span class="str">"pending"</span>   <span class="cm"># True — comparison with plain string</span></code></pre>
+
+  <h2 id="validator">validator.py — Completeness Check</h2>
+
+  <p>After extraction, the voice webhook checks whether all required fields are present before creating a complaint record.</p>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="kw">def</span> <span class="fn">validate_complaint</span>(data: dict) -> dict:
+    required_fields = [<span class="str">"flat_number"</span>, <span class="str">"category"</span>, <span class="str">"appointment_date"</span>]
+    missing_fields = []
+
+    <span class="kw">for</span> field <span class="kw">in</span> required_fields:
+        value = data.get(field)
+        <span class="kw">if</span> value <span class="kw">is None or</span> value == <span class="str">""</span>:
+            missing_fields.append(field)
+
+    <span class="kw">return</span> {
+        <span class="str">"is_complete"</span>: len(missing_fields) == <span class="num">0</span>,
+        <span class="str">"missing_fields"</span>: missing_fields,
+        <span class="str">"data"</span>: data      <span class="cm"># original data untouched — passed through</span>
+    }</code></pre>
+
+  <div class="card card-info">
+    <strong>Key design choice:</strong> The validator does <em>not</em> modify the data. It only checks existence. The caller (voice webhook) decides what to do with missing fields — it sets <code>complaint_status = "incomplete"</code> and does not create the complaint, but still saves the <code>CallLog</code> for audit purposes.
+  </div>
+
+  <p>Notice that <code>description</code> and <code>priority</code> are <strong>not required</strong>. The voice webhook provides a fallback for both:</p>
+  <ul>
+    <li><code>priority</code> → hardcoded to <code>"medium"</code> for all voice complaints</li>
+    <li><code>description</code> → falls back to the raw transcript if empty</li>
+  </ul>
+
+  <h2 id="ai-extractor">AI Extractor — extract_complaint_from_transcript()</h2>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="kw">import</span> re
+<span class="kw">import</span> os
+<span class="kw">import</span> json
+<span class="kw">from</span> groq <span class="kw">import</span> Groq
+<span class="kw">from</span> app.core.constants <span class="kw">import</span> ALLOWED_CATEGORIES
+
+
+<span class="kw">def</span> <span class="fn">extract_complaint_from_transcript</span>(transcript: str) -> dict:
+    <span class="kw">try</span>:
+        client = <span class="fn">Groq</span>(api_key=os.<span class="fn">getenv</span>(<span class="str">"GROQ_API_KEY"</span>))
+
+        system_prompt = <span class="str">"""You are a complaint extraction AI.
+
+Your task: Extract structured complaint data from voice call transcripts.
+
+STRICT RULES:
+1. Extract ONLY these fields: flat_number, category, priority, description
+2. If a field is NOT mentioned or cannot be confidently inferred, return null for that field
+3. NEVER fabricate or guess missing information
+4. Category must be one of: water, electricity, cleaning, noise, maintenance, security, other
+5. Priority must be one of: low, medium, high
+6. All category and priority values MUST be lowercase
+7. Output valid JSON ONLY - no explanations, no markdown, no code blocks
+
+Field Extraction Guidelines:
+- flat_number: Extract apartment/unit number if mentioned (e.g., "A-101", "Flat 204", "12B")
+- category: Infer from complaint keywords (leak→water, power cut→electricity, etc.)
+- priority: Infer from urgency keywords (urgent→high, whenever→low, etc.)
+- description: Extract the core complaint description
+
+Output Format (strict):
+{
+  "flat_number": "value" or null,
+  "category": "value" or null,
+  "priority": "value" or null,
+  "description": "value" or null
+}"""</span>
+
+        response = client.chat.completions.<span class="fn">create</span>(
+            model=<span class="str">"llama-3.1-8b-instant"</span>,
+            messages=[
+                {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: system_prompt},
+                {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="fn">f</span><span class="str">"Extract complaint data from this transcript:\n\n{transcript}"</span>}
+            ],
+            temperature=<span class="num">0</span>,
+            max_tokens=<span class="num">500</span>
+        )
+
+        result_text = response.choices[<span class="num">0</span>].message.content.<span class="fn">strip</span>()
+        result = json.<span class="fn">loads</span>(result_text)
+
+        <span class="cm"># Normalize and validate category</span>
+        <span class="kw">if</span> result.<span class="fn">get</span>(<span class="str">"category"</span>):
+            result[<span class="str">"category"</span>] = result[<span class="str">"category"</span>].<span class="fn">lower</span>()
+            <span class="kw">if</span> result[<span class="str">"category"</span>] <span class="kw">not in</span> ALLOWED_CATEGORIES:
+                result[<span class="str">"category"</span>] = <span class="kw">None</span>    <span class="cm"># hallucinated value → discard</span>
+
+        <span class="cm"># Normalize and validate priority</span>
+        <span class="kw">if</span> result.<span class="fn">get</span>(<span class="str">"priority"</span>):
+            result[<span class="str">"priority"</span>] = result[<span class="str">"priority"</span>].<span class="fn">lower</span>()
+            <span class="kw">if</span> result[<span class="str">"priority"</span>] <span class="kw">not in</span> [<span class="str">"low"</span>, <span class="str">"medium"</span>, <span class="str">"high"</span>]:
+                result[<span class="str">"priority"</span>] = <span class="kw">None</span>
+
+        <span class="kw">return</span> {
+            <span class="str">"flat_number"</span>: result.<span class="fn">get</span>(<span class="str">"flat_number"</span>),
+            <span class="str">"category"</span>:   result.<span class="fn">get</span>(<span class="str">"category"</span>),
+            <span class="str">"priority"</span>:   result.<span class="fn">get</span>(<span class="str">"priority"</span>),
+            <span class="str">"description"</span>: result.<span class="fn">get</span>(<span class="str">"description"</span>)
+        }
+
+    <span class="kw">except</span> <span class="typ">Exception</span> as e:
+        <span class="fn">print</span>(<span class="fn">f</span><span class="str">"AI extraction error: {e}"</span>)
+        <span class="kw">return</span> {           <span class="cm"># safe all-None fallback on any error</span>
+            <span class="str">"flat_number"</span>: <span class="kw">None</span>, <span class="str">"category"</span>: <span class="kw">None</span>,
+            <span class="str">"priority"</span>: <span class="kw">None</span>,   <span class="str">"description"</span>: <span class="kw">None</span>
+        }</code></pre>
+
+  <h2 id="system-prompt">System Prompt Engineering for Extraction</h2>
+
+  <p>Extraction prompts are fundamentally different from chat prompts. Here's the breakdown of every design choice:</p>
+
+  <table>
+    <tr><th>Choice</th><th>Why</th></tr>
+    <tr><td><code>temperature=0</code></td><td>Extraction must be deterministic. Temperature 0 means the model always picks the highest-probability token — no creativity.</td></tr>
+    <tr><td><code>max_tokens=500</code></td><td>The output is a small JSON object. Limiting tokens prevents rambling and reduces cost.</td></tr>
+    <tr><td>"Output valid JSON ONLY — no explanations, no markdown, no code blocks"</td><td>LLMs love wrapping JSON in <code>```json ... ```</code>. This instruction suppresses it. Without it, <code>json.loads()</code> will fail.</td></tr>
+    <tr><td>"If a field is NOT mentioned…return null"</td><td>Without this, the LLM will hallucinate plausible values. This is the single most important guard.</td></tr>
+    <tr><td>Enumerated allowed values in the prompt</td><td>The model knows the exact set of valid strings so it doesn't invent "plumbing" or "electric" instead of "water"/"electricity".</td></tr>
+    <tr><td>Post-extraction validation against ALLOWED_CATEGORIES</td><td>Belt-and-suspenders: even if the model ignores the prompt constraint, the code validates and nulls invalid values.</td></tr>
+  </table>
+
+  <h3>Why Groq (not OpenAI) for extraction?</h3>
+
+  <div class="flow-diagram">Voice call ends → transcript available
+Groq llama-3.1-8b-instant extraction:
+  ✓ ~200ms response time  (vs ~800ms OpenAI)
+  ✓ Free tier available   (vs paid per-token)
+  ✓ Temperature=0 → deterministic
+  ✓ One-shot task, no tool calling needed
+
+OpenAI gpt-4o-mini for chatbot:
+  ✓ Superior multi-turn tool calling
+  ✓ More reliable JSON schema adherence
+  ✓ Better at complex reasoning chains</div>
+
+  <p>The rule of thumb: <strong>Groq for one-shot extraction, OpenAI for interactive tool calling</strong>. Running OpenAI for every voice complaint would be ~4x the cost with no benefit.</p>
+
+  <h2 id="rule-extractor">Rule-Based Extractor — extract_fields()</h2>
+
+  <p>This is the deterministic alternative to AI extraction. No LLM call — pure regex and keyword matching.</p>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="kw">def</span> <span class="fn">extract_fields</span>(text: str) -> dict:
+    text_lower = text.<span class="fn">lower</span>()
+    <span class="kw">return</span> {
+        <span class="str">"flat_number"</span>: <span class="fn">_extract_flat_number</span>(text),
+        <span class="str">"category"</span>:    <span class="fn">_extract_category</span>(text_lower),
+        <span class="str">"priority"</span>:    <span class="fn">_extract_priority</span>(text_lower),
+        <span class="str">"description"</span>: text.<span class="fn">strip</span>()   <span class="cm"># always the full text</span>
+    }</code></pre>
+
+  <h3>Category Extraction — Keyword Matching</h3>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="kw">def</span> <span class="fn">_extract_category</span>(text_lower: str) -> str | <span class="kw">None</span>:
+    category_keywords = {
+        <span class="str">"water"</span>:       [<span class="str">"water"</span>, <span class="str">"leak"</span>, <span class="str">"leaking"</span>, <span class="str">"pipe"</span>, <span class="str">"plumbing"</span>, <span class="str">"tap"</span>, <span class="str">"sink"</span>, <span class="str">"flush"</span>],
+        <span class="str">"electricity"</span>: [<span class="str">"electricity"</span>, <span class="str">"power"</span>, <span class="str">"light"</span>, <span class="str">"bulb"</span>, <span class="str">"wiring"</span>, <span class="str">"socket"</span>, <span class="str">"outage"</span>],
+        <span class="str">"cleaning"</span>:    [<span class="str">"clean"</span>, <span class="str">"garbage"</span>, <span class="str">"trash"</span>, <span class="str">"dirty"</span>, <span class="str">"waste"</span>],
+        <span class="str">"noise"</span>:       [<span class="str">"noise"</span>, <span class="str">"loud"</span>, <span class="str">"music"</span>, <span class="str">"disturbance"</span>, <span class="str">"shouting"</span>],
+        <span class="str">"maintenance"</span>: [<span class="str">"repair"</span>, <span class="str">"broken"</span>, <span class="str">"fix"</span>, <span class="str">"damage"</span>, <span class="str">"crack"</span>, <span class="str">"door"</span>, <span class="str">"wall"</span>],
+        <span class="str">"security"</span>:    [<span class="str">"security"</span>, <span class="str">"theft"</span>, <span class="str">"lock"</span>, <span class="str">"gate"</span>, <span class="str">"intruder"</span>],
+    }
+
+    matched_categories = {}
+    <span class="kw">for</span> category, keywords <span class="kw">in</span> category_keywords.<span class="fn">items</span>():
+        <span class="kw">if</span> category <span class="kw">not in</span> ALLOWED_CATEGORIES:    <span class="cm"># skip any category not in the master list</span>
+            <span class="kw">continue</span>
+        match_count = <span class="fn">sum</span>(<span class="num">1</span> <span class="kw">for</span> kw <span class="kw">in</span> keywords <span class="kw">if</span> kw <span class="kw">in</span> text_lower)
+        <span class="kw">if</span> match_count > <span class="num">0</span>:
+            matched_categories[category] = match_count
+
+    <span class="kw">if</span> matched_categories:
+        <span class="kw">return</span> <span class="fn">max</span>(matched_categories, key=matched_categories.get)  <span class="cm"># most keyword hits wins</span>
+    <span class="kw">return None</span></code></pre>
+
+  <p>The <strong>most keyword hits wins</strong> strategy handles ambiguous text. "The pipe is broken and leaking" hits both "maintenance" (broken) and "water" (pipe, leaking) — water wins with 2 hits vs 1.</p>
+
+  <h3>Priority Extraction</h3>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="kw">def</span> <span class="fn">_extract_priority</span>(text_lower: str) -> str | <span class="kw">None</span>:
+    priority_keywords = {
+        <span class="str">"high"</span>:   [<span class="str">"urgent"</span>, <span class="str">"emergency"</span>, <span class="str">"immediately"</span>, <span class="str">"asap"</span>, <span class="str">"critical"</span>, <span class="str">"serious"</span>],
+        <span class="str">"medium"</span>: [<span class="str">"soon"</span>, <span class="str">"important"</span>, <span class="str">"quickly"</span>, <span class="str">"necessary"</span>],
+        <span class="str">"low"</span>:    [<span class="str">"whenever"</span>, <span class="str">"not urgent"</span>, <span class="str">"can wait"</span>, <span class="str">"no hurry"</span>, <span class="str">"eventually"</span>],
+    }
+
+    detected_priorities = []
+    <span class="kw">for</span> priority, keywords <span class="kw">in</span> priority_keywords.<span class="fn">items</span>():
+        <span class="kw">for</span> keyword <span class="kw">in</span> keywords:
+            <span class="kw">if</span> keyword <span class="kw">in</span> text_lower:
+                detected_priorities.<span class="fn">append</span>(priority)
+                <span class="kw">break</span>           <span class="cm"># one keyword match per priority level is enough</span>
+
+    <span class="kw">if not</span> detected_priorities:
+        <span class="kw">return None</span>
+
+    priority_order = {<span class="str">"high"</span>: <span class="num">3</span>, <span class="str">"medium"</span>: <span class="num">2</span>, <span class="str">"low"</span>: <span class="num">1</span>}
+    <span class="kw">return</span> <span class="fn">max</span>(detected_priorities, key=<span class="kw">lambda</span> p: priority_order[p])  <span class="cm"># highest wins</span></code></pre>
+
+  <h2 id="regex-priority">Flat Number Regex — CRITICAL Priority Order</h2>
+
+  <p>The flat number extractor is the trickiest part. The code has a long comment block explaining the pattern priority — this is earned wisdom from actual bugs:</p>
+
+  <pre><code><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="kw">def</span> <span class="fn">_extract_flat_number</span>(text: str) -> str | <span class="kw">None</span>:
+    <span class="cm"># PRIORITY ORDER: Alphanumeric patterns FIRST, pure digits LAST
+    # This prevents "A101" from being incorrectly parsed as "101"</span>
+    patterns = [
+        <span class="cm"># Priority 1: Letter + optional hyphen/space + digits (A-101, A101, A 101)</span>
+        <span class="str">r'\b([A-Z]-?\s?\d{1,4}[A-Z]?)\b'</span>,
+
+        <span class="cm"># Priority 2: Keyword prefix (flat A101, unit B204)</span>
+        <span class="str">r'\b(flat|unit)\s+([A-Z0-9-]+)\b'</span>,
+
+        <span class="cm"># Priority 3: Digits + letter suffix (101A, 204B)</span>
+        <span class="str">r'\b(\d{1,4}[A-Z])\b'</span>,
+
+        <span class="cm"># Priority 4: Letter + space + digits (A 101)</span>
+        <span class="str">r'\b([A-Z]\s?\d{1,4})\b'</span>,
+
+        <span class="cm"># Priority 5: PURE DIGITS ONLY — LAST RESORT
+        # Deliberately placed LAST to avoid stripping prefixes</span>
+        <span class="str">r'^\s*(\d{2,4})\s*$'</span>
+    ]
+
+    <span class="kw">for</span> idx, pattern <span class="kw">in</span> <span class="fn">enumerate</span>(patterns, <span class="num">1</span>):
+        match = re.<span class="fn">search</span>(pattern, text, re.IGNORECASE)
+        <span class="kw">if</span> match:
+            <span class="kw">if</span> <span class="str">'flat'</span> <span class="kw">in</span> pattern <span class="kw">or</span> <span class="str">'unit'</span> <span class="kw">in</span> pattern:
+                extracted = match.<span class="fn">group</span>(<span class="num">2</span>).<span class="fn">strip</span>()   <span class="cm"># group(2) skips "flat"/"unit" word</span>
+            <span class="kw">else</span>:
+                extracted = match.<span class="fn">group</span>(<span class="num">1</span>).<span class="fn">strip</span>()
+            <span class="kw">return</span> extracted
+
+    <span class="kw">return None</span></code></pre>
+
+  <div class="card card-error">
+    <strong>Bug that taught this lesson:</strong> The original extractor had pure-digit patterns first. For the text <code>"flat A101 has a water issue"</code>, the pattern <code>\d{2,4}</code> matched <code>101</code> instead of <code>A101</code>. The complaint was logged for flat "101" which didn't exist, causing the webhook to fail silently. The fix was to always try alphanumeric patterns first and only fall back to pure digits as a last resort.
+  </div>
+
+  <h2 id="bugs">Real Bugs Faced & How We Fixed Them</h2>
+
+  <h3>Bug 1: LLM Returns Markdown-Wrapped JSON</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> <code>json.loads()</code> raises <code>JSONDecodeError</code> on valid-looking extraction results.<br><br>
+    <strong>Root cause:</strong> The LLM returned:
+    <pre style="margin:0.5rem 0"><code>```json
+{"flat_number": "A101", "category": "water", ...}
+```</code></pre>
+    <strong>Fix:</strong> The prompt now says <em>"Output valid JSON ONLY — no explanations, no markdown, no code blocks"</em>. Plus the broad <code>except Exception</code> catches any <code>JSONDecodeError</code> and returns all-None safely.
+  </div>
+
+  <h3>Bug 2: Hallucinated Category Values</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> Complaints inserted with <code>category = "plumbing"</code> which failed the DB <code>CHECK</code> constraint, causing a 500 error.<br><br>
+    <strong>Root cause:</strong> The LLM returned a semantically correct but non-canonical value.<br><br>
+    <strong>Fix:</strong> Post-extraction validation — after <code>json.loads()</code>, check <code>result["category"] in ALLOWED_CATEGORIES</code> and set to <code>None</code> if not. The voice webhook then uses the fallback transcript.
+  </div>
+
+  <h3>Bug 3: Using the Wrong Model Name</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> <code>groq.BadRequestError: model 'llama-3.1-70b-versatile' does not exist</code> — this error started appearing in late 2024 when Groq decommissioned the 70b model.<br><br>
+    <strong>Fix:</strong> The extractor uses <code>llama-3.1-8b-instant</code> (small, fast, still active). For other Groq code paths use <code>llama-3.3-70b-versatile</code> (the successor to 70b). Never use <code>llama-3.1-70b-versatile</code> — it no longer exists.
+  </div>
+
+  <h3>Bug 4: Flat Number "A101" Extracted as "101"</h3>
+  <div class="card card-error">
+    <strong>Already documented above in the regex section.</strong> Short version: pure-digit pattern must be <em>last</em> in the patterns list, not first.
+  </div>
+
+  <h3>Bug 5: Exception During Extraction Crashes the Webhook</h3>
+  <div class="card card-error">
+    <strong>Symptom:</strong> The voice webhook returned 500, causing VAPI to mark the call as failed.<br><br>
+    <strong>Root cause:</strong> Early version of the extractor had no try/except. A network timeout to the Groq API propagated up and crashed the webhook handler.<br><br>
+    <strong>Fix:</strong> Wrap the entire function in <code>try/except Exception</code> and return all-None. The webhook then creates an incomplete call log rather than crashing. The VAPI rule is: <strong>always return 200</strong> regardless of what happens internally.
+  </div>
+
+  <h2 id="exercises">Exercises</h2>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> &nbsp; What does the extractor return when the Groq API is unreachable?</summary>
+    <p>It catches the exception and returns <code>{"flat_number": None, "category": None, "priority": None, "description": None}</code>. This means the voice webhook will create an incomplete call log (status = <code>"incomplete"</code>) rather than crashing. The transcript is still saved for manual review.</p>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> &nbsp; Why is <code>temperature=0</code> used for extraction but not for chatbot responses?</summary>
+    <p>Extraction is a mapping task: transcript → fixed JSON schema. There is only one correct answer. Temperature=0 makes the model pick the most likely token at each step — maximally deterministic. The chatbot needs to generate varied, natural-sounding replies; temperature > 0 adds the slight randomness that makes responses feel human rather than robotic.</p>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> &nbsp; Add a new complaint category "pest" to the system. What files need to change?</summary>
+    <details style="margin-top: 0.75rem">
+      <summary>Show solution</summary>
+      <p><strong>1. constants.py</strong></p>
+      <pre><code>ALLOWED_CATEGORIES = [
+    "water", "electricity", "cleaning", "noise",
+    "maintenance", "security", "other", <span class="str">"pest"</span>  <span class="cm"># add here</span>
+]</code></pre>
+      <p><strong>2. DB migration</strong> — the <code>complaints</code> table has a CHECK constraint. Run in Supabase SQL editor:</p>
+      <pre><code>ALTER TABLE complaints
+DROP CONSTRAINT complaints_category_check;
+
+ALTER TABLE complaints
+ADD CONSTRAINT complaints_category_check
+CHECK (category IN ('water','electricity','cleaning','noise','maintenance','security','other','pest'));</code></pre>
+      <p><strong>3. vapi_agent_config.py</strong> — the <code>submit_complaint</code> function tool has an <code>"enum"</code> field. Add <code>"pest"</code> there so the VAPI agent knows it's a valid category.</p>
+      <p><strong>4. frontend/src/constants/status.js</strong> — if there's a color config for categories, add an entry for <code>"pest"</code>.</p>
+      <p>The extractor picks it up automatically because it validates against <code>ALLOWED_CATEGORIES</code>. The keyword list in <code>_extract_category()</code> may also need a new entry for keywords like "cockroach", "ants", "rodent".</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> &nbsp; Write a test transcript and trace what extract_complaint_from_transcript() would produce.</summary>
+    <details style="margin-top: 0.75rem">
+      <summary>Show solution</summary>
+      <pre><code>transcript = <span class="str">"I'm calling from flat B-203, there's been a power outage since this morning, I need urgent help"</span>
+
+<span class="cm"># Expected LLM output (temperature=0):</span>
+{
+    <span class="str">"flat_number"</span>: <span class="str">"B-203"</span>,
+    <span class="str">"category"</span>: <span class="str">"electricity"</span>,    <span class="cm"># "power outage" → electricity keyword</span>
+    <span class="str">"priority"</span>: <span class="str">"high"</span>,            <span class="cm"># "urgent" → high priority keyword</span>
+    <span class="str">"description"</span>: <span class="str">"Power outage since this morning"</span>
+}
+
+<span class="cm"># Post-validation:
+# "electricity" IS in ALLOWED_CATEGORIES → kept
+# "high" IS in ["low","medium","high"] → kept
+# All fields present → no nulling needed</span>
+
+<span class="cm"># validate_complaint would return:
+# {"is_complete": False, "missing_fields": ["appointment_date"], ...}
+# because appointment_date was not in the transcript</span></code></pre>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> &nbsp; The AI extractor uses HTTP calls to Groq's API. In a production system handling 1000 calls/day, what's the risk and how would you mitigate it?</summary>
+    <details style="margin-top: 0.75rem">
+      <summary>Show solution</summary>
+      <p><strong>Risk 1: Rate limiting</strong> — Groq's free tier has per-minute token limits. 1000 calls/day = ~41/hour. Each transcript might be ~300 tokens. At peak, this could hit limits.</p>
+      <p><strong>Risk 2: Latency</strong> — The voice webhook must complete within VAPI's timeout. Adding an external API call adds 200-500ms latency. Under load this can stack up.</p>
+      <p><strong>Risk 3: Cost at scale</strong> — Groq charges per token on paid plans.</p>
+      <p><strong>Mitigations:</strong></p>
+      <ul>
+        <li>Make the Groq call async and move it to a background task — don't block the webhook response on extraction. Save the raw transcript first, extract in background.</li>
+        <li>Cache extraction results by transcript hash (unlikely to see exact duplicates, but possible for short transcripts).</li>
+        <li>The existing rule-based <code>extract_fields()</code> is instant — use it as a pre-filter. Only call Groq if the rule-based extractor returns None for key fields.</li>
+        <li>Use a queue (Celery + Redis) to process transcripts asynchronously at controlled throughput.</li>
+      </ul>
+    </details>
+  </details>
+
+  <div class="nav-buttons">
+    <a href="module_08_complaints_appointments.html" class="nav-btn">← Module 08: Complaints &amp; Appointments</a>
+    <a href="module_10_openai_chatbot.html" class="nav-btn">Module 10: AI Chatbot →</a>
+  </div>
+
+</div>
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  document.querySelector('.theme-toggle').textContent = html.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+}
+function copyCode(btn) {
+  const code = btn.parentElement.querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(() => { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 2000); });
+}
+window.addEventListener('scroll', () => {
+  document.getElementById('backToTop').classList.toggle('visible', window.scrollY > 400);
+});
+const links = document.querySelectorAll('.sidebar a');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const id = e.target.getAttribute('id');
+      const active = document.querySelector(`.sidebar a[href="#${id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('h2[id], h3[id]').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

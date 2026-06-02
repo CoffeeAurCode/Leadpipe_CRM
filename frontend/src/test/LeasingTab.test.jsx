@@ -20,12 +20,15 @@ vi.mock('../services/apiService', () => ({
     deleteLead: vi.fn(),
     getLeasingMetrics: vi.fn(),
     exportLeads: vi.fn(),
+    getUserVapiConfig: vi.fn(),
+    retryUserProvisioning: vi.fn(),
 }));
 
 import {
     getListings, deleteListing,
     getLeaseLeads, deleteLead,
     getLeasingMetrics,
+    getUserVapiConfig, retryUserProvisioning,
 } from '../services/apiService';
 import LeasingTab from '../components/LeasingTab';
 
@@ -78,6 +81,8 @@ beforeEach(() => {
     getLeasingMetrics.mockResolvedValue(MOCK_METRICS);
     deleteListing.mockResolvedValue(null);
     deleteLead.mockResolvedValue(null);
+    getUserVapiConfig.mockResolvedValue(null);
+    retryUserProvisioning.mockResolvedValue(null);
     window.confirm = vi.fn(() => true);
 });
 
@@ -111,8 +116,8 @@ describe('LeasingTab', () => {
     it('displays qualification status badges', async () => {
         renderPage();
         await waitFor(() => {
-            expect(screen.getAllByText('qualified').length).toBeGreaterThanOrEqual(1);
-            expect(screen.getAllByText('unmatched').length).toBeGreaterThanOrEqual(1);
+            expect(screen.getAllByText('Qualified').length).toBeGreaterThanOrEqual(1);
+            expect(screen.getAllByText('Unmatched').length).toBeGreaterThanOrEqual(1);
         });
     });
 

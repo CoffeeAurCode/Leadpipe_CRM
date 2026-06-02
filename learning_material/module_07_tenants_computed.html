@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 07 — Tenants & Computed Lease Fields | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --accent-hover: #89b4fa; --success: #9ece6a;
+      --warning: #e0af68; --error: #f7768e; --border: #3b4261;
+      --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3);
+      --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --accent-hover: #0550ae; --success: #1a7f37;
+      --warning: #9a6700; --error: #cf222e; --border: #d0d7de;
+      --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; transition: transform 0.3s; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0; font-size: 0.85rem; border-left: 2px solid transparent; padding-left: 0.5rem; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-secondary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; } .var { color: #c0caf5; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; } [data-theme="light"] .var { color: #24292f; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .lang-label { position: absolute; top: 0.4rem; right: 3.5rem; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-family: var(--font-sans); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; box-shadow: var(--shadow); }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-warning { border-left: 4px solid var(--warning); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .card-error { border-left: 4px solid var(--error); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; color: var(--text-primary); }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .badge-concept { background: #7aa2f722; color: var(--accent); border: 1px solid var(--accent); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .nav-btn.disabled { opacity: 0.4; pointer-events: none; }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .breadcrumbs a:hover { color: var(--accent); }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: all 0.3s; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { background: var(--bg-secondary); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { border-left: 4px solid var(--warning); }
+    .callout-info { border-left: 4px solid var(--accent); }
+    .callout-success { border-left: 4px solid var(--success); }
+    .callout p { margin: 0; }
+    @media print {
+      .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; }
+      .main-content { margin-left: 0 !important; }
+      body { color: #000; background: #fff; }
+      pre { border: 1px solid #ccc; }
+      details, details > * { display: block; }
+      h2 { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 07</h3>
+  <div id="toc"></div>
+</nav>
+
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content">
+  <div class="container">
+
+    <div class="breadcrumbs">
+      <a href="index.html">Home</a> › <strong>Module 07 — Tenants &amp; Computed Lease Fields</strong>
+    </div>
+
+    <h1>Module 07 — Tenants &amp; Computed Lease Fields</h1>
+    <div class="meta-row">
+      <span>⏱ Estimated time: 70 minutes</span>
+      <span>📁 Files: <code>routes/tenants.py</code>, <code>schemas/tenant.py</code></span>
+      <span>🔰 Prerequisites: Modules 00–06</span>
+    </div>
+
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div class="nav-buttons">
+      <a href="module_06_flats_assignment.html" class="nav-btn">← Module 06: Flats &amp; Assignment</a>
+      <a href="module_08_complaints_appointments.html" class="nav-btn">Next: Complaints &amp; Appointments →</a>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+    <p>This module covers the <strong>tenants</strong> route and schema — the innermost data layer. The highlight is <strong>computed lease fields</strong>: fields that don't exist in the database but are derived from stored dates at response time. You'll also learn the <strong>batch enrichment pattern</strong> — how the GET /tenants endpoint fetches tenant data, flat numbers, active rents, and feature flags in just 4 queries, regardless of how many tenants exist.</p>
+
+    <div class="diagram">
+Three-Layer Status Rule
+───────────────────────
+Layer 1: Database (source of truth)
+  tenants.lease_start_date = "2025-01-01"
+  tenants.lease_end_date   = "2025-12-31"
+  tenants.rent_status      = "On-time"    ← stored, manager manually updates
+
+Layer 2: API computed field (derived at response time)
+  TenantResponse.lease_status  = "Active" | "Expiring Soon" | "Expired" | "No Lease"
+  TenantResponse.remaining_time_on_lease_days = 213
+  (these are NOT stored in DB — calculated by Pydantic @computed_field)
+
+Layer 3: Frontend display
+  badge color = green / yellow / red  (driven by lease_status string)
+  countdown   = "213 days remaining"  (driven by remaining_time_on_lease_days)
+
+Rule: Never store a value that can be computed from other stored values.
+      The computed layer ensures the frontend always has fresh, consistent data.
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+    <details open>
+      <summary>Pydantic V2 <code>@computed_field</code> and <code>@property</code></summary>
+      <p>In Pydantic V2, <code>@computed_field</code> marks a Python <code>@property</code> as a field that should be included in serialized output (JSON responses). Without it, properties are excluded from <code>.model_dump()</code> and API responses.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel, computed_field
+<span class="kw">from</span> datetime <span class="kw">import</span> date
+
+<span class="kw">class</span> <span class="typ">TenantResponse</span>(BaseModel):
+    lease_start_date: Optional[date] = None
+    lease_end_date:   Optional[date] = None
+
+    <span class="dec">@computed_field</span>
+    <span class="dec">@property</span>
+    <span class="kw">def</span> <span class="fn">lease_status</span>(self) -> str:
+        <span class="kw">if not</span> self.lease_start_date <span class="kw">or not</span> self.lease_end_date:
+            <span class="kw">return</span> <span class="str">"No Lease"</span>
+        today = date.today()
+        <span class="kw">if</span> self.lease_end_date &lt; today:
+            <span class="kw">return</span> <span class="str">"Expired"</span>
+        remaining = (self.lease_end_date - today).days
+        <span class="kw">if</span> remaining &lt;= <span class="num">30</span>:
+            <span class="kw">return</span> <span class="str">"Expiring Soon"</span>
+        <span class="kw">if</span> self.lease_start_date &lt;= today:
+            <span class="kw">return</span> <span class="str">"Active"</span>
+        <span class="kw">return</span> <span class="str">"Upcoming"</span>
+
+<span class="cm"># When serialized to JSON, lease_status appears as a top-level field</span>
+t = TenantResponse(lease_start_date=date(<span class="num">2025</span>,<span class="num">1</span>,<span class="num">1</span>), lease_end_date=date(<span class="num">2025</span>,<span class="num">12</span>,<span class="num">31</span>))
+t.model_dump()
+<span class="cm"># → {"lease_start_date": "2025-01-01", "lease_end_date": "2025-12-31",
+#    "lease_status": "Active", ...}</span>
+</code></pre>
+      <div class="callout callout-info">
+        <p><strong>Pydantic V2 change:</strong> In Pydantic V1, you would use <code>@validator</code> or <code>@root_validator</code> for this. In V2, always use <code>@computed_field</code> + <code>@property</code>. The V1 <code>@validator</code> decorator is removed in V2.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Batch Enrichment Pattern — avoiding N+1 across multiple tables</summary>
+      <p>The <code>GET /tenants</code> endpoint returns tenants enriched with data from 3 other tables (flats, rents, feature flags). With N+1, it would be 1 + (3 × N) queries. With batch enrichment, it's always exactly 4 queries no matter how many tenants.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># Step 1: Fetch all tenants</span>
+tenants = db.table(<span class="str">"tenants"</span>).select(<span class="str">"*"</span>).execute().data
+
+<span class="cm"># Step 2: Collect all flat_uuids from those tenants</span>
+flat_uuids = [t[<span class="str">"flat_uuid"</span>] <span class="kw">for</span> t <span class="kw">in</span> tenants <span class="kw">if</span> t.get(<span class="str">"flat_uuid"</span>)]
+
+<span class="kw">if</span> flat_uuids:
+    <span class="cm"># Step 3a: Fetch flat numbers + integer IDs (for feature lookup) in ONE query</span>
+    flats_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid, id, flat_number"</span>).in_(<span class="str">"uuid"</span>, flat_uuids).execute()
+    flat_map = {f[<span class="str">"uuid"</span>]: f <span class="kw">for</span> f <span class="kw">in</span> flats_resp.data}  <span class="cm"># keyed for O(1) lookup</span>
+    flat_id_by_uuid = {f[<span class="str">"uuid"</span>]: f[<span class="str">"id"</span>] <span class="kw">for</span> f <span class="kw">in</span> flats_resp.data}
+
+    <span class="cm"># Step 3b: Fetch active rents for those flats in ONE query</span>
+    rents_resp = (
+        db.table(<span class="str">"rents"</span>)
+        .select(<span class="str">"flat_uuid, monthly_rent, effective_from"</span>)
+        .in_(<span class="str">"flat_uuid"</span>, flat_uuids)
+        .eq(<span class="str">"is_active"</span>, <span class="kw">True</span>)
+        .execute()
+    )
+    rent_map = {r[<span class="str">"flat_uuid"</span>]: r <span class="kw">for</span> r <span class="kw">in</span> rents_resp.data}
+
+    <span class="cm"># Step 3c: Fetch feature flags for all those flats in ONE query</span>
+    flat_ids = list(flat_id_by_uuid.values())
+    feature_resp = (
+        db.table(<span class="str">"property_features"</span>)
+        .select(<span class="str">"unit_id, feature_key, enabled"</span>)
+        .in_(<span class="str">"feature_key"</span>, [<span class="str">"tenant_details"</span>, <span class="str">"tenant_documents"</span>])
+        .in_(<span class="str">"unit_id"</span>, flat_ids)
+        .execute()
+    )
+    tenant_details_map = {}
+    tenant_documents_map = {}
+    <span class="kw">for</span> row <span class="kw">in</span> feature_resp.data:
+        <span class="kw">if</span> row[<span class="str">"feature_key"</span>] == <span class="str">"tenant_details"</span>:
+            tenant_details_map[row[<span class="str">"unit_id"</span>]] = row[<span class="str">"enabled"</span>]
+        <span class="kw">elif</span> row[<span class="str">"feature_key"</span>] == <span class="str">"tenant_documents"</span>:
+            tenant_documents_map[row[<span class="str">"unit_id"</span>]] = row[<span class="str">"enabled"</span>]
+
+<span class="cm"># Step 4: Enrich each tenant dict in Python (O(1) per tenant using maps)</span>
+<span class="kw">for</span> t <span class="kw">in</span> tenants:
+    fid = t.get(<span class="str">"flat_uuid"</span>)
+    flat = flat_map.get(fid) <span class="kw">if</span> fid <span class="kw">else</span> None
+    rent = rent_map.get(fid) <span class="kw">if</span> fid <span class="kw">else</span> None
+    unit_int_id = flat_id_by_uuid.get(fid) <span class="kw">if</span> fid <span class="kw">else</span> None
+
+    t[<span class="str">"flat_number"</span>] = flat[<span class="str">"flat_number"</span>] <span class="kw">if</span> flat <span class="kw">else</span> None
+    t[<span class="str">"rent_amount"</span>] = rent[<span class="str">"monthly_rent"</span>] <span class="kw">if</span> rent <span class="kw">else</span> None
+    t[<span class="str">"due_date"</span>]    = rent[<span class="str">"effective_from"</span>] <span class="kw">if</span> rent <span class="kw">else</span> None
+    <span class="cm"># Feature flag defaults: tenant_details=True, tenant_documents=False</span>
+    t[<span class="str">"tenant_details_enabled"</span>]   = tenant_details_map.get(unit_int_id, <span class="kw">True</span>)  <span class="kw">if</span> unit_int_id <span class="kw">else</span> <span class="kw">True</span>
+    t[<span class="str">"tenant_documents_enabled"</span>] = tenant_documents_map.get(unit_int_id, <span class="kw">False</span>) <span class="kw">if</span> unit_int_id <span class="kw">else</span> <span class="kw">False</span>
+</code></pre>
+      <p>The feature flag lookup uses the flat's <strong>integer</strong> id (<code>flat.id</code>), not the UUID. The <code>property_features</code> table's <code>unit_id</code> column is an integer FK. This is a legacy inconsistency in the schema — the flat table has both an integer PK and a UUID PK, and feature flags happened to use the integer one.</p>
+    </details>
+
+    <details>
+      <summary>IST Timezone — Why Store Local Time?</summary>
+      <p>Best practice is to store all timestamps in UTC and convert to local time on display. This codebase stores timestamps in IST (India Standard Time = UTC+5:30) for a single-region product. The timezone is applied at write time:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">from</span> datetime <span class="kw">import</span> datetime, timezone, timedelta
+
+IST = timezone(timedelta(hours=<span class="num">5</span>, minutes=<span class="num">30</span>))
+
+<span class="cm"># Get current time in IST</span>
+now_ist = datetime.now(IST)
+
+<span class="cm"># Format for DB storage / API response (T separator for parseISO compatibility)</span>
+formatted = now_ist.strftime(<span class="str">"%Y-%m-%dT%H:%M:%S"</span>)
+<span class="cm"># → "2025-06-01T14:30:00"</span>
+</code></pre>
+      <div class="callout callout-warning">
+        <p><strong>Known trade-off:</strong> If the product ever expands beyond India, all timestamps stored as IST would need migration to UTC. This is a deliberate shortcut for the MVP scope.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Server-Side vs Client-Side Filtering for <code>lease_status</code></summary>
+      <p><code>lease_status</code> is a computed field — it does not exist in the database. When the frontend wants to filter tenants by lease_status, the database cannot do it with a WHERE clause. The API must filter in Python after fetching all rows.</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">def</span> <span class="fn">_compute_lease_status</span>(tenant: dict) -> str:
+    <span class="str">"""Compute lease status from raw tenant dict for server-side filtering."""</span>
+    start = tenant.get(<span class="str">"lease_start_date"</span>)
+    end = tenant.get(<span class="str">"lease_end_date"</span>)
+    <span class="kw">if not</span> start <span class="kw">or not</span> end:
+        <span class="kw">return</span> <span class="str">"No Lease"</span>
+    today = date.today()
+    end_date = date.fromisoformat(end) <span class="kw">if isinstance</span>(end, str) <span class="kw">else</span> end
+    ...
+
+<span class="cm"># Used in GET /tenants when lease_status filter is provided</span>
+<span class="kw">if</span> lease_status:
+    tenants = [t <span class="kw">for</span> t <span class="kw">in</span> tenants <span class="kw">if</span> _compute_lease_status(t) == lease_status]
+</code></pre>
+      <p>Notice this is a standalone function (<code>_compute_lease_status</code>) that operates on a raw dict, not a Pydantic model. That's because at this point in the route handler the tenants are still plain Python dicts from the DB response. The Pydantic <code>@computed_field</code> version on <code>TenantResponse</code> does the same logic but runs after the model is instantiated.</p>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="schema-walkthrough">Section 3 — schemas/tenant.py Line by Line</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+    <h3>TenantCreate and TenantUpdate</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">class</span> <span class="typ">TenantCreate</span>(TenantBase):
+    flat_uuid: Optional[UUID] = Field(None)   <span class="cm"># which flat to assign on creation</span>
+    lease_start_date: Optional[date] = None
+    lease_end_date: Optional[date] = None
+    rent_status: Optional[str] = Field(None, description=<span class="str">"On-time | Upcoming | Overdue | At Risk"</span>)
+    payment_schedule: Optional[str] = Field(None, description=<span class="str">"monthly | quarterly | custom"</span>)
+    manager_notes: Optional[str] = None
+    document_urls: Optional[list[str]] = []   <span class="cm"># URLs to uploaded lease documents</span>
+
+
+<span class="kw">class</span> <span class="typ">TenantUpdate</span>(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    flat_uuid: Optional[UUID] = None          <span class="cm"># can reassign tenant to a different flat</span>
+    lease_start_date: Optional[date] = None
+    lease_end_date: Optional[date] = None
+    rent_status: Optional[str] = None
+    payment_schedule: Optional[str] = None
+    manager_notes: Optional[str] = None
+    document_urls: Optional[list[str]] = None <span class="cm"># replaces existing URLs when provided</span>
+</code></pre>
+    <p><code>TenantBase</code> inherits <code>name</code>, <code>phone</code>, and <code>email</code>. <code>TenantCreate</code> adds creation-only fields. <code>TenantUpdate</code> does not inherit from <code>TenantBase</code> — it re-declares all fields as Optional so any subset can be patched.</p>
+
+    <h3>TenantResponse — all four computed fields</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">class</span> <span class="typ">TenantResponse</span>(TenantBase):
+    <span class="cm"># ─── Stored fields ────────────────────────────────────────</span>
+    id: int
+    uuid: UUID
+    flat_uuid: Optional[UUID] = None
+    created_at: datetime
+    lease_start_date: Optional[date] = None
+    lease_end_date: Optional[date] = None
+    rent_status: Optional[str] = None
+    payment_schedule: Optional[str] = None
+    manager_notes: Optional[str] = None
+    document_urls: Optional[list[str]] = []
+
+    <span class="cm"># ─── Joined from other tables (set by route handler before validation) ──</span>
+    flat_number: Optional[str] = None          <span class="cm"># from flats table</span>
+    rent_amount: Optional[float] = None        <span class="cm"># from rents table (active rent)</span>
+    due_date: Optional[date] = None            <span class="cm"># from rents.effective_from</span>
+    tenant_details_enabled: Optional[bool] = None   <span class="cm"># from property_features</span>
+    tenant_documents_enabled: Optional[bool] = None <span class="cm"># from property_features</span>
+
+    model_config = ConfigDict(from_attributes=True)
+
+    <span class="cm"># ─── Computed fields (derived at serialization time) ─────</span>
+
+    <span class="dec">@computed_field</span>
+    <span class="dec">@property</span>
+    <span class="kw">def</span> <span class="fn">tenancy_duration_months</span>(self) -> Optional[int]:
+        <span class="str">"""Months since the tenant record was created."""</span>
+        <span class="kw">if not</span> self.created_at:
+            <span class="kw">return</span> None
+        now = datetime.now(tz=self.created_at.tzinfo)
+        <span class="kw">return</span> max(<span class="num">0</span>, int((now - self.created_at).days / <span class="num">30</span>))
+
+    <span class="dec">@computed_field</span>
+    <span class="dec">@property</span>
+    <span class="kw">def</span> <span class="fn">lease_duration_months</span>(self) -> Optional[int]:
+        <span class="str">"""Total months covered by the lease contract."""</span>
+        <span class="kw">if not</span> self.lease_start_date <span class="kw">or not</span> self.lease_end_date:
+            <span class="kw">return</span> None
+        <span class="kw">return</span> max(<span class="num">0</span>, int((self.lease_end_date - self.lease_start_date).days / <span class="num">30</span>))
+
+    <span class="dec">@computed_field</span>
+    <span class="dec">@property</span>
+    <span class="kw">def</span> <span class="fn">remaining_time_on_lease_days</span>(self) -> Optional[int]:
+        <span class="str">"""Days remaining until lease_end_date (negative if expired)."""</span>
+        <span class="kw">if not</span> self.lease_end_date:
+            <span class="kw">return</span> None
+        <span class="kw">return</span> (self.lease_end_date - date.today()).days
+
+    <span class="dec">@computed_field</span>
+    <span class="dec">@property</span>
+    <span class="kw">def</span> <span class="fn">lease_status</span>(self) -> str:
+        <span class="str">"""Derived status: Active | Expiring Soon | Expired | No Lease."""</span>
+        <span class="kw">if not</span> self.lease_start_date <span class="kw">or not</span> self.lease_end_date:
+            <span class="kw">return</span> <span class="str">"No Lease"</span>
+        today = date.today()
+        <span class="kw">if</span> self.lease_end_date &lt; today:
+            <span class="kw">return</span> <span class="str">"Expired"</span>
+        remaining = (self.lease_end_date - today).days
+        <span class="kw">if</span> remaining &lt;= <span class="num">30</span>:
+            <span class="kw">return</span> <span class="str">"Expiring Soon"</span>
+        <span class="kw">if</span> self.lease_start_date &lt;= today:
+            <span class="kw">return</span> <span class="str">"Active"</span>
+        <span class="kw">return</span> <span class="str">"Upcoming"</span>
+</code></pre>
+    <p>Key subtleties:</p>
+    <ul>
+      <li><code>tenancy_duration_months</code> uses <code>datetime.now(tz=self.created_at.tzinfo)</code> — it matches the timezone of the stored <code>created_at</code> to avoid timezone arithmetic errors</li>
+      <li>Both duration fields use <code>max(0, ...)</code> — prevents negative values if dates are accidentally inverted</li>
+      <li><code>remaining_time_on_lease_days</code> can be negative (lease expired) — the frontend uses this for showing "X days overdue"</li>
+      <li><code>lease_status</code> checks <code>Expired</code> → <code>Expiring Soon</code> → <code>Active</code> in that order — the checks are mutually exclusive but must be evaluated in this priority</li>
+    </ul>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="routes-walkthrough">Section 4 — tenants.py Route Walkthrough</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+    <h3>VAPI endpoints at the top — GET /tenants/by-flat/{flat_no}</h3>
+    <p>Like <code>flats.py</code>, tenant VAPI endpoints are registered before dynamic <code>/{tenant_uuid}</code> routes to avoid route shadowing:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">"/by-flat/{flat_no}"</span>)
+<span class="kw">async def</span> <span class="fn">get_tenant_by_flat</span>(flat_no: str, ...):
+    <span class="kw">try</span>:
+        normalized_flat_no = flat_no.strip()
+
+        flat_response = (
+            db.table(<span class="str">"flats"</span>)
+            .select(<span class="str">"uuid, flat_number, tenant_uuid"</span>)
+            .ilike(<span class="str">"flat_number"</span>, normalized_flat_no)
+            .execute()
+        )
+        <span class="kw">if not</span> flat_response.data:
+            <span class="kw">return</span> JSONResponse(status_code=<span class="num">200</span>, content={<span class="str">"exists"</span>: <span class="kw">False</span>})
+
+        flat = flat_response.data[<span class="num">0</span>]
+        flat_uuid = flat[<span class="str">'uuid'</span>]
+
+        <span class="cm"># Bidirectional lookup: try both FK directions</span>
+        tenant_response = db.table(<span class="str">"tenants"</span>).select(<span class="str">"name, phone"</span>).eq(<span class="str">"flat_uuid"</span>, flat_uuid).execute()
+        <span class="kw">if</span> (<span class="kw">not</span> tenant_response.data) <span class="kw">and</span> flat.get(<span class="str">"tenant_uuid"</span>):
+            tenant_response = db.table(<span class="str">"tenants"</span>).select(<span class="str">"name, phone"</span>).eq(<span class="str">"uuid"</span>, flat[<span class="str">"tenant_uuid"</span>]).execute()
+
+        current_time_str = datetime.now(IST).strftime(<span class="str">"%Y-%m-%dT%H:%M:%S"</span>)
+
+        <span class="kw">if not</span> tenant_response.data:
+            <span class="cm"># Flat exists but vacant — exists=True, tenant_name=None</span>
+            <span class="kw">return</span> JSONResponse(status_code=<span class="num">200</span>, content={
+                <span class="str">"exists"</span>: <span class="kw">True</span>,
+                <span class="str">"flat_no"</span>: str(flat[<span class="str">'flat_number'</span>]),
+                <span class="str">"tenant_name"</span>: None,
+                <span class="str">"tenant_phone"</span>: None,
+                <span class="str">"datetime"</span>: current_time_str,
+            })
+
+        tenant = tenant_response.data[<span class="num">0</span>]
+        <span class="kw">return</span> JSONResponse(status_code=<span class="num">200</span>, content={
+            <span class="str">"exists"</span>: <span class="kw">True</span>,
+            <span class="str">"flat_no"</span>: str(flat[<span class="str">'flat_number'</span>]),
+            <span class="str">"tenant_name"</span>: str(tenant[<span class="str">'name'</span>]),
+            <span class="str">"tenant_phone"</span>: str(tenant[<span class="str">'phone'</span>]),
+            <span class="str">"datetime"</span>: current_time_str,
+        }, headers={<span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>})
+
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        print(<span class="str">f"Error in tenant lookup for flat {flat_no}: {str(e)}"</span>)
+        <span class="kw">return</span> JSONResponse(status_code=<span class="num">200</span>, content={<span class="str">"exists"</span>: <span class="kw">False</span>})
+</code></pre>
+    <p><code>JSONResponse</code> with an explicit <code>Content-Type</code> header is used instead of returning a plain dict. This is because some VAPI SDK versions were observed to not parse the response correctly without the explicit header. Using <code>JSONResponse</code> gives explicit control over headers.</p>
+
+    <h3>GET /tenants — full handler with all filters</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">""</span>, response_model=List[TenantResponse])
+<span class="kw">async def</span> <span class="fn">get_all_tenants</span>(
+    property_id: Optional[int] = Query(None),
+    building_id: Optional[int] = Query(None),
+    unit_uuid: Optional[str] = Query(None),
+    lease_status: Optional[str] = Query(None),   <span class="cm"># "Active" | "Expiring Soon" | "Expired" | "No Lease"</span>
+    rent_status: Optional[str] = Query(None),    <span class="cm"># stored field — DB can filter</span>
+    unassigned: Optional[bool] = Query(None),    <span class="cm"># true = tenants with no flat</span>
+    sort_by: Optional[str] = Query(None),
+    sort_order: str = Query(<span class="str">"asc"</span>),
+    user=Depends(require_active_subscription), db=Depends(get_authenticated_db),
+):
+    response = db.table(<span class="str">"tenants"</span>).select(<span class="str">"*"</span>).execute()
+    tenants = response.data <span class="kw">or</span> []
+
+    <span class="cm"># Python-side filters (cannot be pushed to DB for computed fields)</span>
+    <span class="kw">if</span> unassigned:
+        tenants = [t <span class="kw">for</span> t <span class="kw">in</span> tenants <span class="kw">if not</span> t.get(<span class="str">"flat_uuid"</span>)]
+    <span class="kw">if</span> unit_uuid:
+        tenants = [t <span class="kw">for</span> t <span class="kw">in</span> tenants <span class="kw">if</span> t.get(<span class="str">"flat_uuid"</span>) == unit_uuid]
+    <span class="kw">if</span> rent_status:  <span class="cm"># stored field — filter before enrichment</span>
+        tenants = [t <span class="kw">for</span> t <span class="kw">in</span> tenants <span class="kw">if</span> t.get(<span class="str">"rent_status"</span>) == rent_status]
+    <span class="kw">if</span> lease_status:  <span class="cm"># computed field — filter after dates are available</span>
+        tenants = [t <span class="kw">for</span> t <span class="kw">in</span> tenants <span class="kw">if</span> _compute_lease_status(t) == lease_status]
+
+    <span class="cm"># ... (batch enrichment adds flat_number, rent_amount, due_date, feature flags) ...</span>
+
+    <span class="cm"># Sorting</span>
+    <span class="kw">if</span> sort_by == <span class="str">"lease_end_date"</span>:
+        tenants.sort(
+            key=<span class="kw">lambda</span> t: t.get(<span class="str">"lease_end_date"</span>) <span class="kw">or</span> <span class="str">"9999-12-31"</span>,
+            reverse=(sort_order == <span class="str">"desc"</span>)
+        )
+    <span class="kw">else</span>:
+        tenants.sort(key=<span class="kw">lambda</span> t: t.get(<span class="str">"created_at"</span>) <span class="kw">or</span> <span class="str">""</span>, reverse=<span class="kw">True</span>)
+
+    <span class="kw">return</span> tenants
+</code></pre>
+    <p>The sorting trick: <code>t.get("lease_end_date") or "9999-12-31"</code> puts tenants with no lease end date at the end of ascending order (9999 is far in the future). This is a simple sentinel value that avoids a None comparison error.</p>
+
+    <h3>POST /tenants — bidirectional link on create</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.post</span>(<span class="str">""</span>, response_model=TenantResponse, status_code=<span class="num">201</span>)
+<span class="kw">async def</span> <span class="fn">create_tenant</span>(tenant_data: TenantCreate, ...):
+    tenant_dict = tenant_data.model_dump(mode=<span class="str">'json'</span>)  <span class="cm"># serializes UUID and date to str</span>
+
+    <span class="kw">if</span> tenant_data.flat_uuid:
+        flat = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid"</span>).eq(<span class="str">"uuid"</span>, str(tenant_data.flat_uuid)).execute()
+        <span class="kw">if not</span> flat.data:
+            <span class="kw">raise</span> HTTPException(status_code=<span class="num">404</span>, detail=<span class="str">"Flat not found"</span>)
+
+    response = db.table(<span class="str">"tenants"</span>).insert(tenant_dict).execute()
+    new_tenant = response.data[<span class="num">0</span>]
+
+    <span class="cm"># Bidirectional link: update flat to point back at new tenant</span>
+    <span class="kw">if</span> tenant_data.flat_uuid:
+        db.table(<span class="str">"flats"</span>).update({
+            <span class="str">"tenant_uuid"</span>: new_tenant[<span class="str">"uuid"</span>],
+            <span class="str">"occupied"</span>: <span class="kw">True</span>,
+        }).eq(<span class="str">"uuid"</span>, str(tenant_data.flat_uuid)).execute()
+
+    <span class="kw">return</span> new_tenant
+</code></pre>
+    <p><code>model_dump(mode='json')</code> is the Pydantic V2 way to get a serializable dict where all types (UUID, date, datetime) are already converted to JSON-compatible strings. This avoids the manual <code>str(v) if isinstance(v, UUID)</code> pattern used in older code.</p>
+
+    <h3>DELETE /tenants/{tenant_uuid} — cascade to flat and rent</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.delete</span>(<span class="str">"/{tenant_uuid}"</span>, status_code=<span class="num">204</span>)
+<span class="kw">async def</span> <span class="fn">delete_tenant</span>(tenant_uuid: str, ...):
+    <span class="cm"># Find the flat this tenant occupies (if any)</span>
+    flat_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid"</span>).eq(<span class="str">"tenant_uuid"</span>, tenant_uuid).execute()
+    <span class="kw">if</span> flat_resp.data:
+        flat_uuid = flat_resp.data[<span class="num">0</span>][<span class="str">"uuid"</span>]
+        db.table(<span class="str">"rents"</span>).delete().eq(<span class="str">"flat_uuid"</span>, flat_uuid).execute()
+        db.table(<span class="str">"flats"</span>).update({
+            <span class="str">"tenant_uuid"</span>: None, <span class="str">"occupied"</span>: <span class="kw">False</span>
+        }).eq(<span class="str">"uuid"</span>, flat_uuid).execute()
+
+    db.table(<span class="str">"tenants"</span>).delete().eq(<span class="str">"uuid"</span>, tenant_uuid).execute()
+    <span class="kw">return</span> None
+</code></pre>
+    <p>Deleting a tenant must: (1) remove their rent record, (2) vacate their flat (clearing both tenant_uuid and occupied), and (3) delete the tenant. Not doing step 2 would leave the flat showing as occupied with a null tenant — a ghost occupancy.</p>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="bugs">Section 5 — Real Bugs We Hit</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+    <details>
+      <summary>Bug: <code>remaining_time_on_lease_days</code> was always None for tenants without a lease</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> Frontend showed "undefined days" instead of "No Lease" for tenants with no dates set.</p>
+        <p><strong>Root cause:</strong> The frontend was checking <code>remaining_time_on_lease_days !== null</code> to decide whether to show the countdown, but <code>remaining_time_on_lease_days</code> is <code>None</code> when there's no <code>lease_end_date</code>. The fix was reading <code>lease_status === "No Lease"</code> instead — a more explicit check.</p>
+        <p><strong>Lesson:</strong> Always use the string status field for display logic. Never try to infer status from a numeric field being null.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Bug: Batch enrichment skipped when no tenants had a flat</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> After filtering tenants with <code>unassigned=true</code>, calling the enrichment code raised a NameError on <code>flat_map</code> (variable not defined). Only happened when no tenants had a flat assigned.</p>
+        <p><strong>Root cause:</strong> The <code>if flat_uuids:</code> block defined <code>flat_map</code>, <code>rent_map</code>, etc. — but the <code>else:</code> branch only defined <code>flat_map = {}</code> and forgot the other maps. The tenant enrichment loop then referenced <code>flat_id_by_uuid</code> which didn't exist.</p>
+        <p><strong>Fix:</strong></p>
+      </div>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">else</span>:
+    flat_map = {}
+    flat_id_by_uuid = {}    <span class="cm"># was missing</span>
+    rent_map = {}
+    tenant_details_map = {} <span class="cm"># was missing</span>
+    tenant_documents_map = {} <span class="cm"># was missing</span>
+</code></pre>
+    </details>
+
+    <details>
+      <summary>Bug: <code>model_dump(mode='json')</code> vs <code>model_dump(exclude_unset=True)</code> confusion</summary>
+      <div class="card card-error">
+        <p><strong>Symptom:</strong> PATCH /tenants/{uuid} was overwriting existing <code>document_urls</code> with null when the caller didn't include that field.</p>
+        <p><strong>Root cause:</strong> Using <code>model_dump(mode='json')</code> on a PATCH schema includes all fields with their defaults, including <code>None</code>-defaulted ones the caller never sent.</p>
+        <p><strong>Fix:</strong> PATCH operations should always use <code>exclude_unset=True</code> to only include fields the caller explicitly provided:</p>
+      </div>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="cm"># CREATE: use mode='json' (want all fields, serialize types)</span>
+tenant_dict = tenant_data.model_dump(mode=<span class="str">'json'</span>)
+
+<span class="cm"># UPDATE: use exclude_unset=True (only fields the caller sent)</span>
+update_data = tenant_data.model_dump(exclude_unset=<span class="kw">True</span>, mode=<span class="str">'json'</span>)
+</code></pre>
+    </details>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <h2 id="exercises">Section 6 — Exercises</h2>
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+    <h3>Exercise 1 <span class="badge badge-easy">Easy</span></h3>
+    <p>Add a <code>@computed_field</code> to <code>TenantResponse</code> called <code>is_lease_expiring_soon</code> that returns a boolean: <code>True</code> if <code>lease_status == "Expiring Soon"</code>, <code>False</code> otherwise. This makes it easy for the frontend to show a warning badge without string comparisons.</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@computed_field</span>
+<span class="dec">@property</span>
+<span class="kw">def</span> <span class="fn">is_lease_expiring_soon</span>(self) -> bool:
+    <span class="kw">return</span> self.lease_status == <span class="str">"Expiring Soon"</span>
+</code></pre>
+      <p>Place this after the <code>lease_status</code> property — it references <code>self.lease_status</code> which is another computed field. Pydantic V2 computes properties in definition order, so <code>is_lease_expiring_soon</code> must come after <code>lease_status</code>.</p>
+    </details>
+
+    <h3>Exercise 2 <span class="badge badge-medium">Medium</span></h3>
+    <p>The <code>GET /tenants</code> endpoint currently loads ALL tenants and filters in Python. For a manager with 500 tenants, this is always 500 rows loaded even if only 5 match. Add database-level filtering for <code>rent_status</code> by passing a <code>.eq("rent_status", rent_status)</code> filter to the initial query instead of filtering in Python afterward. (Note: <code>lease_status</code> cannot be pushed to DB — only <code>rent_status</code> can, because it is a stored column.)</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="dec">@router.get</span>(<span class="str">""</span>, response_model=List[TenantResponse])
+<span class="kw">async def</span> <span class="fn">get_all_tenants</span>(
+    rent_status: Optional[str] = Query(None),
+    lease_status: Optional[str] = Query(None),
+    unassigned: Optional[bool] = Query(None),
+    ...
+):
+    <span class="cm"># Start building the query</span>
+    query = db.table(<span class="str">"tenants"</span>).select(<span class="str">"*"</span>)
+
+    <span class="cm"># Push rent_status to DB (it's a stored column)</span>
+    <span class="kw">if</span> rent_status:
+        query = query.eq(<span class="str">"rent_status"</span>, rent_status)
+
+    response = query.execute()
+    tenants = response.data <span class="kw">or</span> []
+
+    <span class="cm"># lease_status still needs Python-side filtering (computed, not stored)</span>
+    <span class="kw">if</span> lease_status:
+        tenants = [t <span class="kw">for</span> t <span class="kw">in</span> tenants <span class="kw">if</span> _compute_lease_status(t) == lease_status]
+
+    <span class="kw">if</span> unassigned:
+        tenants = [t <span class="kw">for</span> t <span class="kw">in</span> tenants <span class="kw">if not</span> t.get(<span class="str">"flat_uuid"</span>)]
+
+    <span class="cm"># ... rest of enrichment ...</span>
+    <span class="kw">return</span> tenants
+</code></pre>
+    </details>
+
+    <h3>Exercise 3 <span class="badge badge-hard">Hard</span></h3>
+    <p>Add a new endpoint <code>GET /tenants/expiring-leases</code> that returns all tenants whose lease expires within the next N days, where N is a required query parameter. The endpoint should accept <code>days: int</code> and return tenants sorted by <code>lease_end_date</code> ascending (soonest expiry first). Include the full enriched <code>TenantResponse</code> for each tenant.</p>
+
+    <details>
+      <summary>Full worked solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><span class="lang-label">python</span><code><span class="kw">from</span> datetime <span class="kw">import</span> date, timedelta
+
+<span class="dec">@router.get</span>(<span class="str">"/expiring-leases"</span>, response_model=List[TenantResponse])
+<span class="kw">async def</span> <span class="fn">get_expiring_leases</span>(
+    days: int = Query(..., ge=<span class="num">1</span>, le=<span class="num">365</span>, description=<span class="str">"Days until lease expiry"</span>),
+    user=Depends(require_active_subscription),
+    db=Depends(get_authenticated_db),
+):
+    today = date.today()
+    cutoff = today + timedelta(days=days)
+
+    <span class="cm"># DB-level filter: lease_end_date is stored, so we can filter directly</span>
+    response = (
+        db.table(<span class="str">"tenants"</span>)
+        .select(<span class="str">"*"</span>)
+        .gte(<span class="str">"lease_end_date"</span>, str(today))          <span class="cm"># not yet expired</span>
+        .lte(<span class="str">"lease_end_date"</span>, str(cutoff))          <span class="cm"># expires within N days</span>
+        .order(<span class="str">"lease_end_date"</span>, desc=<span class="kw">False</span>)
+        .execute()
+    )
+    tenants = response.data <span class="kw">or</span> []
+
+    <span class="cm"># Batch enrichment (same pattern as GET /tenants)</span>
+    flat_uuids = [t[<span class="str">"flat_uuid"</span>] <span class="kw">for</span> t <span class="kw">in</span> tenants <span class="kw">if</span> t.get(<span class="str">"flat_uuid"</span>)]
+    <span class="kw">if</span> flat_uuids:
+        flats_resp = db.table(<span class="str">"flats"</span>).select(<span class="str">"uuid, id, flat_number"</span>).in_(<span class="str">"uuid"</span>, flat_uuids).execute()
+        flat_map = {f[<span class="str">"uuid"</span>]: f <span class="kw">for</span> f <span class="kw">in</span> flats_resp.data}
+        rents_resp = (
+            db.table(<span class="str">"rents"</span>).select(<span class="str">"flat_uuid, monthly_rent, effective_from"</span>)
+            .in_(<span class="str">"flat_uuid"</span>, flat_uuids).eq(<span class="str">"is_active"</span>, <span class="kw">True</span>).execute()
+        )
+        rent_map = {r[<span class="str">"flat_uuid"</span>]: r <span class="kw">for</span> r <span class="kw">in</span> rents_resp.data}
+    <span class="kw">else</span>:
+        flat_map = {}
+        rent_map = {}
+
+    <span class="kw">for</span> t <span class="kw">in</span> tenants:
+        fid = t.get(<span class="str">"flat_uuid"</span>)
+        flat = flat_map.get(fid) <span class="kw">if</span> fid <span class="kw">else</span> None
+        rent = rent_map.get(fid) <span class="kw">if</span> fid <span class="kw">else</span> None
+        t[<span class="str">"flat_number"</span>] = flat[<span class="str">"flat_number"</span>] <span class="kw">if</span> flat <span class="kw">else</span> None
+        t[<span class="str">"rent_amount"</span>] = rent[<span class="str">"monthly_rent"</span>] <span class="kw">if</span> rent <span class="kw">else</span> None
+        t[<span class="str">"due_date"</span>] = rent[<span class="str">"effective_from"</span>] <span class="kw">if</span> rent <span class="kw">else</span> None
+        t[<span class="str">"tenant_details_enabled"</span>] = <span class="kw">True</span>
+        t[<span class="str">"tenant_documents_enabled"</span>] = <span class="kw">False</span>
+
+    <span class="kw">return</span> tenants
+</code></pre>
+      <p>Note: this new endpoint must be registered <em>before</em> <code>/{tenant_uuid}</code> in the file, otherwise FastAPI would match the path <code>/expiring-leases</code> as <code>tenant_uuid="expiring-leases"</code>.</p>
+    </details>
+
+    <div class="nav-buttons">
+      <a href="module_06_flats_assignment.html" class="nav-btn">← Module 06: Flats &amp; Assignment</a>
+      <a href="module_08_complaints_appointments.html" class="nav-btn">Next: Complaints &amp; Appointments →</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const themeToggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme') || 'dark';
+  root.setAttribute('data-theme', saved);
+  themeToggle.textContent = saved === 'dark' ? '🌙' : '☀️';
+  themeToggle.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    themeToggle.textContent = next === 'dark' ? '🌙' : '☀️';
+  });
+  const backToTop = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => backToTop.classList.toggle('visible', window.scrollY > 400));
+  backToTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  function copyCode(btn) {
+    const code = btn.parentElement.querySelector('code').innerText;
+    navigator.clipboard.writeText(code).then(() => { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 2000); });
+  }
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2[id]').forEach(h => {
+    const a = document.createElement('a'); a.href = '#' + h.id; a.textContent = h.textContent; toc.appendChild(a);
+  });
+  const checks = document.querySelectorAll('.section-check input[type="checkbox"]');
+  const fill = document.getElementById('progressFill');
+  const key = 'mod07-checks';
+  const saved_checks = JSON.parse(localStorage.getItem(key) || '{}');
+  checks.forEach((cb, i) => {
+    if (saved_checks[i]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      const state = {}; checks.forEach((c, j) => state[j] = c.checked);
+      localStorage.setItem(key, JSON.stringify(state));
+      const pct = (Object.values(state).filter(Boolean).length / checks.length) * 100;
+      fill.style.width = pct + '%';
+    });
+  });
+  const initPct = (Object.values(saved_checks).filter(Boolean).length / checks.length) * 100;
+  fill.style.width = (isNaN(initPct) ? 0 : initPct) + '%';
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+</script>
+</body>
+</html>
