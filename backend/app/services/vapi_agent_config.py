@@ -1150,11 +1150,6 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             },
             "url": load_url,
             "method": "GET",
-            "body": {
-                "type": "object",
-                "required": [],
-                "properties": {},
-            },
             "messages": [
                 {
                     "type": "request-start",
