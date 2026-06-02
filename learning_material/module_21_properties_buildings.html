@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 21 — Properties &amp; Buildings Management | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    .bug-box { background: #f7768e0d; border: 1px solid #f7768e44; border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .bug-box h4 { color: var(--error); margin-bottom: 0.5rem; }
+    @media print { .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; } .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; } details, details > * { display: block; } h2 { page-break-before: always; } }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 21</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 21 — Properties &amp; Buildings Management</strong></div>
+
+  <h1>Module 21 — Properties &amp; Buildings Management</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 80 minutes</span>
+    <span>📁 Files: <code>PropertiesPage.jsx</code>, <code>AddPropertyModal.jsx</code>, <code>AddBuildingModal.jsx</code>, <code>ImageUploadField.jsx</code></span>
+    <span>🔰 Prerequisites: Modules 17–19, Module 05–06 (backend)</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_20_dashboard_charts.html" class="nav-btn">← Previous: Dashboard &amp; Charts</a>
+    <a href="module_22_tenant_management.html" class="nav-btn">Next: Tenant Management →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="overview">Section 1 — Data Hierarchy and Navigation Model</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>The Properties page manages a three-level hierarchy: Property Group → Building → Flat. The UI mirrors this hierarchy with a drill-down navigation pattern: click a group to see its buildings, click a building to see its units. Three top-level "views" (Properties / Buildings / Units) give managers flat lists for their respective levels.</p>
+
+  <div class="diagram">
+PropertiesPage navigation states:
+
+TOP-LEVEL VIEWS (view switcher tabs):
+  ┌─────────────┬─────────────┬─────────────┐
+  │ Properties  │  Buildings  │   Units     │
+  │ (groups)    │ (all flat)  │ (all flat)  │
+  └─────────────┴─────────────┴─────────────┘
+
+DRILL-DOWN (click a group in Properties view):
+  Properties → [click Sunrise Estate] → Buildings of Sunrise Estate
+                                         → [click Tower A] → Units of Tower A
+                                                              → [click unit] → FlatDetailModal
+
+DRILL-DOWN (click a building in Buildings view):
+  Buildings → [click Tower A] → Units of Tower A → [click unit] → FlatDetailModal
+
+State variables that drive all of this:
+  viewMode: 'properties' | 'buildings' | 'units'
+  selectedProperty: PropertyGroup | null     (drill-down level 1)
+  selectedBuilding: Building | null           (drill-down level 2)
+  selectedFlatUuid: string | null            (opens FlatDetailModal)</div>
+
+  <!-- S2 -->
+  <h2 id="properties-page-state">Section 2 — <code>PropertiesPage.jsx</code> — State and Data Loading</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <h3>Part A — All state variables</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// Data</span>
+<span class="kw">const</span> [propertyGroups, setPropertyGroups] = <span class="fn">useState</span>([]);   <span class="cm">// top-level properties</span>
+<span class="kw">const</span> [buildings, setBuildings] = <span class="fn">useState</span>([]);              <span class="cm">// all buildings (Buildings View)</span>
+<span class="kw">const</span> [allUnits, setAllUnits] = <span class="fn">useState</span>([]);                <span class="cm">// all units (Units View)</span>
+<span class="kw">const</span> [buildingUnits, setBuildingUnits] = <span class="fn">useState</span>([]);      <span class="cm">// units for drilled-in building</span>
+<span class="kw">const</span> [propertyBuildings, setPropertyBuildings] = <span class="fn">useState</span>([]); <span class="cm">// buildings under selected property</span>
+
+<span class="kw">const</span> [loadingMain, setLoadingMain] = <span class="fn">useState</span>(<span class="op">true</span>);
+<span class="kw">const</span> [loadingDrill, setLoadingDrill] = <span class="fn">useState</span>(<span class="op">false</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span>(<span class="op">null</span>);
+<span class="kw">const</span> [deletingProperty, setDeletingProperty] = <span class="fn">useState</span>(<span class="op">false</span>);
+<span class="kw">const</span> [deletingBuilding, setDeletingBuilding] = <span class="fn">useState</span>(<span class="op">false</span>);
+
+<span class="cm">// Navigation</span>
+<span class="kw">const</span> [viewMode, setViewMode] = <span class="fn">useState</span>(<span class="str">'properties'</span>);
+<span class="kw">const</span> [selectedProperty, setSelectedProperty] = <span class="fn">useState</span>(<span class="op">null</span>);
+<span class="kw">const</span> [selectedBuilding, setSelectedBuilding] = <span class="fn">useState</span>(<span class="op">null</span>);
+<span class="kw">const</span> [selectedFlatUuid, setSelectedFlatUuid] = <span class="fn">useState</span>(<span class="op">null</span>);
+
+<span class="cm">// Modals</span>
+<span class="kw">const</span> [infoBuilding, setInfoBuilding] = <span class="fn">useState</span>(<span class="op">null</span>);
+<span class="kw">const</span> [showAddProperty, setShowAddProperty] = <span class="fn">useState</span>(<span class="op">false</span>);
+<span class="kw">const</span> [showAddBuilding, setShowAddBuilding] = <span class="fn">useState</span>(<span class="op">false</span>);
+<span class="kw">const</span> [showAddUnit, setShowAddUnit] = <span class="fn">useState</span>(<span class="op">false</span>);
+<span class="kw">const</span> [showCsvImport, setShowCsvImport] = <span class="fn">useState</span>(<span class="op">false</span>);</code></pre>
+  <div class="line-exp">
+    <strong>Two loading states</strong>: <code>loadingMain</code> is true during the initial page load (while property groups are fetched). <code>loadingDrill</code> is true when fetching data for a drill-down (clicking a group → fetching its buildings). This separation matters: while drill-down data loads, you still want to show the top-level list in the background — not replace the entire page with a spinner.<br><br>
+    <strong>Two delete states</strong>: Similarly, <code>deletingProperty</code> and <code>deletingBuilding</code> are separate to allow one delete to be in progress while the other button is still available (and to show the right loading state on the right button).<br><br>
+    <strong>Five data arrays</strong>: The page maintains different arrays for each context:
+    <ul>
+      <li><code>propertyGroups</code>: loaded once, persists across view changes</li>
+      <li><code>buildings</code>: all buildings flat list for the Buildings view tab</li>
+      <li><code>allUnits</code>: loaded lazily only when Units tab is selected</li>
+      <li><code>buildingUnits</code>: units for the currently drilled-in building — reset when navigating back</li>
+      <li><code>propertyBuildings</code>: buildings for the currently drilled-in property — reset when navigating back</li>
+    </ul>
+  </div>
+
+  <h3>Part B — Data loading with <code>useCallback</code></h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="fn">loadPropertyGroups</span> = <span class="fn">useCallback</span>(<span class="kw">async</span> () => {
+    <span class="kw">try</span> {
+        <span class="fn">setLoadingMain</span>(<span class="op">true</span>);
+        <span class="kw">const</span> data = <span class="kw">await</span> <span class="fn">fetchPropertyGroups</span>();
+        <span class="fn">setPropertyGroups</span>(data);
+        <span class="fn">setError</span>(<span class="op">null</span>);
+    } <span class="kw">catch</span> (err) {
+        <span class="fn">setError</span>(t(<span class="str">'properties.failedLoad'</span>));
+    } <span class="kw">finally</span> {
+        <span class="fn">setLoadingMain</span>(<span class="op">false</span>);
+    }
+}, []);</code></pre>
+  <div class="line-exp">
+    <strong>Why <code>useCallback</code> for data loaders?</strong>: These functions are passed to <code>useEffect</code> dependency arrays and to child components (e.g., <code>handleBuildingAdded</code> calls <code>drillIntoProperty(selectedProperty)</code> which calls the API). Without <code>useCallback</code>, a new function reference is created on every render, which would cause <code>useEffect</code> cleanup/re-run cycles. With <code>useCallback(fn, [])</code> (empty deps), the function is created once and reused.<br><br>
+    <strong>Event-driven refresh</strong>: The page also listens for the <code>'refresh-properties'</code> custom event (dispatched by the onboarding tour after creating data) to reload the list:
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="fn">useEffect</span>(() => {
+    <span class="kw">const</span> handler = () => { <span class="fn">loadPropertyGroups</span>(); <span class="fn">loadBuildings</span>(); };
+    window.<span class="fn">addEventListener</span>(<span class="str">'refresh-properties'</span>, handler);
+    <span class="kw">return</span> () => window.<span class="fn">removeEventListener</span>(<span class="str">'refresh-properties'</span>, handler);
+}, [loadPropertyGroups, loadBuildings]);</code></pre>
+    This is the same cross-component event pattern used throughout the app (see Module 08's <code>refresh-appointments</code> pattern).
+  </div>
+
+  <h3>Part C — Drill-down navigation</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="fn">drillIntoProperty</span> = <span class="fn">useCallback</span>(<span class="kw">async</span> (property) => {
+    <span class="fn">setSelectedProperty</span>(property);
+    <span class="fn">setPropertyBuildings</span>([]); <span class="cm">// clear stale data immediately</span>
+    <span class="fn">setLoadingDrill</span>(<span class="op">true</span>);
+    <span class="kw">try</span> {
+        <span class="kw">const</span> buildings = <span class="kw">await</span> <span class="fn">fetchPropertyBuildings</span>(property.id);
+        <span class="fn">setPropertyBuildings</span>(buildings);
+    } <span class="kw">catch</span> (err) {
+        console.<span class="fn">error</span>(<span class="str">'Error loading property buildings:'</span>, err);
+    } <span class="kw">finally</span> {
+        <span class="fn">setLoadingDrill</span>(<span class="op">false</span>);
+    }
+}, []);</code></pre>
+  <div class="line-exp">
+    <strong>Clear stale data before fetching</strong>: <code>setPropertyBuildings([])</code> immediately clears the previous building list. Without this, clicking "Sunrise Estate" would briefly show the buildings from the previously selected property while the new data loads. Clearing immediately ensures the user sees a loading spinner rather than stale data.<br><br>
+    <strong><code>selectedProperty</code> set before the async fetch</strong>: The property is set in state synchronously (before the await). This ensures the breadcrumb "Properties / Sunrise Estate" renders immediately while buildings are loading — no layout shift between clicking and the breadcrumb appearing.
+  </div>
+
+  <h3>Part D — The <code>buildingLookup</code> memo</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> buildingLookup = <span class="fn">useMemo</span>(() => {
+    <span class="kw">const</span> map = {};
+    <span class="kw">for</span> (<span class="kw">const</span> b <span class="kw">of</span> buildings) map[b.id] = b;
+    <span class="kw">return</span> map;
+}, [buildings]);</code></pre>
+  <div class="line-exp">
+    The Units view shows "context chips" on each unit card — the building name and property type. Units from the API contain <code>building_id</code> but not the building object. The lookup map converts O(n) lookups (scanning the array for matching ID) to O(1) lookups (hash map access) for each unit card. For 200 units across 20 buildings, this is a significant speedup during render.
+  </div>
+
+  <h3>Part E — Optimistic UI updates in handlers</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="fn">handlePropertyGroupAdded</span> = (newProperty) => {
+    <span class="fn">setPropertyGroups</span>(prev => [newProperty, ...prev].<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name)));
+};
+
+<span class="kw">const</span> <span class="fn">handleBuildingAdded</span> = (newBuilding) => {
+    <span class="fn">setBuildings</span>(prev => [newBuilding, ...prev].<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name)));
+    <span class="kw">if</span> (selectedProperty) <span class="fn">drillIntoProperty</span>(selectedProperty);
+};</code></pre>
+  <div class="line-exp">
+    <strong>Optimistic update</strong>: When a new property group is created, the modal calls <code>onSuccess(newProperty)</code> with the newly created object (returned from the backend). Instead of refetching the entire list, we insert the new item into the existing state array and sort it — this is immediate, no API round-trip needed.<br><br>
+    <strong>Sort after insert</strong>: <code>[newProperty, ...prev].sort(localeCompare)</code> — prepend then sort. The resulting list is in alphabetical order. <code>localeCompare</code> handles locale-specific character ordering correctly (accented characters, etc.).<br><br>
+    <strong>Refresh the drill-down after adding a building</strong>: If the user is currently viewing a property's buildings and adds a new building to that property, <code>drillIntoProperty(selectedProperty)</code> re-fetches the buildings list to include the new one. We can't just push to <code>propertyBuildings</code> because the new building might not have all the fields (like <code>property_type_name</code>) that the backend computes.
+  </div>
+
+  <h3>Part F — Delete handlers</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="fn">handleDeleteProperty</span> = <span class="kw">async</span> () => {
+    <span class="kw">if</span> (!window.<span class="fn">confirm</span>(
+        `Delete "${selectedProperty.name}" and ALL its buildings, flats, and tenants?\n\nThis cannot be undone.`
+    )) <span class="kw">return</span>;
+    <span class="fn">setDeletingProperty</span>(<span class="op">true</span>);
+    <span class="kw">try</span> {
+        <span class="kw">await</span> <span class="fn">deletePropertyGroup</span>(selectedProperty.id);
+        <span class="fn">setPropertyGroups</span>(prev => prev.<span class="fn">filter</span>(p => p.id !== selectedProperty.id));
+        <span class="fn">setSelectedProperty</span>(<span class="op">null</span>);
+        <span class="fn">setPropertyBuildings</span>([]);
+    } <span class="kw">catch</span> (err) {
+        <span class="fn">alert</span>(err.message || t(<span class="str">'properties.failedDeleteProperty'</span>));
+    } <span class="kw">finally</span> {
+        <span class="fn">setDeletingProperty</span>(<span class="op">false</span>);
+    }
+};</code></pre>
+  <div class="line-exp">
+    <strong>Confirmation dialog for destructive actions</strong>: <code>window.confirm()</code> blocks execution until the user clicks OK or Cancel. This is the simplest possible confirmation UI — no custom modal needed. The message explicitly lists what will be deleted ("buildings, flats, and tenants") so the user understands the cascade scope.<br><br>
+    <strong>Filter-based deletion from local state</strong>: After the API call succeeds, <code>filter(p => p.id !== selectedProperty.id)</code> removes the deleted group from local state without refetching the entire list. Navigation state is also cleaned: <code>setSelectedProperty(null)</code> and <code>setPropertyBuildings([])</code> navigate back to the top-level list.
+  </div>
+
+  <!-- S3 -->
+  <h2 id="add-property-modal">Section 3 — <code>AddPropertyModal.jsx</code> (Adding a Unit/Flat)</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <p>This modal creates a new flat unit. Despite being called "AddPropertyModal" (legacy naming), it creates a <code>flat</code> record, not a property group. The name reflects that in the original design, "property" referred to individual units. It was renamed to a hierarchy model later but the component name wasn't updated.</p>
+
+  <h3>Part A — Address auto-fill from parent context</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="fn">useEffect</span>(() => {
+    <span class="kw">if</span> (isOpen && initialAddress) {
+        <span class="fn">setFormData</span>(prev => ({ ...prev, address: initialAddress }));
+        <span class="fn">setAddressAutoFilled</span>(<span class="op">true</span>);
+    }
+}, [isOpen, initialAddress]);</code></pre>
+  <div class="line-exp">
+    When the modal is opened from a building's context (user clicked "Add Unit" while inside a specific building), the parent passes <code>initialAddress</code> — the building's address concatenated with the property name. This pre-fills the address field so the user doesn't have to type it again. The <code>addressAutoFilled</code> flag shows an "auto-filled" hint below the field and is cleared if the user modifies the address.
+  </div>
+
+  <h3>Part B — Image handling</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="fn">handleImageChange</span> = (e) => {
+    <span class="kw">const</span> file = e.target.files[<span class="num">0</span>];
+    <span class="kw">if</span> (file) {
+        <span class="kw">if</span> (!file.type.<span class="fn">startsWith</span>(<span class="str">'image/'</span>)) {
+            <span class="fn">setError</span>(<span class="str">'Please select an image file'</span>); <span class="kw">return</span>;
+        }
+        <span class="kw">if</span> (file.size > <span class="num">10</span> * <span class="num">1024</span> * <span class="num">1024</span>) {
+            <span class="fn">setError</span>(<span class="str">'Image must be less than 10MB'</span>); <span class="kw">return</span>;
+        }
+        <span class="fn">setFormData</span>({ ...formData, image: file });
+        <span class="fn">setImagePreview</span>(URL.<span class="fn">createObjectURL</span>(file));
+        <span class="fn">setError</span>(<span class="op">null</span>);
+    }
+};</code></pre>
+  <div class="line-exp">
+    <strong>Client-side validation before upload</strong>: The file type and size are checked immediately after selection — before any network call. This gives instant feedback without wasting bandwidth uploading files that will be rejected anyway.<br><br>
+    <strong><code>URL.createObjectURL(file)</code></strong>: Creates an in-memory URL representing the file's binary data. Setting this as the <code>src</code> of an <code>&lt;img&gt;</code> shows a preview immediately — no upload needed. The URL stays valid until the page navigates away or until you call <code>URL.revokeObjectURL()</code>. For images selected in a modal, the URL lives until the modal unmounts.<br><br>
+    Note: This modal handles image selection and upload differently from <code>AddBuildingModal</code>. Here, the image file is stored in form state and sent as part of a multipart POST to <code>/flats</code> (the backend handles the Supabase Storage upload). In <code>AddBuildingModal</code>, the <code>ImageUploadField</code> component uploads the image immediately and stores the resulting URL in form state.
+  </div>
+
+  <h3>Part C — Form submission with FormData</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">const</span> <span class="fn">handleSubmit</span> = <span class="kw">async</span> (e) => {
+        e.<span class="fn">preventDefault</span>();
+        <span class="fn">setLoading</span>(<span class="op">true</span>); <span class="fn">setError</span>(<span class="op">null</span>);
+
+        <span class="kw">try</span> {
+            <span class="kw">const</span> formDataToSend = <span class="kw">new</span> FormData();
+            formDataToSend.<span class="fn">append</span>(<span class="str">'flat_number'</span>, formData.flat_number.<span class="fn">trim</span>().<span class="fn">toUpperCase</span>());
+
+            <span class="kw">if</span> (formData.address) formDataToSend.<span class="fn">append</span>(<span class="str">'address'</span>, formData.address.<span class="fn">trim</span>());
+            <span class="kw">if</span> (formData.floor_number) formDataToSend.<span class="fn">append</span>(<span class="str">'floor_number'</span>, formData.floor_number);
+            <span class="kw">if</span> (formData.bedrooms) formDataToSend.<span class="fn">append</span>(<span class="str">'bedrooms'</span>, formData.bedrooms);
+            <span class="kw">if</span> (formData.bathrooms) formDataToSend.<span class="fn">append</span>(<span class="str">'bathrooms'</span>, formData.bathrooms);
+
+            <span class="kw">if</span> (assignTenant) {
+                formDataToSend.<span class="fn">append</span>(<span class="str">'tenant_name'</span>, formData.tenant_name.<span class="fn">trim</span>());
+                formDataToSend.<span class="fn">append</span>(<span class="str">'tenant_phone'</span>, formData.tenant_phone.<span class="fn">trim</span>());
+            }
+
+            <span class="kw">if</span> (initialBuildingId) formDataToSend.<span class="fn">append</span>(<span class="str">'building_id'</span>, initialBuildingId);
+            <span class="kw">if</span> (formData.image) formDataToSend.<span class="fn">append</span>(<span class="str">'image'</span>, formData.image);
+
+            <span class="kw">await</span> <span class="fn">createProperty</span>(formDataToSend);
+            <span class="fn">resetForm</span>(); <span class="fn">onSuccess</span>(); <span class="fn">onClose</span>();
+        } <span class="kw">catch</span> (err) {
+            <span class="fn">setError</span>(err.message || <span class="str">'Failed to create property'</span>);
+        } <span class="kw">finally</span> {
+            <span class="fn">setLoading</span>(<span class="op">false</span>);
+        }
+    };</code></pre>
+  <div class="line-exp">
+    <strong>FormData construction</strong>: All optional fields are conditionally appended. If <code>formData.address</code> is empty, nothing is appended — the backend receives no <code>address</code> field and treats it as null. This is cleaner than sending <code>address=""</code>, which might be stored as an empty string rather than null in the DB.<br><br>
+    <strong><code>.trim().toUpperCase()</code> on flat_number</strong>: Flat numbers are always stored uppercase and trimmed. This normalization happens client-side (for immediate UX consistency) and also server-side (the backend route does the same). Defense in depth — if one layer is bypassed, the other catches it.<br><br>
+    <strong>Conditional tenant fields</strong>: The "Assign Tenant" checkbox controls whether tenant name and phone are included. If <code>assignTenant</code> is false, these fields are not appended to FormData even if the user typed in them (the fields are hidden anyway, but this is an extra guard). The backend creates the flat without a tenant if these fields are absent.
+  </div>
+
+  <h3>Part D — The AnimatePresence tenant section</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>&lt;<span class="typ">AnimatePresence</span>&gt;
+    {assignTenant && (
+        &lt;<span class="typ">motion.div</span>
+            initial={{ opacity: <span class="num">0</span>, height: <span class="num">0</span> }}
+            animate={{ opacity: <span class="num">1</span>, height: <span class="str">'auto'</span> }}
+            exit={{ opacity: <span class="num">0</span>, height: <span class="num">0</span> }}
+            className=<span class="str">"grid grid-cols-2 gap-4 pl-6 overflow-hidden"</span>
+        &gt;
+            <span class="cm">{/* tenant name + phone inputs */}</span>
+        &lt;/<span class="typ">motion.div</span>&gt;
+    )}
+&lt;/<span class="typ">AnimatePresence</span>&gt;</code></pre>
+  <div class="line-exp">
+    <strong><code>AnimatePresence</code></strong>: Framer Motion wrapper that detects when children are removed from the React tree and plays their <code>exit</code> animation before actually removing them from the DOM. Without <code>AnimatePresence</code>, the <code>exit</code> prop has no effect — the element vanishes instantly.<br><br>
+    <strong>Height animation: <code>0 → 'auto'</code></strong>: Animating from <code>height: 0</code> to <code>height: 'auto'</code> creates a smooth expand/collapse effect. The <code>'auto'</code> value is special — Framer Motion measures the element's natural height and interpolates to it. This wouldn't work with pure CSS transitions (which can't animate to <code>height: auto</code>).<br><br>
+    <strong><code>overflow-hidden</code></strong>: Required during the height animation. Without it, content would be visible outside the collapsing element during the exit animation (the content clips to the element's height only with overflow hidden).
+  </div>
+
+  <!-- S4 -->
+  <h2 id="add-building-modal">Section 4 — <code>AddBuildingModal.jsx</code></h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <h3>Fetching property types on open</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="fn">useEffect</span>(() => {
+    <span class="kw">if</span> (isOpen && propertyTypes.length === <span class="num">0</span>) {
+        <span class="fn">fetchPropertyTypes</span>()
+            .<span class="fn">then</span>(<span class="fn">setPropertyTypes</span>)
+            .<span class="fn">catch</span>(() => { });
+    }
+}, [isOpen]);</code></pre>
+  <div class="line-exp">
+    <strong>Lazy loading on modal open</strong>: Property types (Residential, Commercial, etc.) are only needed when the modal is open. Fetching them at page load would waste a network request. The <code>propertyTypes.length === 0</code> guard prevents re-fetching if the modal is closed and reopened — the types are cached in component state until the component unmounts.<br><br>
+    <strong><code>.catch(() => {})</code></strong>: Silently swallows the error. If property types fail to load, the select dropdown shows only "Select type" — the building can still be created without a type. This is a good tradeoff: the property type is optional; failing to load the types list shouldn't block building creation.
+  </div>
+
+  <h3>Submit handler — JSON body (not FormData)</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">const</span> <span class="fn">handleSubmit</span> = <span class="kw">async</span> e => {
+        e.<span class="fn">preventDefault</span>();
+        <span class="kw">if</span> (!form.name.<span class="fn">trim</span>()) { <span class="fn">setError</span>(t(<span class="str">'building.nameRequired'</span>)); <span class="kw">return</span>; }
+        <span class="fn">setLoading</span>(<span class="op">true</span>); <span class="fn">setError</span>(<span class="op">null</span>);
+        <span class="kw">try</span> {
+            <span class="kw">const</span> payload = { name: form.name.<span class="fn">trim</span>() };
+            <span class="kw">if</span> (form.description) payload.description = form.description.<span class="fn">trim</span>();
+            <span class="kw">if</span> (form.address) payload.address = form.address.<span class="fn">trim</span>();
+            <span class="kw">if</span> (form.image_url) payload.image_url = form.image_url.<span class="fn">trim</span>();
+            <span class="kw">if</span> (form.property_type_id) payload.property_type_id = form.property_type_id;
+            <span class="kw">if</span> (initialPropertyId) payload.property_id = initialPropertyId;
+
+            <span class="kw">const</span> newBuilding = <span class="kw">await</span> <span class="fn">createBuilding</span>(payload);
+            <span class="fn">reset</span>(); <span class="fn">onSuccess</span>(newBuilding); <span class="fn">onClose</span>();
+        } <span class="kw">catch</span> (err) {
+            <span class="fn">setError</span>(err.message || t(<span class="str">'building.failed'</span>));
+        } <span class="kw">finally</span> {
+            <span class="fn">setLoading</span>(<span class="op">false</span>);
+        }
+    };</code></pre>
+  <div class="line-exp">
+    <strong>JSON body vs FormData</strong>: Unlike <code>AddPropertyModal</code> (which uses FormData for image upload), this modal uses JSON. Why? The image URL is handled by <code>ImageUploadField</code>, which uploads the image to Supabase Storage separately and returns a URL string. The modal only needs to send that URL string in JSON — no binary file upload needed at submit time.<br><br>
+    <strong><code>onSuccess(newBuilding)</code></strong>: The parent's <code>handleBuildingAdded</code> receives the newly created building object (returned from <code>createBuilding</code>). This is the optimistic update pattern — insert into local state immediately, no re-fetch needed.
+  </div>
+
+  <!-- S5 -->
+  <h2 id="image-upload">Section 5 — <code>ImageUploadField.jsx</code></h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <p>A reusable component that handles: drag-and-drop, click-to-upload, client-side validation, immediate local preview, upload to backend, and error handling. It's used in <code>AddBuildingModal</code> and can be used anywhere an image needs to be uploaded.</p>
+
+  <h3>Part A — Client-side validation</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> ALLOWED_TYPES = [<span class="str">'image/jpeg'</span>, <span class="str">'image/jpg'</span>, <span class="str">'image/png'</span>, <span class="str">'image/webp'</span>];
+<span class="kw">const</span> MAX_SIZE_MB = <span class="num">5</span>;
+<span class="kw">const</span> MAX_SIZE_BYTES = MAX_SIZE_MB * <span class="num">1024</span> * <span class="num">1024</span>;
+
+<span class="kw">const</span> <span class="fn">validate</span> = (file) => {
+    <span class="kw">if</span> (!ALLOWED_TYPES.<span class="fn">includes</span>(file.type)) {
+        <span class="kw">return</span> t(<span class="str">'imageUpload.invalidType'</span>);
+    }
+    <span class="kw">if</span> (file.size > MAX_SIZE_BYTES) {
+        <span class="kw">return</span> t(<span class="str">'imageUpload.tooLarge'</span>, { size: (file.size / <span class="num">1024</span> / <span class="num">1024</span>).<span class="fn">toFixed</span>(<span class="num">1</span>), max: MAX_SIZE_MB });
+    }
+    <span class="kw">return</span> <span class="op">null</span>; <span class="cm">// null = no error</span>
+};</code></pre>
+  <div class="line-exp">
+    <strong>Return null for success</strong>: The convention is <code>null</code> means valid, any string is an error message. This avoids a boolean + separate error message — one return value conveys both.<br><br>
+    <strong>Size calculation</strong>: <code>MAX_SIZE_BYTES = 5 * 1024 * 1024</code> = 5 MB. The error message shows the actual file size in MB: <code>(file.size / 1024 / 1024).toFixed(1)</code>. This tells the user "Your file is 7.3 MB, maximum is 5 MB" rather than a generic "File too large."
+  </div>
+
+  <h3>Part B — The <code>processFile</code> function</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="fn">processFile</span> = <span class="fn">useCallback</span>(<span class="kw">async</span> (file) => {
+    <span class="kw">if</span> (!file) <span class="kw">return</span>;
+
+    <span class="kw">const</span> validationError = <span class="fn">validate</span>(file);
+    <span class="kw">if</span> (validationError) { <span class="fn">setError</span>(validationError); <span class="kw">return</span>; }
+
+    <span class="kw">const</span> localUrl = URL.<span class="fn">createObjectURL</span>(file);
+    <span class="fn">setPreview</span>(localUrl);
+    <span class="fn">setError</span>(<span class="str">''</span>);
+    <span class="fn">setUploading</span>(<span class="op">true</span>);
+    onUploadStart?.(); <span class="cm">// notify parent: disable submit button</span>
+
+    <span class="kw">try</span> {
+        <span class="kw">const</span> { url } = <span class="kw">await</span> <span class="fn">uploadImage</span>(file, entityType);
+        <span class="fn">onUploadComplete</span>(url);
+        <span class="fn">setPreview</span>(url); <span class="cm">// replace blob URL with permanent Supabase URL</span>
+    } <span class="kw">catch</span> (err) {
+        <span class="fn">setError</span>(err.message || t(<span class="str">'imageUpload.failed'</span>));
+        <span class="fn">setPreview</span>(currentImageUrl || <span class="op">null</span>); <span class="cm">// revert preview</span>
+        <span class="fn">onUploadComplete</span>(<span class="str">''</span>); <span class="cm">// clear in parent so old URL isn't accidentally submitted</span>
+    } <span class="kw">finally</span> {
+        <span class="fn">setUploading</span>(<span class="op">false</span>);
+    }
+}, [entityType, currentImageUrl, <span class="fn">onUploadComplete</span>]);</code></pre>
+  <div class="line-exp">
+    <strong>Immediate preview before upload</strong>: The blob URL is set as the preview source before the upload starts. The user sees the image immediately — no waiting for the server. This is the "optimistic preview" pattern.<br><br>
+    <strong><code>onUploadStart?.()</code></strong>: Optional chaining call — if the parent passed an <code>onUploadStart</code> prop, call it; otherwise do nothing. This notifies the parent (e.g., <code>AddBuildingModal</code>) that an upload is in progress so it can disable the submit button. Without this, the user could submit the form before the upload completes, sending an empty URL.<br><br>
+    <strong>Two-phase preview</strong>: First we show the blob URL (local file), then after upload we replace it with the permanent Supabase URL. The user doesn't see any change — both URLs resolve to the same image. But the form state now holds the permanent URL, which is what gets stored in the database.<br><br>
+    <strong>Upload failure cleanup</strong>: On error: show the error message, revert the preview to whatever was there before (or null if this is a new upload), and call <code>onUploadComplete('')</code> to tell the parent the upload failed (clear any previously set URL). This prevents the form from submitting with a stale URL from a previous successful upload.
+  </div>
+
+  <h3>Part C — Drag-and-drop handling</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>&lt;<span class="typ">div</span>
+    onClick={() => !disabled && !uploading && inputRef.current?.<span class="fn">click</span>()}
+    onDragOver={(e) => { e.<span class="fn">preventDefault</span>(); <span class="kw">if</span> (!disabled) <span class="fn">setIsDragging</span>(<span class="op">true</span>); }}
+    onDragLeave={() => <span class="fn">setIsDragging</span>(<span class="op">false</span>)}
+    onDrop={<span class="fn">handleDrop</span>}
+    className={<span class="fn">cn</span>(
+        <span class="str">'relative rounded-xl border-2 border-dashed transition-all duration-200 overflow-hidden'</span>,
+        isDragging ? <span class="str">'border-primary bg-primary/5 scale-[1.01]'</span>
+                   : <span class="str">'border-border hover:border-primary/50 hover:bg-secondary/50'</span>,
+        (disabled || uploading) && <span class="str">'pointer-events-none opacity-70'</span>,
+    )}
+&gt;</code></pre>
+  <div class="line-exp">
+    <strong><code>e.preventDefault()</code> in <code>onDragOver</code></strong>: Required to allow dropping. Browsers prevent drops by default — calling <code>preventDefault()</code> during <code>dragover</code> signals that this element accepts drops.<br><br>
+    <strong><code>isDragging</code> visual feedback</strong>: When something is dragged over the drop zone, the border turns primary color and the background gets a subtle tint (<code>bg-primary/5</code> = 5% opacity primary color). A subtle scale increase (<code>scale-[1.01]</code>) adds a "ready to receive" cue. This feedback tells users the drop zone is active.<br><br>
+    <strong><code>pointer-events-none opacity-70</code></strong>: When disabled or uploading, the drop zone is visually dimmed and interaction is prevented. <code>pointer-events-none</code> removes all mouse event handling — clicks, drags, and hover effects won't fire.
+  </div>
+
+  <!-- S6 -->
+  <h2 id="sub-components">Section 6 — Sub-components Pattern in PropertiesPage</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <details open>
+    <summary>PropertyGroupCard — the cover image card</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">function</span> <span class="fn">PropertyGroupCard</span>({ property, onClick }) {
+    <span class="kw">const</span> coverImage = property.image_url ||
+        <span class="str">'https://images.unsplash.com/photo-...'</span>;  <span class="cm">// fallback Unsplash image</span>
+    <span class="kw">return</span> (
+        &lt;<span class="typ">motion.div</span>
+            whileHover={{ y: <span class="num">-2</span> }}
+            onClick={() => <span class="fn">onClick</span>(property)}
+            className=<span class="str">"bg-card border border-border rounded-xl overflow-hidden cursor-pointer group"</span>
+        &gt;
+            &lt;<span class="typ">div</span> className=<span class="str">"relative h-40 overflow-hidden"</span>&gt;
+                &lt;<span class="typ">img</span>
+                    src={coverImage}
+                    onError={e => { e.target.src = fallbackUrl; }}
+                    className=<span class="str">"w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"</span>
+                /&gt;
+                &lt;<span class="typ">div</span> className=<span class="str">"absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"</span> /&gt;
+            &lt;/<span class="typ">div</span>&gt;
+        &lt;/<span class="typ">motion.div</span>&gt;
+    );
+}</code></pre>
+    <p><strong>Image zoom on hover</strong>: <code>group-hover:scale-105</code> on the <code>&lt;img&gt;</code> makes the cover image zoom in slightly when the parent card is hovered. The <code>overflow-hidden</code> on the wrapper clips the zoomed image to the card boundary — without this, the image would overflow the card edges.</p>
+    <p><strong>Gradient overlay</strong>: <code>bg-gradient-to-t from-black/60 via-transparent to-transparent</code> — a gradient that goes from 60% opacity black at the bottom to transparent at the top. This makes text (the building count badge) readable on any background image without blowing out the image colors.</p>
+    <p><strong><code>whileHover={{ y: -2 }}</code></strong>: Subtle lift effect on hover. The card moves 2px upward, giving a "hover to interact" affordance. Combined with the <code>box-shadow</code> classes, this creates a clear interactive feedback.</p>
+  </details>
+
+  <details open>
+    <summary>CardGrid — staggered animation wrapper</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="typ">CardGrid</span> = ({ children, columns = <span class="str">'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'</span> }) => (
+    &lt;<span class="typ">motion.div</span>
+        initial=<span class="str">"hidden"</span>
+        animate=<span class="str">"visible"</span>
+        variants={{ hidden: { opacity: <span class="num">0</span> }, visible: { opacity: <span class="num">1</span>, transition: { staggerChildren: <span class="num">0.06</span> } } }}
+        className={<span class="fn">cn</span>(<span class="str">'grid gap-5'</span>, columns)}
+    &gt;
+        {children}
+    &lt;/<span class="typ">motion.div</span>&gt;
+);
+
+<span class="kw">const</span> cardVariants = { hidden: { opacity: <span class="num">0</span>, y: <span class="num">16</span> }, visible: { opacity: <span class="num">1</span>, y: <span class="num">0</span> } };</code></pre>
+    <p><strong>Variants and <code>staggerChildren</code></strong>: Framer Motion's variant system propagates animation commands down the component tree. When the <code>CardGrid</code> animates from <code>"hidden"</code> to <code>"visible"</code>, child components that also have <code>"hidden"</code> and <code>"visible"</code> variants animate automatically. <code>staggerChildren: 0.06</code> delays each child's animation start by 0.06 seconds, creating a cascade effect.</p>
+    <p>Each child card is wrapped in a <code>&lt;motion.div variants={cardVariants}&gt;</code>, which inherits the parent's animation command. No <code>initial</code>/<code>animate</code> props needed on children — the parent drives everything.</p>
+  </details>
+
+  <!-- S7 -->
+  <h2 id="bugs">Section 7 — Common Bugs &amp; Fixes</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7"><label for="chk-s7">Mark complete</label></div>
+
+  <div class="bug-box">
+    <h4>Bug: After adding a building, the building list shows the old data</h4>
+    <p><strong>Symptom</strong>: User adds a building from the Properties view (inside a property group). The modal closes successfully, but the building doesn't appear in the property's building list until the page is manually refreshed.</p>
+    <p><strong>Root cause</strong>: <code>handleBuildingAdded</code> updates <code>buildings</code> (the flat list for the Buildings tab) but doesn't refresh <code>propertyBuildings</code> (the list shown in the current drill-down view). The user is looking at <code>propertyBuildings</code>, which wasn't updated.</p>
+    <p><strong>Fix</strong>: In <code>handleBuildingAdded</code>, also refresh the drill-down view if a property is selected:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="fn">handleBuildingAdded</span> = (newBuilding) => {
+    <span class="fn">setBuildings</span>(prev => [newBuilding, ...prev].<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name)));
+    <span class="kw">if</span> (selectedProperty) <span class="fn">drillIntoProperty</span>(selectedProperty); <span class="cm">// re-fetch for drill-down</span>
+};</code></pre>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: Image preview shows previous selection after clearing</h4>
+    <p><strong>Symptom</strong>: User selects an image, sees the preview, clicks the X button to clear it, then the preview disappears. But when selecting a new image (same file as before), the preview doesn't update.</p>
+    <p><strong>Root cause</strong>: The browser caches file inputs. If the same file is selected twice in a row, the <code>onChange</code> event doesn't fire the second time because the input value hasn't changed from the browser's perspective.</p>
+    <p><strong>Fix</strong>: Reset the input value after processing the file:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="fn">handleFileChange</span> = (e) => {
+    <span class="kw">const</span> file = e.target.files?.[<span class="num">0</span>];
+    <span class="kw">if</span> (file) <span class="fn">processFile</span>(file);
+    e.target.value = <span class="str">''</span>;  <span class="cm">// Reset so same file can be re-selected</span>
+};</code></pre>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: "AddPropertyModal" creates a building instead of a unit</h4>
+    <p><strong>Symptom</strong>: (Legacy naming confusion) A developer reading the code sees <code>AddPropertyModal</code> and thinks it creates a Property Group. They try to use it for that purpose and get wrong behavior.</p>
+    <p><strong>Root cause</strong>: Legacy naming from when "property" meant an individual unit. The component was later renamed conceptually but not in code.</p>
+    <p><strong>How to remember the mapping</strong>:
+    <ul>
+      <li><code>AddPropertyGroupModal</code> → creates a Property Group (top level)</li>
+      <li><code>AddBuildingModal</code> → creates a Building (middle level)</li>
+      <li><code>AddPropertyModal</code> → creates a Flat/Unit (bottom level, confusingly named)</li>
+    </ul>
+    In a future refactor, <code>AddPropertyModal</code> should be renamed <code>AddUnitModal</code> or <code>AddFlatModal</code>.
+    </p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: Clicking "Back" from a building shows stale property buildings</h4>
+    <p><strong>Symptom</strong>: User is in Building A's units, clicks back → sees Property X's buildings (correct). Clicks on Building B → sees Building B's units. Clicks back → sees Building A's units (wrong — should see Property X's buildings).</p>
+    <p><strong>Root cause</strong>: <code>backFromBuilding</code> only clears <code>selectedBuilding</code> and <code>buildingUnits</code>. It doesn't re-fetch <code>propertyBuildings</code>, which might have been modified while the user was viewing Building B's units (e.g., if another tab added/deleted a building).</p>
+    <p><strong>Fix for most cases</strong>: The current implementation is correct because <code>propertyBuildings</code> is fetched when the property is first drilled into, and the stale data issue only occurs if the DB changed while the user was navigating. For a production app, add a refresh on the back navigation:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> <span class="fn">backFromBuilding</span> = () => {
+    <span class="fn">setSelectedBuilding</span>(<span class="op">null</span>);
+    <span class="fn">setBuildingUnits</span>([]);
+    <span class="cm">// Optional: refresh property buildings list</span>
+    <span class="kw">if</span> (selectedProperty) <span class="fn">drillIntoProperty</span>(selectedProperty);
+};</code></pre>
+  </div>
+
+  <!-- S8 -->
+  <h2 id="exercises">Section 8 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s8"><label for="chk-s8">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Exercise 1 — Add occupancy stats to the building drill-down header</summary>
+    <p>When the user drills into a building and sees its units, the header shows "12 units · 5 vacant · 7 occupied". Add a third stat: "% occupancy" (as a percentage, rounded to the nearest whole number).</p>
+    <details>
+      <summary>Show solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// In the building drill-down render section:</span>
+<span class="kw">const</span> occupancyPct = totalUnits === <span class="num">0</span> ? <span class="num">0</span>
+    : Math.<span class="fn">round</span>((occupiedCount / totalUnits) * <span class="num">100</span>);
+
+<span class="cm">// In JSX:</span>
+&lt;<span class="typ">span</span> className=<span class="str">"text-muted-foreground"</span>&gt; · {occupancyPct}% occupied&lt;/<span class="typ">span</span>&gt;</code></pre>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Exercise 2 — Search/filter in the Units view</summary>
+    <p>Add a search input above the unit grid in the Units view. Filter units by flat number or building name as the user types. Use a <code>useMemo</code> for the filtered list.</p>
+    <details>
+      <summary>Show solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// Add state:</span>
+<span class="kw">const</span> [unitSearch, setUnitSearch] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="cm">// Add filtered list memo:</span>
+<span class="kw">const</span> filteredUnits = <span class="fn">useMemo</span>(() => {
+    <span class="kw">if</span> (!unitSearch.<span class="fn">trim</span>()) <span class="kw">return</span> allUnits;
+    <span class="kw">const</span> q = unitSearch.<span class="fn">toLowerCase</span>();
+    <span class="kw">return</span> allUnits.<span class="fn">filter</span>(u => {
+        <span class="kw">const</span> building = buildingLookup[u.building_id];
+        <span class="kw">return</span> u.flat_number.<span class="fn">toLowerCase</span>().<span class="fn">includes</span>(q) ||
+               building?.name.<span class="fn">toLowerCase</span>().<span class="fn">includes</span>(q);
+    });
+}, [allUnits, unitSearch, buildingLookup]);
+
+<span class="cm">// In JSX (Units view section):</span>
+&lt;<span class="typ">input</span>
+    value={unitSearch}
+    onChange={e => <span class="fn">setUnitSearch</span>(e.target.value)}
+    placeholder=<span class="str">"Search by unit number or building..."</span>
+    className=<span class="str">"w-full px-4 py-2 rounded-lg border border-border bg-background text-sm"</span>
+/&gt;
+<span class="cm">// Replace allUnits.map(...) with filteredUnits.map(...)</span></code></pre>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Exercise 3 — Multi-file image upload in ImageUploadField</summary>
+    <p>Extend <code>ImageUploadField</code> to support uploading multiple images (max 5). Instead of a single <code>preview</code> state, maintain a <code>previews</code> array. Call <code>onUploadComplete(urls)</code> with an array of URLs. Show thumbnail previews with individual delete buttons.</p>
+    <details>
+      <summary>Show solution</summary>
+      <p>Key changes needed:</p>
+      <ol>
+        <li>Change <code>preview</code> state to <code>previews: []</code></li>
+        <li>Set <code>&lt;input type="file" multiple accept="..."&gt;</code></li>
+        <li>Process each file in <code>handleFileChange</code>: validate, create blob URLs, upload sequentially (not parallel — avoids hammering the backend)</li>
+        <li>Track uploading state per-file with an array or Set of uploading indices</li>
+        <li>Each preview thumbnail has an X button that removes that entry from the array and calls <code>onUploadComplete(remainingUrls)</code></li>
+        <li>Enforce the max 5 limit by disabling the input when <code>previews.length >= 5</code></li>
+      </ol>
+      <p>This is a significant refactor. The most important pattern to preserve: always call <code>onUploadComplete</code> with the current array of successfully uploaded URLs after each upload or deletion — the parent needs to stay in sync.</p>
+    </details>
+  </details>
+
+  <div class="card card-success">
+    <h3>Module 21 — Key Takeaways</h3>
+    <ul>
+      <li><strong>Three-level hierarchy drill-down</strong>: implemented via <code>selectedProperty</code> and <code>selectedBuilding</code> state; the render function returns different JSX based on which selection is active.</li>
+      <li><strong>Clear stale data immediately before async fetch</strong>: <code>setPropertyBuildings([])</code> before <code>await fetchPropertyBuildings(...)</code> prevents showing old data while new data loads.</li>
+      <li><strong>Optimistic updates</strong>: insert new items into local state immediately after creation — no full re-fetch needed. Sort after insert (<code>[new, ...prev].sort(...)</code>).</li>
+      <li><strong><code>useCallback</code> for data loaders</strong>: prevents new function references on every render, which would invalidate <code>useEffect</code> dependency arrays and cause infinite loops.</li>
+      <li><strong>FormData for file+field submission</strong>: only omit <code>Content-Type</code> header so the browser sets the multipart boundary automatically.</li>
+      <li><strong>Immediate blob URL preview</strong>: show the image before upload using <code>URL.createObjectURL(file)</code>, then replace with the permanent URL after upload completes.</li>
+      <li><strong><code>onUploadStart</code> callback</strong>: prevents form submission while image is uploading — the parent disables the submit button in response.</li>
+      <li><strong>AnimatePresence + height animation</strong>: enables smooth expand/collapse of conditional form sections. Requires <code>overflow-hidden</code> on the animated element.</li>
+      <li><strong>Drag-and-drop</strong>: requires <code>e.preventDefault()</code> in <code>onDragOver</code> to allow dropping — browsers block drops by default.</li>
+      <li><strong>Reset file input value</strong> after processing to allow re-selecting the same file: <code>e.target.value = ''</code></li>
+    </ul>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_20_dashboard_charts.html" class="nav-btn">← Previous: Dashboard &amp; Charts</a>
+    <a href="module_22_tenant_management.html" class="nav-btn">Next: Tenant Management →</a>
+  </div>
+</div></div>
+
+<script>
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const checkboxes = document.querySelectorAll('.section-check input');
+  function updateProgress() {
+    const checked = [...checkboxes].filter(c => c.checked).length;
+    document.getElementById('progressFill').style.width = (checked / checkboxes.length * 100) + '%';
+  }
+  checkboxes.forEach(c => c.addEventListener('change', updateProgress));
+  function copyCode(btn) {
+    const code = btn.nextElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 20 — Dashboard &amp; Charts | Tenant Management MVP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-primary: #1a1b26; --bg-secondary: #24283b; --bg-tertiary: #2f3348;
+      --text-primary: #c0caf5; --text-secondary: #a9b1d6; --text-muted: #565f89;
+      --accent: #7aa2f7; --success: #9ece6a; --warning: #e0af68; --error: #f7768e;
+      --border: #3b4261; --code-bg: #1e2030; --shadow: 0 4px 6px rgba(0,0,0,0.3); --radius: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff; --bg-secondary: #f6f8fa; --bg-tertiary: #e8ecf1;
+      --text-primary: #24292f; --text-secondary: #57606a; --text-muted: #8b949e;
+      --accent: #0969da; --success: #1a7f37; --warning: #9a6700; --error: #cf222e;
+      --border: #d0d7de; --code-bg: #f6f8fa; --shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; transition: background 0.3s, color 0.3s; }
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; z-index: 100; }
+    .sidebar h3 { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .sidebar a { color: var(--text-secondary); text-decoration: none; display: block; padding: 0.3rem 0 0.3rem 0.5rem; font-size: 0.85rem; border-left: 2px solid transparent; }
+    .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main-content { margin-left: 260px; }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main-content { margin-left: 0; } }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--accent); }
+    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: var(--text-primary); }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent); }
+    ul, ol { margin: 0 0 1rem 1.5rem; color: var(--text-secondary); }
+    li { margin-bottom: 0.3rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1rem 1rem; overflow-x: auto; position: relative; margin: 1rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.875rem; }
+    pre code { display: block; line-height: 1.6; }
+    :not(pre) > code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; color: var(--warning); }
+    .kw { color: #bb9af7; } .str { color: #9ece6a; } .cm { color: #565f89; font-style: italic; }
+    .fn { color: #7aa2f7; } .num { color: #ff9e64; } .op { color: #89ddff; }
+    .dec { color: #e0af68; } .typ { color: #2ac3de; }
+    [data-theme="light"] .kw { color: #cf222e; } [data-theme="light"] .str { color: #0a3069; }
+    [data-theme="light"] .cm { color: #8b949e; } [data-theme="light"] .fn { color: #8250df; }
+    [data-theme="light"] .num { color: #0550ae; } [data-theme="light"] .dec { color: #953800; }
+    [data-theme="light"] .typ { color: #0550ae; }
+    .copy-btn { position: absolute; top: 0.4rem; right: 0.4rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.72rem; font-family: var(--font-sans); }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 1rem 0; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 0.25rem 0; user-select: none; list-style: none; display: flex; align-items: center; gap: 0.5rem; }
+    summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { margin-bottom: 0.75rem; }
+    .card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin: 1rem 0; }
+    .card-success { border-left: 4px solid var(--success); }
+    .card-info { border-left: 4px solid var(--accent); }
+    .progress-bar { width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin: 0.5rem 0 1.5rem; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.5s; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.65rem 0.75rem; border: 1px solid var(--border); }
+    th { background: var(--bg-tertiary); font-weight: 600; }
+    tr:nth-child(even) { background: var(--bg-secondary); }
+    td { color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+    .badge-easy { background: #9ece6a22; color: var(--success); border: 1px solid var(--success); }
+    .badge-medium { background: #e0af6822; color: var(--warning); border: 1px solid var(--warning); }
+    .badge-hard { background: #f7768e22; color: var(--error); border: 1px solid var(--error); }
+    .nav-buttons { display: flex; justify-content: space-between; margin: 2rem 0; gap: 1rem; flex-wrap: wrap; }
+    .nav-btn { display: inline-block; padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.2s; }
+    .nav-btn:hover { background: var(--accent); color: var(--bg-primary); }
+    .breadcrumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .breadcrumbs a { color: var(--text-secondary); text-decoration: none; }
+    .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 200; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .back-to-top { position: fixed; bottom: 2rem; right: 2rem; z-index: 200; background: var(--accent); color: var(--bg-primary); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .section-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+    .section-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .section-check label { cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-muted); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0; overflow-x: auto; white-space: pre; }
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .callout-warning { background: #e0af6811; border-left: 4px solid var(--warning); }
+    .callout-info { background: #7aa2f711; border-left: 4px solid var(--accent); }
+    .callout p { margin: 0; }
+    .line-exp { background: var(--bg-tertiary); border-radius: 4px; padding: 0.75rem 1rem; margin: 0.5rem 0 1.25rem; font-size: 0.875rem; color: var(--text-secondary); border-left: 3px solid var(--accent); }
+    .bug-box { background: #f7768e0d; border: 1px solid #f7768e44; border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; }
+    .bug-box h4 { color: var(--error); margin-bottom: 0.5rem; }
+    @media print { .sidebar, .theme-toggle, .back-to-top, .copy-btn, .nav-buttons, .section-check { display: none !important; } .main-content { margin-left: 0 !important; } body { color: #000; background: #fff; } details, details > * { display: block; } h2 { page-break-before: always; } }
+  </style>
+</head>
+<body>
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <h3>Module 20</h3><div id="toc"></div>
+</nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 20 — Dashboard &amp; Charts</strong></div>
+
+  <h1>Module 20 — Dashboard &amp; Charts</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 70 minutes</span>
+    <span>📁 Files: <code>BentoDashboard.jsx</code>, <code>dashboard/KPICard.jsx</code>, <code>dashboard/TrendsChart.jsx</code>, <code>dashboard/StatusDonut.jsx</code>, <code>dashboard/CategoriesPie.jsx</code>, <code>dashboard/AppointmentsBar.jsx</code></span>
+    <span>🔰 Prerequisites: Modules 17–19</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_19_api_service.html" class="nav-btn">← Previous: API Service Layer</a>
+    <a href="module_21_properties_buildings.html" class="nav-btn">Next: Properties &amp; Buildings →</a>
+  </div>
+
+  <!-- S1 -->
+  <h2 id="overview">Section 1 — Dashboard Architecture</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>The dashboard is a data-dense view that shows 4 KPI cards and 4 charts, all driven by the same complaints and appointments data, all filterable by time range. The key design challenge: keeping all chart calculations fast while letting the user switch between 7d / 30d / 3m ranges instantly.</p>
+
+  <div class="diagram">
+BentoDashboard (parent)
+│  receives: complaints[], appointments[]
+│  owns: timeRange state ('7d' | '30d' | '3m')
+│
+├── useMemo: cutoff (derived from timeRange)
+├── useMemo: filteredByTime (complaints filtered by cutoff)
+├── useMemo: kpis {total, pending, inProgress, appointmentsToday}
+├── useMemo: trendsData [{date, complaints}]
+├── useMemo: statusData [{name, value}]
+├── useMemo: categoriesData [{name, value}]
+├── useMemo: appointmentsBarData [{day, count}]
+│
+├── KPICard × 4      (animated number display)
+├── TrendsChart       (LineChart — complaints over time)
+├── StatusDonut       (PieChart with hole — status breakdown)
+├── CategoriesPie     (PieChart — complaint categories)
+├── AppointmentsBar   (BarChart — appointments by day of week)
+├── DashboardListModal (modal for drill-down on KPI click)
+└── DailyTasksModal   (modal for today's appointments)</div>
+
+  <p>All data transformations happen in <code>useMemo</code> hooks at the parent level. The chart components receive pre-formatted arrays and just render them — no data logic in chart components. This separation makes charts reusable and makes the data logic easy to test in isolation.</p>
+
+  <!-- S2 -->
+  <h2 id="bento-dashboard">Section 2 — <code>BentoDashboard.jsx</code> Line-by-Line</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <h3>Part A — Time range setup and cutoff calculation</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> TIME_RANGES = [
+    { label: <span class="str">'7d'</span>, days: <span class="num">7</span> },
+    { label: <span class="str">'30d'</span>, days: <span class="num">30</span> },
+    { label: <span class="str">'3m'</span>, days: <span class="num">90</span> },
+];
+
+<span class="kw">const</span> DAY_ORDER = [<span class="str">'Mon'</span>, <span class="str">'Tue'</span>, <span class="str">'Wed'</span>, <span class="str">'Thu'</span>, <span class="str">'Fri'</span>, <span class="str">'Sat'</span>, <span class="str">'Sun'</span>];</code></pre>
+  <div class="line-exp">
+    <strong>Module-level constants</strong> — defined outside the component so they're not recreated on every render. <code>TIME_RANGES</code> drives both the toggle buttons and the <code>cutoff</code> calculation. <code>DAY_ORDER</code> is used to ensure the appointments bar chart shows days in Mon→Sun order, not whatever order they appear in the data.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> cutoff = <span class="fn">useMemo</span>(() => {
+    <span class="kw">const</span> days = TIME_RANGES.<span class="fn">find</span>(r => r.label === timeRange)?.days ?? <span class="num">7</span>;
+    <span class="kw">return</span> <span class="fn">subDays</span>(<span class="kw">new</span> Date(), days);
+}, [timeRange]);</code></pre>
+  <div class="line-exp">
+    <strong><code>useMemo</code> for the cutoff date</strong>: The cutoff is a Date object representing "N days ago." It's memoized because it's used as a dependency by multiple downstream <code>useMemo</code> hooks — if it were computed inline, React wouldn't be able to detect that it's the same value between renders, and all downstream memos would recompute unnecessarily.<br><br>
+    <strong><code>subDays(new Date(), days)</code></strong>: date-fns utility. <code>new Date()</code> is "now." <code>subDays(now, 7)</code> gives exactly 7 days ago at the current time. The <code>?.days ?? 7</code> handles the edge case where <code>timeRange</code> is somehow not in <code>TIME_RANGES</code> — default to 7 days.
+  </div>
+
+  <h3>Part B — Filtered complaints</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> filteredByTime = <span class="fn">useMemo</span>(
+    () => complaints.<span class="fn">filter</span>(c => <span class="kw">new</span> Date(c.created_at) >= cutoff),
+    [complaints, cutoff]
+);</code></pre>
+  <div class="line-exp">
+    <strong>Why <code>useMemo</code> here</strong>: This computation runs <em>every time the time range changes</em>. Without <code>useMemo</code>, it would also run on every parent re-render (e.g., every time the modal state changes). For a manager with thousands of complaints, this filter is not free. <code>useMemo</code> ensures the filter only re-runs when <code>complaints</code> or <code>cutoff</code> actually changes.<br><br>
+    <strong>Dependency array <code>[complaints, cutoff]</code></strong>: This memo re-runs when either the raw data (from API) changes or the time range changes (which changes <code>cutoff</code>). Both are correct invalidation conditions.
+  </div>
+
+  <h3>Part C — KPI calculations</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> kpis = <span class="fn">useMemo</span>(() => ({
+    total: filteredByTime.length,
+    pending: filteredByTime.<span class="fn">filter</span>(c => c.status === STATUS.PENDING).length,
+    inProgress: filteredByTime.<span class="fn">filter</span>(c => c.status === STATUS.IN_PROGRESS).length,
+    appointmentsToday: appointments.<span class="fn">filter</span>(a => {
+        <span class="kw">try</span> { <span class="kw">return</span> a.appointment_date && <span class="fn">isToday</span>(<span class="fn">parseISO</span>(a.appointment_date)); }
+        <span class="kw">catch</span> { <span class="kw">return</span> <span class="op">false</span>; }
+    }).length,
+}), [filteredByTime, appointments]);</code></pre>
+  <div class="line-exp">
+    <strong>Four KPIs in one memo</strong>: Computing them together is more efficient than four separate <code>useMemo</code> calls — one function call instead of four, and they share the same dependency array.<br><br>
+    <strong><code>STATUS.PENDING</code></strong> — imported from <code>constants/status.js</code>. Using a constant prevents typos (you'd get a linter error if the constant doesn't exist, but not if you misspell <code>'pedning'</code>).<br><br>
+    <strong><code>isToday(parseISO(...))</code> in a try/catch</strong>: <code>parseISO</code> throws if the string isn't valid ISO format. For a list of potentially many appointments, one malformed date shouldn't crash the entire KPI calculation. The catch returns <code>false</code> (exclude malformed dates from the count) — a safe fallback.<br><br>
+    <strong><code>appointmentsToday</code> uses all appointments, not <code>filteredByTime</code></strong>: Today's appointments should always show today's count regardless of the selected time range. If the time range is "7d" and there are 3 appointments today, you still want to see 3, not filter it by time range.
+  </div>
+
+  <h3>Part D — Trends data transformation</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> trendsData = <span class="fn">useMemo</span>(() => {
+    <span class="kw">const</span> grouped = <span class="kw">new</span> Map();
+    [...filteredByTime]
+        .<span class="fn">sort</span>((a, b) => <span class="kw">new</span> Date(a.created_at) - <span class="kw">new</span> Date(b.created_at))
+        .<span class="fn">forEach</span>(c => {
+            <span class="kw">try</span> {
+                <span class="kw">const</span> d = <span class="fn">format</span>(
+                    <span class="fn">parseISO</span>(c.created_at.<span class="fn">endsWith</span>(<span class="str">'Z'</span>) ? c.created_at : c.created_at + <span class="str">'Z'</span>),
+                    <span class="str">'MMM dd'</span>
+                );
+                grouped.<span class="fn">set</span>(d, (grouped.<span class="fn">get</span>(d) || <span class="num">0</span>) + <span class="num">1</span>);
+            } <span class="kw">catch</span> { <span class="cm">/* skip malformed dates */</span> }
+        });
+    <span class="kw">return</span> Array.<span class="fn">from</span>(grouped.<span class="fn">entries</span>()).<span class="fn">map</span>(([date, complaints]) => ({ date, complaints }));
+}, [filteredByTime]);</code></pre>
+  <div class="line-exp">
+    <strong>Grouping by day</strong>: The LineChart needs one data point per day. Multiple complaints on the same day must be counted together. A <code>Map</code> is used instead of a plain object because Map preserves insertion order — since we sort before iterating, the Map retains chronological order.<br><br>
+    <strong><code>[...filteredByTime].sort(...)</code></strong>: Spread into a new array before sorting because <code>Array.sort</code> mutates the original array. We never want to mutate <code>filteredByTime</code> (which is a memo-cached array) because that would invalidate other memos that depend on it.<br><br>
+    <strong>UTC suffix normalization</strong>: Same pattern as <code>formatDate</code> in apiService — appending <code>Z</code> ensures JavaScript treats the timestamp as UTC before parsing. Without it, the day grouping would be off by the local timezone.<br><br>
+    <strong><code>format(..., 'MMM dd')</code></strong>: Formats as "Jan 15", "Jan 16" etc. These strings become the X-axis labels in the chart. Using the same format for all dates ensures consistent grouping.
+  </div>
+
+  <h3>Part E — Appointments bar data</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> appointmentsBarData = <span class="fn">useMemo</span>(() => {
+    <span class="kw">const</span> counts = Object.<span class="fn">fromEntries</span>(DAY_ORDER.<span class="fn">map</span>(d => [d, <span class="num">0</span>]));
+    appointments
+        .<span class="fn">filter</span>(a => {
+            <span class="kw">try</span> { <span class="kw">return</span> a.appointment_date && <span class="kw">new</span> Date(a.appointment_date) >= cutoff; }
+            <span class="kw">catch</span> { <span class="kw">return</span> <span class="op">false</span>; }
+        })
+        .<span class="fn">forEach</span>(a => {
+            <span class="kw">try</span> {
+                <span class="kw">const</span> day = <span class="fn">format</span>(<span class="fn">parseISO</span>(a.appointment_date), <span class="str">'EEE'</span>);
+                <span class="kw">if</span> (day <span class="kw">in</span> counts) counts[day]++;
+            } <span class="kw">catch</span> { <span class="cm">/* skip */</span> }
+        });
+    <span class="kw">return</span> DAY_ORDER.<span class="fn">map</span>(day => ({ day, count: counts[day] }));
+}, [appointments, cutoff]);</code></pre>
+  <div class="line-exp">
+    <strong>Pre-seeded zero counts</strong>: <code>Object.fromEntries(DAY_ORDER.map(d => [d, 0]))</code> creates <code>{ Mon: 0, Tue: 0, ..., Sun: 0 }</code>. This ensures all 7 days always appear in the chart, even if there are zero appointments on some days. Without pre-seeding, missing days would create gaps in the bar chart.<br><br>
+    <strong><code>format(..., 'EEE')</code></strong>: date-fns format code for abbreviated day name: "Mon", "Tue", etc. The <code>if (day in counts)</code> guard protects against edge cases where <code>format</code> returns an unexpected string.<br><br>
+    <strong>Final mapping preserves order</strong>: The last <code>return DAY_ORDER.map(...)</code> ensures the chart data is always in Mon→Sun order, not whatever order the appointments happened to appear in.
+  </div>
+
+  <h3>Part F — KPI click handlers and modals</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">const</span> <span class="fn">openKpiModal</span> = (title, list) => <span class="fn">setActiveModal</span>({ title, complaints: list });
+    <span class="kw">const</span> <span class="fn">closeKpiModal</span> = () => <span class="fn">setActiveModal</span>(<span class="op">null</span>);
+
+    <span class="kw">const</span> todayAppointments = <span class="fn">useMemo</span>(() => appointments.<span class="fn">filter</span>(a => {
+        <span class="kw">try</span> { <span class="kw">return</span> a.appointment_date && <span class="fn">isToday</span>(<span class="fn">parseISO</span>(a.appointment_date)); }
+        <span class="kw">catch</span> { <span class="kw">return</span> <span class="op">false</span>; }
+    }), [appointments]);</code></pre>
+  <div class="line-exp">
+    <strong>KPI cards are clickable</strong>: Clicking "Total Complaints" opens a modal listing all complaints in the time range. Clicking "Pending" opens a modal showing only pending complaints. This drill-down pattern turns KPI metrics into actionable lists without navigating away from the dashboard.<br><br>
+    <strong><code>activeModal</code> state</strong>: Holds <code>{ title, complaints }</code> or <code>null</code>. A single state value handles all four possible modals — whichever KPI was clicked determines what's shown. No need for four separate boolean flags.<br><br>
+    <strong><code>todayAppointments</code> memo</strong>: Used by <code>DailyTasksModal</code>. Derived from <code>appointments</code> (not <code>filteredByTime</code>) — today's appointments should always be complete regardless of time range.
+  </div>
+
+  <h3>Part G — The JSX layout</h3>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>    <span class="kw">return</span> (
+        &lt;<span class="typ">div</span> className=<span class="str">"space-y-6"</span>&gt;
+            <span class="cm">{/* Page Header + time range toggle */}</span>
+            &lt;<span class="typ">motion.div</span>
+                initial={{ opacity: <span class="num">0</span>, y: <span class="num">-10</span> }}
+                animate={{ opacity: <span class="num">1</span>, y: <span class="num">0</span> }}
+                transition={{ duration: <span class="num">0.3</span> }}
+                className=<span class="str">"flex items-center justify-between"</span>
+            &gt;
+                <span class="cm">{/* Title + time range pills */}</span>
+                &lt;<span class="typ">div</span> className=<span class="str">"flex gap-1 bg-secondary rounded-lg p-1"</span>&gt;
+                    {TIME_RANGES.<span class="fn">map</span>(r => (
+                        &lt;<span class="typ">button</span>
+                            key={r.label}
+                            onClick={() => <span class="fn">setTimeRange</span>(r.label)}
+                            className={<span class="fn">cn</span>(
+                                <span class="str">'px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200'</span>,
+                                timeRange === r.label
+                                    ? <span class="str">'bg-primary text-primary-foreground shadow-sm'</span>
+                                    : <span class="str">'text-muted-foreground hover:text-foreground'</span>
+                            )}
+                        &gt;{r.label}&lt;/<span class="typ">button</span>&gt;
+                    ))}
+                &lt;/<span class="typ">div</span>&gt;
+            &lt;/<span class="typ">motion.div</span>&gt;</code></pre>
+  <div class="line-exp">
+    <strong>Time range pills pattern</strong>: A pill-button group where only one is active at a time. The <code>cn()</code> helper (clsx + tailwind-merge) conditionally applies different classes based on whether this button's label matches the current <code>timeRange</code>. The active button gets <code>bg-primary text-primary-foreground</code> (filled), inactive gets just text styling.<br><br>
+    <strong><code>motion.div</code></strong>: Framer Motion's animated div. <code>initial</code> defines the start state (invisible, 10px above final position), <code>animate</code> defines the end state (visible, at final position). React mounts the component at the <code>initial</code> state and animates to <code>animate</code> automatically — the header slides in from above on mount.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>            <span class="cm">{/* KPI Row */}</span>
+            &lt;<span class="typ">div</span> data-tour=<span class="str">"kpi-cards"</span> className=<span class="str">"grid grid-cols-2 lg:grid-cols-4 gap-4"</span>&gt;
+                &lt;<span class="typ">KPICard</span>
+                    label={t(<span class="str">'dashboard.kpi.totalComplaints'</span>)}
+                    value={kpis.total}
+                    icon={TrendingUp}
+                    delay={<span class="num">0.05</span>}
+                    onClick={() => <span class="fn">openKpiModal</span>(
+                        t(<span class="str">'dashboard.kpi.totalComplaintsModal'</span>, { range: timeRange }),
+                        filteredByTime
+                    )}
+                /&gt;
+                <span class="cm">{/* 3 more KPICards... */}</span>
+            &lt;/<span class="typ">div</span>&gt;</code></pre>
+  <div class="line-exp">
+    <strong>Responsive grid</strong>: <code>grid-cols-2 lg:grid-cols-4</code> — 2 columns on mobile (cards are large enough to read), 4 columns on large screens. The breakpoint <code>lg:</code> is 1024px in Tailwind's default config.<br><br>
+    <strong><code>data-tour="kpi-cards"</code></strong>: A custom HTML attribute used by the react-joyride onboarding tour. When the tour reaches the "kpi-cards" step, it highlights this element with a spotlight overlay. These attributes are invisible to users but the tour system queries them to find what to highlight.<br><br>
+    <strong>Staggered <code>delay</code> prop</strong>: Each KPICard gets a slightly larger delay (0.05, 0.1, 0.15, 0.2 seconds). This creates a "cascade" entrance animation — cards appear one after another rather than all at once. The delay is passed to Framer Motion inside KPICard.
+  </div>
+
+  <!-- S3 -->
+  <h2 id="kpi-card">Section 3 — <code>KPICard.jsx</code> — Animated Number Counter</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">function</span> <span class="fn">AnimatedNumber</span>({ value }) {
+    <span class="kw">const</span> spring = <span class="fn">useSpring</span>(<span class="num">0</span>, { stiffness: <span class="num">60</span>, damping: <span class="num">20</span> });
+    <span class="kw">const</span> [current, setCurrent] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+    <span class="fn">useEffect</span>(() => { spring.<span class="fn">set</span>(value); }, [spring, value]);
+    <span class="fn">useMotionValueEvent</span>(spring, <span class="str">'change'</span>, (v) => <span class="fn">setCurrent</span>(Math.<span class="fn">round</span>(v)));
+
+    <span class="kw">return</span> &lt;<span class="typ">span</span>&gt;{current}&lt;/<span class="typ">span</span>&gt;;
+}</code></pre>
+  <div class="line-exp">
+    <strong><code>useSpring</code></strong>: Framer Motion's spring animation hook. Creates a motion value that interpolates from its current value to the target using spring physics. Parameters:<br>
+    • <code>stiffness: 60</code> — how fast the spring pulls toward the target (lower = slower, bouncier)<br>
+    • <code>damping: 20</code> — how much the spring resists movement (higher = less bouncy, settles faster)<br><br>
+    <strong>Why use spring physics for numbers?</strong> A linear counter from 0 to 47 in 0.5 seconds feels mechanical. A spring starts fast and decelerates (ease-out), which feels natural and satisfying to users.<br><br>
+    <strong><code>useMotionValueEvent</code></strong>: Subscribes to changes on the spring motion value. Every time the spring value changes (which is every animation frame, ~60fps), this callback fires with the new value. <code>Math.round(v)</code> converts the floating-point spring value to a displayable integer.<br><br>
+    <strong>Why not animate CSS directly?</strong> CSS counter animations are possible but can't spring (they're easing functions only). Framer Motion's spring physics gives a much more dynamic feel with minimal code.
+  </div>
+
+  <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">export default function</span> <span class="fn">KPICard</span>({ label, value, icon: Icon, iconColor = <span class="str">'text-primary'</span>, delay = <span class="num">0</span>, onClick }) {
+    <span class="kw">const</span> interactive = <span class="kw">typeof</span> onClick === <span class="str">'function'</span>;
+
+    <span class="kw">return</span> (
+        &lt;<span class="typ">motion.div</span>
+            initial={{ opacity: <span class="num">0</span>, y: <span class="num">20</span> }}
+            animate={{ opacity: <span class="num">1</span>, y: <span class="num">0</span> }}
+            transition={{ delay }}
+            onClick={onClick}
+            whileHover={interactive ? { scale: <span class="num">1.02</span> } : undefined}
+            className={[
+                <span class="str">'bg-card border border-border rounded-xl p-5 transition-all duration-300 group'</span>,
+                interactive
+                    ? <span class="str">'cursor-pointer hover:border-primary hover:shadow-md'</span>
+                    : <span class="str">'hover:border-primary'</span>,
+            ].<span class="fn">join</span>(<span class="str">' '</span>)}
+        &gt;
+            &lt;<span class="typ">div</span> className=<span class="str">"flex items-center justify-between mb-3"</span>&gt;
+                &lt;<span class="typ">span</span> className=<span class="str">"text-sm text-muted-foreground"</span>&gt;{label}&lt;/<span class="typ">span</span>&gt;
+                &lt;<span class="typ">Icon</span> className={`w-5 h-5 ${iconColor}`} /&gt;
+            &lt;/<span class="typ">div</span>&gt;
+            &lt;<span class="typ">p</span> className=<span class="str">"text-4xl font-bold text-foreground group-hover:text-primary transition-colors"</span>&gt;
+                &lt;<span class="typ">AnimatedNumber</span> value={value} /&gt;
+            &lt;/<span class="typ">p</span>&gt;
+        &lt;/<span class="typ">motion.div</span>&gt;
+    );
+}</code></pre>
+  <div class="line-exp">
+    <strong><code>icon: Icon</code> prop pattern</strong>: The prop is destructured as <code>icon: Icon</code> — rename <code>icon</code> to <code>Icon</code> during destructuring. This is necessary because React requires component names to start with a capital letter (to distinguish from HTML elements). <code>&lt;icon /&gt;</code> would be treated as an HTML element; <code>&lt;Icon /&gt;</code> is a React component.<br><br>
+    <strong><code>interactive</code> boolean</strong>: Some KPI cards might not have an <code>onClick</code> handler. The <code>interactive</code> check prevents showing a cursor-pointer and hover animation on non-clickable cards — better UX.<br><br>
+    <strong><code>whileHover={interactive ? { scale: 1.02 } : undefined}</code></strong>: Framer Motion's <code>whileHover</code> animates to the given state while the mouse is over the element, reverting on mouse-out. <code>scale: 1.02</code> makes the card grow 2% — a subtle but satisfying feedback. Passing <code>undefined</code> disables the animation entirely (not the same as passing <code>{}</code>, which would still apply the animation with no changes).<br><br>
+    <strong><code>group</code> Tailwind class</strong>: Marks this element as a group. Child elements using <code>group-hover:text-primary</code> will activate that style when the <em>parent</em> (the group) is hovered — not when the child itself is hovered. This lets the number change color when anywhere on the card is hovered.
+  </div>
+
+  <!-- S4 -->
+  <h2 id="chart-components">Section 4 — Chart Components</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <details open>
+    <summary>TrendsChart.jsx — LineChart</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">import</span> { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } <span class="kw">from</span> <span class="str">'recharts'</span>;
+
+<span class="kw">export default function</span> <span class="fn">TrendsChart</span>({ data }) {
+    <span class="kw">const</span> { t } = <span class="fn">useTranslation</span>();
+    <span class="kw">return</span> (
+        &lt;<span class="typ">div</span> className=<span class="str">"bg-card border border-border rounded-xl p-5"</span>&gt;
+            &lt;<span class="typ">h3</span> className=<span class="str">"text-sm font-semibold text-foreground mb-4"</span>&gt;{t(<span class="str">'charts.complaintsOverTime'</span>)}&lt;/<span class="typ">h3</span>&gt;
+            &lt;<span class="typ">ResponsiveContainer</span> width=<span class="str">"100%"</span> height={<span class="num">200</span>}&gt;
+                &lt;<span class="typ">LineChart</span> data={data} margin={{ top: <span class="num">4</span>, right: <span class="num">8</span>, left: <span class="num">-20</span>, bottom: <span class="num">0</span> }}&gt;
+                    &lt;<span class="typ">CartesianGrid</span> strokeDasharray=<span class="str">"3 3"</span> stroke=<span class="str">"hsl(var(--chart-grid))"</span> /&gt;
+                    &lt;<span class="typ">XAxis</span> dataKey=<span class="str">"date"</span> tick={{ fill: <span class="str">'hsl(var(--chart-text))'</span>, fontSize: <span class="num">11</span> }}
+                           tickLine={<span class="op">false</span>} axisLine={<span class="op">false</span>} /&gt;
+                    &lt;<span class="typ">YAxis</span> tick={{ fill: <span class="str">'hsl(var(--chart-text))'</span>, fontSize: <span class="num">11</span> }}
+                           tickLine={<span class="op">false</span>} axisLine={<span class="op">false</span>} allowDecimals={<span class="op">false</span>} /&gt;
+                    &lt;<span class="typ">Tooltip</span> contentStyle={{
+                        background: <span class="str">'hsl(var(--card))'</span>,
+                        border: <span class="str">'1px solid hsl(var(--border))'</span>,
+                        borderRadius: <span class="str">'8px'</span>,
+                        color: <span class="str">'hsl(var(--foreground))'</span>,
+                        fontSize: <span class="num">12</span>,
+                    }} cursor={{ stroke: <span class="str">'hsl(var(--chart-grid))'</span> }} /&gt;
+                    &lt;<span class="typ">Line</span> type=<span class="str">"monotone"</span> dataKey=<span class="str">"complaints"</span>
+                          stroke=<span class="str">"hsl(var(--chart-1))"</span> strokeWidth={<span class="num">2</span>}
+                          dot={<span class="op">false</span>} activeDot={{ r: <span class="num">4</span>, fill: <span class="str">'hsl(var(--chart-1))'</span> }} /&gt;
+                &lt;/<span class="typ">LineChart</span>&gt;
+            &lt;/<span class="typ">ResponsiveContainer</span>&gt;
+        &lt;/<span class="typ">div</span>&gt;
+    );
+}</code></pre>
+    <p><strong><code>ResponsiveContainer width="100%"</code></strong>: Recharts components have a fixed pixel size by default. <code>ResponsiveContainer</code> measures its parent DOM element and passes the width/height to the chart. This makes the chart responsive — it fills its container and resizes with the browser window.</p>
+    <p><strong>CSS variable colors</strong>: <code>stroke="hsl(var(--chart-1))"</code> — all chart colors use CSS custom properties from <code>index.css</code>. When the user switches dark/light mode, chart colors update automatically without re-rendering the chart component.</p>
+    <p><strong><code>margin={{ left: -20 }}</code></strong>: Negative left margin pulls the Y-axis labels closer to the chart edge, saving horizontal space. Without this, Recharts reserves too much space for Y-axis labels and the chart area feels cramped.</p>
+    <p><strong><code>dot={false}</code></strong>: By default, Recharts renders a dot at each data point. For dense time-series data (30+ points), these dots clutter the chart. <code>dot={false}</code> removes them. <code>activeDot</code> still shows a dot when hovering (for the tooltip to point to).</p>
+  </details>
+
+  <details open>
+    <summary>StatusDonut.jsx — PieChart with innerRadius</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> COLORS = [
+    <span class="str">'hsl(var(--chart-4))'</span>, <span class="cm">// Pending — amber</span>
+    <span class="str">'hsl(var(--chart-2))'</span>, <span class="cm">// In Progress — blue</span>
+    <span class="str">'hsl(var(--chart-3))'</span>, <span class="cm">// Resolved — green</span>
+];
+
+<span class="kw">export default function</span> <span class="fn">StatusDonut</span>({ data }) {
+    <span class="kw">const</span> total = data.<span class="fn">reduce</span>((s, d) => s + d.value, <span class="num">0</span>);
+
+    <span class="kw">return</span> (
+        &lt;<span class="typ">div</span> className=<span class="str">"bg-card border border-border rounded-xl p-5"</span>&gt;
+            &lt;<span class="typ">h3</span>&gt;...&lt;/<span class="typ">h3</span>&gt;
+            {total === <span class="num">0</span> ? (
+                &lt;<span class="typ">div</span> className=<span class="str">"flex items-center justify-center h-[200px] text-sm text-muted-foreground"</span>&gt;
+                    {t(<span class="str">'charts.noData'</span>)}
+                &lt;/<span class="typ">div</span>&gt;
+            ) : (
+                &lt;<span class="typ">ResponsiveContainer</span> width=<span class="str">"100%"</span> height={<span class="num">200</span>}&gt;
+                    &lt;<span class="typ">PieChart</span>&gt;
+                        &lt;<span class="typ">Pie</span>
+                            data={data} cx=<span class="str">"50%"</span> cy=<span class="str">"50%"</span>
+                            innerRadius={<span class="num">55</span>} outerRadius={<span class="num">80</span>}
+                            paddingAngle={<span class="num">3</span>} dataKey=<span class="str">"value"</span> strokeWidth={<span class="num">0</span>}
+                        &gt;
+                            {data.<span class="fn">map</span>((_, i) => (
+                                &lt;<span class="typ">Cell</span> key={i} fill={COLORS[i % COLORS.length]} /&gt;
+                            ))}
+                        &lt;/<span class="typ">Pie</span>&gt;
+                    &lt;/<span class="typ">PieChart</span>&gt;
+                &lt;/<span class="typ">ResponsiveContainer</span>&gt;
+            )}
+        &lt;/<span class="typ">div</span>&gt;
+    );
+}</code></pre>
+    <p><strong>Donut vs pie</strong>: <code>innerRadius={55}</code> creates the hole, making it a donut. Donuts are preferred over pies in dashboards because they draw the eye to the proportions (arc lengths) rather than areas, which are harder to compare accurately.</p>
+    <p><strong>Empty state guard</strong>: If <code>total === 0</code>, rendering a PieChart would show an empty circle (or throw an error in some Recharts versions). The empty state shows "No data" text instead — much better UX than a blank chart area.</p>
+    <p><strong><code>paddingAngle={3}</code></strong>: Adds a 3-degree gap between pie segments. This makes it easier to distinguish segments visually, especially when one segment is very small.</p>
+    <p><strong><code>strokeWidth={0}</code></strong>: Removes the white stroke that Recharts renders between segments by default. On dark mode, the white stroke looks jarring. Removing it gives a cleaner look.</p>
+  </details>
+
+  <details open>
+    <summary>AppointmentsBar.jsx — BarChart</summary>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code>&lt;<span class="typ">Bar</span> dataKey=<span class="str">"count"</span> fill=<span class="str">"hsl(var(--chart-1))"</span> radius={[<span class="num">4</span>, <span class="num">4</span>, <span class="num">0</span>, <span class="num">0</span>]} /&gt;</code></pre>
+    <p><strong><code>radius={[4, 4, 0, 0]}</code></strong>: Rounded top corners on bars (top-left, top-right, bottom-right, bottom-left). Rounding only the top corners gives a modern look while keeping bars flush with the X-axis baseline.</p>
+    <p><strong><code>barSize={22}</code></strong> on the <code>BarChart</code>: Fixed bar width in pixels. Without this, Recharts sizes bars to fill available space, which makes single-day bars enormous and multi-day bars tiny. A fixed size looks consistent regardless of how many data points there are.</p>
+    <p><strong><code>cursor={{ fill: 'hsl(var(--secondary))' }}</code></strong> on the Tooltip: When hovering, Recharts highlights the hovered bar with a background rectangle ("cursor"). Using the <code>--secondary</code> CSS variable makes the hover highlight match the theme.</p>
+  </details>
+
+  <!-- S5 -->
+  <h2 id="bugs">Section 5 — Common Bugs &amp; Fixes</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <div class="bug-box">
+    <h4>Bug: Charts don't resize when the browser window changes size</h4>
+    <p><strong>Symptom</strong>: The chart renders at the initial size but doesn't shrink or grow when the window is resized.</p>
+    <p><strong>Root cause</strong>: The chart component uses fixed pixel dimensions (<code>width={800} height={300}</code>) instead of <code>ResponsiveContainer</code>.</p>
+    <p><strong>Fix</strong>: Always wrap charts in <code>&lt;ResponsiveContainer width="100%" height={200}&gt;</code>. The container measures its DOM parent and passes the pixel size to the chart. Remove the <code>width</code> prop from the inner chart component — the container provides it.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: Chart colors are black or wrong in production build</h4>
+    <p><strong>Symptom</strong>: Charts look correct in development (colors from CSS variables), but after <code>npm run build</code>, chart elements are black or inherit wrong colors.</p>
+    <p><strong>Root cause</strong>: <code>stroke="hsl(var(--chart-1))"</code> is passed as an HTML attribute to an SVG element. SVG doesn't support CSS custom properties in HTML attribute values — <code>var()</code> only works in CSS. This works in development because Vite serves the styles in a way that Chrome handles gracefully, but breaks in optimized builds.</p>
+    <p><strong>Fix</strong>: Read the CSS variable value in JavaScript and pass the resolved color:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="kw">const</span> chartColor = <span class="fn">getComputedStyle</span>(document.documentElement)
+    .<span class="fn">getPropertyValue</span>(<span class="str">'--chart-1'</span>).<span class="fn">trim</span>();
+
+<span class="cm">// Then pass as a JS value, not CSS:</span>
+stroke={`hsl(${chartColor})`}</code></pre>
+    <p>Or use a <code>useThemeColors</code> hook that reads all chart colors on mount and re-reads them when the theme changes.</p>
+  </div>
+
+  <div class="bug-box">
+    <h4>Bug: Dashboard re-renders every second and freezes the tab</h4>
+    <p><strong>Symptom</strong>: The parent component polls for new data every second (or uses a WebSocket that fires frequently). Every data update causes all charts to recompute and re-render, causing visible lag.</p>
+    <p><strong>Root cause</strong>: The data transforms (trends, categories, etc.) are computed inline in the component body or in non-memoized functions. Every parent re-render recomputes everything from scratch.</p>
+    <p><strong>Fix</strong>: Ensure all data transforms are in <code>useMemo</code> hooks with correct dependency arrays. Only recompute when <code>complaints</code>, <code>appointments</code>, or <code>cutoff</code> actually changes — not on every render. Also reduce polling frequency: every 30 seconds is usually sufficient for a dashboard.</p>
+  </div>
+
+  <!-- S6 -->
+  <h2 id="exercises">Section 6 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Exercise 1 — Add a "Resolved" KPI card</summary>
+    <p>Add a fourth KPI card that shows the count of resolved complaints in the selected time range. Use the <code>CheckCircle2</code> icon from Lucide React and a green icon color.</p>
+    <details>
+      <summary>Show solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// In kpis useMemo, add:</span>
+resolved: filteredByTime.<span class="fn">filter</span>(c => c.status === STATUS.RESOLVED).length,
+
+<span class="cm">// In JSX, replace appointmentsToday card or add a fifth column:</span>
+&lt;<span class="typ">KPICard</span>
+    label={t(<span class="str">'complaints.status.resolved'</span>)}
+    value={kpis.resolved}
+    icon={CheckCircle2}
+    iconColor=<span class="str">"text-green-500"</span>
+    delay={<span class="num">0.25</span>}
+    onClick={() => <span class="fn">openKpiModal</span>(
+        <span class="str">'Resolved Complaints'</span>,
+        filteredByTime.<span class="fn">filter</span>(c => c.status === STATUS.RESOLVED)
+    )}
+/&gt;</code></pre>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Exercise 2 — Add average resolution time to kpis</summary>
+    <p>Add an <code>avgResolutionDays</code> value to the <code>kpis</code> memo: the average number of days between <code>created_at</code> and <code>resolved_at</code> for complaints with status "resolved" in the time range. Show it as "X.X days" in a new KPI card.</p>
+    <details>
+      <summary>Show solution</summary>
+      <pre><button class="copy-btn" onclick="copyCode(this)">copy</button><code><span class="cm">// In kpis useMemo:</span>
+<span class="kw">const</span> resolvedWithDates = filteredByTime.<span class="fn">filter</span>(
+    c => c.status === STATUS.RESOLVED && c.resolved_at
+);
+avgResolutionDays: resolvedWithDates.length === <span class="num">0</span> ? <span class="num">0</span> :
+    resolvedWithDates.<span class="fn">reduce</span>((sum, c) => {
+        <span class="kw">const</span> created = <span class="kw">new</span> Date(c.created_at);
+        <span class="kw">const</span> resolved = <span class="kw">new</span> Date(c.resolved_at);
+        <span class="kw">return</span> sum + (resolved - created) / (<span class="num">1000</span> * <span class="num">60</span> * <span class="num">60</span> * <span class="num">24</span>);
+    }, <span class="num">0</span>) / resolvedWithDates.length,
+
+<span class="cm">// Note: AnimatedNumber rounds to integer, so you'll want a different display:</span>
+&lt;<span class="typ">p</span> className=<span class="str">"text-4xl font-bold"</span>&gt;{kpis.avgResolutionDays.<span class="fn">toFixed</span>(<span class="num">1</span>)}&lt;/<span class="typ">p</span>&gt;</code></pre>
+    </details>
+  </details>
+
+  <div class="card card-success">
+    <h3>Module 20 — Key Takeaways</h3>
+    <ul>
+      <li><strong>All data transforms in <code>useMemo</code></strong> — prevents expensive recalculations on every render. Dependency arrays must be exact.</li>
+      <li><strong>Chart components are "dumb"</strong> — they receive pre-formatted arrays and render them. No data logic inside chart components.</li>
+      <li><strong><code>ResponsiveContainer</code></strong> is required for responsive charts — never use fixed pixel widths on chart components.</li>
+      <li><strong>CSS variable colors</strong> in SVG attributes need to be resolved via JavaScript (<code>getComputedStyle</code>), not passed as raw <code>var()</code> strings.</li>
+      <li><strong>Empty state guards</strong> before rendering charts with zero data prevent blank or broken chart displays.</li>
+      <li><strong>Framer Motion spring animations</strong> for numbers use physics parameters (stiffness, damping) to control feel — not duration/easing.</li>
+      <li><strong>Pre-seeded zero counts</strong> for day-of-week data ensure all 7 days always appear in the chart.</li>
+      <li><strong>Staggered animation delays</strong> on KPI cards create a cascade entrance effect with minimal code.</li>
+      <li><strong>The <code>group</code> Tailwind class</strong> enables child elements to respond to hover events on the parent.</li>
+    </ul>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="module_19_api_service.html" class="nav-btn">← Previous: API Service Layer</a>
+    <a href="module_21_properties_buildings.html" class="nav-btn">Next: Properties &amp; Buildings →</a>
+  </div>
+</div></div>
+
+<script>
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  toggle.textContent = saved === 'dark' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+  btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  const checkboxes = document.querySelectorAll('.section-check input');
+  function updateProgress() {
+    const checked = [...checkboxes].filter(c => c.checked).length;
+    document.getElementById('progressFill').style.width = (checked / checkboxes.length * 100) + '%';
+  }
+  checkboxes.forEach(c => c.addEventListener('change', updateProgress));
+  function copyCode(btn) {
+    const code = btn.nextElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>
