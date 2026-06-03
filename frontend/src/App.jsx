@@ -220,7 +220,7 @@ function Dashboard() {
             <Sidebar currentView={currentView} onNavigate={handleNavigate} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                <TopBar onRefresh={loadComplaints} onNavigate={handleNavigate} />
+                <TopBar onRefresh={() => { loadComplaints(); loadAppointments(); }} isRefreshing={loading} onNavigate={handleNavigate} />
 
                 <motion.div
                     key={currentView}

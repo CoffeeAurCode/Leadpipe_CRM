@@ -63,7 +63,7 @@ Never expose internal reasoning, intent detection, or system logic
 Ask only one question per turn
 Never proceed without verifying the caller's identity first
 Always wait for a response before moving forward
-Preserve full flat number including letters e.g. 101, A101, B205, C105
+Flat number assembly rule: callers often spell out each character one at a time (e.g. "s 2 0 1", "a 1 0 5"). You MUST concatenate every spoken character into a single string with no spaces — letter prefix included. "s 2 0 1" → "S201", "a 1 0 5" → "A105", "b 2 0 5" → "B205". Never drop the letter. Never insert spaces or dashes.
 If the caller is unable to provide a valid flat number more than twice then you must politely end the call
 Never promise timelines
 Never give legal or lease advice
@@ -564,7 +564,7 @@ def build_tools(backend_url: str) -> list:
                         },
                         "flat_number": {
                             "type": "string",
-                            "description": "The flat/apartment number (e.g., '101', 'A105', 'B201')",
+                            "description": "Flat number as a single string with no spaces. If the caller spelled it out character by character (e.g. 's 2 0 1'), concatenate all characters: 'S201'. Always include the letter prefix.",
                             "default": "",
                         },
                         "appointment_date": {
@@ -664,7 +664,8 @@ After language is detected, the following are FORBIDDEN in ALL your responses:
 Tool data rule (applies regardless of call language):
   - All text values submitted to tools must be in English
   - If the caller described something in French, silently translate before calling any tool
-  - Flat numbers and ISO datetimes are language-neutral — submit exactly as spoken
+  - ISO datetimes are language-neutral — submit exactly as spoken
+  - Flat numbers: callers often spell each character aloud (e.g. "s 2 0 1"). You MUST concatenate all spoken characters into one string with no spaces — letter prefix included. "s 2 0 1" → "S201", "a 1 0 5" → "A105". Never drop the letter. Never add spaces or dashes.
 
 [Style]
 Calm, professional, empathetic, concise. One question at a time. Voice-friendly.
@@ -731,7 +732,7 @@ def build_complaint_tools(backend_url: str) -> list:
                 "type": "object",
                 "required": ["flat_number"],
                 "properties": {
-                    "flat_number": {"type": "string", "description": "Flat number provided by the caller", "default": ""},
+                    "flat_number": {"type": "string", "description": "Flat number as a single string with no spaces. If the caller spelled it out (e.g. 's 2 0 1'), concatenate all characters: 'S201'. Always include the letter prefix.", "default": ""},
                 },
             },
             "messages": [
@@ -898,7 +899,7 @@ def build_complaint_tools(backend_url: str) -> list:
                             "default": "",
                         },
                         "description": {"type": "string", "description": "Detailed issue description", "default": ""},
-                        "flat_number": {"type": "string", "description": "Flat number (e.g. '101', 'A105')", "default": ""},
+                        "flat_number": {"type": "string", "description": "Flat number as a single string with no spaces. If the caller spelled it out (e.g. 's 2 0 1'), concatenate all characters: 'S201'. Always include the letter prefix.", "default": ""},
                         "appointment_date": {"type": "string", "description": "ISO 8601 visit datetime", "default": ""},
                         "property_group_id": {"type": "string", "description": "UUID returned by Verify_phone_number — pass exactly as received", "default": ""},
                     },

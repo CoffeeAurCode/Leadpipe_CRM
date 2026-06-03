@@ -105,7 +105,7 @@ function ProfileMenu({ onNavigate }) {
     );
 }
 
-function TopBar({ onRefresh, onNavigate }) {
+function TopBar({ onRefresh, isRefreshing, onNavigate }) {
     const { t } = useTranslation();
     return (
         <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 transition-colors duration-200">
@@ -120,14 +120,16 @@ function TopBar({ onRefresh, onNavigate }) {
                 <LanguageToggle />
                 <button
                     onClick={onRefresh}
+                    disabled={isRefreshing}
                     className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg",
                         "bg-primary text-primary-foreground",
                         "hover:bg-primary/90 transition-all duration-200",
-                        "shadow-lg shadow-primary/20"
+                        "shadow-lg shadow-primary/20",
+                        "disabled:opacity-70 disabled:cursor-not-allowed"
                     )}
                 >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
                     <span className="hidden lg:inline font-medium">{t('topbar.refresh')}</span>
                 </button>
                 <ProfileMenu onNavigate={onNavigate} />
