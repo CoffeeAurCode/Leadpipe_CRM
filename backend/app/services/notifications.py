@@ -61,27 +61,28 @@ def notify_tenant_appointment(
 
         if event == "created":
             message = (
-                f"Hi {tenant_name}, a new maintenance appointment has been "
-                f"scheduled for flat {flat_number}."
+                f"Hi {tenant_name}, your complaint has been logged and a manager callback "
+                f"is scheduled for flat {flat_number}. The manager will call you back on your registered number."
+                + (f" Callback time: {formatted_date}." if formatted_date else "")
             )
         elif event == "rescheduled":
             message = (
-                f"Hi {tenant_name}, your maintenance appointment for flat "
+                f"Hi {tenant_name}, your manager callback for flat "
                 f"{flat_number} has been rescheduled to {formatted_date}."
             )
         elif event == "cancelled":
             message = (
-                f"Hi {tenant_name}, your maintenance appointment for flat "
+                f"Hi {tenant_name}, your manager callback for flat "
                 f"{flat_number} has been cancelled."
             )
         elif event == "attended":
             message = (
-                f"Hi {tenant_name}, your maintenance appointment for flat "
-                f"{flat_number} has been marked as attended. Thank you!"
+                f"Hi {tenant_name}, your manager callback for flat "
+                f"{flat_number} has been completed. Thank you!"
             )
         elif event == "reactivated":
             message = (
-                f"Hi {tenant_name}, your maintenance appointment for flat "
+                f"Hi {tenant_name}, your manager callback for flat "
                 f"{flat_number} has been reactivated and is now scheduled."
             )
         else:
@@ -126,6 +127,8 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
         appointment_status = appointment.get('status', 'scheduled')
         notes = appointment.get('notes', '')
         complaint_uuid = appointment.get('complaint_uuid')
+        appointment_type = appointment.get('type', 'callback')
+        tenant_phone = appointment.get('tenant_phone', '')
         
         # Format date/time for display
         try:
@@ -223,18 +226,37 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
             logger.warning(f"Could not fetch tenant/feature details: {e}")
         
         # Format SMS message (keep it concise)
-        sms_message = (
-            f"🔔 New Visit Scheduled\n"
-            f"\n"
-            f"Flat: {flat_number}\n"
-            f"Category: {complaint_category}\n"
-            f"Priority: {complaint_priority.upper()}\n"
-            f"Appointment: {formatted_date_short}\n"
-            f"\n"
-            f"Tenant: {tenant_name}"
-        )
+        if appointment_type == 'callback':
+            sms_message = (
+                f"📞 Manager Callback Scheduled\n"
+                f"\n"
+                f"Flat: {flat_number}\n"
+                f"Call tenant at: {tenant_phone or 'N/A'}\n"
+                f"Tenant: {tenant_name}\n"
+                f"\n"
+                f"Category: {complaint_category}\n"
+                f"Priority: {complaint_priority.upper()}\n"
+                f"Callback time: {formatted_date_short}"
+            )
+        else:
+            sms_message = (
+                f"🔔 New Visit Scheduled\n"
+                f"\n"
+                f"Flat: {flat_number}\n"
+                f"Category: {complaint_category}\n"
+                f"Priority: {complaint_priority.upper()}\n"
+                f"Appointment: {formatted_date_short}\n"
+                f"\n"
+                f"Tenant: {tenant_name}"
+            )
         
         # Format Email HTML content with all details
+        is_callback = appointment_type == 'callback'
+        email_header_icon = "📞" if is_callback else "🔔"
+        email_header_title = f"Callback Scheduled — Flat {flat_number}" if is_callback else "New Appointment Scheduled"
+        date_label = "Callback Time" if is_callback else "Scheduled Date/Time"
+        action_text = "Call the tenant back at the scheduled time." if is_callback else "Please review the complaint details and prepare for the scheduled visit."
+
         email_html = f"""
 <!DOCTYPE html>
 <html>
@@ -251,7 +273,7 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
             background-color: #f5f5f5;
         }}
         .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: {'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)' if is_callback else 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};
             color: white;
             padding: 35px;
             border-radius: 12px 12px 0 0;
@@ -269,7 +291,7 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
         .section-title {{
             font-size: 16px;
             font-weight: 700;
-            color: #667eea;
+            color: {'#0d9488' if is_callback else '#667eea'};
             margin-bottom: 15px;
             padding-bottom: 8px;
             border-bottom: 2px solid #f0f0f0;
@@ -292,36 +314,15 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
             color: #333;
             flex-grow: 1;
         }}
-        .priority-high {{ 
-            color: #e74c3c; 
-            font-weight: bold;
-            background: #fee;
-            padding: 4px 12px;
-            border-radius: 4px;
-            display: inline-block;
-        }}
-        .priority-medium {{ 
-            color: #f39c12; 
-            font-weight: bold;
-            background: #ffeaa7;
-            padding: 4px 12px;
-            border-radius: 4px;
-            display: inline-block;
-        }}
-        .priority-low {{ 
-            color: #27ae60; 
-            font-weight: bold;
-            background: #d5f4e6;
-            padding: 4px 12px;
-            border-radius: 4px;
-            display: inline-block;
-        }}
+        .priority-high {{ color: #e74c3c; font-weight: bold; background: #fee; padding: 4px 12px; border-radius: 4px; display: inline-block; }}
+        .priority-medium {{ color: #f39c12; font-weight: bold; background: #ffeaa7; padding: 4px 12px; border-radius: 4px; display: inline-block; }}
+        .priority-low {{ color: #27ae60; font-weight: bold; background: #d5f4e6; padding: 4px 12px; border-radius: 4px; display: inline-block; }}
         .description-box {{
             background: #f8f9fa;
             padding: 20px;
             border-radius: 8px;
             margin-top: 10px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid {'#0d9488' if is_callback else '#667eea'};
         }}
         .footer {{
             text-align: center;
@@ -337,27 +338,33 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
             border-radius: 20px;
             font-size: 13px;
             font-weight: 600;
-            background: #667eea;
+            background: {'#0d9488' if is_callback else '#667eea'};
             color: white;
+        }}
+        .phone-highlight {{
+            font-size: 18px;
+            font-weight: 700;
+            color: #0d9488;
         }}
     </style>
 </head>
 <body>
     <div class="header">
-        <h1 style="margin: 0; font-size: 28px;">🔔 New Appointment Scheduled</h1>
+        <h1 style="margin: 0; font-size: 28px;">{email_header_icon} {email_header_title}</h1>
         <p style="margin: 12px 0 0 0; opacity: 0.95; font-size: 14px;">Tenant Management System</p>
     </div>
-    
+
     <div class="content">
-        <!-- Appointment Details -->
+        <!-- Callback / Appointment Details -->
         <div class="section">
-            <div class="section-title">📅 Appointment Details</div>
+            <div class="section-title">{'📞 Callback Details' if is_callback else '📅 Appointment Details'}</div>
             <div class="info-row">
-                <span class="label">Appointment ID:</span>
+                <span class="label">ID:</span>
                 <span class="value">#{appointment_id}</span>
             </div>
+            {f'<div class="info-row"><span class="label">Tenant Phone:</span><span class="value"><span class="phone-highlight">{tenant_phone}</span></span></div>' if is_callback and tenant_phone else ''}
             <div class="info-row">
-                <span class="label">Scheduled Date/Time:</span>
+                <span class="label">{date_label}:</span>
                 <span class="value"><strong>{formatted_date}</strong></span>
             </div>
             <div class="info-row">
@@ -365,7 +372,7 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
                 <span class="value"><span class="badge">{appointment_status.upper()}</span></span>
             </div>
         </div>
-        
+
         <!-- Complaint Details -->
         <div class="section">
             <div class="section-title">🔧 Complaint Details</div>
@@ -380,7 +387,7 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
             </div>
             {f'<div class="description-box"><strong>Description:</strong><br>{complaint_description}</div>' if complaint_description and complaint_description != 'N/A' else ''}
         </div>
-        
+
         <!-- Property & Tenant Details -->
         <div class="section">
             <div class="section-title">🏠 Property & Tenant</div>
@@ -393,15 +400,15 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
                 <span class="value">{tenant_name}</span>
             </div>
         </div>
-        
+
         <!-- Additional Notes -->
         {f'<div class="section"><div class="section-title">📝 Additional Notes</div><div class="description-box">{notes}</div></div>' if notes else ''}
-        
-        <p style="margin-top: 30px; padding: 15px; background: #f0f7ff; border-radius: 8px; border-left: 4px solid #667eea;">
-            <strong>Action Required:</strong> Please review the complaint details and prepare for the scheduled visit.
+
+        <p style="margin-top: 30px; padding: 15px; background: {'#f0fdfc' if is_callback else '#f0f7ff'}; border-radius: 8px; border-left: 4px solid {'#0d9488' if is_callback else '#667eea'};">
+            <strong>Action Required:</strong> {action_text}
         </p>
     </div>
-    
+
     <div class="footer">
         <p>This is an automated notification from the Tenant Management System.</p>
         <p style="margin-top: 5px; color: #bbb;">© 2026 Tenant Management Platform</p>
@@ -427,7 +434,11 @@ def notify_manager_appointment_scheduled(appointment: Dict[str, Any]) -> None:
         if email_enabled:
             try:
                 email_client = get_email_client()
-                email_subject = f"🔔 New Appointment: Flat {flat_number} - {formatted_date_short}"
+                email_subject = (
+                    f"📞 Manager Callback Scheduled — Flat {flat_number}"
+                    if is_callback
+                    else f"🔔 New Appointment: Flat {flat_number} - {formatted_date_short}"
+                )
                 email_success = email_client.send_email(subject=email_subject, html_content=email_html)
                 if email_success:
                     logger.info(f"Email notification sent for appointment #{appointment_id}")

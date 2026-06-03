@@ -1,0 +1,4 @@
+id,flat_number,category,priority,description,status,source,created_at,appointment_date,uuid,tenant_uuid,flat_uuid,property_group_id,assigned_manager_id,manager_id
+63,S201,maintenance,medium,Air conditioner not cooling. Fan runs but cooling system is off.,pending,voice,2026-06-03 06:23:24.660435,,74709edd-d4a3-43a4-83a3-d0747ee422ae,d8eb69f3-a01a-4feb-8726-2589c6ba0da6,26af6bf3-703f-4305-928e-dfbedc1d89d7,,,28c43c77-8c9c-496f-8d1e-39ffa9d619e3
+64,S201,maintenance,medium,Balcony window is broken and needs replacement.,pending,voice,2026-06-03 06:25:25.467882,,0353af47-f59a-47ed-adfb-4608f6235b89,d8eb69f3-a01a-4feb-8726-2589c6ba0da6,26af6bf3-703f-4305-928e-dfbedc1d89d7,,,28c43c77-8c9c-496f-8d1e-39ffa9d619e3
+65,C301,water,medium,Kitchen sink has no water coming out.,pending,voice,2026-06-03 15:03:43.890434,,d5f8b3bb-1be4-4202-ba27-83b90fccf6c5,54272970-cf11-4fbe-bcca-6fccc5d336cf,888a2fab-7b51-4c91-92ae-3e244c4858ee,,,28c43c77-8c9c-496f-8d1e-39ffa9d619e3

@@ -100,7 +100,7 @@ export default function ComplaintDetailModal({ complaint, isOpen, onClose }) {
                                 >
                                     <h3 className="section-title appointment-title">
                                         <CalendarIcon className="section-icon" />
-                                        Scheduled Visit
+                                        {complaint.appointment_type === 'callback' ? 'Manager Callback' : 'Scheduled Visit'}
                                     </h3>
 
                                     <div className="appointment-card">

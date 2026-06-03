@@ -26,10 +26,13 @@ class AppointmentCreate(AppointmentBase):
     # NEW: UUID-based references (preferred)
     complaint_uuid: Optional[UUID] = Field(None, description="Related complaint UUID if linked to a complaint")
     flat_uuid: Optional[UUID] = Field(None, description="Flat UUID for the appointment")
-    
+
     # DEPRECATED: Kept for backward compatibility
     complaint_id: Optional[int] = Field(None, description="Related complaint ID (deprecated, use complaint_uuid)")
     flat_number: Optional[str] = Field(None, description="Flat number (deprecated, use flat_uuid)")
+
+    type: Optional[str] = Field("callback", description="'callback' or 'visit'")
+    tenant_phone: Optional[str] = Field(None, description="Tenant phone for callbacks")
 
 
 class AppointmentUpdate(BaseModel):
@@ -42,18 +45,25 @@ class AppointmentUpdate(BaseModel):
 class AppointmentResponse(AppointmentBase):
     """Schema for appointment responses"""
     id: int
-    uuid: UUID  # NEW: Appointment's own UUID
-    
-    # NEW: UUID references
+    uuid: UUID
+
+    # UUID references
     complaint_uuid: Optional[UUID] = None
     flat_uuid: Optional[UUID] = None
-    
-    # DEPRECATED: Legacy fields (still returned for compatibility)
+
+    # Legacy fields
     complaint_id: Optional[int] = None
     flat_number: Optional[str] = None
-    
+
+    type: Optional[str] = None
+    tenant_phone: Optional[str] = None
+
+    complaint_category: Optional[str] = None
+    complaint_description: Optional[str] = None
+    complaint_priority: Optional[str] = None
+
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 

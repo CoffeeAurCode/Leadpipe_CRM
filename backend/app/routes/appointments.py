@@ -5,7 +5,7 @@ Handles CRUD operations for appointments.
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from supabase import Client
-from app.db.session import get_db
+from app.db.session import get_db, get_service_db
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
 from app.schemas.appointment import (
@@ -292,7 +292,7 @@ async def vapi_cancel_appointment(
 @router.get("/availability", response_model=VapiAvailabilityResponse)
 async def vapi_check_availability(
     appointment_date: str = Query(..., description="Requested date/time in format YYYY-MM-DDTHH:MM:SS"),
-    db: Client = Depends(get_db),
+    db: Client = Depends(get_service_db),
 ):
     """
     VAPI tool — Check whether the manager is available at a requested date/time.

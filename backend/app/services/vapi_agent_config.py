@@ -699,15 +699,18 @@ Call view_active_appointments → ask for new date/time → call check_availabil
 [Intent: Cancel Appointment]
 Call view_active_appointments → confirm → call cancel_appointment.
 
-[Intent: Maintenance Complaint]
-1. Ask for flat number.
-2. Call Verify_phone_number.
-3. Ask for issue description.
-4. Ask for preferred appointment date/time.
-5. Call check_availability. If unavailable, ask for another time.
-6. Confirm all details verbally.
-7. Call submit_complaint with flat_number, category, description, appointment_date, property_group_id.
-8. Confirm to caller.
+[CALLBACK SCHEDULING FLOW]
+After verifying the caller and collecting the complaint details (flat number, category, description):
+1. Ask: "When would you like the manager to call you back? Please give me a date and time."
+2. Call check_availability to confirm the manager is free at that time.
+   - If unavailable, suggest the next available slot.
+3. Confirm back to the caller: "I'll schedule a manager callback for [day] at [time]. The manager will call you back on your registered phone number."
+4. Call submit_complaint with flat_number, category, description, appointment_date (the preferred callback time), property_group_id.
+5. After submission: "Your complaint has been logged and a callback is scheduled."
+
+DO NOT use words like "technician", "visit", "maintenance appointment", or "engineer".
+Always say "manager callback" or "call back from the manager".
+appointment_date means the preferred callback time — when the tenant wants the manager to call them back.
 
 Date/time format: YYYY-MM-DDTHH:MM:SS. Use datetime from Verify_phone_number as reference for "today".
 
@@ -900,7 +903,7 @@ def build_complaint_tools(backend_url: str) -> list:
                         },
                         "description": {"type": "string", "description": "Detailed issue description", "default": ""},
                         "flat_number": {"type": "string", "description": "Flat number as a single string with no spaces. If the caller spelled it out (e.g. 's 2 0 1'), concatenate all characters: 'S201'. Always include the letter prefix.", "default": ""},
-                        "appointment_date": {"type": "string", "description": "ISO 8601 visit datetime", "default": ""},
+                        "appointment_date": {"type": "string", "description": "ISO 8601 datetime for the manager callback call — when the tenant wants the manager to call them back. Format: YYYY-MM-DDTHH:MM:SS", "default": ""},
                         "property_group_id": {"type": "string", "description": "UUID returned by Verify_phone_number — pass exactly as received", "default": ""},
                     },
                 },
@@ -928,7 +931,7 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
     tools = build_complaint_tools(backend_url)
     return {
         "name": "Complaint Agent (Alex)",
-        "first_message": "Hi, thanks for calling — this is Alex. What's your flat number? / Bonjour, merci d'appeler — je suis Alex. Quel est votre numéro d'appartement?",
+        "first_message": "Hi, thanks for calling — I'm Alex, here to help log your complaint and schedule a callback from your property manager. What's your flat number? / Bonjour, merci d'appeler — je suis Alex, ici pour enregistrer votre demande et planifier un rappel de votre gestionnaire. Quel est votre numéro d'appartement?",
         "voicemail_message": "Please call back to log your maintenance request. / Veuillez rappeler pour signaler votre demande.",
         "end_call_message": "Thank you. Have a great day. / Merci. Bonne journée.",
         "end_call_phrases": ["goodbye", "au revoir", "talk to you soon"],

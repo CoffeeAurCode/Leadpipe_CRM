@@ -369,12 +369,38 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                                 "complaint_uuid": complaint_uuid,
                                 "flat_uuid": flat_uuid,
                                 "appointment_date": appointment_date,
-                                "status": "scheduled"
+                                "status": "scheduled",
+                                "type": "callback",
+                                "tenant_phone": caller_phone,
+                                "manager_id": manager_id,
                             }
                             appointment_response = db.table("appointments").insert(appointment_payload).execute()
                             if appointment_response.data:
                                 appointment_id = appointment_response.data[0]["id"]
                                 print(f"  [OK] Appointment created: ID={appointment_id} at {appointment_date}")
+
+                                try:
+                                    saved_apt = appointment_response.data[0]
+                                    apt_uuid  = saved_apt.get("uuid", "")
+                                    try:
+                                        from datetime import datetime as _dt
+                                        dt_obj        = _dt.fromisoformat(appointment_date)
+                                        readable_time = dt_obj.strftime("%a %b %-d at %-I:%M %p")
+                                    except Exception:
+                                        readable_time = appointment_date
+                                    category_label = (complaint_data.get("category") or "complaint").capitalize()
+                                    display_phone  = caller_phone or "Unknown number"
+                                    db.table("notifications").insert({
+                                        "manager_id": str(manager_id),
+                                        "title":      f"Callback Scheduled — Flat {flat_no.strip().upper()}",
+                                        "body":       f"{display_phone} needs a callback on {readable_time} regarding a {category_label} issue.",
+                                        "type":       "callback",
+                                        "entity_id":  str(apt_uuid),
+                                        "is_read":    False,
+                                    }).execute()
+                                    print(f"  [NOTIFICATION] Callback notification created for manager {manager_id}")
+                                except Exception as notif_err:
+                                    print(f"  [NOTIFICATION] Failed (non-fatal): {notif_err}")
                         except Exception as e:
                             print(f"  [!] Appointment creation failed: {e}")
 

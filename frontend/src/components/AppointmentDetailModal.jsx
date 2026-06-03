@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { XMarkIcon, CalendarIcon, MapPinIcon, ClockIcon, PencilIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { Phone } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useState, useRef, useEffect } from 'react';
 import { APPOINTMENT_STATUS, APPOINTMENT_STATUS_CONFIG, getAppointmentStatusConfig } from '../constants/status';
@@ -34,6 +35,12 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
     }, []);
 
     if (!appointment) return null;
+
+    const isCallback = appointment?.type === 'callback';
+    const statusLabel = (s) => {
+        if (isCallback && s === 'attended') return 'Called';
+        return s.charAt(0).toUpperCase() + s.slice(1);
+    };
 
     const handleStatusChange = async (newStatus) => {
         setStatusDropdownOpen(false);
@@ -97,12 +104,17 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                         {/* Header */}
                         <div className="modal-header">
                             <div className="modal-title-section">
-                                <CalendarIcon className="header-icon" />
+                                {isCallback
+                                    ? <Phone className="header-icon" style={{ width: '1.5rem', height: '1.5rem' }} />
+                                    : <CalendarIcon className="header-icon" />
+                                }
                                 <div>
                                     <h2 className="modal-title">
-                                        {hasComplaint
-                                            ? t('appt.fix', { category: appointment.complaint_category })
-                                            : t('appt.visit')
+                                        {isCallback
+                                            ? 'Scheduled Callback'
+                                            : hasComplaint
+                                                ? t('appt.fix', { category: appointment.complaint_category })
+                                                : t('appt.visit')
                                         }
                                     </h2>
                                     <p className="modal-subtitle">{t('appt.id', { id: appointment.id })}</p>
@@ -130,10 +142,24 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                                 </div>
                                             </div>
 
+                                            {isCallback && appointment.tenant_phone && (
+                                                <div className="detail-item">
+                                                    <Phone className="detail-icon" style={{ color: '#0d9488', width: '1.25rem', height: '1.25rem' }} />
+                                                    <div>
+                                                        <div className="detail-label">Call tenant at</div>
+                                                        <div className="detail-value">
+                                                            <a href={`tel:${appointment.tenant_phone}`} style={{ color: '#0d9488', textDecoration: 'underline' }}>
+                                                                {appointment.tenant_phone}
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="detail-item">
                                                 <CalendarIcon className="detail-icon" />
                                                 <div>
-                                                    <div className="detail-label">{t('appt.date')}</div>
+                                                    <div className="detail-label">{isCallback ? 'Callback Time' : t('appt.date')}</div>
                                                     <div className="detail-value">
                                                         {format(parseISO(appointment.appointment_date), 'EEEE, MMMM d, yyyy')}
                                                     </div>
@@ -175,7 +201,7 @@ export default function AppointmentDetailModal({ appointment, isOpen, onClose, o
                                                                         onClick={() => handleStatusChange(value)}
                                                                     >
                                                                         <span className={`appt-status-dot ${cfg.text}`}>●</span>
-                                                                        {t(`appointment.status.${value}`, { defaultValue: cfg.label })}
+                                                                        {statusLabel(t(`appointment.status.${value}`, { defaultValue: cfg.label }))}
                                                                     </button>
                                                                 ))}
                                                             </div>

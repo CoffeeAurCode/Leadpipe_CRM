@@ -9,6 +9,7 @@ const TYPE_COLORS = {
     complaint:   'bg-red-500/15 text-red-500',
     rent:        'bg-emerald-500/15 text-emerald-500',
     lead:        'bg-violet-500/15 text-violet-500',
+    callback:    'bg-teal-500/15 text-teal-500',
     system:      'bg-secondary text-muted-foreground',
 };
 

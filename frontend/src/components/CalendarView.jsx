@@ -12,39 +12,42 @@ import ComplaintModal from './ComplaintModal';
 import './CalendarView.css';
 
 const MINI_STATUS = {
-    scheduled:    'border-blue-500   bg-blue-50   text-blue-700',
-    in_progress:  'border-orange-500 bg-orange-50 text-orange-700',
-    'in progress':'border-orange-500 bg-orange-50 text-orange-700',
-    completed:    'border-green-500  bg-green-50  text-green-700',
-    resolved:     'border-green-500  bg-green-50  text-green-700',
-    attended:     'border-purple-500 bg-purple-50 text-purple-700',
-    cancelled:    'border-red-500    bg-red-50    text-red-700',
-    canceled:     'border-red-500    bg-red-50    text-red-700',
-    pending:      'border-amber-500  bg-amber-50  text-amber-700',
+    scheduled:         'border-blue-500   bg-blue-50   text-blue-700',
+    in_progress:       'border-orange-500 bg-orange-50 text-orange-700',
+    'in progress':     'border-orange-500 bg-orange-50 text-orange-700',
+    completed:         'border-green-500  bg-green-50  text-green-700',
+    resolved:          'border-green-500  bg-green-50  text-green-700',
+    attended:          'border-purple-500 bg-purple-50 text-purple-700',
+    cancelled:         'border-red-500    bg-red-50    text-red-700',
+    canceled:          'border-red-500    bg-red-50    text-red-700',
+    pending:           'border-amber-500  bg-amber-50  text-amber-700',
+    callback_scheduled:'border-teal-500   bg-teal-50   text-teal-700',
 };
 
 const PANEL_BORDER = {
-    scheduled:    'border-l-blue-500',
-    in_progress:  'border-l-orange-500',
-    'in progress':'border-l-orange-500',
-    completed:    'border-l-green-500',
-    resolved:     'border-l-green-500',
-    attended:     'border-l-purple-500',
-    cancelled:    'border-l-red-500',
-    canceled:     'border-l-red-500',
-    pending:      'border-l-amber-500',
+    scheduled:         'border-l-blue-500',
+    in_progress:       'border-l-orange-500',
+    'in progress':     'border-l-orange-500',
+    completed:         'border-l-green-500',
+    resolved:          'border-l-green-500',
+    attended:          'border-l-purple-500',
+    cancelled:         'border-l-red-500',
+    canceled:          'border-l-red-500',
+    pending:           'border-l-amber-500',
+    callback_scheduled:'border-l-teal-500',
 };
 
 const BADGE_CLASSES = {
-    scheduled:    'bg-blue-100   text-blue-700',
-    in_progress:  'bg-orange-100 text-orange-700',
-    'in progress':'bg-orange-100 text-orange-700',
-    completed:    'bg-green-100  text-green-700',
-    resolved:     'bg-green-100  text-green-700',
-    attended:     'bg-purple-100 text-purple-700',
-    cancelled:    'bg-red-100    text-red-700',
-    canceled:     'bg-red-100    text-red-700',
-    pending:      'bg-amber-100  text-amber-700',
+    scheduled:         'bg-blue-100   text-blue-700',
+    in_progress:       'bg-orange-100 text-orange-700',
+    'in progress':     'bg-orange-100 text-orange-700',
+    completed:         'bg-green-100  text-green-700',
+    resolved:          'bg-green-100  text-green-700',
+    attended:          'bg-purple-100 text-purple-700',
+    cancelled:         'bg-red-100    text-red-700',
+    canceled:          'bg-red-100    text-red-700',
+    pending:           'bg-amber-100  text-amber-700',
+    callback_scheduled:'bg-teal-100   text-teal-700',
 };
 
 function normalize(status) {
@@ -76,6 +79,7 @@ export default function CalendarView({
         { label: t('calendar.legend.completed'),  color: 'bg-green-500' },
         { label: t('calendar.legend.attended'),   color: 'bg-purple-500' },
         { label: t('calendar.legend.cancelled'),  color: 'bg-red-500' },
+        { label: 'Manager Callback',              color: 'bg-teal-500' },
     ];
 
     const monthDays = useMemo(() => eachDayOfInterval({
@@ -216,11 +220,13 @@ export default function CalendarView({
                                         key={`${evt._type}-${evt.id}-${idx}`}
                                         className={cn(
                                             'text-[10px] truncate rounded px-1 py-0.5 mb-0.5 border-l-2 leading-tight',
-                                            getMiniClasses(evt.status)
+                                            evt._type === 'appointment' && evt.type === 'callback'
+                                                ? getMiniClasses('callback_scheduled')
+                                                : getMiniClasses(evt.status)
                                         )}
                                     >
                                         {evt._type === 'appointment'
-                                            ? `${format(parseISO(evt.appointment_date), 'HH:mm')} ${evt.flat_number || '?'}`
+                                            ? `${evt.type === 'callback' ? '📞 ' : ''}${format(parseISO(evt.appointment_date), 'HH:mm')} · ${evt.flat_number || '?'}`
                                             : `#${evt.id} ${evt.flat_number || '?'}`
                                         }
                                     </div>
@@ -237,7 +243,7 @@ export default function CalendarView({
                                         <p className="text-xs font-semibold text-foreground mb-1.5">{format(day, 'MMM d')}</p>
                                         {events.slice(0, 5).map((evt, idx) => (
                                             <div key={idx} className="text-[10px] text-muted-foreground truncate py-0.5 flex items-center gap-1">
-                                                <span>{evt._type === 'appointment' ? '📅' : '💬'}</span>
+                                                <span>{evt._type === 'appointment' ? (evt.type === 'callback' ? '📞' : '📅') : '💬'}</span>
                                                 <span>
                                                     {evt._type === 'appointment'
                                                         ? `${format(parseISO(evt.appointment_date), 'HH:mm')} · ${t('calendar.flat')} ${evt.flat_number || '?'}`
@@ -326,7 +332,7 @@ export default function CalendarView({
                                                     <>
                                                         <div className="flex items-center justify-between mb-1.5">
                                                             <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                                                                {t('calendar.appointment')}
+                                                                {evt.type === 'callback' ? '📞 Manager Callback' : t('calendar.appointment')}
                                                             </span>
                                                             <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize', getBadgeClasses(evt.status))}>
                                                                 {evt.status}
