@@ -437,8 +437,20 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
             global _last_call_ended_at
             _last_call_ended_at = datetime.now(timezone.utc).isoformat()
 
-        # Always return 200 for valid final events
-        # This prevents Vapi dashboard from showing "Failed"
+        # For tool-calls events VAPI uses the HTTP response body as the tool result
+        # passed back to the LLM — return VAPI results format so the agent reflects
+        # the actual outcome instead of hallucinating success on failure.
+        if is_tool_call_event and submit_tool:
+            tool_call_id = submit_tool.get("id") or ""
+            if complaint_created:
+                appt_note = f" Appointment scheduled for {complaint_data.get('appointment_date')}." if appointment_id else ""
+                result_msg = f"Complaint #{complaint_id} created successfully.{appt_note}"
+            elif skip_complaint:
+                result_msg = f"Complaint already recorded (ID: {complaint_id})."
+            else:
+                result_msg = "Failed to create complaint due to a technical error. Please inform the tenant to call back."
+            return {"results": [{"toolCallId": tool_call_id, "result": result_msg}]}
+
         return {
             "status": "processed",
             "call_id": call_id,
