@@ -520,6 +520,42 @@ export async function deleteBuilding(buildingId) {
     return null;
 }
 
+export async function bulkDeletePropertyGroups(ids) {
+    const response = await authFetch(`${API_BASE_URL}/property-groups/bulk`, {
+        method: 'DELETE',
+        body: JSON.stringify({ ids }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function bulkDeleteBuildings(ids) {
+    const response = await authFetch(`${API_BASE_URL}/buildings/bulk`, {
+        method: 'DELETE',
+        body: JSON.stringify({ ids }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+export async function bulkDeleteFlats(uuids) {
+    const response = await authFetch(`${API_BASE_URL}/flats/bulk`, {
+        method: 'DELETE',
+        body: JSON.stringify({ uuids }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
 // ── Settings (Building & Unit scope) ─────────────────────────────────────────
 
 /** Fetch aggregate settings for a building (majority-vote across its units). */

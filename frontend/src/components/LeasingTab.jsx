@@ -97,8 +97,12 @@ export default function LeasingTab() {
 
     async function handleDeleteListing(uuid) {
         if (!confirm(t('leasing.listings.confirmDelete'))) return;
-        await deleteListing(uuid);
-        setListings(prev => prev.filter(l => l.uuid !== uuid));
+        try {
+            await deleteListing(uuid);
+            setListings(prev => prev.filter(l => l.uuid !== uuid));
+        } catch (err) {
+            alert(err.message || 'Failed to delete listing. Please try again.');
+        }
     }
 
     async function handleDeleteLead(uuid) {

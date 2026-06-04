@@ -1,4 +1,4 @@
-import { Home, ShoppingBag, Building2, Info, CheckCircle2, XCircle } from 'lucide-react';
+import { Home, ShoppingBag, Building2, Info, CheckCircle2, XCircle, Square, CheckSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib';
 
@@ -22,7 +22,7 @@ function PropertyTypeIcon({ iconType, className }) {
  *  - onInfo: (building) => void     — opens info modal
  *  - showPropertyType: bool         — show the property type badge (true in Building View)
  */
-function BuildingCard({ building, onClick, onInfo, showPropertyType = false }) {
+function BuildingCard({ building, onClick, onInfo, showPropertyType = false, selectMode = false, isSelected = false, onToggle }) {
     const { name, image_url, property_type_name, property_type_icon,
         unit_count = 0, occupied_count = 0 } = building;
 
@@ -32,20 +32,27 @@ function BuildingCard({ building, onClick, onInfo, showPropertyType = false }) {
     const coverImage = image_url ||
         'https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=2574&auto=format&fit=crop';
 
+    const handleCardClick = () => {
+        if (selectMode) onToggle?.(String(building.id));
+        else onClick?.(building);
+    };
+
     return (
         <motion.div
             whileHover={{ y: -2 }}
             transition={{ duration: 0.2 }}
             className={cn(
-                'bg-card border border-border rounded-xl overflow-hidden group',
-                'hover:border-primary hover:shadow-lg hover:shadow-primary/10',
-                'transition-colors duration-200'
+                'bg-card border rounded-xl overflow-hidden group',
+                'hover:shadow-lg hover:shadow-primary/10 transition-colors duration-200',
+                isSelected
+                    ? 'border-primary ring-2 ring-primary/30 hover:border-primary'
+                    : 'border-border hover:border-primary'
             )}
         >
             {/* Cover Image — clickable to drill into units */}
             <div
                 className="relative h-40 overflow-hidden cursor-pointer"
-                onClick={() => onClick?.(building)}
+                onClick={handleCardClick}
             >
                 <img
                     src={coverImage}
@@ -58,25 +65,37 @@ function BuildingCard({ building, onClick, onInfo, showPropertyType = false }) {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
+                {/* Checkbox overlay in select mode */}
+                {selectMode && (
+                    <div className="absolute top-3 left-3">
+                        {isSelected
+                            ? <CheckSquare className="w-5 h-5 text-primary drop-shadow" />
+                            : <Square className="w-5 h-5 text-white drop-shadow" />
+                        }
+                    </div>
+                )}
+
                 {/* Unit count pill */}
                 <span className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-white text-xs font-medium">
                     {unit_count} {unit_count === 1 ? 'Unit' : 'Units'}
                 </span>
 
                 {/* Info button — stops propagation so it doesn't trigger drill-down */}
-                <button
-                    onClick={e => { e.stopPropagation(); onInfo?.(building); }}
-                    aria-label="Building info"
-                    className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors"
-                >
-                    <Info className="w-3.5 h-3.5" />
-                </button>
+                {!selectMode && (
+                    <button
+                        onClick={e => { e.stopPropagation(); onInfo?.(building); }}
+                        aria-label="Building info"
+                        className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors"
+                    >
+                        <Info className="w-3.5 h-3.5" />
+                    </button>
+                )}
             </div>
 
             {/* Card Body */}
             <div
                 className="p-4 space-y-3 cursor-pointer"
-                onClick={() => onClick?.(building)}
+                onClick={handleCardClick}
             >
                 <div className="flex items-start justify-between gap-2">
                     <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">

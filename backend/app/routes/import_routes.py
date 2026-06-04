@@ -11,6 +11,7 @@ from supabase import Client
 from app.config import settings
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
+from app.core.db_errors import clean_db_error
 
 router = APIRouter(prefix="/import", tags=["Import"])
 
@@ -18,7 +19,7 @@ MAX_ROWS = 1000
 MAX_FILE_BYTES = 5 * 1024 * 1024
 
 PROPERTIES_REQUIRED = {"property_name", "building_name", "flat_number"}
-PROPERTIES_OPTIONAL = {"property_address", "address", "floor_number", "bedrooms", "bathrooms"}
+PROPERTIES_OPTIONAL = {"property_address", "address", "street_address", "city", "state", "country", "floor_number", "bedrooms", "bathrooms"}
 TENANTS_REQUIRED = {"name", "phone", "flat_number"}
 TENANTS_OPTIONAL = {"email", "lease_start_date", "lease_end_date", "rent_amount", "rent_status", "manager_notes"}
 
@@ -314,12 +315,16 @@ async def import_properties(
                         flat_payload[field] = int(raw)
                     except ValueError:
                         pass
+            for field in ("street_address", "city", "state", "country"):
+                val = row.get(field, "")
+                if val:
+                    flat_payload[field] = val
 
             db.table("flats").insert(flat_payload).execute()
             created_flats += 1
 
         except Exception as exc:
-            errors.append(f"Row {i}: {exc}")
+            errors.append(f"Row {i}: {clean_db_error(exc)}")
 
     return {
         "created": {
@@ -396,11 +401,17 @@ async def import_tenants(
                 skipped.append(f"Row {i}: flat {flat_number} is already occupied")
                 continue
 
+            VALID_RENT_STATUSES = {"On-time", "Upcoming", "Overdue", "At Risk"}
+            raw_status = row.get("rent_status", "").strip()
+            rent_status = raw_status if raw_status in VALID_RENT_STATUSES else None
+
             tenant_payload: dict = {"name": name, "phone": phone, "flat_uuid": flat_uuid}
-            for field in ("email", "lease_start_date", "lease_end_date", "rent_status", "manager_notes"):
+            for field in ("email", "lease_start_date", "lease_end_date", "manager_notes"):
                 val = row.get(field, "")
                 if val:
                     tenant_payload[field] = val
+            if rent_status:
+                tenant_payload["rent_status"] = rent_status
 
             t_resp = db.table("tenants").insert(tenant_payload).execute()
             if not t_resp.data:
@@ -414,10 +425,10 @@ async def import_tenants(
                 "occupied": True,
             }).eq("uuid", flat_uuid).execute()
 
-            rent_raw = row.get("rent_amount", "")
-            if rent_raw:
+            rent_amount_raw = row.get("rent_amount", "").strip()
+            if rent_amount_raw:
                 try:
-                    monthly_rent = float(rent_raw)
+                    monthly_rent = float(rent_amount_raw)
                     effective_from = row.get("lease_start_date", "") or str(date.today())
                     db.table("rents").insert({
                         "flat_uuid":      flat_uuid,
@@ -426,12 +437,15 @@ async def import_tenants(
                         "is_active":      True,
                     }).execute()
                 except (ValueError, TypeError):
-                    pass
+                    skipped.append(
+                        f"Row {i} ({name}): rent_amount '{rent_amount_raw}' is not a valid number — "
+                        f"tenant imported without a rent record"
+                    )
 
             created_tenants += 1
 
         except Exception as exc:
-            errors.append(f"Row {i}: {exc}")
+            errors.append(f"Row {i}: {clean_db_error(exc)}")
 
     return {
         "created": created_tenants,

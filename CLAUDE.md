@@ -3,6 +3,17 @@
 ## Start every session by reading this file first:
 **`CODEBASE_CONTEXT.md`** — full product overview, DB schema, all routes, all components, architectural rules, integrations, and patterns. Read it before touching any code so you never need to re-explore the codebase from scratch.
 
+## Keeping CODEBASE_CONTEXT.md up to date (mandatory):
+At the end of **every session** where you make code changes that affect any of the following, update the relevant section(s) of `CODEBASE_CONTEXT.md` before finishing:
+- Database schema changes (new tables, new columns, new constraints, migrations)
+- New or modified backend routes (method, path, behavior, VAPI contract)
+- New or modified frontend components, modals, or pages
+- Changes to integration behavior (VAPI agent config, Stripe, Twilio, SendGrid)
+- Changes to key architectural rules (auth patterns, DB client usage, error handling)
+- New environment variables or config settings
+
+**How to update:** Edit only the specific section(s) that changed — do not rewrite the whole file. Keep the same table/bullet format. Add the change inline where it logically belongs rather than appending to the bottom.
+
 ---
 
 ## Hard Rules (non-negotiable)

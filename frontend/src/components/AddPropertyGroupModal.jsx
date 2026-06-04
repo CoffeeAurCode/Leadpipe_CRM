@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Building2, MapPin, Tag } from 'lucide-react';
+import { X, Building2, MapPin, Tag, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 import { createPropertyGroup, fetchPropertyTypes } from '../services/apiService';
@@ -26,7 +26,7 @@ function FieldGroup({ label, icon: Icon, children }) {
 
 function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
     const { t } = useTranslation();
-    const [form, setForm] = useState({ name: '', description: '', address: '', image_url: '', property_type_id: '' });
+    const [form, setForm] = useState({ name: '', description: '', street_address: '', city: '', state: '', country: 'Canada', image_url: '', property_type_id: '' });
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -40,7 +40,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
     }, [isOpen]);
 
     const reset = () => {
-        setForm({ name: '', description: '', address: '', image_url: '', property_type_id: '' });
+        setForm({ name: '', description: '', street_address: '', city: '', state: '', country: 'Canada', image_url: '', property_type_id: '' });
         setError('');
         setUploadingImage(false);
     };
@@ -52,12 +52,21 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.name.trim()) { setError(t('propertyGroup.nameRequired')); return; }
+        if (!form.street_address.trim()) { setError('Street address is required.'); return; }
+        if (!form.city.trim()) { setError('City is required.'); return; }
+        if (!form.state.trim()) { setError('Province / State is required.'); return; }
+        if (!form.country.trim()) { setError('Country is required.'); return; }
         setLoading(true);
         setError('');
         try {
-            const payload = { name: form.name.trim() };
+            const payload = {
+                name: form.name.trim(),
+                street_address: form.street_address.trim(),
+                city: form.city.trim(),
+                state: form.state.trim(),
+                country: form.country.trim(),
+            };
             if (form.description.trim()) payload.description = form.description.trim();
-            if (form.address.trim()) payload.address = form.address.trim();
             if (form.image_url.trim()) payload.image_url = form.image_url.trim();
             if (form.property_type_id) payload.property_type_id = form.property_type_id;
 
@@ -146,12 +155,43 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     />
                                 </FieldGroup>
 
-                                <FieldGroup label={t('propertyGroup.address')} icon={MapPin}>
+                                <FieldGroup label="Street Address *" icon={MapPin}>
                                     <input
-                                        name="address"
-                                        value={form.address}
+                                        name="street_address"
+                                        value={form.street_address}
                                         onChange={handleChange}
-                                        placeholder="e.g. 123 Main Street, Delhi"
+                                        placeholder="e.g. 123 Main Street"
+                                        className={inputCls}
+                                    />
+                                </FieldGroup>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <FieldGroup label="City *">
+                                        <input
+                                            name="city"
+                                            value={form.city}
+                                            onChange={handleChange}
+                                            placeholder="e.g. Toronto"
+                                            className={inputCls}
+                                        />
+                                    </FieldGroup>
+                                    <FieldGroup label="Province / State *">
+                                        <input
+                                            name="state"
+                                            value={form.state}
+                                            onChange={handleChange}
+                                            placeholder="e.g. Ontario"
+                                            className={inputCls}
+                                        />
+                                    </FieldGroup>
+                                </div>
+
+                                <FieldGroup label="Country *" icon={Globe}>
+                                    <input
+                                        name="country"
+                                        value={form.country}
+                                        onChange={handleChange}
+                                        placeholder="Canada"
                                         className={inputCls}
                                     />
                                 </FieldGroup>

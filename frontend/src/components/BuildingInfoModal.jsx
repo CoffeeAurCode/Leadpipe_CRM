@@ -77,12 +77,16 @@ function BuildingInfoModal({ building, onClose }) {
                         </div>
                     )}
 
-                    {building.address && (
-                        <div className="flex items-start gap-2">
-                            <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                            <p className="text-sm text-foreground">{building.address}</p>
-                        </div>
-                    )}
+                    {(() => {
+                        const parts = [building.street_address, building.address_line, building.city, building.state, building.country].filter(Boolean);
+                        const addr = parts.length > 0 ? parts.join(', ') : building.address;
+                        return addr ? (
+                            <div className="flex items-start gap-2">
+                                <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                                <p className="text-sm text-foreground">{addr}</p>
+                            </div>
+                        ) : null;
+                    })()}
 
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border">

@@ -6,7 +6,7 @@ import { cn } from '@/lib';
 import { fetchPropertyTypes, createBuilding } from '../services/apiService';
 import ImageUploadField from './ImageUploadField';
 
-function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null }) {
+function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null, propertyGroups = [] }) {
     const { t } = useTranslation();
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -15,7 +15,11 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
     const [form, setForm] = useState({
         name: '',
         description: '',
-        address: '',
+        street_address: '',
+        address_line: '',
+        city: '',
+        state: '',
+        country: 'Canada',
         image_url: '',
         property_type_id: '',
     });
@@ -28,8 +32,22 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (isOpen && initialPropertyId && propertyGroups.length > 0) {
+            const pg = propertyGroups.find(p => String(p.id) === String(initialPropertyId));
+            if (pg) {
+                setForm(prev => ({
+                    ...prev,
+                    city: pg.city || prev.city,
+                    state: pg.state || prev.state,
+                    country: pg.country || prev.country,
+                }));
+            }
+        }
+    }, [isOpen, initialPropertyId, propertyGroups]);
+
     const reset = () => {
-        setForm({ name: '', description: '', address: '', image_url: '', property_type_id: '' });
+        setForm({ name: '', description: '', street_address: '', address_line: '', city: '', state: '', country: 'Canada', image_url: '', property_type_id: '' });
         setError(null);
         setUploadingImage(false);
     };
@@ -41,10 +59,19 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
         if (!form.name.trim()) { setError(t('building.nameRequired')); return; }
         setLoading(true);
         setError(null);
+        if (!form.city.trim()) { setError('City is required.'); setLoading(false); return; }
+        if (!form.state.trim()) { setError('Province / State is required.'); setLoading(false); return; }
+        if (!form.country.trim()) { setError('Country is required.'); setLoading(false); return; }
         try {
-            const payload = { name: form.name.trim() };
+            const payload = {
+                name: form.name.trim(),
+                city: form.city.trim(),
+                state: form.state.trim(),
+                country: form.country.trim(),
+            };
             if (form.description) payload.description = form.description.trim();
-            if (form.address) payload.address = form.address.trim();
+            if (form.street_address) payload.street_address = form.street_address.trim();
+            if (form.address_line) payload.address_line = form.address_line.trim();
             if (form.image_url) payload.image_url = form.image_url.trim();
             if (form.property_type_id) payload.property_type_id = form.property_type_id;
             if (initialPropertyId) payload.property_id = initialPropertyId;
@@ -134,14 +161,62 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-1.5">{t('building.address')}</label>
+                            <label className="block text-sm font-medium mb-1.5">Street Address <span className="text-muted-foreground text-xs">(optional)</span></label>
                             <input
                                 type="text"
-                                value={form.address}
-                                onChange={e => setForm({ ...form, address: e.target.value })}
-                                placeholder="e.g. 42 Oak Street, Mumbai"
+                                value={form.street_address}
+                                onChange={e => setForm({ ...form, street_address: e.target.value })}
+                                placeholder="e.g. 42 Oak Street"
                                 className={inputClass}
                             />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5">Additional Address <span className="text-muted-foreground text-xs">(optional)</span></label>
+                            <input
+                                type="text"
+                                value={form.address_line}
+                                onChange={e => setForm({ ...form, address_line: e.target.value })}
+                                placeholder="e.g. Suite 4B, Ground Floor"
+                                className={inputClass}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-sm font-medium mb-1.5">City <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    value={form.city}
+                                    onChange={e => setForm({ ...form, city: e.target.value })}
+                                    placeholder="e.g. Toronto"
+                                    className={inputClass}
+                                />
+                                <p className="mt-0.5 text-xs text-muted-foreground">Auto-filled from property</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1.5">Province / State <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    value={form.state}
+                                    onChange={e => setForm({ ...form, state: e.target.value })}
+                                    placeholder="e.g. Ontario"
+                                    className={inputClass}
+                                />
+                                <p className="mt-0.5 text-xs text-muted-foreground">Auto-filled from property</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5">Country <span className="text-red-500">*</span></label>
+                            <input
+                                type="text"
+                                value={form.country}
+                                onChange={e => setForm({ ...form, country: e.target.value })}
+                                placeholder="Canada"
+                                className={inputClass}
+                            />
+                            <p className="mt-0.5 text-xs text-muted-foreground">Auto-filled from property</p>
                         </div>
 
                         <ImageUploadField

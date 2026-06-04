@@ -1,0 +1,27 @@
+property_name,building_name,flat_number,property_address,floor_number,bedrooms,bathrooms
+Clearview Heights TEST,Maple Tower,TST01,555 Parc-Extension Ave Montreal QC H2R 1H5,1,0,1
+Clearview Heights TEST,Maple Tower,TST02,555 Parc-Extension Ave Montreal QC H2R 1H5,2,0,1
+Clearview Heights TEST,Maple Tower,T1B01,555 Parc-Extension Ave Montreal QC H2R 1H5,1,1,1
+Clearview Heights TEST,Maple Tower,T1B02,555 Parc-Extension Ave Montreal QC H2R 1H5,2,1,1
+Clearview Heights TEST,Maple Tower,T1B03,555 Parc-Extension Ave Montreal QC H2R 1H5,3,1,1
+Clearview Heights TEST,Maple Tower,T1B04,555 Parc-Extension Ave Montreal QC H2R 1H5,1,1,1
+Clearview Heights TEST,Maple Tower,T2B01,555 Parc-Extension Ave Montreal QC H2R 1H5,2,2,1
+Clearview Heights TEST,Maple Tower,T2B02,555 Parc-Extension Ave Montreal QC H2R 1H5,3,2,1
+Clearview Heights TEST,Maple Tower,T2B03,555 Parc-Extension Ave Montreal QC H2R 1H5,4,2,2
+Clearview Heights TEST,Maple Tower,T2B04,555 Parc-Extension Ave Montreal QC H2R 1H5,1,2,1
+Clearview Heights TEST,Maple Tower,T2B05,555 Parc-Extension Ave Montreal QC H2R 1H5,5,2,2
+Clearview Heights TEST,Maple Tower,T2B06,555 Parc-Extension Ave Montreal QC H2R 1H5,6,2,2
+Clearview Heights TEST,Maple Tower,T3B01,555 Parc-Extension Ave Montreal QC H2R 1H5,2,3,2
+Clearview Heights TEST,Maple Tower,T3B02,555 Parc-Extension Ave Montreal QC H2R 1H5,3,3,2
+Clearview Heights TEST,Maple Tower,T3B03,555 Parc-Extension Ave Montreal QC H2R 1H5,4,3,2
+Clearview Heights TEST,Maple Tower,T3B04,555 Parc-Extension Ave Montreal QC H2R 1H5,2,3,2
+Clearview Heights TEST,Maple Tower,T3B05,555 Parc-Extension Ave Montreal QC H2R 1H5,5,3,2
+Clearview Heights TEST,Maple Tower,T4B01,555 Parc-Extension Ave Montreal QC H2R 1H5,3,4,3
+Clearview Heights TEST,Maple Tower,T4B02,555 Parc-Extension Ave Montreal QC H2R 1H5,4,4,3
+Clearview Heights TEST,Maple Tower,T4B03,555 Parc-Extension Ave Montreal QC H2R 1H5,2,4,3
+Clearview Heights TEST,Oak Residences,T101,555 Parc-Extension Ave Montreal QC H2R 1H5,1,1,1
+Clearview Heights TEST,Oak Residences,T102,555 Parc-Extension Ave Montreal QC H2R 1H5,2,1,1
+Clearview Heights TEST,Oak Residences,T103,555 Parc-Extension Ave Montreal QC H2R 1H5,3,1,1
+Clearview Heights TEST,Oak Residences,T104,555 Parc-Extension Ave Montreal QC H2R 1H5,1,2,1
+Clearview Heights TEST,Oak Residences,T201,555 Parc-Extension Ave Montreal QC H2R 1H5,2,2,1
+Clearview Heights TEST,Oak Residences,T202,555 Parc-Extension Ave Montreal QC H2R 1H5,3,2,2

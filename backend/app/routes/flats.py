@@ -21,24 +21,12 @@ from app.schemas.flat import (
     FlatVerifyPhoneResponse,
 )
 from app.schemas.flat_update import FlatEditRequest
-from typing import Optional
+from app.core.db_errors import clean_db_error
+from typing import Optional, List
 from uuid import uuid4
+from pydantic import BaseModel as _BaseModel
 
 router = APIRouter(prefix="/flats", tags=["Flats"])
-
-
-def _clean_db_error(e: Exception) -> str:
-    code = str(getattr(e, 'code', ''))
-    if '42501' in code or '42501' in str(e):
-        return "Permission denied: you are not authorized to perform this action. Please contact your administrator."
-    if '23505' in code or '23505' in str(e):
-        return "This record already exists."
-    if '23503' in code or '23503' in str(e):
-        return "A required related record does not exist."
-    msg = getattr(e, 'message', None)
-    if msg and isinstance(msg, str):
-        return msg
-    return "A database error occurred. Please try again."
 
 
 def _digits_only(phone: str) -> str:
@@ -445,7 +433,12 @@ async def create_flat(
     bathrooms: Optional[int] = Form(None),
     tenant_name: Optional[str] = Form(None),
     tenant_phone: Optional[str] = Form(None),
-    building_id: Optional[str] = Form(None),  # NEW: auto-link to building
+    building_id: Optional[str] = Form(None),
+    street_address: Optional[str] = Form(None),
+    address_line: Optional[str] = Form(None),
+    city: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    country: Optional[str] = Form("Canada"),
     image: Optional[UploadFile] = File(None),
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
@@ -579,10 +572,15 @@ async def create_flat(
             "bedrooms": bedrooms,
             "bathrooms": bathrooms,
             "image_url": image_url,
-            "building_id": building_id if building_id else None,  # NEW: link to building
-            "tenant_uuid": None,  # Will be updated if tenant created
-            "occupied": False  # Default to vacant
+            "building_id": building_id if building_id else None,
+            "tenant_uuid": None,
+            "occupied": False,
         }
+        if street_address: flat_payload["street_address"] = street_address
+        if address_line: flat_payload["address_line"] = address_line
+        if city: flat_payload["city"] = city
+        if state: flat_payload["state"] = state
+        if country: flat_payload["country"] = country
         
         flat_response = svc.table("flats").insert(flat_payload).execute()
         
@@ -665,7 +663,7 @@ async def create_flat(
                 print(f"[TENANT CREATION ERROR] {str(tenant_error)}")
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Unit created but tenant could not be added: {_clean_db_error(tenant_error)}"
+                    detail=f"Unit created but tenant could not be added: {clean_db_error(tenant_error)}"
                 )
         
         # ========== STEP 6: RETURN FLAT WITH TENANT DETAILS ==========
@@ -687,7 +685,7 @@ async def create_flat(
         
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating unit: {_clean_db_error(e)}"
+            detail=f"Error creating unit: {clean_db_error(e)}"
         )
 
 
@@ -820,9 +818,40 @@ async def update_flat_details(
         )
 
 
+class BulkDeleteFlatsRequest(_BaseModel):
+    uuids: List[str]
+
+
+@router.delete("/bulk", status_code=status.HTTP_200_OK)
+async def bulk_delete_flats(
+    request: BulkDeleteFlatsRequest,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """Bulk delete flats by UUID list. Cascade-deletes lease_listings, rents, and tenants."""
+    deleted = 0
+    errors = []
+    for flat_uuid in request.uuids:
+        try:
+            flat_resp = db.table("flats").select("uuid, tenant_uuid").eq("uuid", flat_uuid).execute()
+            if not flat_resp.data:
+                errors.append(f"{flat_uuid}: not found")
+                continue
+            tenant_uuid = flat_resp.data[0].get("tenant_uuid")
+            db.table("lease_listings").delete().eq("flat_uuid", flat_uuid).execute()
+            db.table("rents").delete().eq("flat_uuid", flat_uuid).execute()
+            if tenant_uuid:
+                db.table("tenants").delete().eq("uuid", tenant_uuid).execute()
+            db.table("flats").delete().eq("uuid", flat_uuid).execute()
+            deleted += 1
+        except Exception as e:
+            errors.append(f"{flat_uuid}: {clean_db_error(e)}")
+    return {"deleted": deleted, "errors": errors}
+
+
 @router.delete("/{flat_uuid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_flat(flat_uuid: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
-    """Delete a flat. If occupied, cascade-deletes the tenant and rent record first."""
+    """Delete a flat. Cascade-deletes lease_listings, rent, and tenant first."""
     try:
         flat_resp = db.table("flats").select("id, uuid, tenant_uuid").eq("uuid", flat_uuid).execute()
         if not flat_resp.data:
@@ -834,12 +863,10 @@ async def delete_flat(flat_uuid: str, user: dict = Depends(require_active_subscr
         flat = flat_resp.data[0]
         tenant_uuid = flat.get("tenant_uuid")
 
+        db.table("lease_listings").delete().eq("flat_uuid", flat_uuid).execute()
+        db.table("rents").delete().eq("flat_uuid", flat_uuid).execute()
         if tenant_uuid:
-            # Delete rent record for this flat
-            db.table("rents").delete().eq("flat_uuid", flat_uuid).execute()
-            # Delete the tenant
             db.table("tenants").delete().eq("uuid", tenant_uuid).execute()
-
         db.table("flats").delete().eq("uuid", flat_uuid).execute()
         return None
     except HTTPException:
@@ -847,5 +874,5 @@ async def delete_flat(flat_uuid: str, user: dict = Depends(require_active_subscr
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting flat: {str(e)}"
+            detail=f"Error deleting flat: {clean_db_error(e)}"
         )

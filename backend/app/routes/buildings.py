@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
+from app.core.db_errors import clean_db_error
 from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
@@ -26,7 +27,12 @@ class BuildingCreate(BaseModel):
     address: Optional[str] = None
     image_url: Optional[str] = None
     property_type_id: Optional[UUID] = None
-    property_id: Optional[UUID] = None  # Link to properties_list table
+    property_id: Optional[UUID] = None
+    street_address: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = "Canada"
 
 
 class BuildingUpdate(BaseModel):
@@ -35,7 +41,12 @@ class BuildingUpdate(BaseModel):
     address: Optional[str] = None
     image_url: Optional[str] = None
     property_type_id: Optional[UUID] = None
-    property_id: Optional[UUID] = None  # Allow re-assigning to a different property group
+    property_id: Optional[UUID] = None
+    street_address: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
 
 
 class BuildingResponse(BaseModel):
@@ -43,11 +54,16 @@ class BuildingResponse(BaseModel):
     name: str
     description: Optional[str] = None
     address: Optional[str] = None
+    street_address: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
     image_url: Optional[str] = None
     property_type_id: Optional[UUID] = None
     property_type_name: Optional[str] = None
-    property_type_icon: Optional[str] = None  # "house" | "shop" | "apartment"
-    property_id: Optional[UUID] = None  # Parent property group
+    property_type_icon: Optional[str] = None
+    property_id: Optional[UUID] = None
     unit_count: int = 0
     occupied_count: int = 0
     created_at: datetime
@@ -80,6 +96,11 @@ def _enrich_buildings(buildings: list, all_flats: list) -> list:
             "name": b["name"],
             "description": b.get("description"),
             "address": b.get("address"),
+            "street_address": b.get("street_address"),
+            "address_line": b.get("address_line"),
+            "city": b.get("city"),
+            "state": b.get("state"),
+            "country": b.get("country"),
             "image_url": b.get("image_url"),
             "property_type_id": b.get("property_type_id"),
             "property_type_name": pt.get("name"),
@@ -206,9 +227,45 @@ async def update_building(building_id: str, request: BuildingUpdate, user: dict 
         raise HTTPException(status_code=500, detail=f"Error updating building: {str(e)}")
 
 
+class BulkDeleteBuildingsRequest(BaseModel):
+    ids: List[str]
+
+
+@router.delete("/bulk", status_code=status.HTTP_200_OK)
+async def bulk_delete_buildings(
+    request: BulkDeleteBuildingsRequest,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """Bulk delete buildings. Cascade-deletes lease_listings, rents, tenants, and flats."""
+    deleted = 0
+    errors = []
+    for building_id in request.ids:
+        try:
+            building_resp = db.table("buildings").select("id").eq("id", building_id).execute()
+            if not building_resp.data:
+                errors.append(f"{building_id}: not found")
+                continue
+            flats_resp = db.table("flats").select("uuid, tenant_uuid").eq("building_id", building_id).execute()
+            flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
+            tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
+            if flat_uuids:
+                db.table("lease_listings").delete().in_("flat_uuid", flat_uuids).execute()
+                db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
+            if tenant_uuids:
+                db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
+            if flat_uuids:
+                db.table("flats").delete().eq("building_id", building_id).execute()
+            db.table("buildings").delete().eq("id", building_id).execute()
+            deleted += 1
+        except Exception as e:
+            errors.append(f"{building_id}: {clean_db_error(e)}")
+    return {"deleted": deleted, "errors": errors}
+
+
 @router.delete("/{building_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_building(building_id: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
-    """Delete a building and cascade-delete all its flats, tenants, and rent records."""
+    """Delete a building and cascade-delete all its flats, tenants, rent records, and lease listings."""
     try:
         building_resp = db.table("buildings").select("id").eq("id", building_id).execute()
         if not building_resp.data:
@@ -221,10 +278,12 @@ async def delete_building(building_id: str, user: dict = Depends(require_active_
         flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
         tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
 
+        if flat_uuids:
+            db.table("lease_listings").delete().in_("flat_uuid", flat_uuids).execute()
+            db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
         if tenant_uuids:
             db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
         if flat_uuids:
-            db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
             db.table("flats").delete().eq("building_id", building_id).execute()
 
         db.table("buildings").delete().eq("id", building_id).execute()
@@ -234,5 +293,5 @@ async def delete_building(building_id: str, user: dict = Depends(require_active_
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting building: {str(e)}"
+            detail=f"Error deleting building: {clean_db_error(e)}"
         )

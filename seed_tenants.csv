@@ -1,0 +1,6 @@
+name,phone,flat_number,lease_start_date,lease_end_date,rent_status
+Alex Martin,+15145550011,T101,2025-01-01,2026-12-31,On-time
+Sophie Leblanc,+15145550022,T102,2025-01-01,2026-12-31,On-time
+James Wong,+15145550044,T104,2025-06-01,2026-05-31,On-time
+Marie Audet,+15145550061,T201,2025-03-01,2026-02-28,On-time
+David Park,+15145550062,T202,2025-07-01,2026-06-30,On-time

@@ -16,7 +16,11 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
         bedrooms: '',
         bathrooms: '',
         floor_number: '',
-        address: ''
+        street_address: '',
+        address_line: '',
+        city: '',
+        state: '',
+        country: '',
     });
 
     const [tenantData, setTenantData] = useState({
@@ -33,7 +37,11 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                 bedrooms: flat.bedrooms || '',
                 bathrooms: flat.bathrooms || '',
                 floor_number: flat.floor_number || '',
-                address: flat.address || ''
+                street_address: flat.street_address || '',
+                address_line: flat.address_line || '',
+                city: flat.city || '',
+                state: flat.state || '',
+                country: flat.country || '',
             });
 
             if (flat.tenant) {
@@ -63,7 +71,11 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                     bedrooms: parseInt(flatData.bedrooms),
                     bathrooms: parseInt(flatData.bathrooms),
                     floor_number: parseInt(flatData.floor_number),
-                    address: flatData.address
+                    street_address: flatData.street_address || null,
+                    address_line: flatData.address_line || null,
+                    city: flatData.city || null,
+                    state: flatData.state || null,
+                    country: flatData.country || null,
                 }
             });
             onUpdate(updatedFlat); // Pass updated flat to parent
@@ -197,14 +209,54 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                         // FLAT DETAILS TAB
                         <div className="space-y-4">
                             <div>
-                                <label htmlFor="address" className="block text-sm font-medium text-foreground mb-2">
-                                    {t('unit.buildingAddress')}
-                                </label>
+                                <label className="block text-sm font-medium text-foreground mb-2">Street Address</label>
                                 <input
-                                    id="address"
                                     type="text"
-                                    value={flatData.address}
-                                    onChange={(e) => setFlatData({ ...flatData, address: e.target.value })}
+                                    value={flatData.street_address}
+                                    onChange={(e) => setFlatData({ ...flatData, street_address: e.target.value })}
+                                    placeholder="e.g. Unit 4A"
+                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-2">Additional Address</label>
+                                <input
+                                    type="text"
+                                    value={flatData.address_line}
+                                    onChange={(e) => setFlatData({ ...flatData, address_line: e.target.value })}
+                                    placeholder="e.g. Suite 4B"
+                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-2">City</label>
+                                    <input
+                                        type="text"
+                                        value={flatData.city}
+                                        onChange={(e) => setFlatData({ ...flatData, city: e.target.value })}
+                                        placeholder="e.g. Toronto"
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-2">Province / State</label>
+                                    <input
+                                        type="text"
+                                        value={flatData.state}
+                                        onChange={(e) => setFlatData({ ...flatData, state: e.target.value })}
+                                        placeholder="e.g. Ontario"
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-2">Country</label>
+                                <input
+                                    type="text"
+                                    value={flatData.country}
+                                    onChange={(e) => setFlatData({ ...flatData, country: e.target.value })}
+                                    placeholder="Canada"
                                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                                 />
                             </div>

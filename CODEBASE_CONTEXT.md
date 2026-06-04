@@ -138,7 +138,9 @@ PropertyGroup (properties_list)
 |---|---|---|
 | id | UUID PK | |
 | name | text | |
-| description, address, image_url | text | |
+| description, address, image_url | text | `address` is legacy; new code writes structured fields |
+| street_address, city, state | text | Structured address (migration 022); required for new creates |
+| country | text | Default 'Canada' |
 | manager_id | UUID | FK → auth.users (RLS key) |
 | vapi_lease_assistant_id | text | VAPI assistant ID provisioned for this group |
 | vapi_phone_number_id | text | VAPI phone number ID |
@@ -149,7 +151,9 @@ PropertyGroup (properties_list)
 | Column | Type | Notes |
 |---|---|---|
 | id | UUID PK | |
-| name, description, address, image_url | text | |
+| name, description, address, image_url | text | `address` is legacy |
+| street_address, address_line, city, state | text | Structured address (migration 022); city/state/country required for new creates |
+| country | text | Default 'Canada'; auto-filled from parent property group on frontend |
 | property_type_id | UUID | FK → property_types |
 | property_id | UUID | FK → properties_list |
 | manager_id | UUID | RLS key |
@@ -167,7 +171,9 @@ PropertyGroup (properties_list)
 | uuid | UUID PK | New primary key |
 | id | int | Legacy PK |
 | flat_number | text UNIQUE | Normalized to UPPER |
-| address, floor_number | text/int | |
+| address, floor_number | text/int | `address` is legacy |
+| street_address, address_line, city, state | text | Structured address (migration 022); auto-filled from parent building on frontend |
+| country | text | Default 'Canada' |
 | bedrooms, bathrooms | int | |
 | occupied | boolean | Derived from tenant_uuid presence |
 | image_url | text | Supabase Storage URL |
@@ -215,8 +221,10 @@ PropertyGroup (properties_list)
 | flat_uuid | UUID | FK → flats |
 | appointment_date | timestamptz | Format: `YYYY-MM-DDTHH:MM:SS` |
 | status | text | scheduled / attended / cancelled / completed |
+| type | text | `callback` (manager calls tenant back) / `visit` (on-site visit); default `callback` |
+| tenant_phone | text | E.164 phone to call back; set by complaint agent on callback appointments |
 | notes | text | |
-| manager_id | UUID | RLS key |
+| manager_id | UUID | FK → auth.users; RLS key (migration 021) |
 
 #### `call_logs`
 | Column | Type | Notes |
@@ -343,6 +351,20 @@ Admin script to add numbers: `python backend/scripts/add_twilio_number_to_vapi.p
 | is_enabled | boolean | |
 | manager_id | UUID | RLS key |
 
+#### `notifications` (in-app)
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| manager_id | UUID | FK → auth.users |
+| title | text | Short notification title |
+| body | text | Full notification message |
+| type | text | `callback` / `lead` / general |
+| entity_id | text | UUID of related entity (appointment uuid or lead uuid) |
+| is_read | boolean | Read status |
+| created_at | timestamptz | |
+
+Inserted by: voice webhook on new callback appointment; lease-lead webhooks on qualified lead. Read by `TopBar.jsx` / `NotificationPanel.jsx`.
+
 #### `manager_notifications`
 | Column | Type | Notes |
 |---|---|---|
@@ -407,7 +429,8 @@ Computed fields on GET (from `TenantResponse` schema):
 | GET | `/flats/{uuid}/details` | Single flat with tenant details |
 | GET | `/flats/{flat_number}` | Flat by flat number |
 | PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT) |
-| DELETE | `/flats/{flat_uuid}` | Delete flat (cascade-deletes tenant + rent record) |
+| DELETE | `/flats/bulk` | Bulk delete flats by UUID list; body `{uuids: [...]}`; returns `{deleted, errors}` |
+| DELETE | `/flats/{flat_uuid}` | Delete flat (cascade: lease_listings → rents → tenant → flat) |
 | PATCH | `/flats/{flat_uuid}/assign-tenant` | Assign existing tenant to flat (bidirectional link) |
 | PATCH | `/flats/{flat_uuid}/unassign-tenant` | Remove tenant from flat (bidirectional unlink) |
 
@@ -415,21 +438,24 @@ Computed fields on GET (from `TenantResponse` schema):
 
 **RLS / flat creation:** `POST /flats` uses `svc` (service-role client) for the actual `flats` INSERT — the Supabase RLS INSERT policy rejects the anon client for some manager accounts. All ownership/subscription checks run first with the authenticated `db` client.
 
-**Error messages:** `_clean_db_error(e)` helper maps PostgreSQL error codes to plain English before returning `detail` strings — `42501` → permission denied, `23505` → already exists, `23503` → missing related record. Raw Supabase exception dicts never reach the frontend.
+**Error messages:** `clean_db_error(e)` in `app/core/db_errors.py` maps PostgreSQL error codes to plain English — `23514` → invalid field value, `23505` → already exists, `23503` → FK violation (with lease_listing hint), `23502` → missing required field, `42501` → permission denied. Used by all DELETE routes and `import_routes.py`. Raw Supabase exception dicts never reach the frontend.
 
 ---
 
 ### `/appointments` — `routes/appointments.py`
 | Method | Path | Description |
 |---|---|---|
-| GET | `/appointments/view?flat_number=` | **VAPI tool** — returns active appointments for flat |
+| GET | `/appointments/view?flat_number=` | **VAPI tool** — returns all appointments for flat (no date/status filter) |
 | PATCH | `/appointments/update?flat_number=&id=&new_appointment_date=` | **VAPI tool** — reschedule |
-| POST | `/appointments/cancel?flat_number=&id=` | **VAPI tool** — cancel |
+| PATCH | `/appointments/cancel?flat_number=&id=` | **VAPI tool** — cancel (idempotent) |
+| GET | `/appointments/availability?appointment_date=` | **VAPI tool** — checks manager availability using 1-hour slot model; always HTTP 200; returns `{status: available\|unavailable}`; uses service DB; fails safe to `unavailable` on any error |
 | POST | `/appointments` | Create appointment |
-| GET | `/appointments` | List all (optional filters) |
+| GET | `/appointments` | List all (optional filters: `start_date`, `end_date`, `flat_number`) |
 | GET | `/appointments/{id}` | Single appointment |
 | PATCH | `/appointments/{id}` | Update |
 | DELETE | `/appointments/{id}` | Soft-delete via status change |
+
+**Availability slot model:** An appointment occupies exactly 1 hour. A requested slot T is `unavailable` if any existing `scheduled` appointment A satisfies `A - 1hr < T < A + 1hr`. Back-to-back slots (e.g. 10:00 and 11:00) are both available.
 
 ---
 
@@ -440,7 +466,8 @@ Computed fields on GET (from `TenantResponse` schema):
 | GET | `/buildings` | List all with unit counts aggregated from flats |
 | GET | `/buildings/{id}` | Single building |
 | PATCH | `/buildings/{id}` | Update |
-| DELETE | `/buildings/{id}` | Delete |
+| DELETE | `/buildings/bulk` | Bulk delete buildings; body `{ids: [...]}`; cascade: lease_listings → rents → tenants → flats → buildings |
+| DELETE | `/buildings/{id}` | Delete building (cascade: lease_listings → rents → tenants → flats → building) |
 
 ---
 
@@ -452,7 +479,8 @@ Computed fields on GET (from `TenantResponse` schema):
 | GET | `/property-groups/users/me/vapi-config` | Returns `{vapi_provisioning_status, vapi_phone_number}` from `manager_vapi_config` for the current manager |
 | POST | `/property-groups/users/me/provision-voice` | Retry VAPI lease provisioning for the manager account (upserts `pending` status, re-runs background task) |
 | GET | `/property-groups/{id}/buildings` | Buildings with unit counts for a property group |
-| DELETE | `/property-groups/{id}` | Cascade-delete all buildings, flats, rents, tenants within the group |
+| DELETE | `/property-groups/bulk` | Bulk delete property groups; body `{ids: [...]}`; full cascade including lease_listings |
+| DELETE | `/property-groups/{id}` | Cascade-delete all buildings, flats, rents, tenants, lease_listings within the group |
 
 ---
 
@@ -499,27 +527,46 @@ Computed fields on GET (from `TenantResponse` schema):
 ### `/voice` — `routes/voice.py`
 | Method | Path | Description |
 |---|---|---|
-| POST | `/voice/webhook` | Vapi webhook — processes call events, creates CallLog, optionally creates Complaint |
+| POST | `/voice/webhook` | Vapi webhook — processes call events, creates CallLog, optionally creates Complaint + Appointment + Notification |
+| POST | `/voice/lease-lead-webhook` | *Deprecated* — function-tool webhook for `submit_lease_lead` |
+| POST | `/voice/lease-lead-direct` | **Primary** apiRequest endpoint for `submit_lease_lead` (query params: `call_id`, `phone`) |
+| POST | `/voice/lease-eoc-webhook` | Lease EOC fallback — creates partial unmatched lead if no lead was submitted during call |
 | GET | `/voice/call-status` | Returns `{last_call_ended_at}` for frontend polling |
+| GET | `/voice/agent-info` | Returns `{complaint_phone_number}` — authenticated + subscription gate |
+| POST | `/voice/call/outbound` | Initiate outbound call — body `{customer_number, agent, first_message?}` |
 
-**Webhook behavior:**
+**Complaint webhook behavior (`POST /voice/webhook`):**
 - Always returns HTTP 200 (keeps Vapi session alive)
 - Filters on final event types: `tool-calls`, `end-of-call-report`
-- Creates CallLog always
-- Creates Complaint only if user confirmed via VAPI tool call
+- Creates CallLog always; creates Complaint only if user confirmed via `submit_complaint` tool call
+- **Callback scheduling (post-migration 020):** on complaint creation, inserts an `appointments` row with `type="callback"` and `tenant_phone=caller_phone` — agent books a manager callback slot, not an on-site visit
+- Inserts a `notifications` row (`type="callback"`) for the manager when a callback appointment is created
+- Resolves `manager_id` from caller phone → tenant → flat → building → properties_list chain
 - Uses `get_service_db` (bypasses RLS — call arrives without user JWT)
 
-**Lease lead webhook:** `POST /voice/lease-lead-webhook`
-- Accepts `submit_lease_lead` tool calls from the lease agent
-- Validates `listing_uuid` against a UUID regex before querying Supabase — hallucinated flat numbers (e.g. `"S-106"`) are discarded and `listing_uuid` is set to `None`
-- Resolves `property_group_id` and `manager_id` via three fallback paths in order:
-  1. `listing_uuid` → `lease_listings.property_group_id` (resolves property_group_id; manager_id then resolved from that row)
-  2. `call.assistantId` → `manager_vapi_config.vapi_lease_assistant_id` (resolves manager_id directly; property_group_id remains None unless Path 1 also matched)
-  3. `call.phoneNumberId` → `manager_vapi_config.vapi_phone_number_id` (resolves manager_id directly)
-- `search_available_listings` returns a structured JSON array; each element has `listing_uuid`, `flat_number`, `bedrooms`, `monthly_rent`, `floor_number`, `available_from`, `title` — the agent can now extract `listing_uuid` from search results
-- `interested_listing_ids` (UUID array) is written from `submit_lease_lead` tool call; each entry is validated against UUID regex before insert; the agent captures all listing UUIDs the caller showed interest in
-- `property_group_id` resolution path is logged as `[pg resolution] path=<path> property_group_id=<uuid>`
-- Inserts row into `lease_leads`; always returns HTTP 200
+**Lease lead webhooks:**
+
+`POST /voice/lease-lead-direct` (**primary path** — apiRequest version)
+- VAPI posts lead fields as flat JSON body; `call_id` and `phone` come as query params via VAPI template variables
+- Resolves `listing_uuid` → `lease_listings` to get `property_group_id` + `manager_id`; UUID validated with regex
+- Inserts into `lease_leads`; creates `notifications` row for qualified leads; updates `_last_call_ended_at`
+- Always returns HTTP 200
+
+`POST /voice/lease-lead-webhook` (**deprecated** — function-tool webhook version; logs deprecation warning)
+- Original webhook-style endpoint; still processes `submit_lease_lead` function tool calls
+- Same resolution logic (3-path fallback: listing_uuid → assistant_id → phone_number_id)
+- Validates `listing_uuid` against UUID regex; validates each entry in `interested_listing_ids`
+
+`POST /voice/lease-eoc-webhook`
+- Fallback for the lease agent's end-of-call-report
+- If `submit_lease_lead` was never called, creates a partial `unmatched` lead with transcript excerpt
+- For tool-call events routed here, returns neutral tool result to prevent VAPI from marking call as failed
+- Updates `_last_call_ended_at`
+
+Common to all lease webhooks:
+- `interested_listing_ids` (UUID array) validated against UUID regex before insert; agent captures all listing UUIDs the caller showed interest in
+- `property_group_id` resolution path logged as `[pg resolution] path=<path> property_group_id=<uuid>`
+- Always return HTTP 200
 
 **Outbound call:** `POST /voice/call/outbound`
 - Body: `{customer_number, agent, first_message?}` — `agent` is `"complaint"` (default) or `"lease"`
@@ -697,8 +744,8 @@ get_service_db()  # service-role client (bypasses RLS) — for webhooks, admin
 ### `app/services/vapi_agent_config.py`
 Four builder functions:
 - `build_assistant_config()` — legacy complaint agent (existing test group)
-- `build_complaint_config(backend_url)` — global complaint agent (Option B, multi-group)
-- `build_lease_config(backend_url, manager_id)` — per-manager lease agent; injects `manager_id` into tool URLs (`?manager_id=<UUID>`) so the agent searches listings across ALL property groups owned by this manager
+- `build_complaint_config(backend_url)` — global complaint agent (Option B, multi-group); complaint agent books **manager callbacks** (appointment `type="callback"`, `tenant_phone` set) — agent checks `check_availability` before scheduling, then calls `submit_complaint` with `appointment_date`
+- `build_lease_config(backend_url, manager_id)` — per-manager lease agent; injects `manager_id` into tool URLs (`?manager_id=<UUID>`) so the agent searches listings across ALL property groups owned by this manager; `submit_lease_lead` posts to `/voice/lease-lead-direct` (apiRequest)
 - `build_lease_config_shared(backend_url)` — shared lease agent with no manager scope (used by `update_shared_agents.py` and `setup_vapi_agents.py`)
 - `submit_lease_lead` tool includes `interested_listing_ids` (array of UUIDs) — agent captures all listing UUIDs the caller showed interest in, not just the primary one
 - `search_available_listings` tool description tells agent the response contains `listing_uuid` fields in the `listings` array
@@ -945,6 +992,7 @@ Used after voice/chatbot actions that modify data.
 
 ### VAPI Voice Webhook DB Client
 - `POST /voice/webhook` uses `get_service_db` (not `get_authenticated_db`) — inbound calls carry no user JWT
+- `GET /appointments/availability` uses `get_service_db` — called by VAPI before complaint submission, no user session
 
 ### VAPI Agent Types
 - Two agent roles: **complaint** (maintenance intake) and **lease** (lead capture)
@@ -1048,11 +1096,27 @@ Per-building feature control stored in `property_features` table.
 
 ## 14. Voice Call Flow (VAPI)
 
-1. Tenant calls the VAPI number
-2. VAPI agent (`VAPI_ASSISTANT_ID`) handles conversation
-3. For caller ID: VAPI calls `POST /flats/verify-phone` with phone number
-4. For tenant lookup: VAPI calls `GET /tenants/by-flat/{flat_no}`
-5. For appointments: VAPI calls `/appointments/view`, `/appointments/update`, `/appointments/cancel`
-6. At call end: VAPI fires `POST /voice/webhook` with transcript + event data
-7. Backend: creates `CallLog` always; creates `Complaint` only if user confirmed via tool
-8. Frontend polls `GET /voice/call-status` every 3 seconds to detect new calls
+### Complaint Agent Flow
+1. Tenant calls the VAPI complaint number (`+14382314283`)
+2. Agent asks for flat number → calls `POST /flats/verify-phone` (caller ID gate)
+3. Tenant describes issue → agent silently identifies category
+4. Agent asks for preferred callback time → calls `GET /appointments/availability` to check slot
+5. If unavailable: agent asks for another time; loops back
+6. If available: agent confirms details → calls `submit_complaint` tool
+7. Backend (`POST /voice/webhook`): creates Complaint + Appointment (`type="callback"`, `tenant_phone=caller`) + Notification for manager
+8. Frontend polls `GET /voice/call-status` every 3 seconds; refreshes on new timestamp
+
+### Existing Tenant Appointment Management
+- View: VAPI calls `GET /appointments/view?flat_number=`
+- Reschedule: checks availability → calls `PATCH /appointments/update`
+- Cancel: calls `PATCH /appointments/cancel`
+
+### Lease Agent Flow
+1. Prospect calls the manager's lease line (per-manager Twilio number)
+2. Agent greets bilingually; detects language; locks to it
+3. Agent captures prospect preferences (bedrooms, budget, move-in — all optional); immediately searches `GET /leasing/search`
+4. Agent matches listings; captures `listing_uuid` from search results; discusses options
+5. Agent collects name, contact info, qualifying answers
+6. At call end (or on demand): calls `submit_lease_lead` → `POST /voice/lease-lead-direct`
+7. EOC fallback: `POST /voice/lease-eoc-webhook` creates partial unmatched lead if no submit occurred
+8. Manager sees lead in `LeasingTab` → Leads table

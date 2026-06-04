@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../lib';
 import { createProperty } from '../services/apiService';
 
-export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId = null, initialAddress = null }) {
+export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId = null, initialAddress = null, initialCity = null, initialState = null, initialCountry = null }) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -15,7 +15,11 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
 
     const [formData, setFormData] = useState({
         flat_number: '',
-        address: '',
+        street_address: '',
+        address_line: '',
+        city: '',
+        state: '',
+        country: 'Canada',
         floor_number: '',
         bedrooms: '',
         bathrooms: '',
@@ -25,16 +29,26 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
     });
 
     useEffect(() => {
-        if (isOpen && initialAddress) {
-            setFormData(prev => ({ ...prev, address: initialAddress }));
-            setAddressAutoFilled(true);
+        if (isOpen) {
+            const updates = {};
+            if (initialCity) updates.city = initialCity;
+            if (initialState) updates.state = initialState;
+            if (initialCountry) updates.country = initialCountry;
+            if (Object.keys(updates).length > 0) {
+                setFormData(prev => ({ ...prev, ...updates }));
+                setAddressAutoFilled(true);
+            }
         }
-    }, [isOpen, initialAddress]);
+    }, [isOpen, initialCity, initialState, initialCountry]);
 
     const resetForm = () => {
         setFormData({
             flat_number: '',
-            address: '',
+            street_address: '',
+            address_line: '',
+            city: '',
+            state: '',
+            country: 'Canada',
             floor_number: '',
             bedrooms: '',
             bathrooms: '',
@@ -74,9 +88,11 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
             const formDataToSend = new FormData();
             formDataToSend.append('flat_number', formData.flat_number.trim().toUpperCase());
 
-            if (formData.address) {
-                formDataToSend.append('address', formData.address.trim());
-            }
+            if (formData.street_address) formDataToSend.append('street_address', formData.street_address.trim());
+            if (formData.address_line) formDataToSend.append('address_line', formData.address_line.trim());
+            if (formData.city) formDataToSend.append('city', formData.city.trim());
+            if (formData.state) formDataToSend.append('state', formData.state.trim());
+            if (formData.country) formDataToSend.append('country', formData.country.trim());
 
             if (formData.floor_number) {
                 formDataToSend.append('floor_number', formData.floor_number);
@@ -178,23 +194,60 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">{t('unit.address')}</label>
+                                    <label className="block text-sm font-medium mb-2">Street Address</label>
                                     <input
                                         type="text"
-                                        value={formData.address}
-                                        onChange={(e) => {
-                                            setFormData({ ...formData, address: e.target.value });
-                                            setAddressAutoFilled(false);
-                                        }}
+                                        value={formData.street_address}
+                                        onChange={(e) => setFormData({ ...formData, street_address: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        placeholder="123 Main St, Building A"
+                                        placeholder="e.g. Unit 4A"
                                     />
-                                    {addressAutoFilled && (
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Additional Address</label>
+                                    <input
+                                        type="text"
+                                        value={formData.address_line}
+                                        onChange={(e) => setFormData({ ...formData, address_line: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        placeholder="e.g. Suite 4B"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">City</label>
+                                    <input
+                                        type="text"
+                                        value={formData.city}
+                                        onChange={(e) => { setFormData({ ...formData, city: e.target.value }); setAddressAutoFilled(false); }}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        placeholder="e.g. Toronto"
+                                    />
+                                    {addressAutoFilled && formData.city && (
                                         <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
                                             <Info className="w-3 h-3" />
-                                            {t('unit.addressAutoFilled')}
+                                            Auto-filled from building
                                         </p>
                                     )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Province / State</label>
+                                    <input
+                                        type="text"
+                                        value={formData.state}
+                                        onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        placeholder="e.g. Ontario"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Country</label>
+                                    <input
+                                        type="text"
+                                        value={formData.country}
+                                        onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        placeholder="Canada"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-2">{t('unit.floorNumber')}</label>

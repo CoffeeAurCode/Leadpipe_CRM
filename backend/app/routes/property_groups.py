@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from supabase import Client
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
+from app.core.db_errors import clean_db_error
 from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
@@ -26,6 +27,10 @@ class PropertyGroupCreate(BaseModel):
     address: Optional[str] = None
     image_url: Optional[str] = None
     property_type_id: Optional[UUID] = None
+    street_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = "Canada"
 
 
 class PropertyGroupResponse(BaseModel):
@@ -33,6 +38,10 @@ class PropertyGroupResponse(BaseModel):
     name: str
     description: Optional[str] = None
     address: Optional[str] = None
+    street_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
     image_url: Optional[str] = None
     property_type_id: Optional[UUID] = None
     property_type_name: Optional[str] = None
@@ -78,6 +87,10 @@ async def get_all_property_groups(user: dict = Depends(require_active_subscripti
                 "name": g["name"],
                 "description": g.get("description"),
                 "address": g.get("address"),
+                "street_address": g.get("street_address"),
+                "city": g.get("city"),
+                "state": g.get("state"),
+                "country": g.get("country"),
                 "image_url": g.get("image_url"),
                 "property_type_id": g.get("property_type_id"),
                 "property_type_name": pt.get("name"),
@@ -254,6 +267,11 @@ async def get_property_buildings(property_id: str, user: dict = Depends(require_
                 "name": b["name"],
                 "description": b.get("description"),
                 "address": b.get("address"),
+                "street_address": b.get("street_address"),
+                "address_line": b.get("address_line"),
+                "city": b.get("city"),
+                "state": b.get("state"),
+                "country": b.get("country"),
                 "image_url": b.get("image_url"),
                 "property_type_id": b.get("property_type_id"),
                 "property_id": b.get("property_id"),
@@ -272,11 +290,50 @@ async def get_property_buildings(property_id: str, user: dict = Depends(require_
         )
 
 
+class BulkDeletePropertyGroupsRequest(BaseModel):
+    ids: List[str]
+
+
+@router.delete("/bulk", status_code=status.HTTP_200_OK)
+async def bulk_delete_property_groups(
+    request: BulkDeletePropertyGroupsRequest,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    """Bulk delete property groups with full cascade."""
+    deleted = 0
+    errors = []
+    for property_id in request.ids:
+        try:
+            prop_resp = db.table("properties_list").select("id").eq("id", property_id).execute()
+            if not prop_resp.data:
+                errors.append(f"{property_id}: not found")
+                continue
+            buildings_resp = db.table("buildings").select("id").eq("property_id", property_id).execute()
+            building_ids = [b["id"] for b in buildings_resp.data]
+            if building_ids:
+                flats_resp = db.table("flats").select("uuid, tenant_uuid").in_("building_id", building_ids).execute()
+                flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
+                tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
+                if flat_uuids:
+                    db.table("lease_listings").delete().in_("flat_uuid", flat_uuids).execute()
+                    db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
+                if tenant_uuids:
+                    db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
+                db.table("flats").delete().in_("building_id", building_ids).execute()
+                db.table("buildings").delete().eq("property_id", property_id).execute()
+            db.table("properties_list").delete().eq("id", property_id).execute()
+            deleted += 1
+        except Exception as e:
+            errors.append(f"{property_id}: {clean_db_error(e)}")
+    return {"deleted": deleted, "errors": errors}
+
+
 @router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_property_group(property_id: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """
-    Delete a property group and cascade-delete all buildings, flats, rents, and tenants within it.
-    Order: tenants → rents → flats → buildings → property group
+    Delete a property group and cascade-delete all buildings, flats, rents, tenants,
+    and lease_listings within it.
     """
     try:
         prop_resp = db.table("properties_list").select("id").eq("id", property_id).execute()
@@ -292,17 +349,18 @@ async def delete_property_group(property_id: str, user: dict = Depends(require_a
         if building_ids:
             flats_resp = (
                 db.table("flats")
-                .select("id, uuid, tenant_uuid")
+                .select("uuid, tenant_uuid")
                 .in_("building_id", building_ids)
                 .execute()
             )
             flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
             tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
 
+            if flat_uuids:
+                db.table("lease_listings").delete().in_("flat_uuid", flat_uuids).execute()
+                db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
             if tenant_uuids:
                 db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
-            if flat_uuids:
-                db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
             db.table("flats").delete().in_("building_id", building_ids).execute()
             db.table("buildings").delete().eq("property_id", property_id).execute()
 
@@ -314,5 +372,5 @@ async def delete_property_group(property_id: str, user: dict = Depends(require_a
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting property group: {str(e)}"
+            detail=f"Error deleting property group: {clean_db_error(e)}"
         )

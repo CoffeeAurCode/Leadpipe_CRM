@@ -218,7 +218,12 @@ function FlatDetailModal({ flatUuid, onClose, onFlatUpdate, onDelete }) {
                                     </h2>
                                     <div className="flex items-center gap-2 mt-1 text-muted-foreground">
                                         <MapPin className="w-4 h-4" />
-                                        <span>{flatDetails.address || t('unit.addressNotSpecified')}</span>
+                                        <span>{
+                                            (() => {
+                                                const parts = [flatDetails.street_address, flatDetails.address_line, flatDetails.city, flatDetails.state, flatDetails.country].filter(Boolean);
+                                                return parts.length > 0 ? parts.join(', ') : (flatDetails.address || t('unit.addressNotSpecified'));
+                                            })()
+                                        }</span>
                                     </div>
                                     {/* Occupancy Badge */}
                                     <div className="mt-2">

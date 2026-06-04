@@ -16,11 +16,16 @@ class FlatBase(BaseModel):
 class FlatCreate(BaseModel):
     """Schema for creating a new flat"""
     flat_number: str = Field(..., description="Unique flat/unit identifier (e.g., '101', 'A-205')")
-    address: Optional[str] = Field(None, description="Building address or identifier")
+    address: Optional[str] = Field(None, description="Legacy free-text address")
     floor_number: Optional[int] = Field(None, ge=0, description="Floor number")
     bedrooms: Optional[int] = Field(None, ge=1, le=10, description="Number of bedrooms")
     bathrooms: Optional[int] = Field(None, ge=0, le=10, description="Number of bathrooms")
     image_url: Optional[str] = Field(None, description="URL to property image in Supabase Storage")
+    street_address: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = "Canada"
 
 
 class FlatUpdate(BaseModel):
@@ -30,6 +35,11 @@ class FlatUpdate(BaseModel):
     bedrooms: Optional[int] = Field(None, ge=0, le=10)
     bathrooms: Optional[int] = Field(None, ge=0, le=10)
     occupied: Optional[bool] = None
+    street_address: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
 
 
 class TenantResponse(BaseModel):
@@ -49,10 +59,15 @@ class FlatResponse(FlatBase):
     uuid: UUID
     created_at: datetime
     image_url: Optional[str] = None
-    tenant_uuid: Optional[UUID] = None          # FK to tenant
-    tenant: Optional[TenantResponse] = None     # Nested tenant details
-    building_id: Optional[UUID] = None          # NEW: FK to buildings table (nullable)
-    property_type_id: Optional[UUID] = None     # NEW: FK to property_types (nullable)
+    tenant_uuid: Optional[UUID] = None
+    tenant: Optional[TenantResponse] = None
+    building_id: Optional[UUID] = None
+    property_type_id: Optional[UUID] = None
+    street_address: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

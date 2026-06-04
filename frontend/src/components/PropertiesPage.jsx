@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Building2, Plus, Home, Hash, Bed, Bath,
-    CheckCircle2, XCircle, ArrowLeft, Layers, Trash2, Upload
+    CheckCircle2, XCircle, ArrowLeft, Layers, Trash2, Upload,
+    Square, CheckSquare
 } from 'lucide-react';
 import { cn } from '@/lib';
 
@@ -23,7 +24,24 @@ import {
     fetchPropertyBuildings,
     deletePropertyGroup,
     deleteBuilding,
+    bulkDeletePropertyGroups,
+    bulkDeleteBuildings,
+    bulkDeleteFlats,
 } from '../services/apiService';
+
+// ── Address helper ────────────────────────────────────────────────────────────
+
+function formatAddress(entity) {
+    const parts = [
+        entity.street_address,
+        entity.address_line,
+        entity.city,
+        entity.state,
+        entity.country,
+    ].filter(Boolean);
+    if (parts.length > 0) return parts.join(', ');
+    return entity.address || '';
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -49,22 +67,29 @@ function Breadcrumb({ segments, onBack }) {
 }
 
 /** Card for a property group (top-level estate/property) */
-function PropertyGroupCard({ property, onClick }) {
+function PropertyGroupCard({ property, onClick, selectMode = false, isSelected = false, onToggle }) {
     const { t } = useTranslation();
     const coverImage = property.image_url ||
         'https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=2574&auto=format&fit=crop';
 
     const typeIcons = { house: '🏠', shop: '🏪', apartment: '🏢' };
 
+    const handleClick = () => {
+        if (selectMode) onToggle?.(String(property.id));
+        else onClick(property);
+    };
+
     return (
         <motion.div
             whileHover={{ y: -2 }}
             transition={{ duration: 0.2 }}
-            onClick={() => onClick(property)}
+            onClick={handleClick}
             className={cn(
-                'bg-card border border-border rounded-xl overflow-hidden cursor-pointer group',
-                'hover:border-primary hover:shadow-lg hover:shadow-primary/10',
-                'transition-colors duration-200'
+                'bg-card border rounded-xl overflow-hidden cursor-pointer group',
+                'hover:shadow-lg hover:shadow-primary/10 transition-colors duration-200',
+                isSelected
+                    ? 'border-primary ring-2 ring-primary/30 hover:border-primary'
+                    : 'border-border hover:border-primary'
             )}
         >
             {/* Cover */}
@@ -76,6 +101,14 @@ function PropertyGroupCard({ property, onClick }) {
                     onError={e => { e.target.src = 'https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=2574&auto=format&fit=crop'; }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                {selectMode && (
+                    <div className="absolute top-3 left-3">
+                        {isSelected
+                            ? <CheckSquare className="w-5 h-5 text-primary drop-shadow" />
+                            : <Square className="w-5 h-5 text-white drop-shadow" />
+                        }
+                    </div>
+                )}
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-white text-xs font-medium">
                     <Building2 className="w-3.5 h-3.5" />
                     <span>{property.building_count} {t('properties.building', {count: property.building_count})}</span>
@@ -94,8 +127,8 @@ function PropertyGroupCard({ property, onClick }) {
                         </span>
                     )}
                 </div>
-                {property.address && (
-                    <p className="text-xs text-muted-foreground line-clamp-1">{property.address}</p>
+                {formatAddress(property) && (
+                    <p className="text-xs text-muted-foreground line-clamp-1">{formatAddress(property)}</p>
                 )}
             </div>
         </motion.div>
@@ -103,7 +136,7 @@ function PropertyGroupCard({ property, onClick }) {
 }
 
 /** Unit card — used in both drill-down view and flat Unit View */
-function UnitCard({ unit, onClick, buildingName, propertyTypeName }) {
+function UnitCard({ unit, onClick, buildingName, propertyTypeName, selectMode = false, isSelected = false, onToggle }) {
     const { t } = useTranslation();
     const isOccupied = !!unit.tenant_uuid;
     const flatNum = unit.flat_number;
@@ -111,23 +144,36 @@ function UnitCard({ unit, onClick, buildingName, propertyTypeName }) {
     const beds = unit.bedrooms;
     const baths = unit.bathrooms;
 
+    const handleClick = () => {
+        if (selectMode) onToggle?.(unit.uuid);
+        else onClick(unit);
+    };
+
     return (
         <motion.div
             whileHover={{ y: -1 }}
             transition={{ duration: 0.15 }}
-            onClick={() => onClick(unit)}
+            onClick={handleClick}
             className={cn(
-                'bg-card border border-border rounded-xl p-4 cursor-pointer group',
-                'hover:border-primary hover:shadow-md hover:shadow-primary/10',
-                'transition-all duration-200'
+                'bg-card border rounded-xl p-4 cursor-pointer group',
+                'hover:shadow-md hover:shadow-primary/10 transition-all duration-200',
+                isSelected
+                    ? 'border-primary ring-2 ring-primary/30 hover:border-primary'
+                    : 'border-border hover:border-primary'
             )}
         >
             {/* Header */}
             <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                    <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-secondary">
-                        <Hash className="w-4 h-4 text-primary" />
-                    </span>
+                    {selectMode ? (
+                        isSelected
+                            ? <CheckSquare className="w-5 h-5 text-primary flex-shrink-0" />
+                            : <Square className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                    ) : (
+                        <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-secondary">
+                            <Hash className="w-4 h-4 text-primary" />
+                        </span>
+                    )}
                     <div>
                         <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                             {t('properties.unitLabel')} {flatNum}
@@ -226,6 +272,38 @@ function PropertiesPage() {
     const [error, setError] = useState(null);
     const [deletingProperty, setDeletingProperty] = useState(false);
     const [deletingBuilding, setDeletingBuilding] = useState(false);
+
+    // ── Select mode ───────────────────────────────────────────────────────────
+    const [selectMode, setSelectMode] = useState(false);
+    const [selectedPropertyIds, setSelectedPropertyIds] = useState(new Set());
+    const [selectedBuildingIds, setSelectedBuildingIds] = useState(new Set());
+    const [selectedFlatUuids, setSelectedFlatUuidsSet] = useState(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [bulkError, setBulkError] = useState(null);
+
+    const togglePropertySelection = useCallback((id) => {
+        setSelectedPropertyIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    }, []);
+
+    const toggleBuildingSelection = useCallback((id) => {
+        setSelectedBuildingIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    }, []);
+
+    const toggleFlatSelection = useCallback((uuid) => {
+        setSelectedFlatUuidsSet(prev => {
+            const next = new Set(prev);
+            if (next.has(uuid)) next.delete(uuid); else next.add(uuid);
+            return next;
+        });
+    }, []);
 
     // ── Navigation state ──────────────────────────────────────────────────────
     const [viewMode, setViewMode] = useState('properties'); // 'properties' | 'buildings' | 'units'
@@ -407,6 +485,69 @@ function PropertiesPage() {
         setSelectedFlatUuid(null);
     };
 
+    const exitSelectMode = () => {
+        setSelectMode(false);
+        setSelectedPropertyIds(new Set());
+        setSelectedBuildingIds(new Set());
+        setSelectedFlatUuidsSet(new Set());
+        setBulkError(null);
+    };
+
+    const handleBulkDelete = async () => {
+        const propertyCount = selectedPropertyIds.size;
+        const buildingCount = selectedBuildingIds.size;
+        const flatCount = selectedFlatUuids.size;
+        const total = propertyCount + buildingCount + flatCount;
+        if (total === 0) return;
+
+        const label = [
+            propertyCount > 0 && `${propertyCount} propert${propertyCount === 1 ? 'y' : 'ies'}`,
+            buildingCount > 0 && `${buildingCount} building${buildingCount === 1 ? '' : 's'}`,
+            flatCount > 0 && `${flatCount} unit${flatCount === 1 ? '' : 's'}`,
+        ].filter(Boolean).join(', ');
+
+        if (!window.confirm(
+            `Delete ${label}? All linked tenants, rents, and listings will also be removed.\n\nThis cannot be undone.`
+        )) return;
+
+        setBulkDeleting(true);
+        setBulkError(null);
+        const allErrors = [];
+
+        try {
+            if (propertyCount > 0) {
+                const r = await bulkDeletePropertyGroups([...selectedPropertyIds]);
+                allErrors.push(...(r.errors || []));
+                const deletedIds = new Set([...selectedPropertyIds].filter((id, idx) => !r.errors?.some(e => e.startsWith(id))));
+                setPropertyGroups(prev => prev.filter(p => !deletedIds.has(String(p.id))));
+            }
+            if (buildingCount > 0) {
+                const r = await bulkDeleteBuildings([...selectedBuildingIds]);
+                allErrors.push(...(r.errors || []));
+                const deletedIds = new Set([...selectedBuildingIds].filter(id => !r.errors?.some(e => e.startsWith(id))));
+                setBuildings(prev => prev.filter(b => !deletedIds.has(String(b.id))));
+                if (selectedProperty) setPropertyBuildings(prev => prev.filter(b => !deletedIds.has(String(b.id))));
+            }
+            if (flatCount > 0) {
+                const r = await bulkDeleteFlats([...selectedFlatUuids]);
+                allErrors.push(...(r.errors || []));
+                const deletedUuids = new Set([...selectedFlatUuids].filter(u => !r.errors?.some(e => e.startsWith(u))));
+                setBuildingUnits(prev => prev.filter(u => !deletedUuids.has(u.uuid)));
+                setAllUnits(prev => prev.filter(u => !deletedUuids.has(u.uuid)));
+            }
+        } catch (err) {
+            setBulkError(err.message || 'Bulk delete failed.');
+        } finally {
+            setBulkDeleting(false);
+            if (allErrors.length === 0) {
+                exitSelectMode();
+            } else {
+                setBulkError(`${total - allErrors.length} deleted. ${allErrors.length} failed.`);
+                setSelectMode(false);
+            }
+        }
+    };
+
     const handleFlatUpdate = (updatedFlat) => {
         setAllUnits(prev => prev.map(u => u.uuid === updatedFlat.uuid
             ? { ...u, tenant_uuid: updatedFlat.tenant_uuid, occupied: !!updatedFlat.tenant_uuid }
@@ -521,16 +662,9 @@ function PropertiesPage() {
                     onClose={() => setShowAddUnit(false)}
                     onSuccess={handleUnitAdded}
                     initialBuildingId={selectedBuilding?.id ?? null}
-                    initialAddress={(() => {
-                        if (!selectedBuilding) return null;
-                        const prop = propertyGroups.find(p => p.id === selectedBuilding.property_id);
-                        return [
-                            selectedBuilding.name,
-                            selectedBuilding.address,
-                            prop?.name,
-                            prop?.address,
-                        ].filter(Boolean).join(', ') || null;
-                    })()}
+                    initialCity={selectedBuilding?.city ?? null}
+                    initialState={selectedBuilding?.state ?? null}
+                    initialCountry={selectedBuilding?.country ?? null}
                 />
             </div>
         );
@@ -550,7 +684,7 @@ function PropertiesPage() {
                         <h2 className="text-2xl font-bold text-foreground">{selectedProperty.name}</h2>
                         <p className="text-sm text-muted-foreground mt-0.5">
                             {selectedProperty.building_count} {t('properties.building', {count: selectedProperty.building_count})}
-                            {selectedProperty.address && <> · {selectedProperty.address}</>}
+                            {formatAddress(selectedProperty) && <> · {formatAddress(selectedProperty)}</>}
                         </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -590,6 +724,9 @@ function PropertiesPage() {
                                     onClick={drillIntoBuilding}
                                     onInfo={setInfoBuilding}
                                     showPropertyType={true}
+                                    selectMode={selectMode}
+                                    isSelected={selectedBuildingIds.has(String(b.id))}
+                                    onToggle={toggleBuildingSelection}
                                 />
                             </motion.div>
                         ))}
@@ -602,6 +739,7 @@ function PropertiesPage() {
                     onClose={() => setShowAddBuilding(false)}
                     onSuccess={handleBuildingAdded}
                     initialPropertyId={selectedProperty?.id ?? null}
+                    propertyGroups={propertyGroups}
                 />
                 {selectedFlatUuid && (
                     <FlatDetailModal
@@ -663,7 +801,26 @@ function PropertiesPage() {
                 >
                     <Upload className="w-4 h-4" /> {t('properties.importCsv')}
                 </button>
+                <button
+                    onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
+                    className={cn(
+                        'flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium transition-colors',
+                        selectMode
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-secondary text-foreground hover:bg-secondary/80'
+                    )}
+                >
+                    {selectMode ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                    {selectMode ? 'Cancel Select' : 'Select'}
+                </button>
             </div>
+
+            {/* Bulk error message */}
+            {bulkError && (
+                <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-sm">
+                    {bulkError}
+                </div>
+            )}
 
             <AnimatePresence mode="wait">
                 {/* ── PROPERTIES VIEW (true top-level property entities) ── */}
@@ -680,7 +837,13 @@ function PropertiesPage() {
                             <CardGrid>
                                 {propertyGroups.map(p => (
                                     <motion.div key={p.id} variants={cardVariants}>
-                                        <PropertyGroupCard property={p} onClick={drillIntoProperty} />
+                                        <PropertyGroupCard
+                                            property={p}
+                                            onClick={drillIntoProperty}
+                                            selectMode={selectMode}
+                                            isSelected={selectedPropertyIds.has(String(p.id))}
+                                            onToggle={togglePropertySelection}
+                                        />
                                     </motion.div>
                                 ))}
                             </CardGrid>
@@ -703,6 +866,9 @@ function PropertiesPage() {
                                             onClick={drillIntoBuilding}
                                             onInfo={setInfoBuilding}
                                             showPropertyType={true}
+                                            selectMode={selectMode}
+                                            isSelected={selectedBuildingIds.has(String(b.id))}
+                                            onToggle={toggleBuildingSelection}
                                         />
                                     </motion.div>
                                 ))}
@@ -731,6 +897,9 @@ function PropertiesPage() {
                                                 onClick={handleUnitClick}
                                                 buildingName={building?.name}
                                                 propertyTypeName={building?.property_type_name}
+                                                selectMode={selectMode}
+                                                isSelected={selectedFlatUuids.has(unit.uuid)}
+                                                onToggle={toggleFlatSelection}
                                             />
                                         </motion.div>
                                     );
@@ -740,6 +909,30 @@ function PropertiesPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* ── Floating bulk-action bar ── */}
+            {selectMode && (selectedPropertyIds.size + selectedBuildingIds.size + selectedFlatUuids.size) > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-card border border-border shadow-xl shadow-black/20">
+                    <span className="text-sm font-medium text-foreground">
+                        {selectedPropertyIds.size + selectedBuildingIds.size + selectedFlatUuids.size} selected
+                    </span>
+                    <div className="w-px h-5 bg-border" />
+                    <button
+                        onClick={exitSelectMode}
+                        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleBulkDelete}
+                        disabled={bulkDeleting}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {bulkDeleting ? 'Deleting…' : 'Delete selected'}
+                    </button>
+                </div>
+            )}
 
             {/* ── Modals ── */}
             {selectedFlatUuid && (
@@ -760,6 +953,7 @@ function PropertiesPage() {
                 isOpen={showAddBuilding}
                 onClose={() => setShowAddBuilding(false)}
                 onSuccess={handleBuildingAdded}
+                propertyGroups={propertyGroups}
             />
             <AddPropertyModal
                 isOpen={showAddUnit}
