@@ -1,0 +1,2 @@
+name,phone,flat_number,email,lease_start_date,lease_end_date,rent_amount,rent_status,manager_notes
+Full Optional,+15145559040,CSV-R101,full@test.com,2026-01-01,2026-12-31,1450,On-time,Has dog. Pays early.

@@ -1,0 +1,4 @@
+property_name,building_name,flat_number,property_address,floor_number,bedrooms,bathrooms
+CSV Test Prop,CSV Test Block A,CSV-A101,100 Test Ave Montreal QC,1,1,1
+CSV Test Prop,CSV Test Block A,CSV-A102,100 Test Ave Montreal QC,2,2,1
+CSV Test Prop,CSV Test Block B,CSV-B101,100 Test Ave Montreal QC,1,3,2

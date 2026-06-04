@@ -1,0 +1,5 @@
+property_name,building_name,flat_number,bedrooms,bathrooms
+CSV Group Alpha,Alpha Tower,CSV-GA01,1,1
+CSV Group Alpha,Alpha Tower,CSV-GA02,2,1
+CSV Group Beta,Beta Lodge,CSV-GB01,3,2
+CSV Group Beta,Beta Annex,CSV-GB02,1,1

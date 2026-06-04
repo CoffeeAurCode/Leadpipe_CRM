@@ -1,0 +1,2 @@
+property_name,building_name,flat_number,floor_number,bedrooms,bathrooms
+Numeric Test Prop,Numeric Block,CSV-NUM01,one,two point five,1.5

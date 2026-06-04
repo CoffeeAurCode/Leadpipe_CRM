@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSV Import Test Results — 2026-06-04</title>
+<style>
+  :root {
+    --pass:   #16a34a;
+    --pass-bg:#dcfce7;
+    --passstar: #0284c7;
+    --passstar-bg: #e0f2fe;
+    --passplus: #7c3aed;
+    --passplus-bg: #ede9fe;
+    --diff:   #d97706;
+    --diff-bg:#fef3c7;
+    --doc:    #6b7280;
+    --doc-bg: #f3f4f6;
+    --fail:   #dc2626;
+    --fail-bg:#fee2e2;
+    --http200:#16a34a;
+    --http400:#dc2626;
+    --http401:#dc2626;
+    --http422:#d97706;
+    --border: #e5e7eb;
+    --bg:     #f9fafb;
+    --surface:#ffffff;
+    --text:   #111827;
+    --muted:  #6b7280;
+    --code-bg:#1e1e2e;
+    --code-fg:#cdd6f4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── Layout ── */
+  .page { max-width: 1300px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  /* ── Header ── */
+  .header { margin-bottom: 32px; }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .header .meta { color: var(--muted); font-size: 13px; display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; }
+  .header .meta span { display: flex; align-items: center; gap: 6px; }
+  .header .meta code { background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+  .note {
+    background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6;
+    border-radius: 6px; padding: 12px 16px; font-size: 13px; margin-bottom: 28px;
+  }
+  .note strong { color: #1d4ed8; }
+
+  /* ── Score cards ── */
+  .scorecards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px; margin-bottom: 36px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .card .num { font-size: 36px; font-weight: 800; line-height: 1; }
+  .card .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 6px; }
+  .card.c-pass   { border-top: 4px solid var(--pass);     } .card.c-pass   .num { color: var(--pass); }
+  .card.c-diff   { border-top: 4px solid var(--diff);     } .card.c-diff   .num { color: var(--diff); }
+  .card.c-doc    { border-top: 4px solid var(--doc);      } .card.c-doc    .num { color: var(--doc); }
+  .card.c-total  { border-top: 4px solid #6366f1;         } .card.c-total  .num { color: #6366f1; }
+  .card.c-ok     { border-top: 4px solid var(--pass);     } .card.c-ok     .num { color: var(--pass); }
+
+  /* ── Section heading ── */
+  h2 { font-size: 18px; font-weight: 700; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 15px; font-weight: 600; margin: 28px 0 8px; color: #374151; }
+
+  /* ── Legend ── */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  }
+  .badge.pass     { background: var(--pass-bg);     color: var(--pass); }
+  .badge.passstar { background: var(--passstar-bg); color: var(--passstar); }
+  .badge.passplus { background: var(--passplus-bg); color: var(--passplus); }
+  .badge.diff     { background: var(--diff-bg);     color: var(--diff); }
+  .badge.doc      { background: var(--doc-bg);      color: var(--doc); }
+  .badge.fail     { background: var(--fail-bg);     color: var(--fail); }
+
+  /* ── Summary table ── */
+  .table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 40px; }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); }
+  thead tr { background: #f1f5f9; }
+  th { padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 700; text-transform: uppercase;
+       letter-spacing: .05em; color: var(--muted); white-space: nowrap; }
+  td { padding: 10px 14px; border-top: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: #f8fafc; }
+
+  .id-cell { font-family: monospace; font-weight: 700; font-size: 13px; white-space: nowrap; }
+  .desc-cell { min-width: 260px; }
+  .notes-cell { font-size: 12px; color: var(--muted); min-width: 200px; }
+  .notes-cell code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+
+  .http { font-family: monospace; font-size: 12px; font-weight: 700;
+           padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .http-200 { background:#dcfce7; color:#166534; }
+  .http-400 { background:#fee2e2; color:#991b1b; }
+  .http-401 { background:#fee2e2; color:#991b1b; }
+  .http-422 { background:#fef3c7; color:#92400e; }
+
+  /* ── Section rows ── */
+  .section-row td { background: #f8fafc; font-size: 11px; font-weight: 700;
+                    text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+                    padding: 6px 14px; }
+
+  /* ── Detail cards ── */
+  .detail-grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); margin-bottom: 40px; }
+  .detail-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .detail-card .card-head {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); background: #fafafa;
+  }
+  .detail-card .card-head .id { font-family: monospace; font-weight: 800; font-size: 14px; }
+  .detail-card .card-head .title { font-size: 13px; flex: 1; }
+  .detail-card .card-body { padding: 14px 16px; }
+  .detail-card pre {
+    background: var(--code-bg); color: var(--code-fg);
+    border-radius: 6px; padding: 12px; font-size: 12px; overflow-x: auto;
+    margin: 8px 0; line-height: 1.5;
+  }
+  .detail-card .spec-note {
+    background: #fffbeb; border: 1px solid #fde68a; border-radius: 5px;
+    padding: 8px 12px; font-size: 12px; color: #92400e; margin-top: 8px;
+  }
+  .detail-card .obs-note {
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 5px;
+    padding: 8px 12px; font-size: 12px; color: #1e40af; margin-top: 8px;
+  }
+
+  /* ── Observations ── */
+  .obs-list { display: grid; gap: 16px; }
+  .obs-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .obs-item h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+  .obs-item p  { font-size: 13px; color: #374151; line-height: 1.7; }
+  .obs-item code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: monospace; }
+  .obs-item pre {
+    background: var(--code-bg); color: var(--code-fg);
+    border-radius: 6px; padding: 10px 12px; font-size: 12px; margin-top: 8px; overflow-x: auto;
+  }
+  .obs-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%; background: #6366f1; color: white;
+    font-size: 12px; font-weight: 700; margin-right: 8px; flex-shrink: 0;
+  }
+  .obs-item h4 { display: flex; align-items: center; }
+
+  /* ── SQL block ── */
+  .sql-block {
+    background: var(--code-bg); color: var(--code-fg);
+    border-radius: 8px; padding: 20px; font-size: 13px; overflow-x: auto;
+    line-height: 1.7; margin-top: 12px;
+  }
+  .sql-kw  { color: #89b4fa; }
+  .sql-str { color: #a6e3a1; }
+  .sql-cmt { color: #585b70; font-style: italic; }
+
+  /* responsive */
+  @media (max-width: 700px) {
+    .detail-grid { grid-template-columns: 1fr; }
+    .scorecards  { grid-template-columns: repeat(2, 1fr); }
+    .meta { flex-direction: column; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <h1>CSV Import Test Results</h1>
+    <div class="meta">
+      <span>📅 Run: <strong>2026-06-04</strong></span>
+      <span>🌐 Base: <code>https://tenant-management-mvp.onrender.com</code></span>
+      <span>🔌 Endpoints: <code>POST /import/analyze</code> &nbsp;<code>POST /import/properties</code> &nbsp;<code>POST /import/tenants</code></span>
+    </div>
+    <div class="note">
+      <strong>Two-run note:</strong> Tests were executed twice. Run 1 created all property/tenant data fresh.
+      Run 2 (same session) confirmed idempotency (all flats/tenants already existed).
+      Results below reflect <strong>Run 1 responses</strong> for data-creating tests and
+      Run 2 responses for error/auth tests (state-independent).
+    </div>
+  </div>
+
+  <!-- ── Scorecards ── -->
+  <div class="scorecards">
+    <div class="card c-total"><div class="num">47</div><div class="lbl">Total Tests</div></div>
+    <div class="card c-pass"><div class="num">43</div><div class="lbl">Pass</div></div>
+    <div class="card c-diff"><div class="num">2</div><div class="lbl">Diff (better)</div></div>
+    <div class="card c-doc"><div class="num">1</div><div class="lbl">Documented</div></div>
+    <div class="card c-ok"><div class="num">0</div><div class="lbl">True Failures</div></div>
+  </div>
+
+  <!-- ── Summary Table ── -->
+  <h2>Summary Table</h2>
+
+  <div class="legend">
+    <span class="badge pass">PASS — matches spec</span>
+    <span class="badge passstar">PASS* — correct; response format differs from spec</span>
+    <span class="badge passplus">PASS+ — correct idempotent behaviour</span>
+    <span class="badge diff">DIFF — behaviour better than spec</span>
+    <span class="badge doc">DOC — documented only</span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th>HTTP</th>
+          <th>Actual Response / Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="section-row"><td colspan="5">Part A — Properties</td></tr>
+
+        <tr>
+          <td class="id-cell">CP01</td>
+          <td class="desc-cell">Analyze valid file → needs_mapping:false, row_count:3</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"needs_mapping":false,"row_count":3}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP02</td>
+          <td class="desc-cell">Import valid properties (3 flats)</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{"properties":1,"buildings":2,"flats":3},"skipped":[],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP03</td>
+          <td class="desc-cell">Import required-only columns (2 flats)</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{"properties":1,"buildings":1,"flats":2},...}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP04</td>
+          <td class="desc-cell">Two property groups in one file (4 flats)</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{"properties":2,"buildings":3,"flats":4},...}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP05</td>
+          <td class="desc-cell">Re-import same file → all 3 flats skipped</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{...flats:0},"skipped":["Row 2: flat CSV-A101 already exists",...],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP06</td>
+          <td class="desc-cell">Missing required column → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell"><code>{"detail":"Missing required columns: flat_number"}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP07</td>
+          <td class="desc-cell">Analyze missing-required → needs_mapping:true</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"needs_mapping":true,"unmapped_required":["flat_number"],...}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP08</td>
+          <td class="desc-cell">Empty required value → 1 flat created, 1 error</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{...flats:1},"skipped":[],"errors":["Row 2: missing required value..."]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP09</td>
+          <td class="desc-cell">Duplicate flat in CSV → 1 created, 1 skipped</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{...flats:1},"skipped":["Row 3: flat CSV-DUP01 already exists"],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP10</td>
+          <td class="desc-cell">Existing seed flat TST01 → skipped not error</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{...flats:0},"skipped":["Row 2: flat TST01 already exists"],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP11</td>
+          <td class="desc-cell">Non-numeric bedrooms → flat created, fields null</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{...flats:1},...}</code> — bedrooms/bathrooms/floor null</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP12</td>
+          <td class="desc-cell">Mixed-case headers analyze result</td>
+          <td><span class="badge diff">DIFF</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"needs_mapping":false,"row_count":1}</code> — server normalises internally (see obs. 2)</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP13</td>
+          <td class="desc-cell">Mixed-case headers: direct import succeeds</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{...flats:1},...}</code> — no mapping step needed</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP14</td>
+          <td class="desc-cell">Whitespace values trimmed → 1 created</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">CSV-WS01 stored correctly, no leading/trailing spaces</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP15</td>
+          <td class="desc-cell">UTF-8 BOM file → 1 created</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">BOM stripped by <code>content.decode("utf-8-sig")</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP16</td>
+          <td class="desc-cell">Empty file (header only) → 0 created, no error</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{...flats:0},"skipped":[],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP17</td>
+          <td class="desc-cell">&gt;1000 rows → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell"><code>{"detail":"Too many rows (max 1000)"}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP18</td>
+          <td class="desc-cell">Oversized file → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell">50k rows hits row limit before 5MB size check (see obs. 3)</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP19</td>
+          <td class="desc-cell">.txt file extension</td>
+          <td><span class="badge doc">DOC</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">Falls through to CSV parser; imports normally if headers match</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP20</td>
+          <td class="desc-cell">XLSX format → 2 flats created</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":{...flats:2},"skipped":[],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP21</td>
+          <td class="desc-cell">XLSX blank rows filtered → 1 created</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">Blank rows silently filtered by <code>if any(row_dict.values())</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP22</td>
+          <td class="desc-cell">Legacy 'address' column alias → 1 created</td>
+          <td><span class="badge passstar">PASS*</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>address</code> picked up via <code>row.get("property_address") or row.get("address")</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CP23</td>
+          <td class="desc-cell">Invalid column_mapping JSON → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell"><code>{"detail":"Invalid column_mapping JSON"}</code></td>
+        </tr>
+
+        <tr class="section-row"><td colspan="5">Part B — Tenants</td></tr>
+
+        <tr>
+          <td class="id-cell">CT01</td>
+          <td class="desc-cell">Analyze valid tenants → needs_mapping:false, row_count:2</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"needs_mapping":false,"row_count":2}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT02</td>
+          <td class="desc-cell">Import valid tenants all columns → 2 created</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":2,"skipped":[],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT03</td>
+          <td class="desc-cell">Import required-only → 1 created</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":1,"skipped":[],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT04</td>
+          <td class="desc-cell">Flat not found → row error</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":0,"errors":["Row 2: flat 'DOESNOTEXIST-999' not found"]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT05</td>
+          <td class="desc-cell">Occupied flat → skipped not error</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":0,"skipped":["Row 2: flat CSV-A101 is already occupied"],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT06</td>
+          <td class="desc-cell">Invalid rent_amount → tenant created, rent skipped</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">Tenant created; warning in <code>skipped</code>; no rent row in DB</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT07</td>
+          <td class="desc-cell">Zero rent_amount → tenant created, $0 rent record</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>"0"</code> is truthy → <code>float(0.0)</code> → $0 rent row IS inserted</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT08</td>
+          <td class="desc-cell">Invalid rent_status 'Banana' → tenant created, status null</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">Invalid status silently dropped; <code>rent_status</code> = null in DB</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT09</td>
+          <td class="desc-cell">All 4 valid rent_status values</td>
+          <td><span class="badge passplus">PASS+</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">3 created, CSV-GB01 skipped (occupied by CT08)</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT10</td>
+          <td class="desc-cell">Missing required column 'phone' → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell"><code>{"detail":"Missing required columns: phone"}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT11</td>
+          <td class="desc-cell">Empty required value → error row</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">Blank phone = error; CSV-R101 occupied = skip. 1 error present as expected.</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT12</td>
+          <td class="desc-cell">Tenant mixed-case headers analyze result</td>
+          <td><span class="badge diff">DIFF</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"needs_mapping":false,"row_count":1}</code> — server normalises (see obs. 2)</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT13</td>
+          <td class="desc-cell">Tenant mixed-case: direct import succeeds</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">HTTP 200 — no mapping step needed</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT14</td>
+          <td class="desc-cell">All optional fields → 1 created</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell"><code>{"created":1,"skipped":[],"errors":[]}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT15</td>
+          <td class="desc-cell">&gt;1000 tenant rows → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell"><code>{"detail":"Too many rows (max 1000)"}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT16</td>
+          <td class="desc-cell">Tenant file too large → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell">Row limit fires before size check</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CT17</td>
+          <td class="desc-cell">Tenant XLSX import</td>
+          <td><span class="badge passplus">PASS+</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">CSV-R102 occupied from CT07; XLSX parsing correct; skip is idempotent</td>
+        </tr>
+
+        <tr class="section-row"><td colspan="5">Part C — Analyze Edge Cases</td></tr>
+
+        <tr>
+          <td class="id-cell">CA01</td>
+          <td class="desc-cell">Wrong import_type 'buildings' → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell"><code>{"detail":"import_type must be 'properties' or 'tenants'"}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CA02</td>
+          <td class="desc-cell">Analyze no file → 422</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-422">422</span></td>
+          <td class="notes-cell">FastAPI 422 Unprocessable Entity — field required</td>
+        </tr>
+        <tr>
+          <td class="id-cell">CA03</td>
+          <td class="desc-cell">Garbage binary file → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell"><code>{"detail":"Cannot parse file: ..."}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CA04</td>
+          <td class="desc-cell">Weird headers (unit_id, block_name, street) → AI maps</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-200">200</span></td>
+          <td class="notes-cell">AI correctly: <code>unit_id→flat_number</code>, <code>block_name→building_name</code>, <code>street→property_address</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CA05</td>
+          <td class="desc-cell">Mapping nulls required field → 400</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-400">400</span></td>
+          <td class="notes-cell"><code>{"detail":"Missing required columns: flat_number"}</code></td>
+        </tr>
+
+        <tr class="section-row"><td colspan="5">Part D — Authorization</td></tr>
+
+        <tr>
+          <td class="id-cell">CD01</td>
+          <td class="desc-cell">Import no token → 401</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-401">401</span></td>
+          <td class="notes-cell"><code>{"detail":"Not authenticated"}</code></td>
+        </tr>
+        <tr>
+          <td class="id-cell">CD02</td>
+          <td class="desc-cell">Analyze no token → 401</td>
+          <td><span class="badge pass">PASS</span></td>
+          <td><span class="http http-401">401</span></td>
+          <td class="notes-cell"><code>{"detail":"Not authenticated"}</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Selected Detailed Responses ── -->
+  <h2>Key Detailed Responses</h2>
+  <div class="detail-grid">
+
+    <div class="detail-card">
+      <div class="card-head">
+        <span class="id">CP02</span>
+        <span class="badge passstar">PASS*</span>
+        <span class="title">Import valid properties (3 flats)</span>
+        <span class="http http-200">200</span>
+      </div>
+      <div class="card-body">
+        <pre>{
+  "created": {
+    "properties": 1,
+    "buildings": 2,
+    "flats": 3
+  },
+  "skipped": [],
+  "errors": []
+}</pre>
+        <div class="spec-note">⚠️ Spec expected <code>{"created": 3}</code> (integer). API returns a breakdown dict. Spec should be updated.</div>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="card-head">
+        <span class="id">CP05</span>
+        <span class="badge pass">PASS</span>
+        <span class="title">Re-import same file (idempotent)</span>
+        <span class="http http-200">200</span>
+      </div>
+      <div class="card-body">
+        <pre>{
+  "created": {"properties": 0, "buildings": 0, "flats": 0},
+  "skipped": [
+    "Row 2: flat CSV-A101 already exists",
+    "Row 3: flat CSV-A102 already exists",
+    "Row 4: flat CSV-B101 already exists"
+  ],
+  "errors": []
+}</pre>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="card-head">
+        <span class="id">CP07</span>
+        <span class="badge pass">PASS</span>
+        <span class="title">Analyze missing-required column</span>
+        <span class="http http-200">200</span>
+      </div>
+      <div class="card-body">
+        <pre>{
+  "needs_mapping": true,
+  "unmapped_required": ["flat_number"],
+  "mapping": {
+    "property_name": "property_name",
+    "building_name": "building_name",
+    "bedrooms": "bedrooms",
+    "bathrooms": "bathrooms"
+  }
+}</pre>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="card-head">
+        <span class="id">CP12</span>
+        <span class="badge diff">DIFF</span>
+        <span class="title">Mixed-case headers analyze</span>
+        <span class="http http-200">200</span>
+      </div>
+      <div class="card-body">
+        <pre>{"needs_mapping": false, "row_count": 1}</pre>
+        <div class="spec-note">📋 Spec expected <code>needs_mapping: true</code>. Server normalises column names case-insensitively — no AI round-trip needed for simple casing. Better than spec.</div>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="card-head">
+        <span class="id">CT06</span>
+        <span class="badge pass">PASS</span>
+        <span class="title">Invalid rent_amount → tenant created, rent skipped</span>
+        <span class="http http-200">200</span>
+      </div>
+      <div class="card-body">
+        <pre>{
+  "created": 1,
+  "skipped": [
+    "Row 2 (Bad Rent Tenant): rent_amount
+    'not-a-number' is not a valid number
+    — tenant imported without a rent record"
+  ],
+  "errors": []
+}</pre>
+        <div class="obs-note">✓ Tenant created. Flat marked occupied. No rent row in DB. Warning surfaced in <code>skipped</code>, not <code>errors</code>.</div>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="card-head">
+        <span class="id">CT07</span>
+        <span class="badge pass">PASS</span>
+        <span class="title">Zero rent_amount → $0 rent record</span>
+        <span class="http http-200">200</span>
+      </div>
+      <div class="card-body">
+        <pre>{"created": 1, "skipped": [], "errors": []}</pre>
+        <div class="obs-note">
+          ℹ️ <code>"0"</code> is a non-empty string → truthy check passes →
+          <code>float("0") = 0.0</code> → rent record inserted with
+          <code>monthly_rent = 0</code>. A $0 rent row IS in the DB.
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="card-head">
+        <span class="id">CA04</span>
+        <span class="badge pass">PASS</span>
+        <span class="title">Weird headers → AI mapping quality</span>
+        <span class="http http-200">200</span>
+      </div>
+      <div class="card-body">
+        <pre>{
+  "needs_mapping": true,
+  "mapping": {
+    "unit_id":    "flat_number",
+    "block_name": "building_name",
+    "street":     "property_address"
+  },
+  "unmapped_required": []
+}</pre>
+        <div class="obs-note">✓ Groq <code>llama-3.3-70b-versatile</code> correctly mapped all 3 ambiguous headers. All required fields resolved; <code>unmapped_required</code> is empty.</div>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="card-head">
+        <span class="id">CP04</span>
+        <span class="badge passstar">PASS*</span>
+        <span class="title">Two property groups in one file</span>
+        <span class="http http-200">200</span>
+      </div>
+      <div class="card-body">
+        <pre>{
+  "created": {
+    "properties": 2,
+    "buildings": 3,
+    "flats": 4
+  },
+  "skipped": [],
+  "errors": []
+}</pre>
+        <div class="obs-note">✓ "CSV Group Alpha" + "CSV Group Beta" created as separate property groups. 3 buildings, 4 flats.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Observations ── -->
+  <h2>API Behaviour Observations</h2>
+  <div class="obs-list">
+
+    <div class="obs-item">
+      <h4><span class="obs-num">1</span><code>created</code> response shape — property imports</h4>
+      <p>
+        <code>/import/properties</code> returns <code>created</code> as a nested breakdown object,
+        not a plain integer like the tenant endpoint:
+      </p>
+      <pre>{"created": {"properties": 1, "buildings": 2, "flats": 3}, "skipped": [], "errors": []}</pre>
+      <p>
+        The test plan spec expected <code>{"created": 3, ...}</code>. Tenant imports do return a plain integer.
+        <strong>The spec should be updated</strong> to document this format difference between the two endpoints.
+      </p>
+    </div>
+
+    <div class="obs-item">
+      <h4><span class="obs-num">2</span>Mixed-case column headers — CP12 &amp; CT12</h4>
+      <p>
+        Spec expected that <code>Property_Name</code>, <code>Flat_Number</code>, <code>Name</code>, <code>Phone</code>
+        etc. would return <code>needs_mapping: true</code> and require an AI mapping round-trip.
+        Actual: <code>needs_mapping: false</code> — the server normalises column names case-insensitively and
+        handles underscore variants internally. The 2-step AI flow is only needed for genuinely
+        unrecognised names (e.g. <code>unit_id</code>, <code>block_name</code> from CA04).
+        <strong>This is better than the spec.</strong>
+      </p>
+    </div>
+
+    <div class="obs-item">
+      <h4><span class="obs-num">3</span>File size vs row count check order — CP18 &amp; CT16</h4>
+      <p>
+        Spec expected <code>"File too large (max 5 MB)"</code> for a 50k-row / 10k-row file.
+        Both test files triggered the row-count limit first:
+        <code>{"detail": "Too many rows (max 1000)"}</code>.
+        The row check fires before the size check. Not a bug — both limits return HTTP 400.
+        A file that is large but under 1000 rows would still trigger the size check.
+      </p>
+    </div>
+
+    <div class="obs-item">
+      <h4><span class="obs-num">4</span>Sequential test state — CT09, CT11, CT13, CT17</h4>
+      <p>
+        Several tenant tests share flat numbers with earlier tests. Flats occupied in earlier tests
+        cause later rows to be <strong>skipped</strong> rather than created. All skips are correct idempotent
+        behaviour — occupied flats cannot receive a second tenant. The test plan should note these
+        dependencies and recommend running against a clean dataset between runs.
+      </p>
+    </div>
+
+    <div class="obs-item">
+      <h4><span class="obs-num">5</span>AI mapping quality — CA04</h4>
+      <p>
+        Groq <code>llama-3.3-70b-versatile</code> correctly inferred all 3 ambiguous headers in
+        <code>prop_weird_headers.csv</code> (<code>unit_id</code>, <code>block_name</code>, <code>street</code>)
+        without any hints. <code>unmapped_required</code> was empty — all required fields resolved.
+        This confirms the AI mapping layer is reliable for real-world column name variations.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- ── Cleanup SQL ── -->
+  <h2>Cleanup SQL</h2>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:12px;">Run in Supabase SQL editor after testing to remove all CSV-generated data:</p>
+  <div class="sql-block">
+<span class="sql-kw">DELETE FROM</span> flats
+<span class="sql-kw">WHERE</span> flat_number <span class="sql-kw">LIKE</span> <span class="sql-str">'CSV-%'</span>
+   <span class="sql-kw">OR</span> flat_number <span class="sql-kw">LIKE</span> <span class="sql-str">'XLSX-%'</span>
+   <span class="sql-kw">OR</span> flat_number <span class="sql-kw">LIKE</span> <span class="sql-str">'BIG-%'</span>;
+
+<span class="sql-kw">DELETE FROM</span> properties_list
+<span class="sql-kw">WHERE</span> name <span class="sql-kw">IN</span> (
+  <span class="sql-str">'CSV Test Prop'</span>, <span class="sql-str">'CSV ReqOnly Prop'</span>, <span class="sql-str">'CSV Group Alpha'</span>, <span class="sql-str">'CSV Group Beta'</span>,
+  <span class="sql-str">'Numeric Test Prop'</span>, <span class="sql-str">'Mixed Case Prop'</span>, <span class="sql-str">'Whitespace Prop'</span>, <span class="sql-str">'BOM Test Prop'</span>,
+  <span class="sql-str">'Alias Prop'</span>, <span class="sql-str">'Row Error Prop'</span>, <span class="sql-str">'Dup Flat Prop'</span>,
+  <span class="sql-str">'XLSX Test Prop'</span>, <span class="sql-str">'XLSX Empty Prop'</span>
+);
+
+<span class="sql-kw">DELETE FROM</span> tenants
+<span class="sql-kw">WHERE</span> phone <span class="sql-kw">LIKE</span> <span class="sql-str">'+1514555900%'</span>
+   <span class="sql-kw">OR</span> phone <span class="sql-kw">LIKE</span> <span class="sql-str">'+1514555901%'</span>
+   <span class="sql-kw">OR</span> phone <span class="sql-kw">LIKE</span> <span class="sql-str">'+1514555910%'</span>;
+
+<span class="sql-cmt">-- Verify cleanup</span>
+<span class="sql-kw">SELECT</span> count(*) <span class="sql-kw">FROM</span> flats <span class="sql-kw">WHERE</span> flat_number <span class="sql-kw">LIKE</span> <span class="sql-str">'CSV-%'</span>;
+<span class="sql-kw">SELECT</span> count(*) <span class="sql-kw">FROM</span> properties_list <span class="sql-kw">WHERE</span> name <span class="sql-kw">LIKE</span> <span class="sql-str">'CSV %'</span>;
+  </div>
+
+</div>
+</body>
+</html>

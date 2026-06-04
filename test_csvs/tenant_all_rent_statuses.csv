@@ -1,0 +1,5 @@
+name,phone,flat_number,rent_amount,rent_status
+Status On-time,+15145559010,CSV-GA01,1000,On-time
+Status Upcoming,+15145559011,CSV-GA02,1100,Upcoming
+Status Overdue,+15145559012,CSV-GB01,1200,Overdue
+Status At Risk,+15145559013,CSV-GB02,1300,At Risk
