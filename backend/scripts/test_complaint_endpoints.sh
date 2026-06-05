@@ -177,11 +177,18 @@ R=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/voice/webhook" \
   }")
 CODE=$(echo "$R" | tail -1); BODY=$(echo "$R" | head -n -1)
 check_http "A7" "$CODE" "200" "$BODY"
-CREATED=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('complaint_created',False))" 2>/dev/null || echo "False")
-if [ "$CREATED" = "True" ] || [ "$CREATED" = "true" ]; then
-  pass "A7 complaint_created=true"
+# tool-calls events return VAPI result format: {"results": [{"toolCallId": ..., "result": "Complaint #N created..."}]}
+# not {"complaint_created": true} — check the results[0].result string instead
+A7_RESULT=$(echo "$BODY" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+results = d.get('results', [])
+print(results[0].get('result', '') if results else '')
+" 2>/dev/null || echo "")
+if echo "$A7_RESULT" | grep -qi "created successfully"; then
+  pass "A7 complaint created (result: $A7_RESULT)"
 else
-  echo "  [NOTE] A7 complaint_created=$CREATED — may be False if flat not found in prod DB (check logs)"
+  fail "A7 complaint not created" "$BODY"
 fi
 
 # ── A8: Webhook — idempotency (re-send same call_id) ─────────────────────────

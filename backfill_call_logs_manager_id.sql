@@ -1,10 +1,8 @@
--- Backfill manager_id on call_logs rows that have a linked complaint.
--- Run once in the Supabase SQL Editor after deploying the voice.py fix.
---
--- Rows without a complaint (abandoned calls) cannot be backfilled automatically
--- because manager_id was never resolved for them. They will remain hidden from
--- the VoiceStatsTab but all future calls will be correctly attributed.
+-- Step 1: Add manager_id column to call_logs
+ALTER TABLE call_logs
+ADD COLUMN IF NOT EXISTS manager_id UUID REFERENCES auth.users(id);
 
+-- Step 2: Backfill from linked complaints
 UPDATE call_logs cl
 SET manager_id = c.manager_id
 FROM complaints c
@@ -12,7 +10,7 @@ WHERE cl.complaint_id = c.id
   AND cl.manager_id IS NULL
   AND c.manager_id IS NOT NULL;
 
--- Check how many rows were updated:
+-- Step 3: Check results
 SELECT
     COUNT(*) FILTER (WHERE manager_id IS NOT NULL) AS with_manager,
     COUNT(*) FILTER (WHERE manager_id IS NULL)     AS still_null,
