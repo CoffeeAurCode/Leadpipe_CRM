@@ -290,6 +290,55 @@ async def get_property_buildings(property_id: str, user: dict = Depends(require_
         )
 
 
+class PropertyGroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    street_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    image_url: Optional[str] = None
+    property_type_id: Optional[UUID] = None
+
+
+@router.patch("/{group_uuid}", response_model=PropertyGroupResponse)
+async def update_property_group(
+    group_uuid: str,
+    request: PropertyGroupUpdate,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    try:
+        payload = request.model_dump(exclude_unset=True)
+        if not payload:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        if "property_type_id" in payload and payload["property_type_id"] is not None:
+            payload["property_type_id"] = str(payload["property_type_id"])
+
+        response = db.table("properties_list").update(payload).eq("id", group_uuid).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Property group not found")
+
+        g = response.data[0]
+        pt = {}
+        if g.get("property_type_id"):
+            pt_resp = db.table("property_types").select("name, icon_type").eq("id", g["property_type_id"]).execute()
+            pt = pt_resp.data[0] if pt_resp.data else {}
+
+        buildings_resp = db.table("buildings").select("id").eq("property_id", group_uuid).execute()
+
+        return {
+            **g,
+            "property_type_name": pt.get("name"),
+            "property_type_icon": pt.get("icon_type"),
+            "building_count": len(buildings_resp.data),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating property group: {str(e)}")
+
+
 class BulkDeletePropertyGroupsRequest(BaseModel):
     ids: List[str]
 

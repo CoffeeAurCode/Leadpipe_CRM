@@ -408,7 +408,7 @@ _: None = Depends(require_active_subscription),  # Stripe gate
 | POST | `/tenants` | Create tenant with flat assignment |
 | GET | `/tenants` | List all tenants (optional `?flat_uuid=`) |
 | GET | `/tenants/{uuid}` | Single tenant with computed lease fields |
-| PATCH | `/tenants/{uuid}` | Update tenant info |
+| PATCH | `/tenants/{uuid}` | Update tenant info — accepts `name`, `phone`, `email`, lease dates, rent_status, etc.; guards: name cannot be blank, phone uniqueness enforced application-side |
 | DELETE | `/tenants/{uuid}` | Delete tenant |
 
 Computed fields on GET (from `TenantResponse` schema):
@@ -478,6 +478,7 @@ Computed fields on GET (from `TenantResponse` schema):
 | POST | `/property-groups` | Create property group; on first group, inserts `manager_vapi_config` row with `pending` status and triggers `provision_vapi_for_manager` as BackgroundTask; subsequent groups skip provisioning |
 | GET | `/property-groups/users/me/vapi-config` | Returns `{vapi_provisioning_status, vapi_phone_number}` from `manager_vapi_config` for the current manager |
 | POST | `/property-groups/users/me/provision-voice` | Retry VAPI lease provisioning for the manager account (upserts `pending` status, re-runs background task) |
+| PATCH | `/property-groups/{id}` | Update property group fields (name, description, street_address, city, state, country, image_url, property_type_id) |
 | GET | `/property-groups/{id}/buildings` | Buildings with unit counts for a property group |
 | DELETE | `/property-groups/bulk` | Bulk delete property groups; body `{ids: [...]}`; full cascade including lease_listings |
 | DELETE | `/property-groups/{id}` | Cascade-delete all buildings, flats, rents, tenants, lease_listings within the group |

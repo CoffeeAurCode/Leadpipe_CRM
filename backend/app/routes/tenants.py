@@ -425,12 +425,28 @@ async def update_tenant(
                 detail="No fields to update"
             )
         
+        # Guard: name cannot be blank
+        if 'name' in update_data and not (update_data.get('name') or '').strip():
+            raise HTTPException(status_code=400, detail="Tenant name cannot be empty")
+
+        # Guard: phone uniqueness across other tenants
+        if update_data.get('phone'):
+            existing = (
+                db.table("tenants")
+                .select("uuid")
+                .eq("phone", update_data['phone'])
+                .neq("uuid", tenant_uuid)
+                .execute()
+            )
+            if existing.data:
+                raise HTTPException(status_code=400, detail="A tenant with this phone number already exists")
+
         # Verify new flat exists if changing flat assignment
         if 'flat_uuid' in update_data and update_data['flat_uuid']:
             flat = db.table("flats").select("uuid").eq("uuid", update_data['flat_uuid']).execute()
             if not flat.data:
                 raise HTTPException(status_code=404, detail="Flat not found")
-        
+
         response = db.table("tenants").update(update_data).eq("uuid", tenant_uuid).execute()
         
         if not response.data:

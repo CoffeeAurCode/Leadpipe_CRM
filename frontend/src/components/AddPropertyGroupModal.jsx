@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Building2, MapPin, Tag, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
-import { createPropertyGroup, fetchPropertyTypes } from '../services/apiService';
+import { createPropertyGroup, updatePropertyGroup, fetchPropertyTypes } from '../services/apiService';
 import ImageUploadField from './ImageUploadField';
 
 const ICON_MAP = {
@@ -24,8 +24,9 @@ function FieldGroup({ label, icon: Icon, children }) {
     );
 }
 
-function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
+function AddPropertyGroupModal({ isOpen, onClose, onSuccess, initialData = null }) {
     const { t } = useTranslation();
+    const isEditMode = !!initialData;
     const [form, setForm] = useState({ name: '', description: '', street_address: '', city: '', state: '', country: 'Canada', image_url: '', property_type_id: '' });
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -38,6 +39,21 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
             .then(setPropertyTypes)
             .catch(() => setPropertyTypes([]));
     }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen && initialData) {
+            setForm({
+                name: initialData.name || '',
+                description: initialData.description || '',
+                street_address: initialData.street_address || '',
+                city: initialData.city || '',
+                state: initialData.state || '',
+                country: initialData.country || 'Canada',
+                image_url: initialData.image_url || '',
+                property_type_id: initialData.property_type_id ? String(initialData.property_type_id) : '',
+            });
+        }
+    }, [isOpen, initialData]);
 
     const reset = () => {
         setForm({ name: '', description: '', street_address: '', city: '', state: '', country: 'Canada', image_url: '', property_type_id: '' });
@@ -70,8 +86,10 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
             if (form.image_url.trim()) payload.image_url = form.image_url.trim();
             if (form.property_type_id) payload.property_type_id = form.property_type_id;
 
-            const created = await createPropertyGroup(payload);
-            onSuccess?.(created);
+            const result = isEditMode
+                ? await updatePropertyGroup(initialData.id, payload)
+                : await createPropertyGroup(payload);
+            onSuccess?.(result);
             handleClose();
         } catch (err) {
             setError(err.message || t('propertyGroup.failed'));
@@ -111,8 +129,8 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     <Building2 className="w-5 h-5 text-primary" />
                                 </span>
                                 <div>
-                                    <h2 className="text-base font-semibold text-foreground">{t('propertyGroup.title')}</h2>
-                                    <p className="text-xs text-muted-foreground">Create a top-level property estate</p>
+                                    <h2 className="text-base font-semibold text-foreground">{isEditMode ? 'Edit Property Group' : t('propertyGroup.title')}</h2>
+                                    <p className="text-xs text-muted-foreground">{isEditMode ? 'Update property group details' : 'Create a top-level property estate'}</p>
                                 </div>
                             </div>
                             <button
@@ -246,7 +264,7 @@ function AddPropertyGroupModal({ isOpen, onClose, onSuccess }) {
                                     ) : (
                                         <Building2 className="w-4 h-4" />
                                     )}
-                                    {loading ? t('propertyGroup.creating') : uploadingImage ? t('propertyGroup.uploadingImage') : t('propertyGroup.create')}
+                                    {loading ? (isEditMode ? 'Saving…' : t('propertyGroup.creating')) : uploadingImage ? t('propertyGroup.uploadingImage') : (isEditMode ? 'Save Changes' : t('propertyGroup.create'))}
                                 </motion.button>
                             </div>
                         </form>

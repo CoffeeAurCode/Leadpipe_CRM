@@ -316,6 +316,7 @@ async def assign_tenant(
 
         db.table("flats").update({"tenant_uuid": body.tenant_uuid, "occupied": True}).eq("uuid", flat_uuid).execute()
         db.table("tenants").update({"flat_uuid": flat_uuid}).eq("uuid", body.tenant_uuid).execute()
+        db.table("lease_listings").update({"is_active": False}).eq("flat_uuid", flat_uuid).execute()
         return {"success": True}
     except HTTPException:
         raise
@@ -650,6 +651,7 @@ async def create_flat(
                         "tenant_uuid": tenant_uuid,
                         "occupied": True
                     }).eq("uuid", flat_uuid).execute()
+                    db.table("lease_listings").update({"is_active": False}).eq("flat_uuid", flat_uuid).execute()
 
                     flat["tenant_uuid"] = tenant_uuid
                     flat["occupied"] = True

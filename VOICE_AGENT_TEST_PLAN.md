@@ -431,9 +431,14 @@ Expected: caller_name = `Unknown`, qualification_status = `unmatched`, notes con
 
 ---
 
-## Part B â€” Complaint Agent Tests (call Alex: +14382314283)
+## Part B — Complaint Agent Tests (call Alex: +14382314283)
 
 > For inbound tests: call from the phone registered to the test tenant (or use the OutboundCallButton in the dashboard to have Alex call you first).
+
+> **Startup acceptance criteria (applies to every C-series test):** After the Bug 1 fix (`firstMessageMode`, `numWords: 5`, `confidenceThreshold: 0.6`), every complaint call must pass all three before the functional test below is evaluated:
+> 1. Greeting plays within **3 seconds** of call connecting — no dead silence at call connect
+> 2. Greeting completes cleanly — last word must not stretch, repeat, or cut off
+> 3. Speaking 1–4 words during the greeting must NOT interrupt it — only 5+ spoken words should yield the turn
 
 ---
 
@@ -460,9 +465,13 @@ SELECT flat_number, appointment_date, status FROM appointments ORDER BY created_
 SELECT complaint_status FROM call_logs ORDER BY created_at DESC LIMIT 1;
 ```
 
+**Voice Stats check (Bug 2 regression):** Open the **Voice Stats** tab → verify:
+- `Total` counter > 0
+- This call appears in the **Recent Calls** list with `complaint_status = created`
+
 ---
 
-### C02 â€” Invalid phone (mismatch)
+### C02 — Invalid phone (mismatch)
 **Phone:** Any number NOT registered to flat T102 (e.g., your second phone, or call from any unregistered number)
 
 **Say:**
@@ -643,6 +652,68 @@ Expected: appointment_date updated to 2026-07-20T15:00:00.
 
 ---
 
+### C13 — Greeting quality regression (Bug 1 fix)
+**Goal:** confirm the three config fixes eliminated the startup hang and word-stretch artifact.
+
+**Phone:** Your phone (T101)
+
+**Call 1 — silent listen:**
+1. Call +14382314283
+2. Do NOT speak — let the greeting finish uninterrupted
+3. Start a timer at call connect
+
+**Alex must:**
+- Begin speaking within **3 seconds** of connect (no dead silence)
+- Complete the full greeting `"Hi, this is Alex — how can I help you today?"` without the last word stretching, repeating, or cutting off
+- Remain on the line after the greeting and wait for input (no hang-up from VAPI silence timeout during the pause)
+
+**Call 2 — interrupt resilience:**
+1. Call again
+2. While Alex is speaking, say exactly **3 words** (e.g. `"Yes, hi, hello"`) — do not pause between words
+3. Note whether Alex stops or continues
+
+**Alex must:**
+- **NOT stop mid-greeting** — 3 words is below the `numWords: 5` threshold
+- Continue through the end of the greeting before yielding the turn
+
+**Call 3 — interrupt trigger:**
+1. Call again
+2. While Alex is speaking, say **6 or more words** clearly (e.g. `"Yes I'm calling about a problem with my flat"`)
+
+**Alex must:**
+- Stop speaking and yield the turn (the `numWords: 5` threshold is met)
+- Respond to what was said rather than restarting the greeting
+
+**Pass criteria:** Call 1 timing ≤ 3 s, no stretch/repeat; Call 2 greeting not interrupted; Call 3 greeting interrupted cleanly.
+
+---
+
+### C14 — Voice Stats tab data visibility (Bug 2 regression)
+**Goal:** confirm the RLS SELECT policy fix — authenticated managers can read their own `call_logs` rows.
+
+**Prerequisite:** C01 completed (a call_log with your `manager_id` was inserted by the webhook).
+
+**Steps:**
+1. Open the app → **Voice Stats** tab
+2. If the counters are still 0, click **Refresh**
+3. Check the `Total` counter and the **Recent Calls** list
+
+**Must pass:**
+- `Total` > 0
+- The C01 call appears in Recent Calls with `complaint_status = created`
+- No errors in the browser console for `/call_logs/stats`
+
+**SQL double-check:**
+```sql
+SELECT complaint_status, manager_id, created_at
+FROM call_logs
+ORDER BY created_at DESC
+LIMIT 5;
+```
+Expected: rows returned (not empty). `manager_id` matches `auth.uid()` of the logged-in manager.
+
+---
+
 ## Post-Test Verification Queries
 
 Run these in the Supabase SQL Editor after testing sessions:
@@ -719,6 +790,11 @@ WHERE (caller_name IS NULL OR caller_name = '')
 | Cancel appointment | C09 |
 | Emergency handling | C10 |
 | All leads captured regardless of outcome | L09, L13, L14, L18, C02, C03 |
+| Greeting plays without startup hang | C13 |
+| Last word of greeting does not stretch or repeat | C13 |
+| Connection noise (< 5 words) does not interrupt greeting | C13 |
+| 5+ spoken words correctly interrupt greeting | C13 |
+| Voice Stats tab shows data after call completes | C01, C14 |
 
 ---
 

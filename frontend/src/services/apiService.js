@@ -454,6 +454,20 @@ export async function createPropertyGroup(payload) {
     return await response.json();
 }
 
+/** Update a property group's details. */
+export async function updatePropertyGroup(groupId, data) {
+    const response = await authFetch(`${API_BASE_URL}/property-groups/${groupId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
 /** Fetch all buildings belonging to a specific property group. */
 export async function fetchPropertyBuildings(propertyId) {
     const response = await authFetch(`${API_BASE_URL}/property-groups/${propertyId}/buildings`);

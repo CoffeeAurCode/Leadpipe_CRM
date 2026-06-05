@@ -1,4 +1,4 @@
-import { Home, ShoppingBag, Building2, Info, CheckCircle2, XCircle, Square, CheckSquare } from 'lucide-react';
+import { Home, ShoppingBag, Building2, Info, Pencil, CheckCircle2, XCircle, Square, CheckSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib';
 
@@ -22,7 +22,7 @@ function PropertyTypeIcon({ iconType, className }) {
  *  - onInfo: (building) => void     — opens info modal
  *  - showPropertyType: bool         — show the property type badge (true in Building View)
  */
-function BuildingCard({ building, onClick, onInfo, showPropertyType = false, selectMode = false, isSelected = false, onToggle }) {
+function BuildingCard({ building, onClick, onInfo, onEdit, showPropertyType = false, selectMode = false, isSelected = false, onToggle }) {
     const { name, image_url, property_type_name, property_type_icon,
         unit_count = 0, occupied_count = 0 } = building;
 
@@ -80,15 +80,24 @@ function BuildingCard({ building, onClick, onInfo, showPropertyType = false, sel
                     {unit_count} {unit_count === 1 ? 'Unit' : 'Units'}
                 </span>
 
-                {/* Info button — stops propagation so it doesn't trigger drill-down */}
+                {/* Info + Edit buttons — stop propagation so they don't trigger drill-down */}
                 {!selectMode && (
-                    <button
-                        onClick={e => { e.stopPropagation(); onInfo?.(building); }}
-                        aria-label="Building info"
-                        className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors"
-                    >
-                        <Info className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                        <button
+                            onClick={e => { e.stopPropagation(); onEdit?.(building); }}
+                            aria-label="Edit building"
+                            className="p-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors"
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                            onClick={e => { e.stopPropagation(); onInfo?.(building); }}
+                            aria-label="Building info"
+                            className="p-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors"
+                        >
+                            <Info className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
                 )}
             </div>
 

@@ -60,6 +60,8 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
 
     const startEdit = () => {
         setForm({
+            name: tenant.name || '',
+            phone: tenant.phone || '',
             email: tenant.email || '',
             lease_start_date: tenant.lease_start_date || '',
             lease_end_date: tenant.lease_end_date || '',
@@ -91,8 +93,17 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
     };
 
     const handleSave = async () => {
-        setSaving(true);
         setSaveError(null);
+        if (!form.name?.trim()) {
+            setSaveError('Tenant name is required.');
+            return;
+        }
+        const e164 = /^\+[1-9]\d{1,14}$/;
+        if (form.phone && !e164.test(form.phone.trim())) {
+            setSaveError('Phone must be in E.164 format, e.g. +15145551234');
+            return;
+        }
+        setSaving(true);
         try {
             // Only send non-empty values; convert empty strings to null
             const payload = Object.fromEntries(
@@ -239,15 +250,37 @@ export default function TenantProfile({ tenant, onClose, onUpdate, onDelete }) {
                                         value={tenant.tenancy_duration_months != null ? t('tenantProfile.months', { count: tenant.tenancy_duration_months }) : null}
                                     />
                                     {editing ? (
-                                        <FieldRow label={t('common.email')}>
-                                            <input
-                                                type="email"
-                                                className={inputCls}
-                                                value={form.email}
-                                                onChange={set('email')}
-                                                placeholder="tenant@example.com"
-                                            />
-                                        </FieldRow>
+                                        <>
+                                            <FieldRow label="Full Name *">
+                                                <input
+                                                    type="text"
+                                                    className={inputCls}
+                                                    value={form.name}
+                                                    onChange={set('name')}
+                                                    placeholder="John Doe"
+                                                    maxLength={100}
+                                                />
+                                            </FieldRow>
+                                            <FieldRow label="Phone">
+                                                <input
+                                                    type="tel"
+                                                    className={inputCls}
+                                                    value={form.phone}
+                                                    onChange={set('phone')}
+                                                    placeholder="+15145551234"
+                                                />
+                                                <p className="text-xs text-muted-foreground mt-0.5">Must be in E.164 format, e.g. +15145551234</p>
+                                            </FieldRow>
+                                            <FieldRow label={t('common.email')}>
+                                                <input
+                                                    type="email"
+                                                    className={inputCls}
+                                                    value={form.email}
+                                                    onChange={set('email')}
+                                                    placeholder="tenant@example.com"
+                                                />
+                                            </FieldRow>
+                                        </>
                                     ) : (
                                         <InfoRow label={t('common.email')} value={tenant.email} />
                                     )}

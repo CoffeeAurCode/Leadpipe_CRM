@@ -3,11 +3,12 @@ import { X, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
-import { fetchPropertyTypes, createBuilding } from '../services/apiService';
+import { fetchPropertyTypes, createBuilding, updateBuilding } from '../services/apiService';
 import ImageUploadField from './ImageUploadField';
 
-function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null, propertyGroups = [] }) {
+function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null, propertyGroups = [], initialData = null }) {
     const { t } = useTranslation();
+    const isEditMode = !!initialData;
     const [propertyTypes, setPropertyTypes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -33,7 +34,23 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
     }, [isOpen]);
 
     useEffect(() => {
-        if (isOpen && initialPropertyId && propertyGroups.length > 0) {
+        if (isOpen && initialData) {
+            setForm({
+                name: initialData.name || '',
+                description: initialData.description || '',
+                street_address: initialData.street_address || '',
+                address_line: initialData.address_line || '',
+                city: initialData.city || '',
+                state: initialData.state || '',
+                country: initialData.country || 'Canada',
+                image_url: initialData.image_url || '',
+                property_type_id: initialData.property_type_id ? String(initialData.property_type_id) : '',
+            });
+        }
+    }, [isOpen, initialData]);
+
+    useEffect(() => {
+        if (isOpen && !initialData && initialPropertyId && propertyGroups.length > 0) {
             const pg = propertyGroups.find(p => String(p.id) === String(initialPropertyId));
             if (pg) {
                 setForm(prev => ({
@@ -44,7 +61,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                 }));
             }
         }
-    }, [isOpen, initialPropertyId, propertyGroups]);
+    }, [isOpen, initialPropertyId, propertyGroups, initialData]);
 
     const reset = () => {
         setForm({ name: '', description: '', street_address: '', address_line: '', city: '', state: '', country: 'Canada', image_url: '', property_type_id: '' });
@@ -74,11 +91,13 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
             if (form.address_line) payload.address_line = form.address_line.trim();
             if (form.image_url) payload.image_url = form.image_url.trim();
             if (form.property_type_id) payload.property_type_id = form.property_type_id;
-            if (initialPropertyId) payload.property_id = initialPropertyId;
+            if (!isEditMode && initialPropertyId) payload.property_id = initialPropertyId;
 
-            const newBuilding = await createBuilding(payload);
+            const result = isEditMode
+                ? await updateBuilding(initialData.id, payload)
+                : await createBuilding(payload);
             reset();
-            onSuccess(newBuilding);
+            onSuccess(result);
             onClose();
         } catch (err) {
             setError(err.message || t('building.failed'));
@@ -106,7 +125,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                 <div className="flex items-center justify-between p-6 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
                     <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                         <Building2 className="w-5 h-5 text-primary" />
-                        {t('building.title')}
+                        {isEditMode ? 'Edit Building' : t('building.title')}
                     </h2>
                     <button onClick={handleClose} className="p-2 rounded-lg hover:bg-secondary transition-colors">
                         <X className="w-4 h-4" />
@@ -246,7 +265,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                             {loading ? (
                                 <>
                                     <div className="w-3.5 h-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                                    {t('building.creating')}
+                                    {isEditMode ? 'Saving…' : t('building.creating')}
                                 </>
                             ) : uploadingImage ? (
                                 <>
@@ -256,7 +275,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                             ) : (
                                 <>
                                     <Building2 className="w-3.5 h-3.5" />
-                                    {t('building.create')}
+                                    {isEditMode ? 'Save Changes' : t('building.create')}
                                 </>
                             )}
                         </button>

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Building2, Plus, Home, Hash, Bed, Bath,
     CheckCircle2, XCircle, ArrowLeft, Layers, Trash2, Upload,
-    Square, CheckSquare
+    Square, CheckSquare, Pencil
 } from 'lucide-react';
 import { cn } from '@/lib';
 
@@ -67,7 +67,7 @@ function Breadcrumb({ segments, onBack }) {
 }
 
 /** Card for a property group (top-level estate/property) */
-function PropertyGroupCard({ property, onClick, selectMode = false, isSelected = false, onToggle }) {
+function PropertyGroupCard({ property, onClick, onEdit, selectMode = false, isSelected = false, onToggle }) {
     const { t } = useTranslation();
     const coverImage = property.image_url ||
         'https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=2574&auto=format&fit=crop';
@@ -108,6 +108,15 @@ function PropertyGroupCard({ property, onClick, selectMode = false, isSelected =
                             : <Square className="w-5 h-5 text-white drop-shadow" />
                         }
                     </div>
+                )}
+                {!selectMode && (
+                    <button
+                        onClick={e => { e.stopPropagation(); onEdit?.(property); }}
+                        aria-label="Edit property group"
+                        className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors"
+                    >
+                        <Pencil className="w-3.5 h-3.5" />
+                    </button>
                 )}
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-white text-xs font-medium">
                     <Building2 className="w-3.5 h-3.5" />
@@ -317,6 +326,8 @@ function PropertiesPage() {
     const [showAddBuilding, setShowAddBuilding] = useState(false);
     const [showAddUnit, setShowAddUnit] = useState(false);
     const [showCsvImport, setShowCsvImport] = useState(false);
+    const [editGroup, setEditGroup] = useState(null);
+    const [editBuilding, setEditBuilding] = useState(null);
 
     const { t } = useTranslation();
 
@@ -430,10 +441,27 @@ function PropertiesPage() {
         setPropertyGroups(prev => [newProperty, ...prev].sort((a, b) => a.name.localeCompare(b.name)));
     };
 
+    const handlePropertyGroupUpdated = (updatedGroup) => {
+        setPropertyGroups(prev => prev.map(p => String(p.id) === String(updatedGroup.id) ? updatedGroup : p));
+        if (selectedProperty && String(selectedProperty.id) === String(updatedGroup.id)) {
+            setSelectedProperty(updatedGroup);
+        }
+        setEditGroup(null);
+    };
+
     const handleBuildingAdded = (newBuilding) => {
         setBuildings(prev => [newBuilding, ...prev].sort((a, b) => a.name.localeCompare(b.name)));
         // If we're inside a property, refresh its buildings list
         if (selectedProperty) drillIntoProperty(selectedProperty);
+    };
+
+    const handleBuildingUpdated = (updatedBuilding) => {
+        setBuildings(prev => prev.map(b => String(b.id) === String(updatedBuilding.id) ? updatedBuilding : b));
+        setPropertyBuildings(prev => prev.map(b => String(b.id) === String(updatedBuilding.id) ? updatedBuilding : b));
+        if (selectedBuilding && String(selectedBuilding.id) === String(updatedBuilding.id)) {
+            setSelectedBuilding(updatedBuilding);
+        }
+        setEditBuilding(null);
     };
 
     const handleUnitAdded = () => {
@@ -619,6 +647,13 @@ function PropertiesPage() {
                             <Plus className="w-4 h-4" /> {t('properties.addUnit')}
                         </button>
                         <button
+                            onClick={() => setEditBuilding(selectedBuilding)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-primary border border-primary/30 bg-primary/10 hover:bg-primary/20 transition-colors"
+                        >
+                            <Pencil className="w-4 h-4" />
+                            Edit
+                        </button>
+                        <button
                             onClick={handleDeleteBuilding}
                             disabled={deletingBuilding}
                             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-60"
@@ -666,6 +701,13 @@ function PropertiesPage() {
                     initialState={selectedBuilding?.state ?? null}
                     initialCountry={selectedBuilding?.country ?? null}
                 />
+                <AddBuildingModal
+                    isOpen={!!editBuilding}
+                    initialData={editBuilding}
+                    onClose={() => setEditBuilding(null)}
+                    onSuccess={handleBuildingUpdated}
+                    propertyGroups={propertyGroups}
+                />
             </div>
         );
     }
@@ -693,6 +735,13 @@ function PropertiesPage() {
                             className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
                         >
                             <Building2 className="w-4 h-4" /> {t('properties.addBuilding')}
+                        </button>
+                        <button
+                            onClick={() => setEditGroup(selectedProperty)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-primary border border-primary/30 bg-primary/10 hover:bg-primary/20 transition-colors"
+                        >
+                            <Pencil className="w-4 h-4" />
+                            Edit
                         </button>
                         <button
                             onClick={handleDeleteProperty}
@@ -723,6 +772,7 @@ function PropertiesPage() {
                                     building={b}
                                     onClick={drillIntoBuilding}
                                     onInfo={setInfoBuilding}
+                                    onEdit={b => setEditBuilding(b)}
                                     showPropertyType={true}
                                     selectMode={selectMode}
                                     isSelected={selectedBuildingIds.has(String(b.id))}
@@ -740,6 +790,19 @@ function PropertiesPage() {
                     onSuccess={handleBuildingAdded}
                     initialPropertyId={selectedProperty?.id ?? null}
                     propertyGroups={propertyGroups}
+                />
+                <AddBuildingModal
+                    isOpen={!!editBuilding}
+                    initialData={editBuilding}
+                    onClose={() => setEditBuilding(null)}
+                    onSuccess={handleBuildingUpdated}
+                    propertyGroups={propertyGroups}
+                />
+                <AddPropertyGroupModal
+                    isOpen={!!editGroup}
+                    initialData={editGroup}
+                    onClose={() => setEditGroup(null)}
+                    onSuccess={handlePropertyGroupUpdated}
                 />
                 {selectedFlatUuid && (
                     <FlatDetailModal
@@ -840,6 +903,7 @@ function PropertiesPage() {
                                         <PropertyGroupCard
                                             property={p}
                                             onClick={drillIntoProperty}
+                                            onEdit={p => setEditGroup(p)}
                                             selectMode={selectMode}
                                             isSelected={selectedPropertyIds.has(String(p.id))}
                                             onToggle={togglePropertySelection}
@@ -865,6 +929,7 @@ function PropertiesPage() {
                                             building={b}
                                             onClick={drillIntoBuilding}
                                             onInfo={setInfoBuilding}
+                                            onEdit={b => setEditBuilding(b)}
                                             showPropertyType={true}
                                             selectMode={selectMode}
                                             isSelected={selectedBuildingIds.has(String(b.id))}
@@ -949,10 +1014,23 @@ function PropertiesPage() {
                 onClose={() => setShowAddProperty(false)}
                 onSuccess={handlePropertyGroupAdded}
             />
+            <AddPropertyGroupModal
+                isOpen={!!editGroup}
+                initialData={editGroup}
+                onClose={() => setEditGroup(null)}
+                onSuccess={handlePropertyGroupUpdated}
+            />
             <AddBuildingModal
                 isOpen={showAddBuilding}
                 onClose={() => setShowAddBuilding(false)}
                 onSuccess={handleBuildingAdded}
+                propertyGroups={propertyGroups}
+            />
+            <AddBuildingModal
+                isOpen={!!editBuilding}
+                initialData={editBuilding}
+                onClose={() => setEditBuilding(null)}
+                onSuccess={handleBuildingUpdated}
                 propertyGroups={propertyGroups}
             />
             <AddPropertyModal
