@@ -406,6 +406,10 @@ async def delete_property_group(property_id: str, user: dict = Depends(require_a
             tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
 
             if flat_uuids:
+                listings_resp = db.table("lease_listings").select("uuid").in_("flat_uuid", flat_uuids).execute()
+                listing_uuids = [l["uuid"] for l in listings_resp.data]
+                if listing_uuids:
+                    db.table("lease_leads").update({"listing_uuid": None}).in_("listing_uuid", listing_uuids).execute()
                 db.table("lease_listings").delete().in_("flat_uuid", flat_uuids).execute()
                 db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
             if tenant_uuids:

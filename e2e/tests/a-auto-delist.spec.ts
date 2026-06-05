@@ -8,7 +8,9 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { navigateTo, apiGet, apiPatch } from '../helpers/app';
+import { navigateTo, apiGet, apiPatch, authHeader } from '../helpers/app';
+
+const API_BASE = process.env.BACKEND_URL || 'http://localhost:8000';
 
 type Listing = { uuid: string; flat_uuid: string; flat_number: string; is_active: boolean };
 type Tenant = { uuid: string; name: string; phone: string };
@@ -101,10 +103,10 @@ test.describe('Part A — Auto-Delist on Assign', () => {
 
     // Assign — must return 200 with success: true, no exception
     const resp = await page.request.patch(
-      `http://localhost:8000/flats/${flatWithNoListing!.uuid}/assign-tenant`,
+      `${API_BASE}/flats/${flatWithNoListing!.uuid}/assign-tenant`,
       {
         data: { tenant_uuid: unassigned[0].uuid },
-        headers: { Authorization: `Bearer ${process.env.AUTH_TOKEN}` },
+        headers: authHeader(),
       }
     );
     expect(resp.status()).toBe(200);

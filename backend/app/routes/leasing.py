@@ -419,6 +419,7 @@ async def delete_listing(
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_service_db),
 ):
+    db.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
     db.table("lease_listings").delete().eq("uuid", listing_uuid).eq("manager_id", user["sub"]).execute()
     return None
 

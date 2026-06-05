@@ -43,12 +43,16 @@ setup('authenticate', async ({ page }) => {
     },
   };
 
-  // Inject the session into localStorage BEFORE the page loads
-  await page.addInitScript(({ key, value }) => {
+  // Navigate first so localStorage is scoped to the correct origin
+  await page.goto('/');
+
+  // Inject the session into localStorage for the current origin (localhost or hosted)
+  await page.evaluate(({ key, value }) => {
     localStorage.setItem(key, value);
   }, { key: STORAGE_KEY, value: JSON.stringify(session) });
 
-  await page.goto('/');
+  // Reload so the app picks up the new localStorage entry
+  await page.reload();
 
   // Wait until the sidebar nav is visible (means AuthGate passed)
   await expect(

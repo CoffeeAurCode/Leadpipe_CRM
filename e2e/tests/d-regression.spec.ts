@@ -4,7 +4,9 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { navigateTo } from '../helpers/app';
+import { navigateTo, authHeader } from '../helpers/app';
+
+const API_BASE = process.env.BACKEND_URL || 'http://localhost:8000';
 
 const PANEL_SELECTOR = '.fixed.right-0.top-0.h-full';
 
@@ -77,14 +79,14 @@ test.describe('Part D — Regression Checks', () => {
 
     // ── Cleanup: delete the test group via the API ──
     // Find the UUID from the API
-    const resp = await page.request.get('http://localhost:8000/property-groups', {
-      headers: { Authorization: `Bearer ${process.env.AUTH_TOKEN}` },
+    const resp = await page.request.get(`${API_BASE}/property-groups`, {
+      headers: authHeader(),
     });
     const groups: Array<{ id: string; name: string }> = await resp.json();
     const testGroup = groups.find(g => g.name === `D2 Test Group ${suffix}`);
     if (testGroup) {
-      await page.request.delete(`http://localhost:8000/property-groups/${testGroup.id}`, {
-        headers: { Authorization: `Bearer ${process.env.AUTH_TOKEN}` },
+      await page.request.delete(`${API_BASE}/property-groups/${testGroup.id}`, {
+        headers: authHeader(),
       });
     }
   });
@@ -114,14 +116,14 @@ test.describe('Part D — Regression Checks', () => {
     await expect(page.locator('[aria-label="Edit building"]')).toHaveCount(before + 1, { timeout: 5000 });
 
     // ── Cleanup: delete the test building via the API ──
-    const resp = await page.request.get('http://localhost:8000/buildings', {
-      headers: { Authorization: `Bearer ${process.env.AUTH_TOKEN}` },
+    const resp = await page.request.get(`${API_BASE}/buildings`, {
+      headers: authHeader(),
     });
     const buildings: Array<{ id: number; name: string }> = await resp.json();
     const testBuilding = buildings.find(b => b.name === `D3 Test Block ${suffix}`);
     if (testBuilding) {
-      await page.request.delete(`http://localhost:8000/buildings/${testBuilding.id}`, {
-        headers: { Authorization: `Bearer ${process.env.AUTH_TOKEN}` },
+      await page.request.delete(`${API_BASE}/buildings/${testBuilding.id}`, {
+        headers: authHeader(),
       });
     }
   });

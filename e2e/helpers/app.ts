@@ -4,7 +4,7 @@
 
 import { Page, expect } from '@playwright/test';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export function authHeader(): { Authorization: string } {
   const token = process.env.AUTH_TOKEN;

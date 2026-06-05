@@ -12,7 +12,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['html', { open: 'never' }], ['list']],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.FRONTEND_URL || 'http://localhost:5173',
     storageState: path.join(__dirname, '.auth/manager.json'),
     trace: 'on-first-retry',
     viewport: { width: 1280, height: 800 },

@@ -27,7 +27,7 @@ Before starting, ensure you have:
 
 **Pass:** listing is inactive after assign  
 **Fail:** listing still shows as active
-
+Result: FAIL 
 ---
 
 ### A2 — Unassign does NOT reactivate listing
