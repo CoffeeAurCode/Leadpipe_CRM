@@ -347,12 +347,15 @@ async def create_listing(
     svc_db: Client = Depends(get_service_db),
 ):
     # Ownership check via RLS-enforced authenticated client
-    flat_resp = db.table("flats").select("flat_number, building_id").eq("uuid", str(body.flat_uuid)).limit(1).execute()
+    flat_resp = db.table("flats").select("flat_number, building_id, tenant_uuid, occupied").eq("uuid", str(body.flat_uuid)).limit(1).execute()
     if not flat_resp.data:
         raise HTTPException(status_code=404, detail="Flat not found")
 
     flat = flat_resp.data[0]
     flat_number = flat["flat_number"]
+
+    if flat.get("tenant_uuid") or flat.get("occupied"):
+        raise HTTPException(status_code=400, detail="Only vacant units can be listed. This unit is currently occupied.")
 
     building_resp = (
         db.table("buildings")

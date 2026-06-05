@@ -428,11 +428,11 @@ Computed fields on GET (from `TenantResponse` schema):
 | GET | `/flats` | List flats (optional `?vacant=true`) |
 | GET | `/flats/{uuid}/details` | Single flat with tenant details |
 | GET | `/flats/{flat_number}` | Flat by flat number |
-| PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT) |
+| PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT); ADD_TENANT deactivates any active listing and auto-sets rent from listing's `monthly_rent` |
 | DELETE | `/flats/bulk` | Bulk delete flats by UUID list; body `{uuids: [...]}`; returns `{deleted, errors}` |
 | DELETE | `/flats/{flat_uuid}` | Delete flat (cascade: lease_listings → rents → tenant → flat) |
-| PATCH | `/flats/{flat_uuid}/assign-tenant` | Assign existing tenant to flat (bidirectional link) |
-| PATCH | `/flats/{flat_uuid}/unassign-tenant` | Remove tenant from flat (bidirectional unlink) |
+| PATCH | `/flats/{flat_uuid}/assign-tenant` | Assign existing tenant to flat (bidirectional link); fetches active listing's `monthly_rent` first, deactivates all `lease_listings` rows for that flat (`is_active=False`), then if listing had a rent value auto-inserts an active rent record for the flat — no-op if no listing exists |
+| PATCH | `/flats/{flat_uuid}/unassign-tenant` | Remove tenant from flat (bidirectional unlink); does NOT reactivate listings — manager must manually re-enable |
 
 **VAPI rules:** Always returns HTTP 200. Inputs normalized with `.strip().upper()`.
 
@@ -602,7 +602,7 @@ Common to all lease webhooks:
 | Method | Path | Description |
 |---|---|---|
 | GET | `/leasing/listings` | List manager's listings (newest first) |
-| POST | `/leasing/listings` | Create listing — looks up flat, resolves property_group_id |
+| POST | `/leasing/listings` | Create listing — looks up flat, rejects with 400 if flat is occupied (`tenant_uuid` IS NOT NULL or `occupied=true`), resolves property_group_id |
 | PATCH | `/leasing/listings/{listing_uuid}` | Update listing fields |
 | DELETE | `/leasing/listings/{listing_uuid}` | Hard delete |
 | GET | `/leasing/leads?listing_uuid=&qualification_status=` | List leads scoped to manager's property groups; `listing_uuid` filter matches both `listing_uuid` and `interested_listing_ids` contains |
@@ -637,7 +637,7 @@ Common to all lease webhooks:
 |---|---|---|
 | POST | `/import/analyze` | Detect if uploaded file columns match schema; call `gpt-4o-mini` to semantically map non-matching columns; return `{needs_mapping, mapping, unmapped_required, row_count}` |
 | POST | `/import/properties` | CSV or XLSX → PropertyGroup + Building + Flat hierarchy; optional `column_mapping` form field (JSON) |
-| POST | `/import/tenants` | CSV or XLSX → Tenants linked to existing flats; optional `column_mapping` form field (JSON) |
+| POST | `/import/tenants` | CSV or XLSX → Tenants linked to existing flats; optional `column_mapping` form field (JSON); when a CSV row assigns a tenant to a flat, that flat's `lease_listings` are also deactivated (`is_active=False`) |
 
 **Smart import flow:**
 1. Frontend calls `/import/analyze` with the file + `import_type`
@@ -847,10 +847,10 @@ class Feature(str, Enum):
 | `AppointmentDetailModal.jsx` | View/edit appointment + linked complaints |
 | `FlatDetailModal.jsx` | Flat details |
 | `FlatEditModal.jsx` | Edit flat |
-| `TenantProfile.jsx` | Tenant detail modal |
+| `TenantProfile.jsx` | Tenant detail modal; edit form includes `name`, `phone` (E.164 with inline validation), `email`, lease dates, rent_status, notes |
 | `AddPropertyModal.jsx` | Create PropertyGroup |
-| `AddBuildingModal.jsx` | Create Building |
-| `AddPropertyGroupModal.jsx` | Alias for property group creation |
+| `AddBuildingModal.jsx` | Create/edit Building — dual-mode: when `initialData` prop is provided it calls `updateBuilding()` instead of `createBuilding()`; title changes to "Edit Building" |
+| `AddPropertyGroupModal.jsx` | Create/edit property group — dual-mode: when `initialData` prop is provided it calls `updatePropertyGroup()` instead of `createPropertyGroup()`; title changes to "Edit Property Group" |
 | `AddTenantModal.jsx` | Create Tenant |
 | `AssignTenantModal.jsx` | Assign existing tenant to flat |
 | `AddListingModal.jsx` | Create / edit a lease listing (flat selector, rent, availability, custom rules) |
@@ -929,7 +929,8 @@ class Feature(str, Enum):
 - `authFetch(path, options)` — adds `Authorization: Bearer <token>`, handles 401 (sign out) and 403 (redirect to pricing)
 - Exports: `fetchComplaints`, `createComplaint`, `updateComplaint`, `fetchAppointments`, `updateAppointment`, `deleteAppointment`, `fetchFlats`, `fetchTenants`, `fetchBuildings`, `sendChatMessage`, `createCheckoutSession`, `getCallStatus`, etc.
 - **Leasing exports:** `getListings`, `createListing`, `updateListing`, `deleteListing`, `getLeaseLeads`, `updateLead`, `deleteLead`, `getLeasingMetrics`, `exportLeads`
-- **Property groups:** `fetchPropertyGroups()`, `createPropertyGroup(payload)`, `getUserVapiConfig()` → `GET /property-groups/users/me/vapi-config`, `retryUserProvisioning()` → `POST /property-groups/users/me/provision-voice`
+- **Property groups:** `fetchPropertyGroups()`, `createPropertyGroup(payload)`, `updatePropertyGroup(groupId, data)` → `PATCH /property-groups/{id}`, `getUserVapiConfig()` → `GET /property-groups/users/me/vapi-config`, `retryUserProvisioning()` → `POST /property-groups/users/me/provision-voice`
+- **Buildings:** `updateBuilding(buildingId, data)` → `PATCH /buildings/{id}`
 - **Image upload:** `uploadImage(file, entityType)` → `POST /upload/image`, returns `{url, path}`
 - **Outbound call:** `makeOutboundCall(customerNumber, agentType='complaint', firstMessage=null)` — `agentType` forwarded as `agent` field in request body
 - **Smart import:** `analyzeImportFile(file, importType)` → `POST /import/analyze`; `importPropertiesCsv(file, columnMapping?)` and `importTenantsCsv(file, columnMapping?)` accept optional mapping object

@@ -1,0 +1,19 @@
+{
+  "name": "tenant-management-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:part-a": "playwright test tests/a-auto-delist.spec.ts",
+    "test:part-b": "playwright test tests/b-edit-property.spec.ts",
+    "test:part-c": "playwright test tests/c-tenant-edit.spec.ts",
+    "test:part-d": "playwright test tests/d-regression.spec.ts",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "dotenv": "^16.4.5"
+  }
+}
