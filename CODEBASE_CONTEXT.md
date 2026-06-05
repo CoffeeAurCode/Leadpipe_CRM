@@ -509,11 +509,11 @@ Computed fields on GET (from `TenantResponse` schema):
 
 ---
 
-### `/call-logs` — `routes/call_logs.py`
+### `/call_logs` — `routes/call_logs.py`
 | Method | Path | Description |
 |---|---|---|
-| GET | `/call-logs` | List call logs (optional filters: phone, flat_number, complaint_status) |
-| GET | `/call-logs/{id}` | Single call log |
+| GET | `/call_logs` | List call logs (optional filters: phone, flat_number, complaint_status) |
+| GET | `/call_logs/{id}` | Single call log |
 
 ---
 

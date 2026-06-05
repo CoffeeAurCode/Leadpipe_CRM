@@ -175,6 +175,38 @@ async def get_building_units(building_id: str, user: dict = Depends(require_acti
         )
 
 
+@router.get("/{building_id}", response_model=BuildingResponse)
+async def get_building_by_id(
+    building_id: str,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    try:
+        resp = (
+            db.table("buildings")
+            .select("*, property_types(name, icon_type)")
+            .eq("id", building_id)
+            .execute()
+        )
+        if not resp.data:
+            raise HTTPException(status_code=404, detail="Building not found")
+        b = resp.data[0]
+        pt = b.get("property_types") or {}
+        flats_resp = db.table("flats").select("tenant_uuid").eq("building_id", building_id).execute()
+        units = flats_resp.data or []
+        return {
+            **b,
+            "property_type_name": pt.get("name"),
+            "property_type_icon": pt.get("icon_type"),
+            "unit_count": len(units),
+            "occupied_count": sum(1 for u in units if u.get("tenant_uuid")),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching building: {str(e)}")
+
+
 @router.post("", response_model=BuildingResponse, status_code=status.HTTP_201_CREATED)
 async def create_building(request: BuildingCreate, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
     """Create a new building."""

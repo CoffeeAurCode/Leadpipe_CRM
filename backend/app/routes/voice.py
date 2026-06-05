@@ -243,10 +243,29 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
         else:
             status = "abandoned"
         
+        # ========== STEP 8b: RESOLVE MANAGER FROM CALLER PHONE ==========
+        # Done here (before call_log INSERT) so manager_id is stored on every log,
+        # not just logs that resulted in a complaint. Without this, RLS filters out
+        # all rows because manager_id is NULL.
+        manager_id = None
+        caller_phone = (phone_number or "").strip()
+        if caller_phone:
+            t_resp = db.table("tenants").select("flat_uuid").eq("phone", caller_phone).limit(1).execute()
+            if t_resp.data and t_resp.data[0].get("flat_uuid"):
+                caller_flat_uuid = t_resp.data[0]["flat_uuid"]
+                flt_resp = db.table("flats").select("building_id").eq("uuid", caller_flat_uuid).limit(1).execute()
+                if flt_resp.data and flt_resp.data[0].get("building_id"):
+                    bldg_resp = db.table("buildings").select("property_id").eq("id", flt_resp.data[0]["building_id"]).limit(1).execute()
+                    if bldg_resp.data and bldg_resp.data[0].get("property_id"):
+                        pg_resp = db.table("properties_list").select("manager_id").eq("id", str(bldg_resp.data[0]["property_id"])).limit(1).execute()
+                        if pg_resp.data:
+                            manager_id = pg_resp.data[0].get("manager_id")
+        print(f"[MANAGER] phone={caller_phone} → manager_id={manager_id}")
+
         # ========== STEP 9: PERSIST CALLLOG (ALWAYS) ==========
         call_log = None
         call_log_id = None
-        
+
         try:
             if existing_log:
                 call_log = existing_log
@@ -260,7 +279,8 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                     "transcript": transcript,
                     "raw_event_type": message_type,
                     "complaint_status": status,
-                    "complaint_id": None
+                    "complaint_id": None,
+                    "manager_id": str(manager_id) if manager_id else None,
                 }).execute()
                 
                 if response.data:
@@ -305,21 +325,8 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                 flat_uuid = flat_response.data[0]['uuid']
                 flat_id = flat_response.data[0]['id']
 
-                # Resolve manager_id via caller phone → tenant → flat → building → properties_list
-                # Phone number is the verified identity, so we anchor on it rather than the spoken flat number.
-                manager_id = None
-                caller_phone = (phone_number or "").strip()
-                t_resp = db.table("tenants").select("flat_uuid").eq("phone", caller_phone).limit(1).execute()
-                if t_resp.data and t_resp.data[0].get("flat_uuid"):
-                    caller_flat_uuid = t_resp.data[0]["flat_uuid"]
-                    flt_resp = db.table("flats").select("building_id").eq("uuid", caller_flat_uuid).limit(1).execute()
-                    if flt_resp.data and flt_resp.data[0].get("building_id"):
-                        bldg_resp = db.table("buildings").select("property_id").eq("id", flt_resp.data[0]["building_id"]).limit(1).execute()
-                        if bldg_resp.data:
-                            pg_resp = db.table("properties_list").select("manager_id").eq("id", str(bldg_resp.data[0]["property_id"])).limit(1).execute()
-                            if pg_resp.data:
-                                manager_id = pg_resp.data[0].get("manager_id")
-                print(f"  [MANAGER] phone={caller_phone} resolved manager_id={manager_id}")
+                # manager_id already resolved in Step 8b above
+                print(f"  [MANAGER] phone={caller_phone} manager_id={manager_id}")
                 
                 # Check voice_calls feature flag for this unit
                 from app.services.feature_service import FeatureService

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from supabase import Client
+from app.db.session import get_service_db
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
 from app.schemas.tenant import TenantCreate, TenantUpdate, TenantResponse
@@ -200,7 +201,9 @@ async def get_tenant_by_flat_query(
 @router.post("", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
 async def create_tenant(
     tenant_data: TenantCreate,
-    user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+    svc: Client = Depends(get_service_db),
 ):
     """Create a new tenant. If flat_uuid is provided, bidirectionally links the flat."""
     try:
@@ -212,7 +215,8 @@ async def create_tenant(
             if not flat.data:
                 raise HTTPException(status_code=404, detail="Flat not found")
 
-        response = db.table("tenants").insert(tenant_dict).execute()
+        tenant_dict["manager_id"] = user["sub"]
+        response = svc.table("tenants").insert(tenant_dict).execute()
 
         if not response.data:
             raise HTTPException(

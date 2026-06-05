@@ -3,7 +3,9 @@ import logging
 from datetime import date
 from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from supabase import Client
+from typing import List
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
 from app.schemas.workflow import SmsWorkflowRequest, SmsWorkflowResponse, SmsResult
@@ -135,3 +137,38 @@ async def send_sms_workflow(
             results.append(SmsResult(tenant_id=uuid_str, success=False, sid=None))
 
     return SmsWorkflowResponse(results=results)
+
+
+_DEFAULT_TEMPLATES = [
+    {"id": 1, "name": "Rent Reminder", "message": "Hi {name}, your rent of {rent} is due on {date}. Please pay on time."},
+    {"id": 2, "name": "Maintenance Notice", "message": "Hi {name}, maintenance is scheduled for your unit {unit}."},
+    {"id": 3, "name": "General Announcement", "message": "Hi {name}, this is an update from your property manager."},
+]
+
+
+@router.get("/sms-templates")
+async def get_sms_templates(user: dict = Depends(require_active_subscription)):
+    return _DEFAULT_TEMPLATES
+
+
+class SmsTemplateCreate(BaseModel):
+    name: str
+    message: str
+
+
+@router.post("/sms-templates", status_code=201)
+async def create_sms_template(
+    body: SmsTemplateCreate,
+    user: dict = Depends(require_active_subscription),
+):
+    new_id = len(_DEFAULT_TEMPLATES) + 1
+    return {"id": new_id, "name": body.name, "message": body.message}
+
+
+@router.post("/sms-broadcast", response_model=SmsWorkflowResponse)
+async def sms_broadcast(
+    payload: SmsWorkflowRequest,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    return await send_sms_workflow(payload, user, db)

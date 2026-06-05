@@ -4,6 +4,7 @@ Handles CRUD operations for tenant complaints.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from supabase import Client
+from app.db.session import get_service_db
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
 from app.schemas.complaint import ComplaintCreate, ComplaintUpdate, ComplaintResponse
@@ -17,7 +18,8 @@ async def create_complaint(
     complaint_data: ComplaintCreate,
     background_tasks: BackgroundTasks,
     user: dict = Depends(require_active_subscription),
-    db: Client = Depends(get_authenticated_db)
+    db: Client = Depends(get_authenticated_db),
+    svc: Client = Depends(get_service_db),
 ):
     """Create a new complaint."""
     try:
@@ -55,8 +57,9 @@ async def create_complaint(
         
         # Strip deprecated legacy fields before inserting to prevent Supabase Schema errors
         complaint_dict.pop("tenant_id", None)
-        
-        response = db.table("complaints").insert(complaint_dict).execute()
+        complaint_dict["manager_id"] = user["sub"]
+
+        response = svc.table("complaints").insert(complaint_dict).execute()
         
         if response.data:
             created_complaint = response.data[0]
@@ -173,25 +176,25 @@ async def update_complaint(
     try:
         # Prepare update data (exclude unset fields)
         update_data = complaint_data.model_dump(exclude_unset=True)
-        
+
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No fields to update"
             )
-        
+
         # Update the complaint
         response = db.table("complaints")\
             .update(update_data)\
             .eq("id", complaint_id)\
             .execute()
-        
+
         if not response.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Complaint with id {complaint_id} not found"
             )
-        
+
         return response.data[0]
     except HTTPException:
         raise
@@ -199,4 +202,27 @@ async def update_complaint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating complaint: {str(e)}"
+        )
+
+
+@router.delete("/{complaint_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_complaint(
+    complaint_id: int,
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    try:
+        response = db.table("complaints").delete().eq("id", complaint_id).execute()
+        if not response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Complaint {complaint_id} not found"
+            )
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting complaint: {str(e)}"
         )

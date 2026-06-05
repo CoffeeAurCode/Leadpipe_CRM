@@ -21,6 +21,8 @@ from supabase import Client
 from typing import Optional
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
+from app.integrations.twilio_client import get_twilio_client
+from app.integrations.email_client import get_email_client
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -92,6 +94,55 @@ async def mark_all_read(
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error marking all read: {str(e)}")
+
+
+@router.get("/preferences")
+async def get_notification_preferences(
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    manager_id = user["sub"]
+    resp = db.table("manager_notifications").select("*").eq("manager_id", manager_id).execute()
+    if resp.data:
+        return resp.data[0]
+    return {"manager_id": manager_id, "appointment_sms_enabled": False, "appointment_email_enabled": False}
+
+
+class TestSmsRequest(BaseModel):
+    phone: str
+    message: Optional[str] = "This is a test SMS from your property management system."
+
+
+@router.post("/test-sms")
+async def send_test_sms(
+    body: TestSmsRequest,
+    user: dict = Depends(require_active_subscription),
+):
+    sid = get_twilio_client().send_sms(to=body.phone, message=body.message)
+    if sid:
+        return {"success": True, "sid": sid}
+    raise HTTPException(status_code=500, detail="Failed to send test SMS")
+
+
+class TestEmailRequest(BaseModel):
+    email: str
+    subject: Optional[str] = "Test Email from Property Manager"
+    message: Optional[str] = "This is a test email from your property management system."
+
+
+@router.post("/test-email")
+async def send_test_email(
+    body: TestEmailRequest,
+    user: dict = Depends(require_active_subscription),
+):
+    success = get_email_client().send_email(
+        subject=body.subject,
+        html_content=body.message,
+        to_email=body.email,
+    )
+    if success:
+        return {"success": True}
+    raise HTTPException(status_code=500, detail="Failed to send test email")
 
 
 @router.post("", status_code=201)
