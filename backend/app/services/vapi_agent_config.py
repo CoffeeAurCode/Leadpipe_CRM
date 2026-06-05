@@ -300,6 +300,13 @@ TRANSCRIBER_CONFIG = {
     },
 }
 
+# Complaint agent uses outbound calls with more carrier-layer noise at connection
+# time than inbound lease calls — higher threshold filters connection-noise artifacts.
+COMPLAINT_TRANSCRIBER_CONFIG = {
+    **TRANSCRIBER_CONFIG,
+    "confidenceThreshold": 0.6,
+}
+
 
 # ---------------------------------------------------------------------------
 # Voice — ElevenLabs turbo (mirrors dashboard)
@@ -938,7 +945,8 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
         "end_call_message": "Thank you. Have a great day. / Merci. Bonne journée.",
         "end_call_phrases": ["goodbye", "au revoir", "talk to you soon"],
         "background_sound": "office",
-        "transcriber": TRANSCRIBER_CONFIG,
+        "first_message_mode": "assistant-speaks-first",
+        "transcriber": COMPLAINT_TRANSCRIBER_CONFIG,
         "voice": VOICE_CONFIG,
         "model": {
             "provider": "openai",
@@ -959,7 +967,7 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
             "waitSeconds": 0.1,
             "transcriptionEndpointingPlan": {"onNumberSeconds": 0.1},
         },
-        "stop_speaking_plan": {"numWords": 2},
+        "stop_speaking_plan": {"numWords": 5},
         "background_speech_denoising_plan": {"smartDenoisingPlan": {"enabled": True}},
     }
 

@@ -956,7 +956,7 @@ async def make_outbound_call(
             )
     else:
         assistant_id    = settings.VAPI_COMPLAINT_ASSISTANT_ID
-        phone_number_id = settings.VAPI_COMPLAINT_NUMBER_ID or settings.VAPI_NUMBER_ID
+        phone_number_id = settings.VAPI_COMPLAINT_NUMBER_ID
         if not assistant_id:
             raise HTTPException(status_code=500, detail="VAPI_COMPLAINT_ASSISTANT_ID env var is not configured on the server")
 
