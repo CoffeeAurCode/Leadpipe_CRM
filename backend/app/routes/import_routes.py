@@ -1,10 +1,12 @@
 import csv
 import io
 import json
+import os
 from datetime import date
 
 import openpyxl
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from groq import AsyncGroq
 from openai import AsyncOpenAI
 from supabase import Client
 
@@ -136,28 +138,44 @@ async def _map_columns_with_ai(
         f"Return ONLY valid JSON. Example: {{\"Tenant Name\": \"name\", \"Mobile\": \"phone\", \"Extra\": null}}"
     )
 
-    try:
+    async def _call_openai():
         client = AsyncOpenAI(api_key=settings.OPEN_AI_API)
-        response = await client.chat.completions.create(
+        r = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
             response_format={"type": "json_object"},
         )
-        raw = response.choices[0].message.content
-        mapping = json.loads(raw)
+        return json.loads(r.choices[0].message.content)
 
-        sanitized: dict = {}
-        for orig, target in mapping.items():
-            sanitized[orig] = target if (target and target in all_targets) else None
-        # Ensure every header has an entry
-        for h in headers:
-            if h not in sanitized:
-                sanitized[h] = None
-        return sanitized
+    async def _call_groq():
+        client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+        r = await client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        return json.loads(r.choices[0].message.content)
 
-    except Exception:
+    raw_mapping = None
+    for attempt in (_call_openai, _call_groq):
+        try:
+            raw_mapping = await attempt()
+            break
+        except Exception:
+            continue
+
+    if raw_mapping is None:
         return {h: None for h in headers}
+
+    sanitized: dict = {}
+    for orig, target in raw_mapping.items():
+        sanitized[orig] = target if (target and target in all_targets) else None
+    for h in headers:
+        if h not in sanitized:
+            sanitized[h] = None
+    return sanitized
 
 
 # ── POST /import/analyze ──────────────────────────────────────────────────────
