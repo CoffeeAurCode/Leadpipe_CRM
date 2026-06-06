@@ -341,6 +341,7 @@ async def import_properties(
                 db.table("flats")
                 .select("uuid")
                 .ilike("flat_number", flat_number)
+                .eq("building_id", building_id)
                 .execute()
             )
             if existing_flat.data:

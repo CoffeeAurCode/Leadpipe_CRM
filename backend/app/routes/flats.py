@@ -566,7 +566,10 @@ async def create_flat(
             )
         
         # ========== STEP 3: CHECK FOR DUPLICATES BEFORE ANY DB WRITES ==========
-        existing_flat = db.table("flats").select("*").eq("flat_number", flat_number_normalized).execute()
+        dup_query = db.table("flats").select("*").eq("flat_number", flat_number_normalized)
+        if building_id:
+            dup_query = dup_query.eq("building_id", building_id)
+        existing_flat = dup_query.execute()
 
         if existing_flat.data:
             if uploaded_filename:
