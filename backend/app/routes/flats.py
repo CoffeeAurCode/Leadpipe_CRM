@@ -278,19 +278,21 @@ async def identify_caller(
 @router.get("", response_model=list[FlatResponse])
 async def get_all_flats(
     vacant: Optional[bool] = Query(None, description="If true, return only vacant flats (tenant_uuid IS NULL)"),
+    not_listed: Optional[bool] = Query(None, description="If true (requires vacant=true), further filter to only unlisted flats"),
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
 ):
     """Get all flats ordered by building and flat number."""
     try:
         if vacant:
-            response = (
+            q = (
                 db.table("flats")
                 .select("*, buildings(name, properties_list(name))")
                 .is_("tenant_uuid", "null")
-                .order("flat_number")
-                .execute()
             )
+            if not_listed:
+                q = q.eq("is_listed", False)
+            response = q.order("flat_number").execute()
             rows = response.data
             for row in rows:
                 b = row.pop("buildings", None) or {}
@@ -331,7 +333,7 @@ async def assign_tenant(
         listing_resp = db.table("lease_listings").select("monthly_rent").eq("flat_uuid", flat_uuid).eq("is_active", True).limit(1).execute()
         listing_rent = float(listing_resp.data[0]["monthly_rent"]) if listing_resp.data and listing_resp.data[0].get("monthly_rent") is not None else None
 
-        db.table("flats").update({"tenant_uuid": body.tenant_uuid, "occupied": True}).eq("uuid", flat_uuid).execute()
+        db.table("flats").update({"tenant_uuid": body.tenant_uuid, "occupied": True, "is_listed": False}).eq("uuid", flat_uuid).execute()
         db.table("tenants").update({"flat_uuid": flat_uuid}).eq("uuid", body.tenant_uuid).execute()
         db.table("lease_listings").update({"is_active": False}).eq("flat_uuid", flat_uuid).execute()
 
@@ -679,7 +681,8 @@ async def create_flat(
                     # Link tenant to flat
                     db.table("flats").update({
                         "tenant_uuid": tenant_uuid,
-                        "occupied": True
+                        "occupied": True,
+                        "is_listed": False,
                     }).eq("uuid", flat_uuid).execute()
                     db.table("lease_listings").update({"is_active": False}).eq("flat_uuid", flat_uuid).execute()
 
@@ -799,6 +802,7 @@ async def update_flat_details(
             listing_resp = db.table("lease_listings").select("monthly_rent").eq("flat_uuid", flat_uuid).eq("is_active", True).limit(1).execute()
             listing_rent = float(listing_resp.data[0]["monthly_rent"]) if listing_resp.data and listing_resp.data[0].get("monthly_rent") is not None else None
             db.table("lease_listings").update({"is_active": False}).eq("flat_uuid", flat_uuid).execute()
+            db.table("flats").update({"is_listed": False}).eq("uuid", flat_uuid).execute()
             if listing_rent is not None:
                 db.table("rents").update({"is_active": False}).eq("flat_uuid", flat_uuid).eq("is_active", True).execute()
                 db.table("rents").insert({

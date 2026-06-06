@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
-import { createListing, updateListing, fetchVacantFlats } from '../services/apiService';
+import { createListing, updateListing, fetchNotListedVacantFlats } from '../services/apiService';
 
 const DEFAULT_RULES = {
     max_occupants: null,
@@ -87,7 +87,7 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
 
     useEffect(() => {
         if (!isOpen || isEdit) return;
-        fetchVacantFlats().then(setVacantFlats).catch(() => {});
+        fetchNotListedVacantFlats().then(setVacantFlats).catch(() => {});
     }, [isOpen, isEdit]);
 
     function set(field, value) {

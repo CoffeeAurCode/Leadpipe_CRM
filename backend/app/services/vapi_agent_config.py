@@ -614,8 +614,8 @@ def build_assistant_config() -> dict:
         "transcriber": TRANSCRIBER_CONFIG,
         "voice": VOICE_CONFIG,
         "model": {
-            "provider": "anthropic",
-            "model": "claude-haiku-4-5-20251001",
+            "provider": "openai",
+            "model": "gpt-5.2-chat-latest",
             "messages": [{"role": "system", "content": SYSTEM_PROMPT}],
             "maxTokens": 300,
             "temperature": 0.7,
@@ -949,8 +949,8 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
         "transcriber": COMPLAINT_TRANSCRIBER_CONFIG,
         "voice": VOICE_CONFIG,
         "model": {
-            "provider": "anthropic",
-            "model": "claude-haiku-4-5-20251001",
+            "provider": "openai",
+            "model": "gpt-5.2-chat-latest",
             "messages": [{"role": "system", "content": COMPLAINT_SYSTEM_PROMPT}],
             "maxTokens": 300,
             "temperature": 0.7,
@@ -1019,7 +1019,7 @@ the flat number yet. Let them lead.
 On the caller's FIRST message, silently fire load_listings async. Never mention it. Never pause.
 Respond naturally to what the caller said — answer their question or ask a preference question.
 
-As soon as the caller states bedrooms OR budget: silently fire search_listings async with those values.
+As soon as the caller states bedrooms, budget, OR city/neighborhood: silently fire search_listings async with those values.
 Both tools run in the background while the conversation continues naturally.
 
 NEVER say "let me check", "give me a second", or "one moment" when firing tools.
@@ -1041,9 +1041,10 @@ Key preferences to collect (weave in naturally, order based on conversation flow
 3. Move-in timeline: "When are you thinking of moving?"
 4. Occupants: "Would it just be you, or are you moving with others?"
 5. Pets: "Do you have any pets?" — ask early; affects which units you can present
-6. Specific needs: parking, laundry, floor preference, included utilities (ask if mentioned or natural)
+6. Specific needs: parking, laundry, bathrooms, floor preference, included utilities (ask if mentioned or natural)
+7. Location: city or neighborhood preference — ask only if portfolio spans multiple cities or caller hasn't mentioned a location
 
-Once bedrooms OR budget is known, search_listings should already be running in background.
+Once bedrooms, budget, OR city is known, search_listings should already be running in background.
 Keep gathering remaining preferences while waiting for results to resolve.
 
 [Custom Rules Filtering — Agent-Side, Silent]
@@ -1072,7 +1073,7 @@ Present units only after: (a) at least one preference collected AND (b) results 
              capture lead with full preference notes
 
 When describing a unit, mention only fields that have a value:
-monthly_rent, bedrooms, floor_number, available_from, address, square_footage,
+monthly_rent, bedrooms, bathrooms, floor_number, available_from, address, city, square_footage,
 included_utilities, parking, laundry.
 Answer any caller question from listing data. If data isn't available: "The team will follow up on that."
 
@@ -1157,7 +1158,8 @@ Out-of-scope caller: "Thanks for calling — have a great day!"
 load_listings — Fire async on caller's first message. Returns all listings (has_more=false) if
                portfolio is small, or count + has_more=true if large. Call once only.
                Do NOT present listings from this result immediately — gather preferences first.
-search_listings — Fire async as soon as bedrooms OR budget is known, for any portfolio size.
+search_listings — Fire async as soon as bedrooms, budget, OR city/location is known, for any portfolio size.
+                  Pass all known preferences: bedrooms, budget_max, city, bathrooms, parking, laundry.
                   Returns filtered listings. Re-fire if preferences change significantly.
                   This is the primary source for presenting units once preferences are known.
 submit_lease_lead — Save the lead. Call exactly once before ending every call.
@@ -1180,6 +1182,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
     search_url = (
         f"{backend_url}/leasing/search-listings?manager_id={manager_id or ''}"
         "&bedrooms={{bedrooms}}&budget_max={{budget_max}}"
+        "&city={{city}}&bathrooms={{bathrooms}}&parking={{parking}}&laundry={{laundry}}"
     )
     listing_item_schema = {
         "type": "object",
@@ -1188,7 +1191,11 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "flat_number": {"type": "string"},
             "title": {"type": "string"},
             "address": {"type": "string"},
+            "city": {"type": "string"},
+            "state": {"type": "string"},
+            "country": {"type": "string"},
             "bedrooms": {"type": "integer"},
+            "bathrooms": {"type": "integer"},
             "monthly_rent": {"type": "number"},
             "floor_number": {"type": "string"},
             "available_from": {"type": "string"},
@@ -1240,12 +1247,12 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "function": {
                 "name": "api_request_tool",
                 "description": (
-                    "Filtered listing search. Fire async as soon as the caller states bedrooms OR budget — "
-                    "for any portfolio size (small or large). "
+                    "Filtered listing search. Fire async as soon as the caller states any preference — "
+                    "bedrooms, budget, city, bathrooms, parking, or laundry. "
                     "This is the primary source for presenting units once preferences are known. "
-                    "Pass bedrooms and/or budget_max. Returns up to 5 matching listings. "
-                    "Each listing has: listing_uuid, flat_number, address (full human-readable address), "
-                    "bedrooms, monthly_rent, floor_number, available_from, title. "
+                    "Pass all known preferences; send 0 or empty string for unknown ones. Returns up to 5 matching listings. "
+                    "Each listing has: listing_uuid, flat_number, address, city, state, bedrooms, bathrooms, "
+                    "monthly_rent, floor_number, available_from, title, parking, laundry. "
                     "Re-fire if preferences change significantly. "
                     "Do NOT call before collecting at least one preference."
                 ),
@@ -1258,6 +1265,10 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                 "properties": {
                     "bedrooms": {"type": "integer", "description": "Desired bedroom count (0 if not mentioned)", "default": 0},
                     "budget_max": {"type": "number", "description": "Max monthly rent the caller mentioned (0 if not mentioned)", "default": 0},
+                    "city": {"type": "string", "description": "City or neighborhood the caller prefers (empty string if not mentioned)", "default": ""},
+                    "bathrooms": {"type": "number", "description": "Minimum bathrooms required (0 if not mentioned)", "default": 0},
+                    "parking": {"type": "string", "description": "Parking preference e.g. 'included', 'garage' (empty string if not mentioned)", "default": ""},
+                    "laundry": {"type": "string", "description": "Laundry preference e.g. 'in-unit', 'shared' (empty string if not mentioned)", "default": ""},
                 },
             },
             "variableExtractionPlan": {
@@ -1332,8 +1343,8 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
         "transcriber": TRANSCRIBER_CONFIG,
         "voice": VOICE_CONFIG,
         "model": {
-            "provider": "anthropic",
-            "model": "claude-haiku-4-5-20251001",
+            "provider": "openai",
+            "model": "gpt-5.2-chat-latest",
             "messages": [{"role": "system", "content": system_prompt}],
             "maxTokens": 300,
             "temperature": 0.7,

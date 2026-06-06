@@ -176,6 +176,7 @@ PropertyGroup (properties_list)
 | country | text | Default 'Canada' |
 | bedrooms, bathrooms | int | |
 | occupied | boolean | Derived from tenant_uuid presence |
+| is_listed | boolean | Default false; true when an active lease_listing exists for this flat (migration 026); prevents duplicate listings |
 | image_url | text | Supabase Storage URL |
 | building_id | UUID | FK → buildings |
 | property_type_id | UUID | FK → property_types |
@@ -425,13 +426,13 @@ Computed fields on GET (from `TenantResponse` schema):
 | POST | `/flats/verify-phone` | **VAPI endpoint** — verifies caller phone matches tenant; returns `{status: valid/invalid/vacant}` |
 | POST | `/flats/identify-caller` | VAPI — identify caller by phone number |
 | POST | `/flats` | Create flat |
-| GET | `/flats` | List flats (optional `?vacant=true`); when `vacant=true` uses PostgREST nested join to include `building_name` (from `buildings.name`) and `property_name` (from `properties_list.name`) in each row; non-vacant path returns raw flat rows |
+| GET | `/flats` | List flats (optional `?vacant=true`, `?not_listed=true`); when `vacant=true` uses PostgREST nested join to include `building_name` (from `buildings.name`) and `property_name` (from `properties_list.name`) in each row; `not_listed=true` (requires `vacant=true`) further filters to `is_listed=false` flats only — used by AddListingModal dropdown; non-vacant path returns raw flat rows |
 | GET | `/flats/{uuid}/details` | Single flat with tenant details |
 | GET | `/flats/{flat_number}` | Flat by flat number |
-| PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT); ADD_TENANT deactivates any active listing and auto-sets rent from listing's `monthly_rent` |
+| PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT); ADD_TENANT deactivates any active listing, sets `is_listed=false`, and auto-sets rent from listing's `monthly_rent` |
 | DELETE | `/flats/bulk` | Bulk delete flats by UUID list; body `{uuids: [...]}`; returns `{deleted, errors}` |
 | DELETE | `/flats/{flat_uuid}` | Delete flat (cascade: lease_listings → rents → tenant → flat) |
-| PATCH | `/flats/{flat_uuid}/assign-tenant` | Assign existing tenant to flat (bidirectional link); fetches active listing's `monthly_rent` first, deactivates all `lease_listings` rows for that flat (`is_active=False`), then if listing had a rent value auto-inserts an active rent record for the flat — no-op if no listing exists |
+| PATCH | `/flats/{flat_uuid}/assign-tenant` | Assign existing tenant to flat (bidirectional link); fetches active listing's `monthly_rent` first, deactivates all `lease_listings` rows for that flat (`is_active=False`), sets `is_listed=false` on flat, then if listing had a rent value auto-inserts an active rent record for the flat — no-op if no listing exists |
 | PATCH | `/flats/{flat_uuid}/unassign-tenant` | Remove tenant from flat (bidirectional unlink); does NOT reactivate listings — manager must manually re-enable |
 
 **VAPI rules:** Always returns HTTP 200. Inputs normalized with `.strip().upper()`.
@@ -602,9 +603,9 @@ Common to all lease webhooks:
 | Method | Path | Description |
 |---|---|---|
 | GET | `/leasing/listings` | List manager's listings (newest first) |
-| POST | `/leasing/listings` | Create listing — looks up flat, rejects with 400 if flat is occupied (`tenant_uuid` IS NOT NULL or `occupied=true`), resolves property_group_id |
-| PATCH | `/leasing/listings/{listing_uuid}` | Update listing fields |
-| DELETE | `/leasing/listings/{listing_uuid}` | Hard delete |
+| POST | `/leasing/listings` | Create listing — looks up flat, rejects with 400 if flat is occupied (`tenant_uuid` IS NOT NULL or `occupied=true`) or already listed (`is_listed=true`); resolves property_group_id; sets `is_listed=true` on flat after insert |
+| PATCH | `/leasing/listings/{listing_uuid}` | Update listing fields; if `is_active=false` is set, also sets `is_listed=false` on the flat |
+| DELETE | `/leasing/listings/{listing_uuid}` | Hard delete; sets `is_listed=false` on the flat before deleting |
 | GET | `/leasing/leads?listing_uuid=&qualification_status=` | List leads scoped to manager's property groups; `listing_uuid` filter matches both `listing_uuid` and `interested_listing_ids` contains |
 | PATCH | `/leasing/leads/{lead_uuid}` | Update lead status (contacted/toured/converted/lost only for manager) |
 | DELETE | `/leasing/leads/{lead_uuid}` | Hard delete |
@@ -719,11 +720,12 @@ get_service_db()  # service-role client (bypasses RLS) — for webhooks, admin
 ---
 
 ### `app/schemas/flat.py` — `FlatResponse`
-Extends `FlatBase` with: `id`, `uuid`, `created_at`, `image_url`, `tenant_uuid`, `tenant`, `building_id`, `property_type_id`, `street_address`, `address_line`, `city`, `state`, `country`, and two enrichment fields added for the vacant-flat API:
+Extends `FlatBase` with: `id`, `uuid`, `created_at`, `image_url`, `tenant_uuid`, `tenant`, `building_id`, `property_type_id`, `street_address`, `address_line`, `city`, `state`, `country`, and enrichment fields:
 - `building_name: Optional[str] = None` — populated by `GET /flats?vacant=true`
 - `property_name: Optional[str] = None` — populated by `GET /flats?vacant=true`
+- `is_listed: Optional[bool] = None` — mirrors `flats.is_listed`; used by `UnitListPanel` for listing status badge
 
-Non-vacant responses leave these as `null`.
+Non-vacant/non-enriched responses leave building_name/property_name as `null`.
 
 ### `app/schemas/tenant.py`
 Includes a Pydantic `field_validator` on `phone` enforcing E.164 format (`^\+[1-9]\d{9,14}$`). Raises `ValueError` on invalid input, surfaced as HTTP 422.
@@ -767,7 +769,7 @@ Four builder functions:
 - `NO FORCING PREFERENCES` rule: agent must not demand bedrooms or budget before searching — search first, let results guide the conversation
 - Budget enforcement: only enforces bedroom-count match when the caller **explicitly stated** a bedroom count; if no preference was given, any unit from search results is acceptable
 
-**Model (all agents):** Anthropic `claude-haiku-4-5-20251001` (provider `"anthropic"`) — changed from OpenAI `gpt-5.2-chat-latest` on 2026-06-06. Applies to `build_assistant_config`, `build_complaint_config`, and `_lease_assistant_shell` in `vapi_agent_config.py`.
+**Model (all agents):** OpenAI `gpt-5.2-chat-latest` (provider `"openai"`). Applies to `build_assistant_config`, `build_complaint_config`, and `_lease_assistant_shell` in `vapi_agent_config.py`.
 
 **Voice & language config (all agents):**
 - Voice: ElevenLabs `eleven_turbo_v2_5`, voiceId `E4GQ42zEV1kwul03Bl16` (Wilkins bilingual voice), stability 0.6, useSpeakerBoost, optimizeStreamingLatency 1
@@ -865,7 +867,7 @@ class Feature(str, Enum):
 | `AddPropertyGroupModal.jsx` | Create/edit property group — dual-mode: when `initialData` prop is provided it calls `updatePropertyGroup()` instead of `createPropertyGroup()`; title changes to "Edit Property Group" |
 | `AddTenantModal.jsx` | Create Tenant; phone field has E.164 inline validation (regex `^\+[1-9]\d{9,14}$`); vacant-flat dropdown shows `flat_number — building_name, property_name` (falls back to `street_address`); dispatches `refresh-listings` event after successful flat assignment |
 | `AssignTenantModal.jsx` | Assign existing tenant to flat |
-| `AddListingModal.jsx` | Create / edit a lease listing (flat selector, rent, availability, custom rules); vacant-flat dropdown shows `flat_number — building_name, property_name` (falls back to `street_address` or "No address") |
+| `AddListingModal.jsx` | Create / edit a lease listing (flat selector, rent, availability, custom rules); vacant-flat dropdown uses `fetchNotListedVacantFlats` (filters `vacant=true&not_listed=true`) so only un-listed vacant flats appear; shows `flat_number — building_name, property_name` (falls back to `street_address` or "No address") |
 | `LeadDetailModal.jsx` | View lead details + update qualification status; accepts `listings` prop to resolve flat_number for primary listing and interested_listing_ids chips; when `findListing()` returns undefined (listing deleted), renders a `"Unit delisted"` pill (muted/grey) instead of the raw UUID — applies to both primary listing and each also-interested chip |
 | `BuildingInfoModal.jsx` | Building detail |
 | `CsvImportModal.jsx` | Smart bulk import — accepts `.csv` and `.xlsx`; calls `/import/analyze` first; shows `ColumnMappingStep` (editable AI-suggested mapping table) when columns don't match; passes confirmed mapping to import endpoint |
@@ -883,7 +885,7 @@ class Feature(str, Enum):
 | `PropertyCard.jsx` | Single property card |
 | `PropertyGroupCard.jsx` | Property group card |
 | `BuildingCard.jsx` | Building card |
-| `UnitListPanel.jsx` | Flat list panel within a building |
+| `UnitListPanel.jsx` | Flat list panel within a building; each unit card shows a 3-state listing badge: **Listed** (blue, `is_listed=true`), **Not Listed** (amber, `is_listed=false`), **Cannot be listed** (grey, occupied) alongside the existing Occupied/Vacant badge |
 
 ### Charts (in `components/dashboard/`)
 | File | Purpose |
@@ -941,6 +943,7 @@ class Feature(str, Enum):
 - `authFetch(path, options)` — adds `Authorization: Bearer <token>`, handles 401 (sign out) and 403 (redirect to pricing)
 - Exports: `fetchComplaints`, `createComplaint`, `updateComplaint`, `fetchAppointments`, `updateAppointment`, `deleteAppointment`, `fetchFlats`, `fetchTenants`, `fetchBuildings`, `sendChatMessage`, `createCheckoutSession`, `getCallStatus`, etc.
 - **Leasing exports:** `getListings`, `createListing`, `updateListing`, `deleteListing`, `getLeaseLeads`, `updateLead`, `deleteLead`, `getLeasingMetrics`, `exportLeads`
+- **Flat helpers:** `fetchVacantFlats()` → `GET /flats?vacant=true` (all vacant); `fetchNotListedVacantFlats()` → `GET /flats?vacant=true&not_listed=true` (vacant + not yet listed — used by AddListingModal)
 - **Property groups:** `fetchPropertyGroups()`, `createPropertyGroup(payload)`, `updatePropertyGroup(groupId, data)` → `PATCH /property-groups/{id}`, `deletePropertyGroup(groupId, force=false)` → `DELETE /property-groups/{id}?force=true` (force param skips tenant-block 409), `getUserVapiConfig()` → `GET /property-groups/users/me/vapi-config`, `retryUserProvisioning()` → `POST /property-groups/users/me/provision-voice`
 - **Buildings:** `updateBuilding(buildingId, data)` → `PATCH /buildings/{id}`
 - **Image upload:** `uploadImage(file, entityType)` → `POST /upload/image`, returns `{url, path}`

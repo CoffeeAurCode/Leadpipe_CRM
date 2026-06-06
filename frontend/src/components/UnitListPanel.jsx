@@ -1,4 +1,4 @@
-import { ArrowLeft, Home, CheckCircle2, XCircle, Bed, Bath, Hash } from 'lucide-react';
+import { ArrowLeft, Home, CheckCircle2, XCircle, Bed, Bath, Hash, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib';
 
@@ -99,18 +99,36 @@ function UnitListPanel({ group, onBack, onUnitClick }) {
                                             </div>
                                         </div>
 
-                                        {/* Status Badge */}
-                                        {isOccupied ? (
-                                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-medium">
-                                                <XCircle className="w-3 h-3" />
-                                                Occupied
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs font-medium">
-                                                <CheckCircle2 className="w-3 h-3" />
-                                                Vacant
-                                            </span>
-                                        )}
+                                        {/* Status Badges */}
+                                        <div className="flex flex-col items-end gap-1">
+                                            {isOccupied ? (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-medium">
+                                                    <XCircle className="w-3 h-3" />
+                                                    Occupied
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs font-medium">
+                                                    <CheckCircle2 className="w-3 h-3" />
+                                                    Vacant
+                                                </span>
+                                            )}
+                                            {isOccupied ? (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+                                                    <Tag className="w-3 h-3" />
+                                                    Cannot be listed
+                                                </span>
+                                            ) : unit.is_listed ? (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs font-medium">
+                                                    <Tag className="w-3 h-3" />
+                                                    Listed
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-xs font-medium">
+                                                    <Tag className="w-3 h-3" />
+                                                    Not Listed
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Features */}

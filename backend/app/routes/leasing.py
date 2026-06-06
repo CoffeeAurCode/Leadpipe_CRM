@@ -23,19 +23,21 @@ def _format_listings(rows: list) -> list:
     result = []
     for r in rows:
         flat = r.get("flats") or {}
-        building = flat.get("buildings") or {}
         utilities = r.get("included_utilities") or []
         result.append({
             "listing_uuid": r["uuid"],
             "flat_number": r["flat_number"],
             "title": r.get("title") or "",
             "address": ", ".join(filter(None, [
-                r.get("flat_number"),
-                building.get("name") or "",
-                building.get("street_address") or flat.get("street_address") or "",
-                building.get("city") or flat.get("city") or "",
+                r.get("street_address") or "",
+                r.get("city") or "",
+                r.get("state") or "",
             ])),
+            "city": r.get("city") or "",
+            "state": r.get("state") or "",
+            "country": r.get("country") or "",
             "bedrooms": flat.get("bedrooms"),
+            "bathrooms": flat.get("bathrooms"),
             "monthly_rent": float(r["monthly_rent"]),
             "floor_number": str(flat.get("floor_number") or ""),
             "available_from": str(r.get("available_from") or ""),
@@ -71,7 +73,8 @@ async def find_listing(
                 .select(
                     "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
                     "square_footage, included_utilities, parking, laundry, "
-                    "flats!inner(bedrooms, floor_number, street_address, city, buildings(name, street_address, city))"
+                    "street_address, city, state, country, "
+                    "flats!inner(bedrooms, bathrooms, floor_number)"
                 )
                 .eq("is_active", True)
             )
@@ -83,19 +86,21 @@ async def find_listing(
 
         def _to_listing_out(l):
             flat = l.get("flats") or {}
-            building = flat.get("buildings") or {}
             utilities = l.get("included_utilities") or []
             return {
                 "listing_uuid": l["uuid"],
                 "flat_number": l["flat_number"],
                 "title": l.get("title") or "",
                 "address": ", ".join(filter(None, [
-                    l.get("flat_number"),
-                    building.get("name") or "",
-                    building.get("street_address") or flat.get("street_address") or "",
-                    building.get("city") or flat.get("city") or "",
+                    l.get("street_address") or "",
+                    l.get("city") or "",
+                    l.get("state") or "",
                 ])),
+                "city": l.get("city") or "",
+                "state": l.get("state") or "",
+                "country": l.get("country") or "",
                 "bedrooms": flat.get("bedrooms"),
+                "bathrooms": flat.get("bathrooms"),
                 "monthly_rent": float(l["monthly_rent"]),
                 "floor_number": str(flat.get("floor_number") or ""),
                 "available_from": str(l.get("available_from") or ""),
@@ -123,14 +128,10 @@ async def find_listing(
         query_lower = query.lower()
         matched = []
         for r in (all_results.data or []):
-            flat = r.get("flats") or {}
-            building = flat.get("buildings") or {}
             haystack = " ".join(filter(None, [
-                flat.get("street_address") or "",
-                flat.get("city") or "",
-                building.get("name") or "",
-                building.get("street_address") or "",
-                building.get("city") or "",
+                r.get("street_address") or "",
+                r.get("city") or "",
+                r.get("state") or "",
                 r.get("title") or "",
             ])).lower()
             if query_lower in haystack:
@@ -185,7 +186,8 @@ async def search_available_listings(
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
                 "square_footage, included_utilities, parking, laundry, "
-                "flats!inner(bedrooms, floor_number, street_address, city, buildings(name, street_address, city))"
+                "street_address, city, state, country, "
+                "flats!inner(bedrooms, bathrooms, floor_number)"
             )
             .eq("is_active", True)
         )
@@ -205,16 +207,13 @@ async def search_available_listings(
         listings_out = []
         for listing in results.data:
             flat = listing.get("flats") or {}
-            building = flat.get("buildings") or {}
             if bedrooms_filter is not None and flat.get("bedrooms") != bedrooms_filter:
                 continue
             if address_lower:
                 haystack = " ".join(filter(None, [
-                    flat.get("street_address") or "",
-                    flat.get("city") or "",
-                    building.get("name") or "",
-                    building.get("street_address") or "",
-                    building.get("city") or "",
+                    listing.get("street_address") or "",
+                    listing.get("city") or "",
+                    listing.get("state") or "",
                 ])).lower()
                 if address_lower not in haystack:
                     continue
@@ -224,12 +223,15 @@ async def search_available_listings(
                 "flat_number": listing["flat_number"],
                 "title": listing.get("title") or "",
                 "address": ", ".join(filter(None, [
-                    listing.get("flat_number"),
-                    building.get("name") or "",
-                    building.get("street_address") or flat.get("street_address") or "",
-                    building.get("city") or flat.get("city") or "",
+                    listing.get("street_address") or "",
+                    listing.get("city") or "",
+                    listing.get("state") or "",
                 ])),
+                "city": listing.get("city") or "",
+                "state": listing.get("state") or "",
+                "country": listing.get("country") or "",
                 "bedrooms": flat.get("bedrooms"),
+                "bathrooms": flat.get("bathrooms"),
                 "monthly_rent": float(listing["monthly_rent"]),
                 "floor_number": str(flat.get("floor_number") or ""),
                 "available_from": str(listing.get("available_from") or ""),
@@ -266,7 +268,8 @@ async def listings_for_agent(
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
                 "square_footage, included_utilities, parking, laundry, "
-                "flats!inner(bedrooms, floor_number, street_address, city, buildings(name, street_address, city))"
+                "street_address, city, state, country, "
+                "flats!inner(bedrooms, bathrooms, floor_number)"
             )
             .eq("is_active", True)
         )
@@ -286,8 +289,13 @@ async def listings_for_agent(
 async def search_listings(
     manager_id: Optional[str] = Query(None),
     bedrooms: Optional[str] = Query(None),
+    bathrooms: Optional[str] = Query(None),
     budget_max: Optional[str] = Query(None),
     available_before: Optional[str] = Query(None),
+    city: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    parking: Optional[str] = Query(None),
+    laundry: Optional[str] = Query(None),
     db: Client = Depends(get_service_db),
 ):
     try:
@@ -306,14 +314,20 @@ async def search_listings(
                 return None
 
         bedrooms_filter = _parse_int(bedrooms)
+        bathrooms_filter = _parse_int(bathrooms)
         budget_filter = _parse_float(budget_max)
+        city_filter = city.strip() if city and city.strip() else None
+        state_filter = state.strip() if state and state.strip() else None
+        parking_filter = parking.strip().lower() if parking and parking.strip() else None
+        laundry_filter = laundry.strip().lower() if laundry and laundry.strip() else None
 
         q = (
             db.table("lease_listings")
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
                 "square_footage, included_utilities, parking, laundry, "
-                "flats!inner(bedrooms, floor_number, street_address, city, buildings(name, street_address, city))"
+                "street_address, city, state, country, "
+                "flats!inner(bedrooms, bathrooms, floor_number)"
             )
             .eq("is_active", True)
         )
@@ -323,12 +337,22 @@ async def search_listings(
             q = q.lte("monthly_rent", budget_filter)
         if available_before:
             q = q.lte("available_from", available_before)
+        if city_filter:
+            q = q.ilike("city", f"%{city_filter}%")
+        if state_filter:
+            q = q.ilike("state", f"%{state_filter}%")
 
         results = q.order("monthly_rent").limit(20).execute()
         rows = results.data or []
 
         if bedrooms_filter is not None:
             rows = [r for r in rows if (r.get("flats") or {}).get("bedrooms") == bedrooms_filter]
+        if bathrooms_filter is not None:
+            rows = [r for r in rows if (r.get("flats") or {}).get("bathrooms", 0) >= bathrooms_filter]
+        if parking_filter:
+            rows = [r for r in rows if parking_filter in (r.get("parking") or "").lower()]
+        if laundry_filter:
+            rows = [r for r in rows if laundry_filter in (r.get("laundry") or "").lower()]
 
         listings = _format_listings(rows[:5])
         return {"count": len(listings), "listings": listings}
@@ -359,7 +383,7 @@ async def create_listing(
     svc_db: Client = Depends(get_service_db),
 ):
     # Ownership check via RLS-enforced authenticated client
-    flat_resp = db.table("flats").select("flat_number, building_id, tenant_uuid, occupied").eq("uuid", str(body.flat_uuid)).limit(1).execute()
+    flat_resp = db.table("flats").select("flat_number, building_id, tenant_uuid, occupied, is_listed, street_address, city, state, country").eq("uuid", str(body.flat_uuid)).limit(1).execute()
     if not flat_resp.data:
         raise HTTPException(status_code=404, detail="Flat not found")
 
@@ -368,6 +392,9 @@ async def create_listing(
 
     if flat.get("tenant_uuid") or flat.get("occupied"):
         raise HTTPException(status_code=400, detail="Only vacant units can be listed. This unit is currently occupied.")
+
+    if flat.get("is_listed"):
+        raise HTTPException(status_code=400, detail="This unit already has an active listing. Remove the existing listing before creating a new one.")
 
     building_resp = (
         db.table("buildings")
@@ -387,6 +414,10 @@ async def create_listing(
     payload["property_group_id"] = property_group_id
     payload["manager_id"] = user.get("sub")
 
+    for col in ("street_address", "city", "state", "country"):
+        if flat.get(col):
+            payload[col] = flat[col]
+
     if "custom_rules" in payload and hasattr(payload["custom_rules"], "model_dump"):
         payload["custom_rules"] = payload["custom_rules"].model_dump()
     if "available_from" in payload and payload["available_from"] is not None:
@@ -398,6 +429,8 @@ async def create_listing(
     resp = svc_db.table("lease_listings").insert(payload).execute()
     if not resp.data:
         raise HTTPException(status_code=500, detail="Failed to create listing")
+
+    svc_db.table("flats").update({"is_listed": True}).eq("uuid", str(body.flat_uuid)).execute()
     return resp.data[0]
 
 
@@ -419,6 +452,11 @@ async def update_listing(
     from decimal import Decimal
     payload = {k: float(v) if isinstance(v, Decimal) else v for k, v in payload.items()}
 
+    if payload.get("is_active") is False:
+        listing_flat = db.table("lease_listings").select("flat_uuid").eq("uuid", listing_uuid).eq("manager_id", user["sub"]).limit(1).execute()
+        if listing_flat.data:
+            db.table("flats").update({"is_listed": False}).eq("uuid", listing_flat.data[0]["flat_uuid"]).execute()
+
     resp = db.table("lease_listings").update(payload).eq("uuid", listing_uuid).eq("manager_id", user["sub"]).execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -431,6 +469,10 @@ async def delete_listing(
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_service_db),
 ):
+    listing_flat = db.table("lease_listings").select("flat_uuid").eq("uuid", listing_uuid).eq("manager_id", user["sub"]).limit(1).execute()
+    if listing_flat.data:
+        db.table("flats").update({"is_listed": False}).eq("uuid", listing_flat.data[0]["flat_uuid"]).execute()
+
     db.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
     db.table("lease_listings").delete().eq("uuid", listing_uuid).eq("manager_id", user["sub"]).execute()
     return None

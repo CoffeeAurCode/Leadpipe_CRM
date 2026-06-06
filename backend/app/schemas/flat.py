@@ -70,6 +70,7 @@ class FlatResponse(FlatBase):
     country: Optional[str] = None
     building_name: Optional[str] = None
     property_name: Optional[str] = None
+    is_listed: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 

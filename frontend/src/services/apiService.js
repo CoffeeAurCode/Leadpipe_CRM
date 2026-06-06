@@ -719,6 +719,12 @@ export async function fetchVacantFlats() {
     return await response.json();
 }
 
+export async function fetchNotListedVacantFlats() {
+    const response = await authFetch(`${API_BASE_URL}/flats?vacant=true&not_listed=true`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+}
+
 export async function fetchUnassignedTenants() {
     const response = await authFetch(`${API_BASE_URL}/tenants?unassigned=true`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
