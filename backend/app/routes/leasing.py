@@ -371,7 +371,7 @@ async def get_listings(
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_service_db),
 ):
-    resp = db.table("lease_listings").select("*").eq("manager_id", user["sub"]).order("created_at", desc=True).execute()
+    resp = db.table("lease_listings").select("*").eq("manager_id", user["sub"]).eq("is_active", True).order("created_at", desc=True).execute()
     return resp.data or []
 
 
