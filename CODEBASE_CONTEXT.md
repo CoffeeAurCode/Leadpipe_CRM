@@ -429,10 +429,10 @@ Computed fields on GET (from `TenantResponse` schema):
 | GET | `/flats` | List flats (optional `?vacant=true`, `?not_listed=true`); when `vacant=true` uses PostgREST nested join to include `building_name` (from `buildings.name`) and `property_name` (from `properties_list.name`) in each row; `not_listed=true` (requires `vacant=true`) further filters to `is_listed=false` flats only — used by AddListingModal dropdown; non-vacant path returns raw flat rows |
 | GET | `/flats/{uuid}/details` | Single flat with tenant details |
 | GET | `/flats/{flat_number}` | Flat by flat number |
-| PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT); ADD_TENANT deactivates any active listing, sets `is_listed=false`, and auto-sets rent from listing's `monthly_rent` |
+| PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT); ADD_TENANT nullifies leads that referenced the listing, **deletes** the `lease_listings` row, sets `is_listed=false`, and auto-sets rent from listing's `monthly_rent` |
 | DELETE | `/flats/bulk` | Bulk delete flats by UUID list; body `{uuids: [...]}`; returns `{deleted, errors}` |
 | DELETE | `/flats/{flat_uuid}` | Delete flat (cascade: lease_listings → rents → tenant → flat) |
-| PATCH | `/flats/{flat_uuid}/assign-tenant` | Assign existing tenant to flat (bidirectional link); fetches active listing's `monthly_rent` first, deactivates all `lease_listings` rows for that flat (`is_active=False`), sets `is_listed=false` on flat, then if listing had a rent value auto-inserts an active rent record for the flat — no-op if no listing exists |
+| PATCH | `/flats/{flat_uuid}/assign-tenant` | Assign existing tenant to flat (bidirectional link); fetches active listing's `monthly_rent` first, nullifies any leads that referenced it, **deletes** the `lease_listings` row, sets `is_listed=false` on flat, then if listing had a rent value auto-inserts an active rent record for the flat — no-op if no listing exists |
 | PATCH | `/flats/{flat_uuid}/unassign-tenant` | Remove tenant from flat (bidirectional unlink); does NOT reactivate listings — manager must manually re-enable |
 
 **VAPI rules:** Always returns HTTP 200. Inputs normalized with `.strip().upper()`.
@@ -602,7 +602,7 @@ Common to all lease webhooks:
 #### Manager CRUD (authenticated + subscription gate)
 | Method | Path | Description |
 |---|---|---|
-| GET | `/leasing/listings` | List manager's listings (newest first) |
+| GET | `/leasing/listings` | List manager's **active** listings only (`is_active=true`); newest first |
 | POST | `/leasing/listings` | Create listing — looks up flat, rejects with 400 if flat is occupied (`tenant_uuid` IS NOT NULL or `occupied=true`) or already listed (`is_listed=true`); resolves property_group_id; sets `is_listed=true` on flat after insert |
 | PATCH | `/leasing/listings/{listing_uuid}` | Update listing fields; if `is_active=false` is set, also sets `is_listed=false` on the flat |
 | DELETE | `/leasing/listings/{listing_uuid}` | Hard delete; sets `is_listed=false` on the flat before deleting |
@@ -638,7 +638,7 @@ Common to all lease webhooks:
 |---|---|---|
 | POST | `/import/analyze` | Detect if uploaded file columns match schema; call `gpt-4o-mini` to semantically map non-matching columns; return `{needs_mapping, mapping, unmapped_required, row_count}` |
 | POST | `/import/properties` | CSV or XLSX → PropertyGroup + Building + Flat hierarchy; optional `column_mapping` form field (JSON) |
-| POST | `/import/tenants` | CSV or XLSX → Tenants linked to existing flats; optional `column_mapping` form field (JSON); when a CSV row assigns a tenant to a flat, that flat's `lease_listings` are also deactivated (`is_active=False`) |
+| POST | `/import/tenants` | CSV or XLSX → Tenants linked to existing flats; optional `column_mapping` form field (JSON); when a CSV row assigns a tenant to a flat, that flat's `lease_listings` row is **deleted** (leads nullified first) |
 
 **Smart import flow:**
 1. Frontend calls `/import/analyze` with the file + `import_type`
@@ -1004,7 +1004,7 @@ window.dispatchEvent(new Event('refresh-listings'))      // after tenant assignm
 ### Flat Creation
 - Flat number uniqueness is enforced at DB level (UNIQUE constraint)
 - Before inserting a tenant during flat creation, the route checks `tenants.phone` for uniqueness
-- If the phone already exists, returns HTTP 400 with a message distinguishing "already assigned to a flat" vs "unassigned — use Assign Existing Tenant"
+- If the phone already exists and is assigned to another flat, returns HTTP 400: `"This phone number belongs to a tenant already in Unit {flat_number}."` (fetches the flat_number from DB; falls back to "another unit" if lookup fails). If phone exists but unassigned, returns "A tenant with this phone number already exists. Use 'Assign Existing Tenant'…"
 - Image uploaded to Storage is cleaned up if any subsequent check fails (no orphaned files)
 - **The `flats` INSERT uses `svc` (service-role client), not `db`** — some manager accounts have RLS INSERT policies that reject the anon client. Ownership is validated first via `require_active_subscription` and duplicate checks. Do not revert this to `db.table("flats").insert()`.
 
