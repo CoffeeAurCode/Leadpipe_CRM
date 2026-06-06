@@ -55,6 +55,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
             if (pg) {
                 setForm(prev => ({
                     ...prev,
+                    street_address: pg.street_address || prev.street_address,
                     city: pg.city || prev.city,
                     state: pg.state || prev.state,
                     country: pg.country || prev.country,
@@ -76,6 +77,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
         if (!form.name.trim()) { setError(t('building.nameRequired')); return; }
         setLoading(true);
         setError(null);
+        if (!form.street_address.trim()) { setError('Street Address is required.'); setLoading(false); return; }
         if (!form.city.trim()) { setError('City is required.'); setLoading(false); return; }
         if (!form.state.trim()) { setError('Province / State is required.'); setLoading(false); return; }
         if (!form.country.trim()) { setError('Country is required.'); setLoading(false); return; }
@@ -87,7 +89,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                 country: form.country.trim(),
             };
             if (form.description) payload.description = form.description.trim();
-            if (form.street_address) payload.street_address = form.street_address.trim();
+            payload.street_address = form.street_address.trim();
             if (form.address_line) payload.address_line = form.address_line.trim();
             if (form.image_url) payload.image_url = form.image_url.trim();
             if (form.property_type_id) payload.property_type_id = form.property_type_id;
@@ -180,7 +182,7 @@ function AddBuildingModal({ isOpen, onClose, onSuccess, initialPropertyId = null
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-1.5">Street Address <span className="text-muted-foreground text-xs">(optional)</span></label>
+                            <label className="block text-sm font-medium mb-1.5">Street Address <span className="text-red-500">*</span></label>
                             <input
                                 type="text"
                                 value={form.street_address}

@@ -1210,6 +1210,8 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "Fires async on the caller's first message. "
                     "Returns all listings (has_more=false) if portfolio is small (≤10), "
                     "or count + has_more=true with no listings if portfolio is large. "
+                    "Each listing has: listing_uuid, flat_number, address (full human-readable address), "
+                    "bedrooms, monthly_rent, floor_number, available_from, title. "
                     "Do NOT present listings from this result immediately — gather preferences first. "
                     "Do NOT call this tool more than once per call."
                 ),
@@ -1242,6 +1244,8 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "for any portfolio size (small or large). "
                     "This is the primary source for presenting units once preferences are known. "
                     "Pass bedrooms and/or budget_max. Returns up to 5 matching listings. "
+                    "Each listing has: listing_uuid, flat_number, address (full human-readable address), "
+                    "bedrooms, monthly_rent, floor_number, available_from, title. "
                     "Re-fire if preferences change significantly. "
                     "Do NOT call before collecting at least one preference."
                 ),

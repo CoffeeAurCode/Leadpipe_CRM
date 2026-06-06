@@ -95,6 +95,12 @@ export default function LeasingTab() {
 
     useEffect(() => { load(); }, [load]);
 
+    useEffect(() => {
+        const onRefreshListings = () => load();
+        window.addEventListener('refresh-listings', onRefreshListings);
+        return () => window.removeEventListener('refresh-listings', onRefreshListings);
+    }, [load]);
+
     async function handleDeleteListing(uuid) {
         if (!confirm(t('leasing.listings.confirmDelete'))) return;
         try {

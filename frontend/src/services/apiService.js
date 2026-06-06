@@ -495,11 +495,15 @@ export async function retryUserProvisioning() {
 }
 
 /** Delete a property group and cascade-delete all its buildings, flats, rents, and tenants. */
-export async function deletePropertyGroup(propertyId) {
-    const response = await authFetch(`${API_BASE_URL}/property-groups/${propertyId}`, { method: 'DELETE' });
+export async function deletePropertyGroup(propertyId, force = false) {
+    const qs = force ? '?force=true' : '';
+    const response = await authFetch(`${API_BASE_URL}/property-groups/${propertyId}${qs}`, { method: 'DELETE' });
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+        const error = new Error(err.message || err.detail || `HTTP error! status: ${response.status}`);
+        error.detail = err.detail;
+        error.tenant_count = err.tenant_count;
+        throw error;
     }
     return null;
 }

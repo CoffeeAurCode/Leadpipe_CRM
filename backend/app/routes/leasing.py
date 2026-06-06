@@ -29,11 +29,12 @@ def _format_listings(rows: list) -> list:
             "listing_uuid": r["uuid"],
             "flat_number": r["flat_number"],
             "title": r.get("title") or "",
-            "address": " ".join(filter(None, [
-                flat.get("address") or "",
+            "address": ", ".join(filter(None, [
+                r.get("flat_number"),
                 building.get("name") or "",
-                building.get("address") or "",
-            ])).strip(),
+                building.get("street_address") or flat.get("street_address") or "",
+                building.get("city") or flat.get("city") or "",
+            ])),
             "bedrooms": flat.get("bedrooms"),
             "monthly_rent": float(r["monthly_rent"]),
             "floor_number": str(flat.get("floor_number") or ""),
@@ -70,7 +71,7 @@ async def find_listing(
                 .select(
                     "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
                     "square_footage, included_utilities, parking, laundry, "
-                    "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
+                    "flats!inner(bedrooms, floor_number, street_address, city, buildings(name, street_address, city))"
                 )
                 .eq("is_active", True)
             )
@@ -88,11 +89,12 @@ async def find_listing(
                 "listing_uuid": l["uuid"],
                 "flat_number": l["flat_number"],
                 "title": l.get("title") or "",
-                "address": " ".join(filter(None, [
-                    flat.get("address") or "",
+                "address": ", ".join(filter(None, [
+                    l.get("flat_number"),
                     building.get("name") or "",
-                    building.get("address") or "",
-                ])).strip(),
+                    building.get("street_address") or flat.get("street_address") or "",
+                    building.get("city") or flat.get("city") or "",
+                ])),
                 "bedrooms": flat.get("bedrooms"),
                 "monthly_rent": float(l["monthly_rent"]),
                 "floor_number": str(flat.get("floor_number") or ""),
@@ -124,9 +126,11 @@ async def find_listing(
             flat = r.get("flats") or {}
             building = flat.get("buildings") or {}
             haystack = " ".join(filter(None, [
-                flat.get("address") or "",
+                flat.get("street_address") or "",
+                flat.get("city") or "",
                 building.get("name") or "",
-                building.get("address") or "",
+                building.get("street_address") or "",
+                building.get("city") or "",
                 r.get("title") or "",
             ])).lower()
             if query_lower in haystack:
@@ -181,7 +185,7 @@ async def search_available_listings(
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
                 "square_footage, included_utilities, parking, laundry, "
-                "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
+                "flats!inner(bedrooms, floor_number, street_address, city, buildings(name, street_address, city))"
             )
             .eq("is_active", True)
         )
@@ -201,14 +205,16 @@ async def search_available_listings(
         listings_out = []
         for listing in results.data:
             flat = listing.get("flats") or {}
+            building = flat.get("buildings") or {}
             if bedrooms_filter is not None and flat.get("bedrooms") != bedrooms_filter:
                 continue
             if address_lower:
-                building = flat.get("buildings") or {}
                 haystack = " ".join(filter(None, [
-                    flat.get("address") or "",
+                    flat.get("street_address") or "",
+                    flat.get("city") or "",
                     building.get("name") or "",
-                    building.get("address") or "",
+                    building.get("street_address") or "",
+                    building.get("city") or "",
                 ])).lower()
                 if address_lower not in haystack:
                     continue
@@ -217,6 +223,12 @@ async def search_available_listings(
                 "listing_uuid": listing["uuid"],
                 "flat_number": listing["flat_number"],
                 "title": listing.get("title") or "",
+                "address": ", ".join(filter(None, [
+                    listing.get("flat_number"),
+                    building.get("name") or "",
+                    building.get("street_address") or flat.get("street_address") or "",
+                    building.get("city") or flat.get("city") or "",
+                ])),
                 "bedrooms": flat.get("bedrooms"),
                 "monthly_rent": float(listing["monthly_rent"]),
                 "floor_number": str(flat.get("floor_number") or ""),
@@ -254,7 +266,7 @@ async def listings_for_agent(
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
                 "square_footage, included_utilities, parking, laundry, "
-                "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
+                "flats!inner(bedrooms, floor_number, street_address, city, buildings(name, street_address, city))"
             )
             .eq("is_active", True)
         )
@@ -301,7 +313,7 @@ async def search_listings(
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
                 "square_footage, included_utilities, parking, laundry, "
-                "flats!inner(bedrooms, floor_number, address, buildings(name, address))"
+                "flats!inner(bedrooms, floor_number, street_address, city, buildings(name, street_address, city))"
             )
             .eq("is_active", True)
         )

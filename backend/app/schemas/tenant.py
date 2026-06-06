@@ -1,8 +1,11 @@
 """Tenant schemas for API requests and responses"""
-from pydantic import BaseModel, Field, ConfigDict, computed_field
+from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validator
 from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
+import re
+
+_PHONE_RE = re.compile(r'^\+[1-9]\d{9,14}$')
 
 
 class TenantBase(BaseModel):
@@ -10,6 +13,13 @@ class TenantBase(BaseModel):
     name: str = Field(..., description="Tenant's full name")
     phone: str = Field(..., description="Tenant's phone number (unique)")
     email: Optional[str] = None
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if v and not _PHONE_RE.match(v):
+            raise ValueError('Phone must be E.164 format, e.g. +16135551234')
+        return v
 
 
 class TenantCreate(TenantBase):

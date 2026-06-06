@@ -160,6 +160,9 @@ async def get_building_units(building_id: str, user: dict = Depends(require_acti
     Returns raw flat records — frontend maps them to unit cards.
     """
     try:
+        building_resp = db.table("buildings").select("street_address").eq("id", building_id).execute()
+        building_street_address = building_resp.data[0].get("street_address", "") if building_resp.data else ""
+
         response = (
             db.table("flats")
             .select("*")
@@ -167,7 +170,10 @@ async def get_building_units(building_id: str, user: dict = Depends(require_acti
             .order("flat_number")
             .execute()
         )
-        return response.data
+        units = response.data
+        for unit in units:
+            unit["building_street_address"] = building_street_address
+        return units
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

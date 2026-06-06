@@ -5,6 +5,9 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib';
 import { updateFlat } from '../services/apiService';
 
+const PHONE_RE = /^\+[1-9]\d{9,14}$/;
+const validatePhone = val => !val || PHONE_RE.test(val) ? null : 'Enter a valid phone number with country code (e.g. +16135551234)';
+
 export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
@@ -37,7 +40,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                 bedrooms: flat.bedrooms || '',
                 bathrooms: flat.bathrooms || '',
                 floor_number: flat.floor_number || '',
-                street_address: flat.street_address || '',
+                street_address: flat.street_address || flat.building_street_address || '',
                 address_line: flat.address_line || '',
                 city: flat.city || '',
                 state: flat.state || '',
@@ -88,6 +91,8 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
     };
 
     const handleAddTenant = async () => {
+        const phoneErr = validatePhone(tenantData.phone);
+        if (phoneErr) { setError(phoneErr); return; }
         setLoading(true);
         setError(null);
         try {
@@ -105,6 +110,8 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
     };
 
     const handleUpdateTenant = async () => {
+        const phoneErr = validatePhone(tenantData.phone);
+        if (phoneErr) { setError(phoneErr); return; }
         setLoading(true);
         setError(null);
         try {

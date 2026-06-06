@@ -481,7 +481,23 @@ function PropertiesPage() {
             setSelectedProperty(null);
             setPropertyBuildings([]);
         } catch (err) {
-            alert(err.message || t('properties.failedDeleteProperty'));
+            if (err?.detail === 'tenant_block') {
+                const confirmed = window.confirm(
+                    `This property has ${err.tenant_count} active tenant(s). Delete them too?`
+                );
+                if (confirmed) {
+                    try {
+                        await deletePropertyGroup(selectedProperty.id, true);
+                        setPropertyGroups(prev => prev.filter(p => p.id !== selectedProperty.id));
+                        setSelectedProperty(null);
+                        setPropertyBuildings([]);
+                    } catch (forceErr) {
+                        alert(forceErr.message || t('properties.failedDeleteProperty'));
+                    }
+                }
+            } else {
+                alert(err.message || t('properties.failedDeleteProperty'));
+            }
         } finally {
             setDeletingProperty(false);
         }

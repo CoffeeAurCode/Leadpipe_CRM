@@ -283,11 +283,25 @@ async def get_all_flats(
 ):
     """Get all flats ordered by building and flat number."""
     try:
-        query = db.table("flats").select("*").order("address").order("flat_number")
         if vacant:
-            query = query.is_("tenant_uuid", "null")
-        response = query.execute()
-        return response.data
+            response = (
+                db.table("flats")
+                .select("*, buildings(name, properties_list(name))")
+                .is_("tenant_uuid", "null")
+                .order("flat_number")
+                .execute()
+            )
+            rows = response.data
+            for row in rows:
+                b = row.pop("buildings", None) or {}
+                row["building_name"] = b.get("name", "")
+                pg = b.get("properties_list") or {}
+                row["property_name"] = pg.get("name", "") if isinstance(pg, dict) else ""
+            return rows
+        else:
+            query = db.table("flats").select("*").order("address").order("flat_number")
+            response = query.execute()
+            return response.data
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

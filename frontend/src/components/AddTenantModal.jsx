@@ -5,6 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib';
 import { createTenant, fetchVacantFlats, setRent } from '../services/apiService';
 
+const PHONE_RE = /^\+[1-9]\d{9,14}$/;
+const validatePhone = val => !val || PHONE_RE.test(val) ? null : 'Enter a valid phone number with country code (e.g. +16135551234)';
+
 const RENT_STATUS_OPTIONS = ['On-time', 'Upcoming', 'Overdue', 'At Risk'];
 
 const inputCls = cn(
@@ -56,6 +59,8 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
         e.preventDefault();
         if (!form.name.trim()) { setError('Tenant name is required.'); return; }
         if (!form.phone.trim()) { setError('Phone number is required.'); return; }
+        const phoneErr = validatePhone(form.phone.trim());
+        if (phoneErr) { setError(phoneErr); return; }
 
         setLoading(true);
         setError('');
@@ -78,6 +83,9 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                 await setRent(form.flat_uuid, parseFloat(form.monthly_rent), today);
             }
 
+            if (form.flat_uuid) {
+                window.dispatchEvent(new Event('refresh-listings'));
+            }
             onSuccess?.(newTenant);
             onClose();
         } catch (err) {
@@ -174,11 +182,14 @@ export default function AddTenantModal({ isOpen, onClose, onSuccess }) {
                                         disabled={loadingFlats}
                                     >
                                         <option value="">{t('tenants.noFlatAssigned')}</option>
-                                        {vacantFlats.map(f => (
-                                            <option key={f.uuid} value={f.uuid}>
-                                                {f.flat_number}{f.address ? ` · ${f.address}` : ''}
-                                            </option>
-                                        ))}
+                                        {vacantFlats.map(f => {
+                                            const location = [f.building_name, f.property_name].filter(Boolean).join(', ') || f.street_address || '';
+                                            return (
+                                                <option key={f.uuid} value={f.uuid}>
+                                                    {f.flat_number}{location ? ` — ${location}` : ''}
+                                                </option>
+                                            );
+                                        })}
                                     </select>
                                     {loadingFlats && (
                                         <p className="text-xs text-muted-foreground">{t('tenants.loadingFlats')}</p>

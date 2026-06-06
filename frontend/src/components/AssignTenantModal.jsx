@@ -54,6 +54,7 @@ export default function AssignTenantModal({ isOpen, flatUuid, flatNumber, onClos
                 const created = await createTenant({ name: newForm.name.trim(), phone: newForm.phone.trim(), flat_uuid: flatUuid });
                 await assignTenantToFlat(flatUuid, created.uuid);
             }
+            window.dispatchEvent(new Event('refresh-listings'));
             onSuccess?.();
             onClose();
         } catch (err) {

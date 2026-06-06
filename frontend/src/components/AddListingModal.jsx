@@ -163,9 +163,10 @@ export default function AddListingModal({ isOpen, onClose, onSuccess, listing = 
                                 className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                             >
                                 <option value="">{t('leasing.listings.selectVacant')}</option>
-                                {vacantFlats.map(f => (
-                                    <option key={f.uuid} value={f.uuid}>{f.flat_number} — {f.address || t('leasing.listings.noAddress')}</option>
-                                ))}
+                                {vacantFlats.map(f => {
+                                    const location = [f.building_name, f.property_name].filter(Boolean).join(', ') || f.street_address || t('leasing.listings.noAddress');
+                                    return <option key={f.uuid} value={f.uuid}>{f.flat_number} — {location}</option>;
+                                })}
                             </select>
                         </div>
                     )}

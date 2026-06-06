@@ -156,9 +156,10 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                                     return (
                                         <div className="flex items-center gap-2 text-sm">
                                             <span className="text-muted-foreground">{t('leasing.leads.primary')}:</span>
-                                            <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
-                                                {primary ? `${primary.flat_number}${primary.monthly_rent ? ` — $${Number(primary.monthly_rent).toLocaleString('en-CA')}/mo` : ''}` : lead.listing_uuid}
-                                            </span>
+                                            {primary
+                                                ? <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">{`${primary.flat_number}${primary.monthly_rent ? ` — $${Number(primary.monthly_rent).toLocaleString('en-CA')}/mo` : ''}`}</span>
+                                                : <span className="font-mono text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">Unit delisted</span>
+                                            }
                                         </div>
                                     );
                                 })()}
@@ -171,9 +172,10 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                                                 .map(id => {
                                                     const l = findListing(id);
                                                     return (
-                                                        <span key={id} className="font-mono text-xs bg-secondary text-foreground px-2 py-0.5 rounded">
-                                                            {l ? l.flat_number : id}
-                                                        </span>
+                                                        {l
+                                                            ? <span key={id} className="font-mono text-xs bg-secondary text-foreground px-2 py-0.5 rounded">{l.flat_number}</span>
+                                                            : <span key={id} className="font-mono text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">Unit delisted</span>
+                                                        }
                                                     );
                                                 })}
                                         </div>

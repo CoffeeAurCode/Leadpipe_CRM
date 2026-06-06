@@ -6,7 +6,8 @@ Each property_group can contain multiple buildings (linked via buildings.propert
 
 Hierarchy: Property → Building → Unit (flat)
 """
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
+from fastapi.responses import JSONResponse, Response
 from supabase import Client
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
@@ -346,6 +347,7 @@ class BulkDeletePropertyGroupsRequest(BaseModel):
 @router.delete("/bulk", status_code=status.HTTP_200_OK)
 async def bulk_delete_property_groups(
     request: BulkDeletePropertyGroupsRequest,
+    force: bool = Query(False),
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
 ):
@@ -360,70 +362,120 @@ async def bulk_delete_property_groups(
                 continue
             buildings_resp = db.table("buildings").select("id").eq("property_id", property_id).execute()
             building_ids = [b["id"] for b in buildings_resp.data]
+            flat_uuids = []
+            tenant_uuids = []
             if building_ids:
                 flats_resp = db.table("flats").select("uuid, tenant_uuid").in_("building_id", building_ids).execute()
                 flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
                 tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
-                if flat_uuids:
-                    db.table("lease_listings").delete().in_("flat_uuid", flat_uuids).execute()
-                    db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
-                if tenant_uuids:
-                    db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
-                db.table("flats").delete().in_("building_id", building_ids).execute()
-                db.table("buildings").delete().eq("property_id", property_id).execute()
-            db.table("properties_list").delete().eq("id", property_id).execute()
-            deleted += 1
-        except Exception as e:
-            errors.append(f"{property_id}: {clean_db_error(e)}")
-    return {"deleted": deleted, "errors": errors}
-
-
-@router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_property_group(property_id: str, user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)):
-    """
-    Delete a property group and cascade-delete all buildings, flats, rents, tenants,
-    and lease_listings within it.
-    """
-    try:
-        prop_resp = db.table("properties_list").select("id").eq("id", property_id).execute()
-        if not prop_resp.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Property group with ID {property_id} not found"
-            )
-
-        buildings_resp = db.table("buildings").select("id").eq("property_id", property_id).execute()
-        building_ids = [b["id"] for b in buildings_resp.data]
-
-        if building_ids:
-            flats_resp = (
-                db.table("flats")
-                .select("uuid, tenant_uuid")
-                .in_("building_id", building_ids)
-                .execute()
-            )
-            flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
-            tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
-
+            if not force and tenant_uuids:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "detail": "tenant_block",
+                        "tenant_count": len(tenant_uuids),
+                        "message": f"This property contains {len(tenant_uuids)} active tenant(s). Confirm deletion.",
+                    }
+                )
             if flat_uuids:
                 listings_resp = db.table("lease_listings").select("uuid").in_("flat_uuid", flat_uuids).execute()
                 listing_uuids = [l["uuid"] for l in listings_resp.data]
                 if listing_uuids:
                     db.table("lease_leads").update({"listing_uuid": None}).in_("listing_uuid", listing_uuids).execute()
+                    print(f"  [CASCADE] nullified {len(listing_uuids)} lease_leads for {property_id}")
                 db.table("lease_listings").delete().in_("flat_uuid", flat_uuids).execute()
+                print(f"  [CASCADE] deleted lease_listings for {len(flat_uuids)} flats")
                 db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
+                print(f"  [CASCADE] deleted rents for {len(flat_uuids)} flats")
             if tenant_uuids:
+                db.table("complaints").delete().in_("tenant_uuid", tenant_uuids).execute()
+                print(f"  [CASCADE] deleted complaints for {len(tenant_uuids)} tenants")
+                db.table("appointments").delete().in_("tenant_uuid", tenant_uuids).execute()
+                print(f"  [CASCADE] deleted appointments for {len(tenant_uuids)} tenants")
+                db.table("call_logs").delete().in_("tenant_uuid", tenant_uuids).execute()
+                print(f"  [CASCADE] deleted call_logs for {len(tenant_uuids)} tenants")
                 db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
+                print(f"  [CASCADE] deleted {len(tenant_uuids)} tenants")
+            if building_ids:
+                db.table("flats").delete().in_("building_id", building_ids).execute()
+                print(f"  [CASCADE] deleted flats for {len(building_ids)} buildings")
+                db.table("buildings").delete().eq("property_id", property_id).execute()
+                print(f"  [CASCADE] deleted {len(building_ids)} buildings")
+            db.table("properties_list").delete().eq("id", property_id).execute()
+            print(f"  [CASCADE] deleted property group {property_id}")
+            deleted += 1
+        except Exception as e:
+            print(f"  [CASCADE ERROR] property_id={property_id}: {e}")
+            errors.append(f"{property_id}: {clean_db_error(e)}")
+    return {"deleted": deleted, "errors": errors}
+
+
+@router.delete("/{property_id}", status_code=status.HTTP_200_OK)
+async def delete_property_group(
+    property_id: str,
+    force: bool = Query(False),
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+):
+    try:
+        prop_resp = db.table("properties_list").select("id").eq("id", property_id).execute()
+        if not prop_resp.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Property group with ID {property_id} not found")
+
+        buildings_resp = db.table("buildings").select("id").eq("property_id", property_id).execute()
+        building_ids = [b["id"] for b in buildings_resp.data]
+
+        flat_uuids = []
+        tenant_uuids = []
+
+        if building_ids:
+            flats_resp = db.table("flats").select("uuid, tenant_uuid").in_("building_id", building_ids).execute()
+            flat_uuids = [f["uuid"] for f in flats_resp.data if f.get("uuid")]
+            tenant_uuids = [f["tenant_uuid"] for f in flats_resp.data if f.get("tenant_uuid")]
+
+        if not force and tenant_uuids:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "detail": "tenant_block",
+                    "tenant_count": len(tenant_uuids),
+                    "message": f"This property contains {len(tenant_uuids)} active tenant(s). Confirm deletion.",
+                }
+            )
+
+        if flat_uuids:
+            listings_resp = db.table("lease_listings").select("uuid").in_("flat_uuid", flat_uuids).execute()
+            listing_uuids = [l["uuid"] for l in listings_resp.data]
+            if listing_uuids:
+                db.table("lease_leads").update({"listing_uuid": None}).in_("listing_uuid", listing_uuids).execute()
+                print(f"  [CASCADE] nullified {len(listing_uuids)} lease_leads for {property_id}")
+            db.table("lease_listings").delete().in_("flat_uuid", flat_uuids).execute()
+            print(f"  [CASCADE] deleted lease_listings for {len(flat_uuids)} flats")
+            db.table("rents").delete().in_("flat_uuid", flat_uuids).execute()
+            print(f"  [CASCADE] deleted rents for {len(flat_uuids)} flats")
+
+        if tenant_uuids:
+            db.table("complaints").delete().in_("tenant_uuid", tenant_uuids).execute()
+            print(f"  [CASCADE] deleted complaints for {len(tenant_uuids)} tenants")
+            db.table("appointments").delete().in_("tenant_uuid", tenant_uuids).execute()
+            print(f"  [CASCADE] deleted appointments for {len(tenant_uuids)} tenants")
+            db.table("call_logs").delete().in_("tenant_uuid", tenant_uuids).execute()
+            print(f"  [CASCADE] deleted call_logs for {len(tenant_uuids)} tenants")
+            db.table("tenants").delete().in_("uuid", tenant_uuids).execute()
+            print(f"  [CASCADE] deleted {len(tenant_uuids)} tenants")
+
+        if building_ids:
             db.table("flats").delete().in_("building_id", building_ids).execute()
+            print(f"  [CASCADE] deleted flats for {len(building_ids)} buildings")
             db.table("buildings").delete().eq("property_id", property_id).execute()
+            print(f"  [CASCADE] deleted {len(building_ids)} buildings")
 
         db.table("properties_list").delete().eq("id", property_id).execute()
-        return None
+        print(f"  [CASCADE] deleted property group {property_id}")
+        return Response(status_code=204)
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting property group: {clean_db_error(e)}"
-        )
+        print(f"  [CASCADE ERROR] property_id={property_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error deleting property group: {clean_db_error(e)}")
