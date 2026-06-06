@@ -1,7 +1,7 @@
 # Claude Code Instructions — Tenant Management MVP
 
 ## Start every session by reading this file first:
-**`CODEBASE_CONTEXT.md`** — full product overview, DB schema, all routes, all components, architectural rules, integrations, and patterns. Read it before touching any code so you never need to re-explore the codebase from scratch.
+**`CODEBASE_CONTEXT.md`** — full product overview, DB schema, all routes, all components, architectural rules, integrations, and patterns. Read it before touching any code so you never need to re-explore the codebase from scratch.CODEBASE_CONTEXT.md should be update regularly.
 
 ## Keeping CODEBASE_CONTEXT.md up to date (mandatory):
 At the end of **every session** where you make code changes that affect any of the following, update the relevant section(s) of `CODEBASE_CONTEXT.md` before finishing:

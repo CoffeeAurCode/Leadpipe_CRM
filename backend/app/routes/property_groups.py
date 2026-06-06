@@ -12,6 +12,7 @@ from supabase import Client
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
 from app.core.db_errors import clean_db_error
+from app.db.session import get_service_db
 from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
@@ -350,6 +351,7 @@ async def bulk_delete_property_groups(
     force: bool = Query(False),
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
+    svc_db: Client = Depends(get_service_db),
 ):
     """Bulk delete property groups with full cascade."""
     deleted = 0
@@ -401,7 +403,7 @@ async def bulk_delete_property_groups(
                 print(f"  [CASCADE] deleted flats for {len(building_ids)} buildings")
                 db.table("buildings").delete().eq("property_id", property_id).execute()
                 print(f"  [CASCADE] deleted {len(building_ids)} buildings")
-            db.table("lease_leads").delete().eq("property_group_id", property_id).execute()
+            svc_db.table("lease_leads").delete().eq("property_group_id", property_id).execute()
             print(f"  [CASCADE] deleted lease_leads for property group {property_id}")
             db.table("properties_list").delete().eq("id", property_id).execute()
             print(f"  [CASCADE] deleted property group {property_id}")
@@ -418,6 +420,7 @@ async def delete_property_group(
     force: bool = Query(False),
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
+    svc_db: Client = Depends(get_service_db),
 ):
     try:
         prop_resp = db.table("properties_list").select("id").eq("id", property_id).execute()
