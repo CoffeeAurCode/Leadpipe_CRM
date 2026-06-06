@@ -767,6 +767,8 @@ Four builder functions:
 - `NO FORCING PREFERENCES` rule: agent must not demand bedrooms or budget before searching — search first, let results guide the conversation
 - Budget enforcement: only enforces bedroom-count match when the caller **explicitly stated** a bedroom count; if no preference was given, any unit from search results is acceptable
 
+**Model (all agents):** Anthropic `claude-haiku-4-5-20251001` (provider `"anthropic"`) — changed from OpenAI `gpt-5.2-chat-latest` on 2026-06-06. Applies to `build_assistant_config`, `build_complaint_config`, and `_lease_assistant_shell` in `vapi_agent_config.py`.
+
 **Voice & language config (all agents):**
 - Voice: ElevenLabs `eleven_turbo_v2_5`, voiceId `E4GQ42zEV1kwul03Bl16` (Wilkins bilingual voice), stability 0.6, useSpeakerBoost, optimizeStreamingLatency 1
 - Transcriber: Deepgram nova-3, `language: "multi"`, confidenceThreshold 0.4, numerals False, OpenAI gpt-4o-transcribe fallback (unchanged)

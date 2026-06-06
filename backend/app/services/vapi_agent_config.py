@@ -614,8 +614,8 @@ def build_assistant_config() -> dict:
         "transcriber": TRANSCRIBER_CONFIG,
         "voice": VOICE_CONFIG,
         "model": {
-            "provider": "openai",
-            "model": "gpt-5.2-chat-latest",
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
             "messages": [{"role": "system", "content": SYSTEM_PROMPT}],
             "maxTokens": 300,
             "temperature": 0.7,
@@ -949,8 +949,8 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
         "transcriber": COMPLAINT_TRANSCRIBER_CONFIG,
         "voice": VOICE_CONFIG,
         "model": {
-            "provider": "openai",
-            "model": "gpt-5.2-chat-latest",
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
             "messages": [{"role": "system", "content": COMPLAINT_SYSTEM_PROMPT}],
             "maxTokens": 300,
             "temperature": 0.7,
@@ -1332,8 +1332,8 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
         "transcriber": TRANSCRIBER_CONFIG,
         "voice": VOICE_CONFIG,
         "model": {
-            "provider": "openai",
-            "model": "gpt-5.2-chat-latest",
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
             "messages": [{"role": "system", "content": system_prompt}],
             "maxTokens": 300,
             "temperature": 0.7,
