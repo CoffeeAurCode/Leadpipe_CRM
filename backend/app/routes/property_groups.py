@@ -475,7 +475,7 @@ async def delete_property_group(
             db.table("buildings").delete().eq("property_id", property_id).execute()
             print(f"  [CASCADE] deleted {len(building_ids)} buildings")
 
-        db.table("lease_leads").delete().eq("property_group_id", property_id).execute()
+        svc_db.table("lease_leads").delete().eq("property_group_id", property_id).execute()
         print(f"  [CASCADE] deleted lease_leads for property group {property_id}")
         db.table("properties_list").delete().eq("id", property_id).execute()
         print(f"  [CASCADE] deleted property group {property_id}")
