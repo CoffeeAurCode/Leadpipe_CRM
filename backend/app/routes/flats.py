@@ -321,6 +321,7 @@ async def assign_tenant(
     body: AssignTenantRequest,
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
+    svc: Client = Depends(get_service_db),
 ):
     """Assign an existing tenant to a vacant flat (bidirectional link)."""
     try:
@@ -330,15 +331,15 @@ async def assign_tenant(
         if flat_resp.data[0].get("tenant_uuid"):
             raise HTTPException(status_code=400, detail="Flat is already occupied")
 
-        listing_resp = db.table("lease_listings").select("uuid, monthly_rent").eq("flat_uuid", flat_uuid).eq("is_active", True).limit(1).execute()
+        listing_resp = svc.table("lease_listings").select("uuid, monthly_rent").eq("flat_uuid", flat_uuid).eq("is_active", True).limit(1).execute()
         listing_rent = float(listing_resp.data[0]["monthly_rent"]) if listing_resp.data and listing_resp.data[0].get("monthly_rent") is not None else None
 
         db.table("flats").update({"tenant_uuid": body.tenant_uuid, "occupied": True, "is_listed": False}).eq("uuid", flat_uuid).execute()
         db.table("tenants").update({"flat_uuid": flat_uuid}).eq("uuid", body.tenant_uuid).execute()
         if listing_resp.data:
             listing_uuid = listing_resp.data[0]["uuid"]
-            db.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
-            db.table("lease_listings").delete().eq("flat_uuid", flat_uuid).execute()
+            svc.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
+            svc.table("lease_listings").delete().eq("flat_uuid", flat_uuid).execute()
 
         if listing_rent is not None:
             db.table("rents").update({"is_active": False}).eq("flat_uuid", flat_uuid).eq("is_active", True).execute()
@@ -687,10 +688,10 @@ async def create_flat(
                         "occupied": True,
                         "is_listed": False,
                     }).eq("uuid", flat_uuid).execute()
-                    bulk_listing_resp = db.table("lease_listings").select("uuid").eq("flat_uuid", flat_uuid).limit(1).execute()
+                    bulk_listing_resp = svc.table("lease_listings").select("uuid").eq("flat_uuid", flat_uuid).limit(1).execute()
                     if bulk_listing_resp.data:
-                        db.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", bulk_listing_resp.data[0]["uuid"]).execute()
-                        db.table("lease_listings").delete().eq("flat_uuid", flat_uuid).execute()
+                        svc.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", bulk_listing_resp.data[0]["uuid"]).execute()
+                        svc.table("lease_listings").delete().eq("flat_uuid", flat_uuid).execute()
 
                     flat["tenant_uuid"] = tenant_uuid
                     flat["occupied"] = True
@@ -739,7 +740,8 @@ async def update_flat_details(
     flat_uuid: str,
     request: FlatEditRequest,
     user: dict = Depends(require_active_subscription),
-    db: Client = Depends(get_authenticated_db)
+    db: Client = Depends(get_authenticated_db),
+    svc: Client = Depends(get_service_db),
 ):
     """
     Update flat details and manage tenant occupancy.
@@ -808,11 +810,11 @@ async def update_flat_details(
             else:
                 raise HTTPException(status_code=500, detail="Failed to create tenant")
 
-            listing_resp = db.table("lease_listings").select("uuid, monthly_rent").eq("flat_uuid", flat_uuid).limit(1).execute()
+            listing_resp = svc.table("lease_listings").select("uuid, monthly_rent").eq("flat_uuid", flat_uuid).limit(1).execute()
             listing_rent = float(listing_resp.data[0]["monthly_rent"]) if listing_resp.data and listing_resp.data[0].get("monthly_rent") is not None else None
             if listing_resp.data:
-                db.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_resp.data[0]["uuid"]).execute()
-                db.table("lease_listings").delete().eq("flat_uuid", flat_uuid).execute()
+                svc.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_resp.data[0]["uuid"]).execute()
+                svc.table("lease_listings").delete().eq("flat_uuid", flat_uuid).execute()
             db.table("flats").update({"is_listed": False}).eq("uuid", flat_uuid).execute()
             if listing_rent is not None:
                 db.table("rents").update({"is_active": False}).eq("flat_uuid", flat_uuid).eq("is_active", True).execute()
