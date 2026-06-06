@@ -774,13 +774,16 @@ async def update_flat_details(
         
         if request.action == 'ADD_TENANT':
             # Guard: phone must be unique in the tenants table
-            existing = db.table("tenants").select("uuid, flat_uuid").eq("phone", request.tenant_data.phone).execute()
+            existing = db.table("tenants").select("uuid, flat_uuid, name").eq("phone", request.tenant_data.phone).execute()
             if existing.data:
                 existing_tenant = existing.data[0]
                 if existing_tenant.get("flat_uuid"):
+                    other_flat_uuid = existing_tenant["flat_uuid"]
+                    flat_info = db.table("flats").select("flat_number").eq("uuid", other_flat_uuid).execute()
+                    unit_label = f"Unit {flat_info.data[0]['flat_number']}" if flat_info.data else "another unit"
                     raise HTTPException(
                         status_code=400,
-                        detail="A tenant with this phone number is already assigned to another flat. Use 'Assign Existing Tenant' to move them."
+                        detail=f"This phone number belongs to a tenant already in {unit_label}."
                     )
                 raise HTTPException(
                     status_code=400,
