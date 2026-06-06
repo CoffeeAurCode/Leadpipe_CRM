@@ -171,12 +171,9 @@ export default function LeadDetailModal({ lead, listings = [], onClose, onUpdate
                                                 .filter(id => id !== lead.listing_uuid)
                                                 .map(id => {
                                                     const l = findListing(id);
-                                                    return (
-                                                        {l
-                                                            ? <span key={id} className="font-mono text-xs bg-secondary text-foreground px-2 py-0.5 rounded">{l.flat_number}</span>
-                                                            : <span key={id} className="font-mono text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">Unit delisted</span>
-                                                        }
-                                                    );
+                                                    return l
+                                                        ? <span key={id} className="font-mono text-xs bg-secondary text-foreground px-2 py-0.5 rounded">{l.flat_number}</span>
+                                                        : <span key={id} className="font-mono text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">Unit delisted</span>;
                                                 })}
                                         </div>
                                     </div>
