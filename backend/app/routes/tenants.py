@@ -226,12 +226,18 @@ async def create_tenant(
 
         new_tenant = response.data[0]
 
-        # Bidirectional link: update flat.tenant_uuid and set occupied=True
         if tenant_data.flat_uuid:
+            flat_uuid_str = str(tenant_data.flat_uuid)
+            listing_resp = db.table("lease_listings").select("uuid").eq("flat_uuid", flat_uuid_str).eq("is_active", True).limit(1).execute()
             db.table("flats").update({
                 "tenant_uuid": new_tenant["uuid"],
                 "occupied": True,
-            }).eq("uuid", str(tenant_data.flat_uuid)).execute()
+                "is_listed": False,
+            }).eq("uuid", flat_uuid_str).execute()
+            if listing_resp.data:
+                listing_uuid = listing_resp.data[0]["uuid"]
+                db.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
+                db.table("lease_listings").delete().eq("flat_uuid", flat_uuid_str).execute()
 
         return new_tenant
     except HTTPException:
@@ -441,9 +447,9 @@ async def update_tenant(
             if existing.data:
                 raise HTTPException(status_code=400, detail="A tenant with this phone number already exists")
 
-        # Verify new flat exists if changing flat assignment
-        if 'flat_uuid' in update_data and update_data['flat_uuid']:
-            flat = db.table("flats").select("uuid").eq("uuid", update_data['flat_uuid']).execute()
+        new_flat_uuid = update_data.get('flat_uuid') if 'flat_uuid' in update_data else None
+        if new_flat_uuid:
+            flat = db.table("flats").select("uuid").eq("uuid", new_flat_uuid).execute()
             if not flat.data:
                 raise HTTPException(status_code=404, detail="Flat not found")
 
@@ -454,7 +460,19 @@ async def update_tenant(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Tenant with UUID {tenant_uuid} not found"
             )
-        
+
+        if new_flat_uuid:
+            listing_resp = db.table("lease_listings").select("uuid").eq("flat_uuid", new_flat_uuid).eq("is_active", True).limit(1).execute()
+            db.table("flats").update({
+                "tenant_uuid": tenant_uuid,
+                "occupied": True,
+                "is_listed": False,
+            }).eq("uuid", new_flat_uuid).execute()
+            if listing_resp.data:
+                listing_uuid = listing_resp.data[0]["uuid"]
+                db.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
+                db.table("lease_listings").delete().eq("flat_uuid", new_flat_uuid).execute()
+
         return response.data[0]
     except HTTPException:
         raise
