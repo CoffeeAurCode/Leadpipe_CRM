@@ -425,7 +425,7 @@ Computed fields on GET (from `TenantResponse` schema):
 | POST | `/flats/verify-phone` | **VAPI endpoint** — verifies caller phone matches tenant; returns `{status: valid/invalid/vacant}` |
 | POST | `/flats/identify-caller` | VAPI — identify caller by phone number |
 | POST | `/flats` | Create flat |
-| GET | `/flats` | List flats (optional `?vacant=true`) |
+| GET | `/flats` | List flats (optional `?vacant=true`); when `vacant=true` uses PostgREST nested join to include `building_name` (from `buildings.name`) and `property_name` (from `properties_list.name`) in each row; non-vacant path returns raw flat rows |
 | GET | `/flats/{uuid}/details` | Single flat with tenant details |
 | GET | `/flats/{flat_number}` | Flat by flat number |
 | PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT); ADD_TENANT deactivates any active listing and auto-sets rent from listing's `monthly_rent` |
@@ -464,7 +464,7 @@ Computed fields on GET (from `TenantResponse` schema):
 |---|---|---|
 | POST | `/buildings` | Create building |
 | GET | `/buildings` | List all with unit counts aggregated from flats |
-| GET | `/buildings/{id}` | Single building |
+| GET | `/buildings/{id}` | Single building; unit list response includes `building_street_address` field on each flat (joined from parent building) for frontend auto-fill |
 | PATCH | `/buildings/{id}` | Update |
 | DELETE | `/buildings/bulk` | Bulk delete buildings; body `{ids: [...]}`; cascade: lease_listings → rents → tenants → flats → buildings |
 | DELETE | `/buildings/{id}` | Delete building (cascade: lease_listings → rents → tenants → flats → building) |
@@ -480,8 +480,8 @@ Computed fields on GET (from `TenantResponse` schema):
 | POST | `/property-groups/users/me/provision-voice` | Retry VAPI lease provisioning for the manager account (upserts `pending` status, re-runs background task) |
 | PATCH | `/property-groups/{id}` | Update property group fields (name, description, street_address, city, state, country, image_url, property_type_id) |
 | GET | `/property-groups/{id}/buildings` | Buildings with unit counts for a property group |
-| DELETE | `/property-groups/bulk` | Bulk delete property groups; body `{ids: [...]}`; full cascade including lease_listings |
-| DELETE | `/property-groups/{id}` | Cascade-delete all buildings, flats, rents, tenants, lease_listings within the group |
+| DELETE | `/property-groups/bulk` | Bulk delete property groups; body `{ids: [...]}`; `?force=true` required to proceed when tenants exist (otherwise 409 `tenant_block`); full cascade: lease_leads nullify → lease_listings → rents → complaints → appointments → call_logs → tenants → flats → buildings → property group; each step logs `[CASCADE]` to stdout |
+| DELETE | `/property-groups/{id}` | Cascade-delete all buildings, flats, rents, tenants, lease_listings within the group; `?force=true` required when tenants exist (otherwise 409 `{detail: "tenant_block", tenant_count: N}`); same cascade order as bulk; each step logs `[CASCADE]` to stdout |
 
 ---
 
@@ -718,6 +718,16 @@ get_service_db()  # service-role client (bypasses RLS) — for webhooks, admin
 
 ---
 
+### `app/schemas/flat.py` — `FlatResponse`
+Extends `FlatBase` with: `id`, `uuid`, `created_at`, `image_url`, `tenant_uuid`, `tenant`, `building_id`, `property_type_id`, `street_address`, `address_line`, `city`, `state`, `country`, and two enrichment fields added for the vacant-flat API:
+- `building_name: Optional[str] = None` — populated by `GET /flats?vacant=true`
+- `property_name: Optional[str] = None` — populated by `GET /flats?vacant=true`
+
+Non-vacant responses leave these as `null`.
+
+### `app/schemas/tenant.py`
+Includes a Pydantic `field_validator` on `phone` enforcing E.164 format (`^\+[1-9]\d{9,14}$`). Raises `ValueError` on invalid input, surfaced as HTTP 422.
+
 ### `app/schemas/leasing.py`
 - `CustomRules` — JSONB config: `max_occupants`, `income_required`, `pets_allowed`, `vegetarian_only`, `lease_term_months`, `custom_question`
 - `ListingCreate / ListingUpdate / ListingResponse`
@@ -828,7 +838,7 @@ class Feature(str, Enum):
 | `components/Dashboard.jsx` | Main dashboard — KPI cards, charts, appointment list |
 | `components/BentoDashboard.jsx` | Bento-grid layout overview |
 | `components/ComplaintsPage.jsx` | Full complaints view with category/status filters |
-| `components/PropertiesPage.jsx` | Property + building listing |
+| `components/PropertiesPage.jsx` | Property + building listing; `handleDeleteGroup` intercepts 409 `tenant_block` response and shows a confirmation dialog with tenant count; on confirm re-calls `deletePropertyGroup(id, true)` with `?force=true` |
 | `components/TenantManagement.jsx` | Tenant CRUD, lease info, rent status |
 | `components/CalendarView.jsx` | Month calendar + day panel for appointments |
 | `components/SettingsPage.jsx` | Manager settings + per-building feature flags |
@@ -846,15 +856,15 @@ class Feature(str, Enum):
 | `AppointmentModal.jsx` | Create appointment |
 | `AppointmentDetailModal.jsx` | View/edit appointment + linked complaints |
 | `FlatDetailModal.jsx` | Flat details |
-| `FlatEditModal.jsx` | Edit flat |
-| `TenantProfile.jsx` | Tenant detail modal; edit form includes `name`, `phone` (E.164 with inline validation), `email`, lease dates, rent_status, notes |
+| `FlatEditModal.jsx` | Edit flat; when `flat.street_address` is empty, pre-fills it from `flat.building_street_address` (injected by `GET /buildings/{id}/units`); phone field has E.164 inline validation |
+| `TenantProfile.jsx` | Tenant detail modal; edit form includes `name`, `phone` (E.164 inline validation, regex `^\+[1-9]\d{9,14}$`), `email`, lease dates, rent_status, notes |
 | `AddPropertyModal.jsx` | Create PropertyGroup |
-| `AddBuildingModal.jsx` | Create/edit Building — dual-mode: when `initialData` prop is provided it calls `updateBuilding()` instead of `createBuilding()`; title changes to "Edit Building" |
+| `AddBuildingModal.jsx` | Create/edit Building — dual-mode: when `initialData` prop is provided it calls `updateBuilding()` instead of `createBuilding()`; title changes to "Edit Building"; on create mode auto-fills `street_address`, `city`, `state`, `country` from parent property group; `street_address` is required (validated before submit) |
 | `AddPropertyGroupModal.jsx` | Create/edit property group — dual-mode: when `initialData` prop is provided it calls `updatePropertyGroup()` instead of `createPropertyGroup()`; title changes to "Edit Property Group" |
-| `AddTenantModal.jsx` | Create Tenant |
+| `AddTenantModal.jsx` | Create Tenant; phone field has E.164 inline validation (regex `^\+[1-9]\d{9,14}$`); vacant-flat dropdown shows `flat_number — building_name, property_name` (falls back to `street_address`); dispatches `refresh-listings` event after successful flat assignment |
 | `AssignTenantModal.jsx` | Assign existing tenant to flat |
-| `AddListingModal.jsx` | Create / edit a lease listing (flat selector, rent, availability, custom rules) |
-| `LeadDetailModal.jsx` | View lead details + update qualification status; accepts `listings` prop to resolve flat_number for primary listing and interested_listing_ids chips |
+| `AddListingModal.jsx` | Create / edit a lease listing (flat selector, rent, availability, custom rules); vacant-flat dropdown shows `flat_number — building_name, property_name` (falls back to `street_address` or "No address") |
+| `LeadDetailModal.jsx` | View lead details + update qualification status; accepts `listings` prop to resolve flat_number for primary listing and interested_listing_ids chips; when `findListing()` returns undefined (listing deleted), renders a `"Unit delisted"` pill (muted/grey) instead of the raw UUID — applies to both primary listing and each also-interested chip |
 | `BuildingInfoModal.jsx` | Building detail |
 | `CsvImportModal.jsx` | Smart bulk import — accepts `.csv` and `.xlsx`; calls `/import/analyze` first; shows `ColumnMappingStep` (editable AI-suggested mapping table) when columns don't match; passes confirmed mapping to import endpoint |
 | `DateComplaintsModal.jsx` | Complaints for a selected calendar date |
@@ -929,7 +939,7 @@ class Feature(str, Enum):
 - `authFetch(path, options)` — adds `Authorization: Bearer <token>`, handles 401 (sign out) and 403 (redirect to pricing)
 - Exports: `fetchComplaints`, `createComplaint`, `updateComplaint`, `fetchAppointments`, `updateAppointment`, `deleteAppointment`, `fetchFlats`, `fetchTenants`, `fetchBuildings`, `sendChatMessage`, `createCheckoutSession`, `getCallStatus`, etc.
 - **Leasing exports:** `getListings`, `createListing`, `updateListing`, `deleteListing`, `getLeaseLeads`, `updateLead`, `deleteLead`, `getLeasingMetrics`, `exportLeads`
-- **Property groups:** `fetchPropertyGroups()`, `createPropertyGroup(payload)`, `updatePropertyGroup(groupId, data)` → `PATCH /property-groups/{id}`, `getUserVapiConfig()` → `GET /property-groups/users/me/vapi-config`, `retryUserProvisioning()` → `POST /property-groups/users/me/provision-voice`
+- **Property groups:** `fetchPropertyGroups()`, `createPropertyGroup(payload)`, `updatePropertyGroup(groupId, data)` → `PATCH /property-groups/{id}`, `deletePropertyGroup(groupId, force=false)` → `DELETE /property-groups/{id}?force=true` (force param skips tenant-block 409), `getUserVapiConfig()` → `GET /property-groups/users/me/vapi-config`, `retryUserProvisioning()` → `POST /property-groups/users/me/provision-voice`
 - **Buildings:** `updateBuilding(buildingId, data)` → `PATCH /buildings/{id}`
 - **Image upload:** `uploadImage(file, entityType)` → `POST /upload/image`, returns `{url, path}`
 - **Outbound call:** `makeOutboundCall(customerNumber, agentType='complaint', firstMessage=null)` — `agentType` forwarded as `agent` field in request body
@@ -981,9 +991,10 @@ APPOINTMENT_STATUS = { SCHEDULED: "scheduled", CANCELLED: "cancelled", ATTENDED:
 
 ### Cross-Component Refresh
 ```js
-window.dispatchEvent(new Event('refresh-appointments'))
+window.dispatchEvent(new Event('refresh-appointments'))  // voice/chatbot actions that create/update appointments
+window.dispatchEvent(new Event('refresh-listings'))      // after tenant assignment (AddTenantModal, AssignTenantModal)
 ```
-Used after voice/chatbot actions that modify data.
+`LeasingTab` listens for `refresh-listings` and re-fetches its listings list.
 
 ### Flat Creation
 - Flat number uniqueness is enforced at DB level (UNIQUE constraint)

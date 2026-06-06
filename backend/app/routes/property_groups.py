@@ -401,6 +401,8 @@ async def bulk_delete_property_groups(
                 print(f"  [CASCADE] deleted flats for {len(building_ids)} buildings")
                 db.table("buildings").delete().eq("property_id", property_id).execute()
                 print(f"  [CASCADE] deleted {len(building_ids)} buildings")
+            db.table("lease_leads").delete().eq("property_group_id", property_id).execute()
+            print(f"  [CASCADE] deleted lease_leads for property group {property_id}")
             db.table("properties_list").delete().eq("id", property_id).execute()
             print(f"  [CASCADE] deleted property group {property_id}")
             deleted += 1
@@ -470,6 +472,8 @@ async def delete_property_group(
             db.table("buildings").delete().eq("property_id", property_id).execute()
             print(f"  [CASCADE] deleted {len(building_ids)} buildings")
 
+        db.table("lease_leads").delete().eq("property_group_id", property_id).execute()
+        print(f"  [CASCADE] deleted lease_leads for property group {property_id}")
         db.table("properties_list").delete().eq("id", property_id).execute()
         print(f"  [CASCADE] deleted property group {property_id}")
         return Response(status_code=204)
