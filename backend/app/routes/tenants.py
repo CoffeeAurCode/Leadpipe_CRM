@@ -228,7 +228,7 @@ async def create_tenant(
 
         if tenant_data.flat_uuid:
             flat_uuid_str = str(tenant_data.flat_uuid)
-            listing_resp = db.table("lease_listings").select("uuid").eq("flat_uuid", flat_uuid_str).eq("is_active", True).limit(1).execute()
+            listing_resp = svc.table("lease_listings").select("uuid").eq("flat_uuid", flat_uuid_str).eq("is_active", True).limit(1).execute()
             db.table("flats").update({
                 "tenant_uuid": new_tenant["uuid"],
                 "occupied": True,
@@ -236,8 +236,8 @@ async def create_tenant(
             }).eq("uuid", flat_uuid_str).execute()
             if listing_resp.data:
                 listing_uuid = listing_resp.data[0]["uuid"]
-                db.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
-                db.table("lease_listings").delete().eq("flat_uuid", flat_uuid_str).execute()
+                svc.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
+                svc.table("lease_listings").delete().eq("flat_uuid", flat_uuid_str).execute()
 
         return new_tenant
     except HTTPException:
@@ -419,7 +419,9 @@ async def get_tenant(tenant_uuid: str, user: dict = Depends(require_active_subsc
 async def update_tenant(
     tenant_uuid: str,
     tenant_data: TenantUpdate,
-    user: dict = Depends(require_active_subscription), db: Client = Depends(get_authenticated_db)
+    user: dict = Depends(require_active_subscription),
+    db: Client = Depends(get_authenticated_db),
+    svc: Client = Depends(get_service_db),
 ):
     """Update a tenant's information"""
     try:
@@ -462,7 +464,7 @@ async def update_tenant(
             )
 
         if new_flat_uuid:
-            listing_resp = db.table("lease_listings").select("uuid").eq("flat_uuid", new_flat_uuid).eq("is_active", True).limit(1).execute()
+            listing_resp = svc.table("lease_listings").select("uuid").eq("flat_uuid", new_flat_uuid).eq("is_active", True).limit(1).execute()
             db.table("flats").update({
                 "tenant_uuid": tenant_uuid,
                 "occupied": True,
@@ -470,8 +472,8 @@ async def update_tenant(
             }).eq("uuid", new_flat_uuid).execute()
             if listing_resp.data:
                 listing_uuid = listing_resp.data[0]["uuid"]
-                db.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
-                db.table("lease_listings").delete().eq("flat_uuid", new_flat_uuid).execute()
+                svc.table("lease_leads").update({"listing_uuid": None}).eq("listing_uuid", listing_uuid).execute()
+                svc.table("lease_listings").delete().eq("flat_uuid", new_flat_uuid).execute()
 
         return response.data[0]
     except HTTPException:
