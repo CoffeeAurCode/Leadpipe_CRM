@@ -1,21 +1,21 @@
 Property Name,Building / Tower,Unit No.,Street Address,City,Province,Country,Floor,Bedrooms,Bathrooms
-Maple Ridge Residences,Tower A,A-101,4820 Yonge Street,Toronto,ON,Canada,1,1,1
-Maple Ridge Residences,Tower A,A-102,4820 Yonge Street,Toronto,ON,Canada,1,2,1
-Maple Ridge Residences,Tower A,A-201,4820 Yonge Street,Toronto,ON,Canada,2,2,2
-Maple Ridge Residences,Tower A,A-202,4820 Yonge Street,Toronto,ON,Canada,2,3,2
-Maple Ridge Residences,Tower A,A-301,4820 Yonge Street,Toronto,ON,Canada,3,1,1
-Maple Ridge Residences,Tower B,B-101,4820 Yonge Street,Toronto,ON,Canada,1,2,1
-Maple Ridge Residences,Tower B,B-102,4820 Yonge Street,Toronto,ON,Canada,1,2,2
-Maple Ridge Residences,Tower B,B-201,4820 Yonge Street,Toronto,ON,Canada,2,3,2
-Maple Ridge Residences,Tower B,B-301,4820 Yonge Street,Toronto,ON,Canada,3,2,1
-Maple Ridge Residences,Tower B,B-302,4820 Yonge Street,Toronto,ON,Canada,3,1,1
+Maple Ridge Residences,Tower A,A101,4820 Yonge Street,Toronto,ON,Canada,1,1,1
+Maple Ridge Residences,Tower A,A102,4820 Yonge Street,Toronto,ON,Canada,1,2,1
+Maple Ridge Residences,Tower A,A201,4820 Yonge Street,Toronto,ON,Canada,2,2,2
+Maple Ridge Residences,Tower A,A202,4820 Yonge Street,Toronto,ON,Canada,2,3,2
+Maple Ridge Residences,Tower A,A301,4820 Yonge Street,Toronto,ON,Canada,3,1,1
+Maple Ridge Residences,Tower B,B101,4820 Yonge Street,Toronto,ON,Canada,1,2,1
+Maple Ridge Residences,Tower B,B102,4820 Yonge Street,Toronto,ON,Canada,1,2,2
+Maple Ridge Residences,Tower B,B201,4820 Yonge Street,Toronto,ON,Canada,2,3,2
+Maple Ridge Residences,Tower B,B301,4820 Yonge Street,Toronto,ON,Canada,3,2,1
+Maple Ridge Residences,Tower B,B302,4820 Yonge Street,Toronto,ON,Canada,3,1,1
 Lakeview Commons,North Wing,N-01,220 Lake Shore Blvd W,Mississauga,ON,Canada,1,2,1
 Lakeview Commons,North Wing,N-02,220 Lake Shore Blvd W,Mississauga,ON,Canada,1,3,2
-Lakeview Commons,North Wing,N-03,220 Lake Shore Blvd W,Mississauga,ON,Canada,1,1,1
-Lakeview Commons,South Wing,S-01,220 Lake Shore Blvd W,Mississauga,ON,Canada,1,2,2
-Lakeview Commons,South Wing,S-02,220 Lake Shore Blvd W,Mississauga,ON,Canada,1,2,1
-Lakeview Commons,South Wing,S-11,220 Lake Shore Blvd W,Mississauga,ON,Canada,2,3,2
-Lakeview Commons,South Wing,S-12,220 Lake Shore Blvd W,Mississauga,ON,Canada,2,1,1
+Lakeview Commons,North Wing,N=03,220 Lake Shore Blvd W,Mississauga,ON,Canada,1,1,1
+Lakeview Commons,South Wing,S 01,220 Lake Shore Blvd W,Mississauga,ON,Canada,1,2,2
+Lakeview Commons,South Wing,S 02,220 Lake Shore Blvd W,Mississauga,ON,Canada,1,2,1
+Lakeview Commons,South Wing,S--11,220 Lake Shore Blvd W,Mississauga,ON,Canada,2,3,2
+Lakeview Commons,South Wing,S#12,220 Lake Shore Blvd W,Mississauga,ON,Canada,2,1,1
 Sunrise Gardens,Block 1,101,88 Finch Ave E,North York,ON,Canada,1,2,1
 Sunrise Gardens,Block 1,102,88 Finch Ave E,North York,ON,Canada,1,2,1
 Sunrise Gardens,Block 1,201,88 Finch Ave E,North York,ON,Canada,2,3,2

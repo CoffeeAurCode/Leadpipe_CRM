@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import os
+import re
 from datetime import date
 
 import openpyxl
@@ -30,7 +31,7 @@ _SCHEMA = {
         "required": {
             "property_name": "Top-level property group name (e.g. Sunrise Towers)",
             "building_name": "Building inside the property (e.g. Block A)",
-            "flat_number": "Unit identifier (e.g. A-101)",
+            "flat_number": "Unit identifier — letters and numbers only (e.g. A101)",
         },
         "optional": {
             "property_address": "Street address of the property",
@@ -43,7 +44,7 @@ _SCHEMA = {
         "required": {
             "name": "Tenant full name",
             "phone": "Phone number (e.g. +919876543210)",
-            "flat_number": "Flat/unit number the tenant lives in (e.g. A-101)",
+            "flat_number": "Flat/unit number the tenant lives in — letters and numbers only (e.g. A101)",
         },
         "optional": {
             "email": "Tenant email address",
@@ -55,6 +56,22 @@ _SCHEMA = {
         },
     },
 }
+
+
+_INVALID_FLAT_RE = re.compile(r'[^A-Za-z0-9]')
+
+
+def _strip_flat_number(s: str) -> str:
+    return _INVALID_FLAT_RE.sub('', s)
+
+
+def _find_invalid_flat_numbers(rows: list[dict]) -> list[dict]:
+    seen: dict[str, str] = {}
+    for row in rows:
+        orig = row.get("flat_number", "")
+        if orig and _INVALID_FLAT_RE.search(orig) and orig not in seen:
+            seen[orig] = _strip_flat_number(orig)
+    return [{"original": k, "sanitized": v} for k, v in seen.items()]
 
 
 # ── Parsers ───────────────────────────────────────────────────────────────────
@@ -225,6 +242,7 @@ async def analyze_import(
 async def import_properties(
     file: UploadFile = File(...),
     column_mapping: str = Form(None),
+    sanitize_flat_numbers: bool = Form(False),
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
 ):
@@ -252,6 +270,11 @@ async def import_properties(
     if len(rows) > MAX_ROWS:
         raise HTTPException(400, f"Too many rows (max {MAX_ROWS})")
 
+    if not sanitize_flat_numbers:
+        invalid = _find_invalid_flat_numbers(rows)
+        if invalid:
+            return {"flat_number_warning": True, "affected": invalid}
+
     created_properties = 0
     created_buildings = 0
     created_flats = 0
@@ -266,6 +289,8 @@ async def import_properties(
             prop_name     = row.get("property_name", "")
             building_name = row.get("building_name", "")
             flat_number   = row.get("flat_number", "")
+            if sanitize_flat_numbers:
+                flat_number = _strip_flat_number(flat_number)
             prop_address  = row.get("property_address", "") or row.get("address", "")
 
             if not prop_name or not building_name or not flat_number:
@@ -361,6 +386,7 @@ async def import_properties(
 async def import_tenants(
     file: UploadFile = File(...),
     column_mapping: str = Form(None),
+    sanitize_flat_numbers: bool = Form(False),
     user: dict = Depends(require_active_subscription),
     db: Client = Depends(get_authenticated_db),
 ):
@@ -388,6 +414,11 @@ async def import_tenants(
     if len(rows) > MAX_ROWS:
         raise HTTPException(400, f"Too many rows (max {MAX_ROWS})")
 
+    if not sanitize_flat_numbers:
+        invalid = _find_invalid_flat_numbers(rows)
+        if invalid:
+            return {"flat_number_warning": True, "affected": invalid}
+
     created_tenants = 0
     skipped: list[str] = []
     errors: list[str] = []
@@ -397,6 +428,8 @@ async def import_tenants(
             name        = row.get("name", "")
             phone       = row.get("phone", "")
             flat_number = row.get("flat_number", "")
+            if sanitize_flat_numbers:
+                flat_number = _strip_flat_number(flat_number)
 
             if not name or not phone or not flat_number:
                 errors.append(f"Row {i}: missing required value (name, phone or flat_number)")

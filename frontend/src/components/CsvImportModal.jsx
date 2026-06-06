@@ -10,17 +10,17 @@ const TEMPLATES = {
     properties: {
         header: 'property_name,property_address,building_name,flat_number,floor_number,bedrooms,bathrooms',
         sample: [
-            'Sunrise Towers,12 MG Road,Block A,A-101,1,2,1',
-            'Sunrise Towers,12 MG Road,Block A,A-102,1,3,2',
-            'Sunrise Towers,12 MG Road,Block B,B-201,2,2,1',
+            'Sunrise Towers,12 MG Road,Block A,A101,1,2,1',
+            'Sunrise Towers,12 MG Road,Block A,A102,1,3,2',
+            'Sunrise Towers,12 MG Road,Block B,B201,2,2,1',
         ],
         filename: 'properties_template.csv',
     },
     tenants: {
         header: 'name,phone,email,flat_number,lease_start_date,lease_end_date,rent_amount,rent_status,manager_notes',
         sample: [
-            'Rahul Sharma,+919876543210,rahul@gmail.com,A-101,2024-01-01,2025-01-01,15000,On-time,',
-            'Priya Patel,+919988776655,priya@gmail.com,B-201,2024-06-01,2025-06-01,18000,Upcoming,Pets allowed',
+            'Rahul Sharma,+919876543210,rahul@gmail.com,A101,2024-01-01,2025-01-01,15000,On-time,',
+            'Priya Patel,+919988776655,priya@gmail.com,B201,2024-06-01,2025-06-01,18000,Upcoming,Pets allowed',
         ],
         filename: 'tenants_template.csv',
     },
@@ -346,6 +346,65 @@ function ResultPanel({ result, importType }) {
     );
 }
 
+function FlatNumberWarningStep({ affected, onConfirm, onBack, loading }) {
+    return (
+        <div className="space-y-4">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-500 mt-0.5" />
+                <div className="text-sm text-amber-700 dark:text-amber-300">
+                    <p className="font-semibold">Unit names with special characters detected</p>
+                    <p className="mt-0.5">Unit names may only contain letters and numbers — no hyphens, spaces, or symbols. The units below will be renamed if you choose to strip them. Otherwise, cancel and fix your file.</p>
+                </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-sm">
+                    <thead className="bg-secondary">
+                        <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-foreground">Original in file</th>
+                            <th className="px-3 py-2 text-left font-semibold text-foreground">Will be stored as</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {affected.map((item, i) => (
+                            <tr key={i} className="border-t border-border">
+                                <td className="px-3 py-2 font-mono text-xs text-red-500">{item.original}</td>
+                                <td className="px-3 py-2 font-mono text-xs text-emerald-500">{item.sanitized || <span className="italic text-muted-foreground">empty — row will be skipped</span>}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-1">
+                <button
+                    onClick={onBack}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Cancel
+                </button>
+                <button
+                    onClick={onConfirm}
+                    disabled={loading}
+                    className={cn(
+                        'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
+                        !loading
+                            ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-500/20'
+                            : 'bg-secondary text-muted-foreground cursor-not-allowed'
+                    )}
+                >
+                    {loading ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" />Importing...</>
+                    ) : (
+                        'Strip & Import'
+                    )}
+                </button>
+            </div>
+        </div>
+    );
+}
+
 // ── Main Modal ────────────────────────────────────────────────────────────────
 
 export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properties', onSuccess }) {
@@ -363,6 +422,10 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
     const [mappingStep, setMappingStep] = useState(false);
     const [mapping, setMapping] = useState(null);
 
+    // Flat number warning step state
+    const [flatWarning, setFlatWarning] = useState(null);
+    const [pendingMapping, setPendingMapping] = useState(null);
+
     const resetState = () => {
         setFile(null);
         setPreview(null);
@@ -372,6 +435,8 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
         setMappingStep(false);
         setMapping(null);
         setAnalyzing(false);
+        setFlatWarning(null);
+        setPendingMapping(null);
     };
 
     const handleTabChange = (tab) => {
@@ -385,6 +450,8 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
         setApiError(null);
         setMappingStep(false);
         setMapping(null);
+        setFlatWarning(null);
+        setPendingMapping(null);
 
         if (f.name.toLowerCase().endsWith('.xlsx')) {
             setPreview(null);
@@ -402,17 +469,26 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
         reader.readAsText(f);
     };
 
-    const doImport = async (columnMapping) => {
+    const doImport = async (columnMapping, sanitize = false) => {
         setLoading(true);
         setResult(null);
         setApiError(null);
         try {
             const data = activeTab === 'properties'
-                ? await importPropertiesCsv(file, columnMapping)
-                : await importTenantsCsv(file, columnMapping);
-            setResult(data);
-            setMappingStep(false);
-            onSuccess?.();
+                ? await importPropertiesCsv(file, columnMapping, sanitize)
+                : await importTenantsCsv(file, columnMapping, sanitize);
+
+            if (data.flat_number_warning) {
+                setPendingMapping(columnMapping);
+                setFlatWarning(data.affected);
+                setMappingStep(false);
+            } else {
+                setResult(data);
+                setMappingStep(false);
+                setFlatWarning(null);
+                setPendingMapping(null);
+                onSuccess?.();
+            }
         } catch (err) {
             setApiError(err.message || 'Import failed');
         } finally {
@@ -465,8 +541,8 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                 {/* Scrollable body */}
                 <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-                    {/* Tabs — hidden during mapping step */}
-                    {!mappingStep && (
+                    {/* Tabs — hidden during mapping or warning step */}
+                    {!mappingStep && !flatWarning && (
                         <div className="flex gap-2">
                             <Tab active={activeTab === 'properties'} onClick={() => handleTabChange('properties')}>
                                 {t('import.propertiesTab')}
@@ -477,7 +553,14 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                         </div>
                     )}
 
-                    {mappingStep ? (
+                    {flatWarning ? (
+                        <FlatNumberWarningStep
+                            affected={flatWarning}
+                            onConfirm={() => doImport(pendingMapping, true)}
+                            onBack={() => setFlatWarning(null)}
+                            loading={loading}
+                        />
+                    ) : mappingStep ? (
                         <ColumnMappingStep
                             importType={activeTab}
                             mapping={mapping}
@@ -526,8 +609,8 @@ export default function CsvImportModal({ isOpen, onClose, defaultTab = 'properti
                     )}
                 </div>
 
-                {/* Footer — hidden during mapping step (mapping step has its own actions) */}
-                {!mappingStep && (
+                {/* Footer — hidden during mapping/warning steps (they have their own actions) */}
+                {!mappingStep && !flatWarning && (
                     <div className="flex items-center justify-between px-6 py-4 border-t border-border flex-shrink-0 gap-3">
                         <button
                             onClick={() => downloadTemplate(activeTab)}

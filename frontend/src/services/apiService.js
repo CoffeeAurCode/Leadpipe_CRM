@@ -865,12 +865,13 @@ export async function analyzeImportFile(file, importType) {
     return await response.json();
 }
 
-export async function importPropertiesCsv(file, columnMapping = null) {
+export async function importPropertiesCsv(file, columnMapping = null, sanitizeFlatNumbers = false) {
     const formData = new FormData();
     formData.append('file', file);
     if (columnMapping) {
         formData.append('column_mapping', JSON.stringify(columnMapping));
     }
+    formData.append('sanitize_flat_numbers', sanitizeFlatNumbers ? 'true' : 'false');
     const response = await authFetch(`${API_BASE_URL}/import/properties`, {
         method: 'POST',
         body: formData,
@@ -882,12 +883,13 @@ export async function importPropertiesCsv(file, columnMapping = null) {
     return await response.json();
 }
 
-export async function importTenantsCsv(file, columnMapping = null) {
+export async function importTenantsCsv(file, columnMapping = null, sanitizeFlatNumbers = false) {
     const formData = new FormData();
     formData.append('file', file);
     if (columnMapping) {
         formData.append('column_mapping', JSON.stringify(columnMapping));
     }
+    formData.append('sanitize_flat_numbers', sanitizeFlatNumbers ? 'true' : 'false');
     const response = await authFetch(`${API_BASE_URL}/import/tenants`, {
         method: 'POST',
         body: formData,
