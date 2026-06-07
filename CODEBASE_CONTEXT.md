@@ -323,7 +323,7 @@ Admin script to add numbers: `python backend/scripts/add_twilio_number_to_vapi.p
 
 **Deploy/update scripts** (`backend/scripts/`):
 - `update_shared_agents.py` — push latest config to complaint agent + shared lease agent
-- `update_lease_agents.py` — push latest `vapi_agent_config.py` to **all active per-manager lease assistants** (iterates `manager_vapi_config` rows); always uses hardcoded production URL to avoid localhost override from `.env`
+- `update_lease_agents.py` — push latest `vapi_agent_config.py` to **all active per-manager lease assistants** (iterates `manager_vapi_config` rows); fetches each manager's name from `manager_profiles` and passes to `build_lease_config`; uses direct **HTTP PATCH** to `api.vapi.ai/assistant/{id}` (not the VAPI SDK — SDK silently drops `firstMessageMode` and other camelCase fields); always uses hardcoded production URL
 - `reprovision_existing_groups.py` — provision new per-manager agents for property groups that don't have one yet (status != active)
 
 #### `subscriptions`

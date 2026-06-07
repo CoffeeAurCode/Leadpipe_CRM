@@ -790,6 +790,7 @@ async def lease_lead_direct(
     request: Request,
     call_id: str | None = None,
     phone: str | None = None,
+    manager_id: str | None = None,
     db: Client = Depends(get_service_db),
 ):
     """
@@ -811,14 +812,19 @@ async def lease_lead_direct(
         raw_uuid = (lead_data.get("listing_uuid") or "").strip()
         listing_uuid = raw_uuid if UUID_RE.match(raw_uuid) else None
 
-        manager_id = None
+        resolved_manager_id = None
         property_group_id = None
 
         if listing_uuid:
             row = db.table("lease_listings").select("property_group_id, manager_id").eq("uuid", listing_uuid).limit(1).execute()
             if row.data:
                 property_group_id = row.data[0].get("property_group_id")
-                manager_id = row.data[0].get("manager_id")
+                resolved_manager_id = row.data[0].get("manager_id")
+
+        if not resolved_manager_id and manager_id:
+            resolved_manager_id = manager_id
+
+        manager_id = resolved_manager_id
 
         qualifying_answers = lead_data.get("qualifying_answers", "{}")
         if isinstance(qualifying_answers, str):

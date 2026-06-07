@@ -1225,7 +1225,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                 "name": "api_request_tool",
                 "description": "Capture the prospective tenant as a lead before ending the call. Always call this exactly once before ending.",
             },
-            "url": f"{backend_url}/voice/lease-lead-direct?call_id={{{{call.id}}}}&phone={{{{customer.number}}}}",
+            "url": f"{backend_url}/voice/lease-lead-direct?call_id={{{{call.id}}}}&phone={{{{customer.number}}}}&manager_id={manager_id or ''}",
             "method": "POST",
             "body": {
                 "type": "object",
