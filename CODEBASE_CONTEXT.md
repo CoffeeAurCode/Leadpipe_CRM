@@ -549,8 +549,9 @@ Computed fields on GET (from `TenantResponse` schema):
 **Lease lead webhooks:**
 
 `POST /voice/lease-lead-direct` (**primary path** — apiRequest version)
-- VAPI posts lead fields as flat JSON body; `call_id` and `phone` come as query params via VAPI template variables
+- VAPI posts lead fields as flat JSON body; `call_id`, `phone`, and `manager_id` come as query params via VAPI template variables
 - Resolves `listing_uuid` → `lease_listings` to get `property_group_id` + `manager_id`; UUID validated with regex
+- **Fallback:** if `listing_uuid` is absent or unmatched (unmatched calls), `manager_id` query param is used directly — ensures unmatched leads are always stored with a non-NULL `manager_id` and remain visible in `GET /leasing/leads`
 - Inserts into `lease_leads`; creates `notifications` row for qualified leads; updates `_last_call_ended_at`
 - Always returns HTTP 200
 
@@ -594,7 +595,7 @@ Common to all lease webhooks:
 #### VAPI Tool Endpoints (no auth, service DB, always HTTP 200)
 | Method | Path | Description |
 |---|---|---|
-| GET | `/leasing/find-units?query=&manager_id=` | **New** — query-first unit lookup; searches flat_number, title, address, building name, and property group name; returns `{found, count, units: [{listing_uuid, flat_number, building_name, property_name, address, bedrooms, bathrooms, floor_number, monthly_rent, available_from}]}` — up to 5 matches; used by the new lease agent flow |
+| GET | `/leasing/find-units?query=&manager_id=` | **New** — query-first unit lookup; searches flat_number, title, address, building name, and property group name; returns `{found, count, units: [{listing_uuid, flat_number, building_name, property_name, address, bedrooms, bathrooms, floor_number, monthly_rent, available_from}]}` — up to 5 matches; used by the new lease agent flow. **Search algorithm:** token-based — query is split on whitespace, tokens ≤ 2 chars ignored; a listing matches if ANY token appears in its haystack (resilient to partial queries and minor spelling divergence) |
 | GET | `/leasing/find-listing?query=&property_group_id=&manager_id=` | Search listing by flat number or title; `manager_id` filters across all groups owned by that manager; returns `{found, listing_uuid, address, bedrooms, monthly_rent, floor_number, available_from, custom_rules}` |
 | GET | `/leasing/search?bedrooms=&budget_max=&property_group_id=&manager_id=` | Return up to 5 matching listings; `manager_id` filters across all groups owned by that manager; returns `{count, listings: [{listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from, title}]}` |
 
@@ -759,7 +760,7 @@ Includes a Pydantic `field_validator` on `phone` enforcing E.164 format (`^\+[1-
 Four builder functions:
 - `build_assistant_config()` — legacy complaint agent (existing test group)
 - `build_complaint_config(backend_url)` — global complaint agent (Option B, multi-group); complaint agent books **manager callbacks** (appointment `type="callback"`, `tenant_phone` set) — agent checks `check_availability` before scheduling, then calls `submit_complaint` with `appointment_date`
-- `build_lease_config(backend_url, manager_id, manager_name="our property management team")` — per-manager lease agent; injects `manager_id` into tool URLs so the agent searches listings across ALL property groups owned by this manager; `submit_lease_lead` posts to `/voice/lease-lead-direct` (apiRequest); greeting says "I'm Max, the AI leasing assistant for {manager_name}"
+- `build_lease_config(backend_url, manager_id, manager_name="our property management team")` — per-manager lease agent; injects `manager_id` into tool URLs so the agent searches listings across ALL property groups owned by this manager; `submit_lease_lead` posts to `/voice/lease-lead-direct?call_id=...&phone=...&manager_id={manager_id}` (apiRequest) — `manager_id` baked into the URL so unmatched leads always have a non-NULL `manager_id`; greeting says "I'm Max, the AI leasing assistant for {manager_name}"
 - `build_lease_config_shared(backend_url)` — shared lease agent with no manager scope (used by `update_shared_agents.py` and `setup_vapi_agents.py`)
 - `submit_lease_lead` tool includes `interested_listing_ids` (array of UUIDs) — agent captures all listing UUIDs the caller showed interest in, not just the primary one
 
