@@ -207,7 +207,8 @@ async def find_units(
                 prop_group.get("name") or "",
             ])).lower()
 
-            if query_lower in haystack:
+            tokens = [t for t in query_lower.split() if len(t) > 2]
+            if any(tok in haystack for tok in tokens):
                 matches.append({
                     "listing_uuid": r["uuid"],
                     "flat_number": r["flat_number"],
