@@ -594,6 +594,7 @@ Common to all lease webhooks:
 #### VAPI Tool Endpoints (no auth, service DB, always HTTP 200)
 | Method | Path | Description |
 |---|---|---|
+| GET | `/leasing/find-units?query=&manager_id=` | **New** — query-first unit lookup; searches flat_number, title, address, building name, and property group name; returns `{found, count, units: [{listing_uuid, flat_number, building_name, property_name, address, bedrooms, bathrooms, floor_number, monthly_rent, available_from}]}` — up to 5 matches; used by the new lease agent flow |
 | GET | `/leasing/find-listing?query=&property_group_id=&manager_id=` | Search listing by flat number or title; `manager_id` filters across all groups owned by that manager; returns `{found, listing_uuid, address, bedrooms, monthly_rent, floor_number, available_from, custom_rules}` |
 | GET | `/leasing/search?bedrooms=&budget_max=&property_group_id=&manager_id=` | Return up to 5 matching listings; `manager_id` filters across all groups owned by that manager; returns `{count, listings: [{listing_uuid, flat_number, bedrooms, monthly_rent, floor_number, available_from, title}]}` |
 
@@ -758,16 +759,19 @@ Includes a Pydantic `field_validator` on `phone` enforcing E.164 format (`^\+[1-
 Four builder functions:
 - `build_assistant_config()` — legacy complaint agent (existing test group)
 - `build_complaint_config(backend_url)` — global complaint agent (Option B, multi-group); complaint agent books **manager callbacks** (appointment `type="callback"`, `tenant_phone` set) — agent checks `check_availability` before scheduling, then calls `submit_complaint` with `appointment_date`
-- `build_lease_config(backend_url, manager_id)` — per-manager lease agent; injects `manager_id` into tool URLs (`?manager_id=<UUID>`) so the agent searches listings across ALL property groups owned by this manager; `submit_lease_lead` posts to `/voice/lease-lead-direct` (apiRequest)
+- `build_lease_config(backend_url, manager_id, manager_name="our property management team")` — per-manager lease agent; injects `manager_id` into tool URLs so the agent searches listings across ALL property groups owned by this manager; `submit_lease_lead` posts to `/voice/lease-lead-direct` (apiRequest); greeting says "I'm Max, the AI leasing assistant for {manager_name}"
 - `build_lease_config_shared(backend_url)` — shared lease agent with no manager scope (used by `update_shared_agents.py` and `setup_vapi_agents.py`)
 - `submit_lease_lead` tool includes `interested_listing_ids` (array of UUIDs) — agent captures all listing UUIDs the caller showed interest in, not just the primary one
-- `search_available_listings` tool description tells agent the response contains `listing_uuid` fields in the `listings` array
 
-**Lease agent conversation behaviour (updated 2026-05-24):**
-- Step 2 now lists bedrooms / budget / move-in as **optional** preferences to capture — none are required before searching
-- Step 3 instructs agent to call `search_available_listings` immediately with only confirmed filters; pass `0` for bedrooms or budget_max that haven't been confirmed (backend treats `0` as no filter)
-- `NO FORCING PREFERENCES` rule: agent must not demand bedrooms or budget before searching — search first, let results guide the conversation
-- Budget enforcement: only enforces bedroom-count match when the caller **explicitly stated** a bedroom count; if no preference was given, any unit from search results is acceptable
+**Lease agent conversation behaviour (updated 2026-06-07 — query-first flow):**
+- `first_message_mode` = `assistant-speaks-first-with-model-generated-message` — AI generates a fresh bilingual greeting each call; no hardcoded `first_message`
+- Step 1: bilingual greeting ends with "Which unit are you calling about?"
+- Step 2: caller says any identifying info → agent calls `find_units` tool immediately (no preference collection first)
+- `find_units` searches flat_number, title, address, building name, and property group name; returns up to 5 compact matches (identifiers only, not full details)
+- Agent reads back only unit/building names to caller; waits for confirmation; NEVER volunteers rent, floor, or other details until caller asks
+- Step 3: after unit confirmed, agent answers ONLY what the caller specifically asks — one fact per response
+- Preference-based browsing (`search_listings`) is a **secondary flow** — only used when caller explicitly says "I'm looking for a 2-bedroom" etc.
+- `load_listings` tool has been **removed** — background preloading is replaced by the query-first `find_units` approach
 
 **Model (all agents):** OpenAI `gpt-5.2-chat-latest` (provider `"openai"`). Applies to `build_assistant_config`, `build_complaint_config`, and `_lease_assistant_shell` in `vapi_agent_config.py`.
 
@@ -1129,12 +1133,13 @@ Per-building feature control stored in `property_features` table.
 - Reschedule: checks availability → calls `PATCH /appointments/update`
 - Cancel: calls `PATCH /appointments/cancel`
 
-### Lease Agent Flow
+### Lease Agent Flow (updated 2026-06-07 — query-first)
 1. Prospect calls the manager's lease line (per-manager Twilio number)
-2. Agent greets bilingually; detects language; locks to it
-3. Agent captures prospect preferences (bedrooms, budget, move-in — all optional); immediately searches `GET /leasing/search`
-4. Agent matches listings; captures `listing_uuid` from search results; discusses options
-5. Agent collects name, contact info, qualifying answers
-6. At call end (or on demand): calls `submit_lease_lead` → `POST /voice/lease-lead-direct`
+2. Agent generates a bilingual greeting (model-generated, not hardcoded); asks "Which unit are you calling about?"
+3. Caller states any identifying info (unit number, building, address, city, etc.) → agent calls `GET /leasing/find-units` silently
+4. Agent reads back only unit/building names from results; waits for caller to confirm the unit
+5. Agent answers ONLY what the caller specifically asks — one fact per response (never volunteers rent, floor, etc. unprompted)
+6. Agent collects caller name; calls `submit_lease_lead` → `POST /voice/lease-lead-direct`
 7. EOC fallback: `POST /voice/lease-eoc-webhook` creates partial unmatched lead if no submit occurred
-8. Manager sees lead in `LeasingTab` → Leads table
+8. Preference-based browsing (secondary): if caller explicitly says "I'm looking for a 2-bedroom", agent uses `search_listings` instead
+9. Manager sees lead in `LeasingTab` → Leads table

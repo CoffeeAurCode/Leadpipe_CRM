@@ -1,332 +1,491 @@
-# Tenant Management MVP — Learning Material Plan
+# Plan: Lease Agent Flow Overhaul + Complaint Phone Fix
 
-> Phase 1 of 2. Review this plan and reply **"approved"** when ready to build.
+## Overview
 
----
+Two independent issues:
 
-## MODULE BREAKDOWN
-
-The project is split into **27 modules (00–26)** organized into 6 build sessions.
-Each module produces one self-contained HTML file in `learning_material/`.
+1. **Lease agent overhaul** — new query-first conversation flow, concise responses, answer only what caller asks
+2. **Complaint phone fix** — +14382567782 not connected to any VAPI assistant
 
 ---
 
-### PART A — Backend Foundation (Build Session 1)
+## Issue 1: Lease Agent Flow Overhaul
 
-#### Module 00 — Project Setup & Environment
-**Source files:** `backend/.env.example`, `backend/requirements.txt`, `backend/schema.sql`
-**Learner outcome:** Can scaffold the project from nothing — install dependencies, connect to Supabase, read the DB schema.
-**Concepts:** Python virtual environments, pip/requirements.txt, environment variables, Supabase project creation, PostgreSQL schema reading, `.env` safety.
+### What changes
 
----
+**Current behaviour (broken)**
+Agent fires `load_listings` in background, gathers preferences first, then presents units with full details all at once — floods the caller.
 
-#### Module 01 — FastAPI Application Entry Point
-**Source files:** `backend/app/main.py`, `backend/app/config.py`
-**Learner outcome:** Can create a multi-router FastAPI app with CORS, import a Settings singleton from env vars, and understand how the entire backend is wired together in one place.
-**Concepts:** FastAPI app factory, `APIRouter`, `include_router`, `CORSMiddleware`, Pydantic Settings, `os.getenv`, startup events, Uvicorn.
-
----
-
-#### Module 02 — Database Layer (Supabase SDK)
-**Source files:** `backend/app/db/session.py`, `backend/app/db/models.py`
-**Learner outcome:** Understands the two-client pattern (anon vs service-role), can make Supabase queries, and knows why SQLAlchemy is avoided here.
-**Concepts:** Supabase Python SDK, anon vs service-role clients, Row Level Security (RLS), PostgREST query builder, `select/insert/update/delete/eq/ilike`, why not to use SQLAlchemy with Supabase.
+**Target behaviour**
+- Bilingual greeting asks "which unit are you calling about?"
+- Caller mentions any identifying info (unit number, building name, property name, address, city, country, etc.)
+- Agent runs `find_units` tool silently (or with one brief "one moment" line)
+- Results: agent reads back just the names/identifiers — not full details
+- Caller confirms which unit
+- Agent answers **only** what the caller specifically asks — never volunteers extra info
+- Lead capture at end as before
 
 ---
 
-#### Module 03 — Authentication & JWT Validation
-**Source files:** `backend/app/dependencies/auth.py`, `backend/app/dependencies/authenticated_db.py`
-**Learner outcome:** Can write a FastAPI dependency that validates a Supabase JWT and injects an RLS-enforced DB client.
-**Concepts:** FastAPI `Depends()`, JWT (ES256 / HS256), JWKS, Bearer tokens, `python-jose`, how Supabase RLS resolves `auth.uid()` from the token, `postgrest.auth()`.
+### Step 1 — New backend endpoint: `GET /leasing/find-units`
 
----
+**File:** `backend/app/routes/leasing.py`
 
-#### Module 04 — Subscription Gate (Stripe Basics)
-**Source files:** `backend/app/dependencies/subscription.py`, `backend/app/routes/payments.py`
-**Learner outcome:** Can add a subscription check dependency to any route, implement Stripe Checkout with a trial, and handle Stripe webhooks idempotently.
-**Concepts:** FastAPI dependency chaining, Stripe Checkout Sessions, trial periods, `stripe.Webhook.construct_event`, webhook idempotency (unique event ID), `subscriptions` table state machine (`trialing → active → past_due → cancelled`).
+Add after the existing `/find-listing` endpoint. The key difference from `find-listing`:
+- Searches building name and property group name (not just flat_number/title/address)
+- Returns compact list (identifiers only) — not full listing details
+- Uses two extra DB queries to resolve building and property names
 
----
+```python
+@router.get("/find-units")
+async def find_units(
+    query: str = Query(...),
+    manager_id: Optional[str] = Query(None),
+    db: Client = Depends(get_service_db),
+):
+    try:
+        q = (
+            db.table("lease_listings")
+            .select(
+                "uuid, flat_number, title, monthly_rent, available_from, "
+                "street_address, city, state, country, "
+                "flats!inner(bedrooms, bathrooms, floor_number, building_id)"
+            )
+            .eq("is_active", True)
+        )
+        if manager_id:
+            q = q.eq("manager_id", manager_id)
 
-### PART B — Core Data Layer (Build Session 2)
+        results = q.limit(50).execute()
+        listings = results.data or []
+        if not listings:
+            return {"found": False, "count": 0, "units": []}
 
-#### Module 05 — Property Groups & Buildings
-**Source files:** `backend/app/routes/property_groups.py`, `backend/app/routes/buildings.py`, `backend/app/schemas/` (relevant parts)
-**Learner outcome:** Can build full CRUD routes for a two-level hierarchy (Group → Building), including cascade-delete logic.
-**Concepts:** FastAPI CRUD pattern, Pydantic V2 `BaseModel`, nested data hierarchies, cascade delete strategies, UUID primary keys, `manager_id` RLS pattern, background tasks, `BackgroundTasks`.
+        # Resolve building and property group names
+        building_ids = list({
+            r["flats"]["building_id"]
+            for r in listings
+            if r.get("flats") and r["flats"].get("building_id")
+        })
+        building_rows, property_rows = {}, {}
+        if building_ids:
+            b_res = db.table("buildings").select("id, name, property_id").in_("id", building_ids).execute()
+            for b in (b_res.data or []):
+                building_rows[b["id"]] = b
+            property_ids = list({b["property_id"] for b in building_rows.values() if b.get("property_id")})
+            if property_ids:
+                p_res = db.table("properties_list").select("id, name").in_("id", property_ids).execute()
+                for p in (p_res.data or []):
+                    property_rows[p["id"]] = p
 
----
+        query_lower = query.lower()
+        matches = []
+        for r in listings:
+            flat = r.get("flats") or {}
+            bid = flat.get("building_id")
+            building = building_rows.get(bid, {})
+            prop_group = property_rows.get(building.get("property_id"), {})
 
-#### Module 06 — Flats & Tenant Assignment
-**Source files:** `backend/app/routes/flats.py`, `backend/app/schemas/flat.py`
-**Learner outcome:** Can handle bidirectional FK links, normalize user input, use a service-role client for specific inserts, and map PostgreSQL error codes to user-friendly messages.
-**Concepts:** Bidirectional FK pattern (`flats.tenant_uuid` ↔ `tenants.flat_uuid`), input normalization (`.strip().upper()`), service-role bypass for INSERT policies, PostgreSQL error codes (`42501`, `23505`, `23503`), `_clean_db_error` helper pattern, UNIQUE constraints.
+            haystack = " ".join(filter(None, [
+                r.get("flat_number") or "",
+                r.get("title") or "",
+                r.get("street_address") or "",
+                r.get("city") or "",
+                r.get("state") or "",
+                r.get("country") or "",
+                building.get("name") or "",
+                prop_group.get("name") or "",
+            ])).lower()
 
----
+            if query_lower in haystack:
+                matches.append({
+                    "listing_uuid": r["uuid"],
+                    "flat_number": r["flat_number"],
+                    "building_name": building.get("name") or "",
+                    "property_name": prop_group.get("name") or "",
+                    "address": ", ".join(filter(None, [
+                        r.get("street_address") or "",
+                        r.get("city") or "",
+                        r.get("state") or "",
+                    ])),
+                    "bedrooms": flat.get("bedrooms"),
+                    "bathrooms": flat.get("bathrooms"),
+                    "floor_number": str(flat.get("floor_number") or ""),
+                    "monthly_rent": float(r["monthly_rent"]),
+                    "available_from": str(r.get("available_from") or ""),
+                })
 
-#### Module 07 — Tenants & Computed Lease Fields
-**Source files:** `backend/app/routes/tenants.py`, `backend/app/schemas/tenant.py`
-**Learner outcome:** Can write Pydantic models that compute derived fields from raw DB data, and understand the three-layer status rule (DB truth → computed field → frontend display).
-**Concepts:** Pydantic V2 `model_validator(mode='after')`, computed properties (`tenancy_duration_months`, `lease_status`), `Optional` fields, date arithmetic with `datetime`, IST timezone handling.
+        matches = matches[:5]
+        return {"found": bool(matches), "count": len(matches), "units": matches}
 
----
-
-#### Module 08 — Complaints & Appointments
-**Source files:** `backend/app/routes/complaints.py`, `backend/app/routes/appointments.py`, `backend/app/schemas/complaint.py`, `backend/app/schemas/appointment.py`, `backend/app/core/constants.py`
-**Learner outcome:** Can link two tables (complaint → appointment), enforce category constraints, implement VAPI-safe endpoints (always HTTP 200), and handle soft-delete via status changes.
-**Concepts:** FK joins via Supabase SDK, `CHECK` constraints in queries, denormalized fields (flat_number stored on appointment for VAPI speed), soft delete vs hard delete, IST datetime formatting (`YYYY-MM-DDTHH:MM:SS`).
-
----
-
-### PART C — AI & Voice Integration (Build Session 3)
-
-#### Module 09 — AI Complaint Extraction (Groq)
-**Source files:** `backend/app/ai/extractor.py`, `backend/app/ai/validator.py`, `backend/app/core/constants.py`
-**Learner outcome:** Can call the Groq LLM API to extract structured data from free-text, validate the output, and handle LLM unreliability.
-**Concepts:** Groq Python SDK, structured extraction with JSON prompts, output validation against enum lists, hallucination guards, why `llama-3.3-70b-versatile` (not 3.1), prompt engineering for extraction vs chat.
-
----
-
-#### Module 10 — AI Chatbot with Tool Calling (OpenAI)
-**Source files:** `backend/app/ai/chatbot.py`, `backend/app/routes/chat.py`
-**Learner outcome:** Can build a multi-turn chatbot with tool calling, inject dynamic context (today's date), truncate history to manage costs, and detect when tools mutate data so the frontend can refresh.
-**Concepts:** OpenAI `gpt-4o-mini`, tool calling schema (`function`, `parameters`, `required`), multi-turn message history format, `{today}` placeholder injection, context truncation (last 10 messages), `refresh_needed` signal, `BadRequestError` hallucination fallback, Groq tool quirk workaround.
-
----
-
-#### Module 11 — VAPI Voice Webhook & Call Flow
-**Source files:** `backend/app/routes/voice.py`, `backend/app/services/notifications.py` (partial)
-**Learner outcome:** Can implement a webhook handler for a voice AI platform, create records from transcript data, and understand why webhooks must always return 200.
-**Concepts:** VAPI webhook architecture, `end-of-call-report` vs `tool-calls` events, always-200 pattern, `call_id` UNIQUE idempotency, service-role DB (no JWT on webhook calls), transcript → complaint extraction pipeline, `GET /voice/call-status` polling pattern.
-
----
-
-#### Module 12 — VAPI Agent Configuration & Provisioning
-**Source files:** `backend/app/services/vapi_agent_config.py`, `backend/app/services/vapi_provisioning.py`, `backend/scripts/update_lease_agents.py`
-**Learner outcome:** Can configure a VAPI assistant programmatically, provision per-manager phone numbers from a pool, and handle race conditions in background tasks.
-**Concepts:** VAPI Python SDK, ElevenLabs voice config, Deepgram transcriber, tool definitions for voice agents, per-manager provisioning pattern, Twilio number pool, `BackgroundTask` lifetime (must use service DB), optimistic lock pattern, race condition guards (UNIQUE index on `assigned_manager_id`), httpx direct HTTP (SDK bug workaround), bilingual agent config.
-
----
-
-### PART D — Integrations & Advanced Features (Build Session 4)
-
-#### Module 13 — SMS & Email Notifications
-**Source files:** `backend/app/integrations/twilio_client.py`, `backend/app/integrations/email_client.py`, `backend/app/services/notifications.py`
-**Learner outcome:** Can integrate Twilio SMS and SendGrid email, orchestrate multiple notification channels from a single service function, and make notifications non-blocking.
-**Concepts:** Twilio Python SDK, SendGrid Python SDK, notification orchestration pattern, non-blocking background notifications (errors logged, not raised), feature-flag-gated notifications, appointment lifecycle event types.
-
----
-
-#### Module 14 — Feature Flags
-**Source files:** `backend/app/core/features.py`, `backend/app/dependencies/features.py`, `backend/app/services/feature_service.py`, `backend/app/routes/settings.py` (features section)
-**Learner outcome:** Can implement a per-building feature flag system with database storage and a FastAPI dependency.
-**Concepts:** `Enum` for feature keys, per-entity feature storage pattern, FastAPI dependency for feature checking, `property_features` table lookup, default-on vs default-off features.
-
----
-
-#### Module 15 — Bulk Import (CSV/XLSX + AI Column Mapping)
-**Source files:** `backend/app/routes/import_routes.py`
-**Learner outcome:** Can build a smart file import endpoint that handles both CSV and Excel, uses AI to map non-standard column names, and applies the mapping before processing.
-**Concepts:** `pandas`-free CSV parsing (stdlib `csv` module), `openpyxl` for Excel, async `AsyncOpenAI` for column mapping, `_apply_mapping` pattern, BOM handling (`utf-8-sig`), two-step import flow (analyze → import), multi-part form data (`UploadFile`).
-
----
-
-#### Module 16 — Leasing Module (Listings + Lead Pipeline)
-**Source files:** `backend/app/routes/leasing.py`, `backend/app/schemas/leasing.py`
-**Learner outcome:** Can build a dual-audience route file (VAPI tool endpoints + manager CRUD), handle VAPI's quirky empty-string parameters, and implement lead pipeline state management.
-**Concepts:** Dual-audience route design (no-auth VAPI vs auth manager), `Optional[str]` for VAPI int params (empty-string problem), `_parse_int`/`_parse_float` helpers, JSONB `custom_rules`, UUID array `interested_listing_ids`, CSV export (`io.StringIO`, `csv.DictWriter`), lead qualification state machine.
-
----
-
-### PART E — Frontend Foundation (Build Session 5)
-
-#### Module 17 — Frontend Setup (Vite + Tailwind + React 18)
-**Source files:** `frontend/vite.config.js`, `frontend/tailwind.config.js`, `frontend/package.json`, `frontend/src/main.jsx`
-**Learner outcome:** Can scaffold a Vite + React 18 + Tailwind project, understand the build pipeline, and configure a dev proxy for the backend.
-**Concepts:** Vite project structure, HMR, Tailwind JIT, PostCSS, `ReactDOM.createRoot`, `StrictMode`, Vite proxy config (avoids CORS in dev), dependency overview (Framer Motion, Lucide React, Recharts, date-fns, react-joyride).
-
----
-
-#### Module 18 — Auth Context & Google OAuth (Supabase PKCE)
-**Source files:** `frontend/src/lib/supabase.js`, `frontend/src/context/AuthContext.jsx`, `frontend/src/components/AuthPage.jsx`
-**Learner outcome:** Can implement Google OAuth with Supabase's PKCE flow in React, manage session state via context, and auto-create a manager profile on first sign-in.
-**Concepts:** Supabase PKCE flow (vs implicit), `onAuthStateChange`, React Context + Provider pattern, `ensureManagerProfile` upsert-on-login, JWT token extraction from session, OAuth redirect handling.
-
----
-
-#### Module 19 — API Service Layer
-**Source files:** `frontend/src/services/apiService.js`
-**Learner outcome:** Can centralize all HTTP calls in one service module, implement an `authFetch` wrapper that auto-attaches tokens and handles auth errors globally.
-**Concepts:** Service module pattern (vs inline fetch), `authFetch` wrapper, `Authorization: Bearer` header injection, global 401/403 handling (sign out / redirect), `FormData` for file uploads, query-string construction.
-
----
-
-#### Module 20 — Dashboard & Charts
-**Source files:** `frontend/src/components/Dashboard.jsx`, `frontend/src/components/BentoDashboard.jsx`, `frontend/src/components/dashboard/` (all chart files), `frontend/src/components/dashboard/KPICard.jsx`
-**Learner outcome:** Can build a data dashboard with Recharts, design KPI cards, and implement a bento-grid layout.
-**Concepts:** Recharts (`LineChart`, `PieChart`, `BarChart`, `ResponsiveContainer`), bento-grid CSS (CSS Grid), KPI card patterns, `useMemo` for chart data transforms, Framer Motion `AnimatePresence`, loading skeleton states.
-
----
-
-#### Module 21 — Properties & Buildings Management
-**Source files:** `frontend/src/components/PropertiesPage.jsx`, `frontend/src/components/PropertyGroupCard.jsx`, `frontend/src/components/BuildingCard.jsx`, `frontend/src/components/AddPropertyModal.jsx`, `frontend/src/components/AddBuildingModal.jsx`, `frontend/src/components/UnitListPanel.jsx`, `frontend/src/components/ImageUploadField.jsx`
-**Learner outcome:** Can build a multi-level entity manager (group → building → flat) with modals for CRUD, image upload to Supabase Storage, and cascading data fetches.
-**Concepts:** Modal pattern in React, controlled form state, Supabase Storage upload via API endpoint, optimistic UI updates, cascading fetch (select group → fetch buildings → fetch flats), Lucide React icons.
-
----
-
-### PART F — Frontend Advanced (Build Session 6)
-
-#### Module 22 — Tenant Management
-**Source files:** `frontend/src/components/TenantManagement.jsx`, `frontend/src/components/TenantProfile.jsx`, `frontend/src/components/AddTenantModal.jsx`, `frontend/src/components/AssignTenantModal.jsx`
-**Learner outcome:** Can display computed lease fields from the API, implement tenant CRUD with bidirectional flat assignment, and show lease status badges.
-**Concepts:** Consuming computed API fields (lease_status, remaining_time_on_lease_days), bidirectional assign/unassign pattern, `PATCH /flats/{uuid}/assign-tenant` vs tenant CRUD, document URL arrays, date-fns `parseISO` / `format`.
-
----
-
-#### Module 23 — Complaints & Appointments UI
-**Source files:** `frontend/src/components/ComplaintsPage.jsx`, `frontend/src/components/ComplaintModal.jsx`, `frontend/src/components/ComplaintDetailModal.jsx`, `frontend/src/components/AppointmentModal.jsx`, `frontend/src/components/AppointmentDetailModal.jsx`, `frontend/src/components/CalendarView.jsx`, `frontend/src/constants/status.js`
-**Learner outcome:** Can build a multi-view list (table/card/calendar) with filters, cross-linked detail modals, and a calendar that shows data by day.
-**Concepts:** View switcher pattern, category/status filter composition, detail modal with linked records, `react-calendar` (or custom grid), `cross-component event dispatch` (`window.dispatchEvent`), status color config pattern.
-
----
-
-#### Module 24 — Voice Stats & Leasing UI
-**Source files:** `frontend/src/components/VoiceStatsTab.jsx`, `frontend/src/components/LeasingTab.jsx`, `frontend/src/components/AddListingModal.jsx`, `frontend/src/components/LeadDetailModal.jsx`
-**Learner outcome:** Can build analytics dashboards that aggregate call data, implement a full lead pipeline UI, and display provisioning state (pending/active/failed) with retry logic.
-**Concepts:** Metrics aggregation from API, lead pipeline status workflow, VAPI provisioning status polling (8s auto-poll after retry), debounced retry guard, `interested_listing_ids` chip display, CSV export download trigger.
-
----
-
-#### Module 25 — Chatbot UI & Outbound Calls
-**Source files:** `frontend/src/components/Chatbot.jsx`, `frontend/src/components/OutboundCallButton.jsx`
-**Learner outcome:** Can build a floating FAB chatbot with markdown rendering, conversation history, and scroll-to-bottom behavior; can trigger outbound VAPI calls from the UI.
-**Concepts:** Floating Action Button (FAB) pattern, `useRef` for scroll-to-bottom, markdown rendering (without external library or with `marked.js` embedded), conversation history management, `refresh_needed` → data reload event, E.164 phone number input, agent type selector.
-
----
-
-#### Module 26 — Settings, Notifications, Onboarding & SMS Broadcast
-**Source files:** `frontend/src/components/SettingsPage.jsx`, `frontend/src/components/SmsWorkflow.jsx`, `frontend/src/components/OnboardingChecklist.jsx`, `frontend/src/components/OnboardingTour.jsx`, `frontend/src/context/OnboardingContext.jsx`, `frontend/src/config/onboardingTours.js`, `frontend/src/components/PropertySettings.jsx`
-**Learner outcome:** Can implement per-building feature flag toggles, an SMS broadcast system with templates, and a react-joyride guided tour tracked in both localStorage and the database.
-**Concepts:** Feature flag toggle UI (per-building), SMS template CRUD, react-joyride tour definitions, dual-persistence (localStorage + DB), `triggerTour(section)` context API, `manager_notifications` preferences.
-
----
-
-## FINAL FILE STRUCTURE
-
-```
-learning_material/
-├── index.html                        # Dashboard — module grid, progress, architecture diagram, quick start
-├── module_00_setup.html              # Project setup, env vars, Supabase project creation
-├── module_01_fastapi_entry.html      # main.py, config.py, CORS, router registration
-├── module_02_database_layer.html     # Supabase SDK, anon vs service client, RLS
-├── module_03_auth_jwt.html           # JWT validation, authenticated_db, Depends()
-├── module_04_subscription_stripe.html # Stripe Checkout, webhooks, subscription gate
-├── module_05_property_groups_buildings.html # Group→Building CRUD, cascade delete
-├── module_06_flats_assignment.html   # Flat CRUD, bidirectional FK, service-role INSERT
-├── module_07_tenants_computed.html   # Tenant CRUD, computed lease fields, Pydantic V2
-├── module_08_complaints_appointments.html # Complaints + appointments, VAPI-safe endpoints
-├── module_09_groq_extraction.html    # Groq LLM, structured extraction, hallucination guard
-├── module_10_openai_chatbot.html     # OpenAI tool calling, chatbot, refresh_needed
-├── module_11_vapi_webhook.html       # VAPI webhook, always-200, call log, service DB
-├── module_12_vapi_provisioning.html  # Agent config, Twilio pool, BackgroundTask, race guard
-├── module_13_notifications.html      # Twilio SMS, SendGrid email, notification service
-├── module_14_feature_flags.html      # Feature enum, DB-backed flags, FastAPI dependency
-├── module_15_bulk_import.html        # CSV/XLSX import, AI column mapping, two-step flow
-├── module_16_leasing.html            # Listings CRUD, lead pipeline, VAPI search endpoints
-├── module_17_frontend_setup.html     # Vite, Tailwind, React 18, main.jsx, proxy config
-├── module_18_auth_context.html       # Supabase PKCE, Google OAuth, AuthContext, profile creation
-├── module_19_api_service.html        # apiService.js, authFetch, global error handling
-├── module_20_dashboard_charts.html   # Dashboard, Recharts, KPI cards, bento grid
-├── module_21_properties_buildings.html # PropertiesPage, modals, image upload, UnitListPanel
-├── module_22_tenant_management.html  # TenantManagement, lease display, assign/unassign
-├── module_23_complaints_calendar.html # ComplaintsPage, CalendarView, cross-linked modals
-├── module_24_voice_leasing_ui.html   # VoiceStatsTab, LeasingTab, provisioning status UI
-├── module_25_chatbot_outbound.html   # Chatbot FAB, markdown, OutboundCallButton
-└── module_26_settings_onboarding.html # SettingsPage, SmsWorkflow, react-joyride onboarding
-
-WORKSHEET.md                          # Quick-reference text file (project root)
+    except Exception as e:
+        print(f"[ERROR] find_units: {e}")
+        return {"found": False, "count": 0, "units": []}
 ```
 
-Total: 27 module HTML files + 1 index + 1 WORKSHEET = **29 files**
+---
+
+### Step 2 — Manager name in greeting
+
+The greeting says "I'm Max, the leasing assistant for [Manager's Name]."
+
+**2a. Update `build_lease_config` signature** in `vapi_agent_config.py`:
+```python
+def build_lease_config(backend_url: str, manager_id: str, manager_name: str = "our property management team") -> dict:
+```
+
+**2b. Update `_LEASE_CONTEXT_BLOCK`** to include manager name:
+```python
+_LEASE_CONTEXT_BLOCK = """
+
+[Context — Do Not Expose]
+Manager ID: {manager_id}
+Manager Name: {manager_name}
+Use the Manager Name in your first message only: "I'm Max, the AI leasing assistant for {manager_name}."
+All searches are scoped to all properties managed by this account.
+"""
+```
+And format it: `_LEASE_CONTEXT_BLOCK.format(manager_id=manager_id, manager_name=manager_name)`
+
+**2c. Update `vapi_provisioning.py`** — fetch manager name before building config:
+```python
+profile_res = svc_db.table("manager_profiles").select("name").eq("user_id", manager_id).maybe_single().execute()
+manager_name = (profile_res.data or {}).get("name") or "our property management team"
+config = build_lease_config(backend_url, manager_id, manager_name=manager_name)
+```
+
+**2d. Update `update_lease_agents.py`** — fetch manager names in the loop:
+```python
+for row in agents:
+    manager_id = row["manager_id"]
+    assistant_id = row.get("vapi_lease_assistant_id")
+    if not assistant_id:
+        continue
+    profile = db.table("manager_profiles").select("name").eq("user_id", manager_id).maybe_single().execute()
+    manager_name = (profile.data or {}).get("name") or "our property management team"
+    cfg = build_lease_config(BACKEND_URL, manager_id, manager_name=manager_name)
+    ...
+```
 
 ---
 
-## BUILD SESSION PLAN
+### Step 3 — Rewrite lease agent system prompt in `vapi_agent_config.py`
 
-Because each HTML file is large (500–1000+ lines with inline CSS, JS, full content, and syntax-highlighted code), the build is split into **6 sessions**:
+Replace `_LEASE_SYSTEM_PROMPT_BASE` with a new query-first, concise prompt.
 
-| Session | Modules | Files |
-|---|---|---|
-| **Session 1** | 00–04 | module_00 → module_04 (5 files) |
-| **Session 2** | 05–08 | module_05 → module_08 (4 files) |
-| **Session 3** | 09–12 | module_09 → module_12 (4 files) |
-| **Session 4** | 13–16 | module_13 → module_16 (4 files) |
-| **Session 5** | 17–21 | module_17 → module_21 (5 files) |
-| **Session 6** | 22–26 + index + WORKSHEET | module_22 → module_26, index.html, WORKSHEET.md (7 files) |
+Key changes from current:
+- Remove `[Background Query Strategy]` section (no more background `load_listings`)
+- Remove `[Preference Collection]` as the primary flow — now secondary
+- Add `[Step 1 — Opening]` that asks "which unit?" immediately
+- Add `[Step 2 — Find the unit]` using `find_units` tool
+- Add **CRITICAL style rule**: answer only what's asked, one fact per response
+- Remove all the "present unit details" sections that dump everything at once
 
-After each session, the files can be opened immediately in a browser.
+New `_LEASE_SYSTEM_PROMPT_BASE`:
+
+```
+[Identity]
+You are Max, a professional AI leasing assistant. Help callers find out about available rental units.
+You handle leasing inquiries only — not complaints, billing, or maintenance.
+If caller mentions a non-leasing issue, direct them to the property management team and ask if there's anything leasing-related you can help with.
+
+[Language Policy]
+Detect caller's language on their first word and lock to it for the entire call.
+- English → respond in ENGLISH ONLY
+- French → respond in FRENCH ONLY
+- Ambiguous after 2 turns → ask "English or French? / Anglais ou français?" then lock
+
+Never mix languages. Never append translations. All tool data must be in English regardless of call language.
+
+[Style — CRITICAL]
+- SHORT responses. One sentence where possible.
+- Answer ONLY what the caller specifically asks. Never volunteer extra info.
+  → "How much is the rent?" → "It's two thousand dollars per month."  (stop there)
+  → "When is it available?" → "Available from July first."  (stop there)
+- Never narrate what you're doing ("Let me check", "I'm searching for that").
+- If a tool is running and the caller is clearly waiting, one line max: "One moment." — then deliver results immediately.
+- Quote rent as words: "two thousand dollars per month" — never bare digits, never "rupees".
+
+[Conversation Flow]
+
+Step 1 — Opening (bilingual, only first line)
+Say: "Hey, thanks for calling! / Merci d'avoir appelé! I'm Max, the AI leasing assistant for {manager_name}.
+Which unit or property are you calling about? / De quel logement ou propriété m'appelez-vous?"
+
+After the caller's first word, detect language and lock. The rest of the call is monolingual.
+Wait for their response.
+
+Step 2 — Find the unit
+As soon as the caller says anything identifying — unit number, building name, property name, street, city, country, any part of an address — call find_units with their words as the query. Do not ask for more info first.
+
+While the tool runs, keep conversation going naturally. Do NOT say "searching" or "looking it up."
+If the caller is clearly waiting: "One moment." (max one line) — then deliver.
+
+Results handling:
+- 0 matches → "I couldn't find a match for that. Can you tell me the building name or address?"
+  → Wait for clarification. Retry find_units once.
+  → If still no match: "We may not have that unit listed. Can I take your name and have someone follow up?"
+- 1 match → "I found [flat_number] at [building_name] — is that the one?" (one short sentence)
+  → Wait for confirmation.
+- 2–5 matches → List just the unit numbers and building names. Example:
+  "I found a few: Unit 4B at Maple Building, and Unit 6A at Elm Tower. Which one?"
+  → Wait for caller to pick.
+
+Step 3 — Answer what's asked
+Once caller confirms a unit, STOP. Do NOT describe the unit. Wait for their question.
+
+Answer each question with the shortest accurate response from the listing data:
+- Rent → "[amount] per month"
+- Availability → "Available from [date]"
+- Bedrooms → "[N] bedrooms"
+- Floor → "Floor [N]"
+- Bathrooms, parking, laundry, pets → answer from listing data
+- Data not available → "I don't have that detail — the team will follow up."
+
+Keep answering until the caller has no more questions. Then proceed to Step 4.
+
+Step 4 — Lead capture
+Collect caller's name if not yet known: "Could I get your name?"
+Then call submit_lease_lead exactly once with everything collected.
+
+Close:
+- Interested/qualified: "Our team will be in touch to arrange a viewing. Have a great day!"
+- Disqualified: "Thanks for calling — have a great day!"
+- No match: "I've noted your interest. The team may reach out if something comes up. Have a great day!"
+
+[Preference-Based Browsing — Secondary Flow]
+If a caller explicitly says they're looking for something (not a specific unit): "I'm looking for a 2-bedroom" / "I want something under $1,500" — use search_listings with those filters.
+Present results concisely: just unit number, building name, rent, bedrooms.
+Let caller ask follow-up questions — do not describe everything upfront.
+
+[Disqualification]
+Apply only rules from the confirmed listing's custom_rules:
+- pets_allowed="no" + caller has pets → "That unit doesn't allow pets."
+- max_occupants exceeded → "The max for that unit is [N] people."
+Set qualification_status="not_qualified" + disqualifying_reason. Still capture lead.
+
+[Lead Capture — ALL CALLS, NO EXCEPTIONS]
+Call submit_lease_lead EXACTLY ONCE before ending every call, even if no unit was found.
+- caller_name: REQUIRED. Ask if blank.
+- listing_uuid: UUID from find_units result (blank if none confirmed — never invent)
+- interested_listing_ids: all units caller asked about
+- qualification_status: "qualified" / "not_qualified" / "unmatched"
+- notes: what they asked about, any preferences mentioned
+
+[Critical Rules]
+- NEVER call Verify_phone_number — callers are prospective tenants, not existing tenants
+- listing_uuid comes from tool results only — never invent a UUID
+- Never guarantee availability, pricing, or make promises
+- If submit_lease_lead fails: do not retry, end politely
+```
 
 ---
 
-## KEY DESIGN DECISIONS TABLE
+### Step 4 — Update tools in `_build_lease_tools`
 
-| Decision | Why | What you'd do differently without this constraint |
-|---|---|---|
-| **FastAPI over Django/Flask** | Async-first, automatic OpenAPI docs, Pydantic V2 native, fastest Python framework for I/O-bound routes | Django REST Framework if team already knows Django; Flask if project is simple CRUD only |
-| **Supabase SDK (not SQLAlchemy)** | Supabase client respects RLS automatically; SQLAlchemy bypasses RLS and requires a separate row-level auth layer | SQLAlchemy + manual WHERE manager_id=? on every query (error-prone); or Prisma if using Node |
-| **Two Supabase clients (anon + service)** | Anon client with `postgrest.auth(token)` enforces RLS for user routes; service-role client is needed for webhooks (no JWT), admin ops, and specific INSERT policies | Single service-role client everywhere — simpler but dangerous (any bug exposes all tenant data) |
-| **No `/api` prefix on routes** | Keeps URLs shorter; frontend proxy rewrites `/complaints` → `http://localhost:8000/complaints`; avoids double-prefix bugs | Standard `/api/v1/` prefix if deploying multiple API versions or if frontend is on the same domain |
-| **All frontend HTTP through `apiService.js`** | Single place to add/change auth headers, base URL, and error handling; prevents 30+ duplicated `fetch()` calls each needing their own auth logic | Inline fetch per component — works but means changing auth requires touching every component |
-| **Pydantic V2 `model_validator` (not V1 `@validator`)** | V1 validators are deprecated and removed in V2; `model_validator(mode='after')` runs after all fields are set, needed for computed fields that depend on multiple fields | Pydantic V1 if on an older codebase — but migration to V2 is painful to defer |
-| **VAPI endpoints always return HTTP 200** | VAPI SDK interprets non-200 as a fatal error and kills the call session immediately; error info is returned in the JSON body instead | Standard REST error codes (400/404/500) for non-voice endpoints — always correct for browser clients |
-| **Date format `YYYY-MM-DDTHH:MM:SS` (T separator)** | JavaScript `parseISO` (date-fns) requires the T separator; space separator causes silent parse failures that show as "Invalid Date" in the UI | ISO 8601 with timezone offset (`+05:30`) if storing UTC and converting in frontend — cleaner but requires frontend timezone handling |
-| **Data stored as IST (not UTC)** | Simpler for a Canada-focused product (IST is a business decision, not best practice); avoids timezone conversion bugs on display | Store as UTC + convert to user's timezone on display — correct approach for multi-timezone products |
-| **Error mapping `_clean_db_error()`** | PostgreSQL error codes (`42501`, `23505`, `23503`) are opaque to users; mapping them to English prevents "duplicate key value violates unique constraint" leaking to the UI | Catch-all "Database error, please try again" message — simpler but loses actionable information |
-| **Stripe trial + $1 verification** | Reduces churn by letting users try before paying; $1 card verify prevents fake signups without charging real money | Free tier with no card — maximizes top-of-funnel but attracts non-serious users; immediate charge — maximizes revenue per user but lowers conversion |
-| **VAPI per-manager provisioning (not per-group)** | One phone number per manager (not per property group) reduces Twilio number cost; all groups share the same lease line | One number per property group — cleaner caller experience but 10x the phone number costs |
-| **Twilio number pool** | Pre-purchased Twilio numbers are assigned on demand; avoids Twilio API rate limits during account creation; numbers can be recycled | Buy Twilio number programmatically on provisioning — requires Twilio API credentials with number-purchase permission and is slower |
-| **`BackgroundTask` for VAPI provisioning** | VAPI assistant creation takes 2-5 seconds; doing it in the request handler would time out the HTTP response | Celery/RQ task queue — better for production scale, adds Redis dependency |
-| **OpenAI for chatbot, Groq for extraction** | gpt-4o-mini handles complex multi-turn tool calling reliably; Groq llama is faster/cheaper for one-shot extraction | Single provider — simpler config but either paying more for extraction or getting worse tool calling |
-| **`refresh_needed` signal from chatbot** | Chatbot mutations (add building, reschedule appointment) need to trigger UI refresh; returning a boolean in the chat response is simpler than SSE or WebSocket | WebSocket for real-time push — correct at scale, but overkill for a chatbot that mutates data |
-| **Functional React components + hooks only** | React 18 best practice; class components are legacy and incompatible with modern hooks (useContext, useEffect patterns) | Class components + lifecycle methods — works but verbose and harder to share logic |
-| **All CSS/JS inline in HTML learning files** | Files must work with `file://` protocol in any browser with no server, no build step, no CDN — zero dependencies | External CSS/JS files — smaller HTML but requires a local server (`python -m http.server`) to load |
+**Remove:** `load_listings` tool (background loading is replaced by `find_units`)
+
+**Add:** `find_units` tool:
+```python
+{
+    "type": "apiRequest",
+    "name": "find_units",
+    "async": False,
+    "function": {
+        "name": "api_request_tool",
+        "description": (
+            "Find available units by any caller-stated text: unit number, building name, "
+            "property name, street address, city, state, or country. "
+            "Pass the caller's exact words as the query. "
+            "Returns up to 5 matches: listing_uuid, flat_number, building_name, property_name, "
+            "address, bedrooms, monthly_rent, available_from. "
+            "After receiving results, read back only the unit/building names to the caller — "
+            "do NOT describe rent, floors, or any other details until the caller confirms a unit "
+            "AND explicitly asks about those details."
+        ),
+    },
+    "url": f"{backend_url}/leasing/find-units?manager_id={manager_id or ''}&query={{{{query}}}}",
+    "method": "GET",
+    "body": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The caller's words — unit number, building name, property name, address, city, etc.",
+                "default": "",
+            }
+        },
+    },
+    "variableExtractionPlan": {
+        "schema": {
+            "type": "object",
+            "properties": {
+                "found": {"type": "boolean"},
+                "count": {"type": "integer"},
+                "units": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "listing_uuid": {"type": "string"},
+                            "flat_number": {"type": "string"},
+                            "building_name": {"type": "string"},
+                            "property_name": {"type": "string"},
+                            "address": {"type": "string"},
+                            "bedrooms": {"type": "integer"},
+                            "bathrooms": {"type": "integer"},
+                            "floor_number": {"type": "string"},
+                            "monthly_rent": {"type": "number"},
+                            "available_from": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        }
+    },
+}
+```
+
+**Keep:** `search_listings` (preference-based browsing, secondary flow) + `submit_lease_lead` (unchanged)
 
 ---
 
-## OPEN QUESTIONS FOR YOU
+### Step 5 — Let the AI generate the first message (model-generated mode)
 
-Before building starts, please decide:
+Instead of a hardcoded `first_message`, set VAPI to model-generated mode and put the opening inspiration in the system prompt.
 
-1. **Where should `learning_material/` live?**
-   - Option A: `C:\Users\BIT\Coding\Tenant_management_MVP\learning_material\` (project root)
-   - Option B: `C:\Users\BIT\Coding\Tenant_management_MVP\docs\learning_material\` (alongside existing md guides)
-   - _(Existing markdown guides are in `docs/learning_guides/` — does the HTML material go in `docs/` or root?)_
-OPTION B
-2. **Which session do you want to build first?**
-   - All sessions in order (Sessions 1–6 across 6 conversations)
-   - Jump to a specific session (e.g., start with frontend, Session 5)
-All sessions in order (Sessions 1–6 across 6 conversations)
+**In `_lease_assistant_shell`:**
+- Remove the `"first_message"` field entirely (or set to `""`)
+- Set `"first_message_mode": "assistant-speaks-first-with-model-generated-message"`
 
-3. **Frontend modules — depth of coverage?**
-   - Deep: quote every JSX file line-by-line (produces very large HTML files, ~1000+ lines each)
-   - Standard: cover every component's purpose, key patterns, and one full walkthrough per module
-Deep: quote every JSX file line-by-line (produces very large HTML files, ~1000+ lines each)
-4. **Do you want exercises to have full worked solutions?**
-   - Yes — full solution code in a deeply nested collapsible (recommended, learner can choose to peek)
-   - No — hints only, learner figures it out
-Yes — full solution code in a deeply nested collapsible (recommended, learner can choose to peek)
-5. **External service accounts** — which of these do you already have set up?
-   (This affects which Module 00 setup steps to include as "do this now" vs "you will need later")
-   - [ ] Supabase project + service key
-   - [ ] Stripe account + webhook endpoint
-   - [ ] VAPI.ai account + API key
-   - [ ] Twilio account + purchased number
-   - [ ] OpenAI API key
-   - [ ] Groq API key
-   - [ ] SendGrid account + verified sender
-I have setup accounts for all of them, i just wanna learn about integration,how to do it, what bugs i faced,how to solve it etc
+```python
+# Remove this line:
+# "first_message": "...",
+
+# Add this line:
+"first_message_mode": "assistant-speaks-first-with-model-generated-message",
+```
+
+**In the system prompt (`Step 1 — Opening`)**, replace the hardcoded instruction with inspiration-style guidance:
+
+```
+Step 1 — Opening (bilingual, only your first line)
+Open the call with a warm bilingual greeting. Be inspired by this style:
+"Hey, thanks for calling! / Merci d'avoir appelé! I'm Max, the AI leasing assistant for {manager_name}.
+Je suis Max, l'assistant de location IA de {manager_name}.
+Which unit are you inquiring about? / De quel logement souhaitez-vous vous informer?"
+
+Generate your own natural variation — don't read this verbatim. Keep it short, warm, bilingual,
+and end with the "which unit?" question. After the caller's first word, detect language and lock.
+```
+
+This way the AI produces a fresh, natural-sounding opening on every call rather than repeating the same literal string.
+
 ---
 
-> Review this plan and reply **"approved"** (optionally answering the open questions) when ready to build.
-> If you want to change any module scope or add/remove modules, say so before approving.
+### Step 6 — Deploy
+
+```bash
+python backend/scripts/update_lease_agents.py
+```
+
+Then verify in VAPI dashboard: `firstMessageMode` is `assistant-speaks-first-with-model-generated-message`, `first_message` is absent/empty, `load_listings` tool is gone, `find_units` tool is present.
+
+---
+
+## Issue 2: +14382567782 Complaint Agent Not Connected
+
+The number exists in VAPI as a phone number resource but has no assistant (`assistantId`) assigned.
+
+### Step 1 — Find the VAPI phone number ID
+
+Run from project root (one-time):
+```python
+import os, httpx
+from dotenv import load_dotenv
+load_dotenv("backend/.env")
+
+resp = httpx.get(
+    "https://api.vapi.ai/phone-number",
+    headers={"Authorization": f"Bearer {os.environ['PRIVATE_VAPI_API']}"},
+    timeout=10,
+)
+for n in resp.json():
+    if n.get("number") == "+14382567782":
+        print("id:", n["id"])
+        print("assistantId:", n.get("assistantId"))
+        print("name:", n.get("name"))
+```
+
+Expected: shows the number's `id` and that `assistantId` is null/missing.
+
+### Step 2 — Connect it to the complaint assistant
+
+```python
+import os, httpx
+from dotenv import load_dotenv
+load_dotenv("backend/.env")
+
+phone_number_id = "<id from Step 1>"
+complaint_assistant_id = os.environ["VAPI_COMPLAINT_ASSISTANT_ID"]
+
+resp = httpx.patch(
+    f"https://api.vapi.ai/phone-number/{phone_number_id}",
+    headers={
+        "Authorization": f"Bearer {os.environ['PRIVATE_VAPI_API']}",
+        "Content-Type": "application/json",
+    },
+    json={"assistantId": complaint_assistant_id},
+    timeout=10,
+)
+print(resp.status_code, resp.json())
+```
+
+Expected: 200 response, `assistantId` is now set.
+
+### Step 3 — DB tracking
+
+Check if the number is in `twilio_number_pool`:
+```sql
+SELECT * FROM twilio_number_pool WHERE phone_number = '+14382567782';
+```
+
+If not, insert it:
+```sql
+INSERT INTO twilio_number_pool (phone_number, vapi_phone_number_id, status, notes)
+VALUES ('+14382567782', '<vapi_id_from_step1>', 'assigned', 'second complaint line');
+```
+
+### Step 4 — Decide: secondary or replacement complaint number
+
+- If **secondary** (both +14382314283 and +14382567782 active): no `.env` change needed. Document in `CODEBASE_CONTEXT.md`.
+- If **replacement** (new primary complaint number): update `VAPI_COMPLAINT_NUMBER_ID` and `VAPI_COMPLAINT_PHONE_NUMBER` in Render's environment variables, and update `CODEBASE_CONTEXT.md`.
+
+### Step 5 — Verify
+
+Call +14382567782. The complaint agent (Alex) should answer:
+> "Hi, this is Alex — how can I help you today?"
+
+---
+
+## Implementation Checklist
+
+### Lease Agent
+- [x] `leasing.py` — add `GET /leasing/find-units` endpoint
+- [x] `vapi_agent_config.py` — add `manager_name` param to `build_lease_config`
+- [x] `vapi_agent_config.py` — update `_LEASE_CONTEXT_BLOCK` to include manager name
+- [x] `vapi_agent_config.py` — rewrite `_LEASE_SYSTEM_PROMPT_BASE` (query-first, concise)
+- [x] `vapi_agent_config.py` — update `_build_lease_tools`: add `find_units`, remove `load_listings`
+- [x] `vapi_agent_config.py` — remove `first_message`, set `first_message_mode` to `assistant-speaks-first-with-model-generated-message` in `_lease_assistant_shell`; add opening inspiration to system prompt
+- [x] `vapi_provisioning.py` — fetch manager name, pass to `build_lease_config`
+- [x] `update_lease_agents.py` — fetch manager names, pass to `build_lease_config`
+- [x] Run `python backend/scripts/update_lease_agents.py`
+- [ ] Verify: call lease line — Max answers bilingually, asks "which unit?"
+
+### Complaint Phone
+- [ ] Run Step 1 script — find VAPI phone number ID for +14382567782
+- [ ] Run Step 2 script — connect to `VAPI_COMPLAINT_ASSISTANT_ID`
+- [ ] Check/update `twilio_number_pool` in DB
+- [ ] Decide secondary vs replacement, update `.env` if replacement
+- [ ] Verify: call +14382567782 — Alex answers
