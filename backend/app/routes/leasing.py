@@ -148,6 +148,91 @@ async def find_listing(
         return {"found": False, "count": 0, "listings": []}
 
 
+@router.get("/find-units")
+async def find_units(
+    query: str = Query(...),
+    manager_id: Optional[str] = Query(None),
+    db: Client = Depends(get_service_db),
+):
+    try:
+        q = (
+            db.table("lease_listings")
+            .select(
+                "uuid, flat_number, title, monthly_rent, available_from, "
+                "street_address, city, state, country, "
+                "flats!inner(bedrooms, bathrooms, floor_number, building_id)"
+            )
+            .eq("is_active", True)
+        )
+        if manager_id:
+            q = q.eq("manager_id", manager_id)
+
+        results = q.limit(50).execute()
+        listings = results.data or []
+        if not listings:
+            return {"found": False, "count": 0, "units": []}
+
+        building_ids = list({
+            r["flats"]["building_id"]
+            for r in listings
+            if r.get("flats") and r["flats"].get("building_id")
+        })
+        building_rows, property_rows = {}, {}
+        if building_ids:
+            b_res = db.table("buildings").select("id, name, property_id").in_("id", building_ids).execute()
+            for b in (b_res.data or []):
+                building_rows[b["id"]] = b
+            property_ids = list({b["property_id"] for b in building_rows.values() if b.get("property_id")})
+            if property_ids:
+                p_res = db.table("properties_list").select("id, name").in_("id", property_ids).execute()
+                for p in (p_res.data or []):
+                    property_rows[p["id"]] = p
+
+        query_lower = query.lower()
+        matches = []
+        for r in listings:
+            flat = r.get("flats") or {}
+            bid = flat.get("building_id")
+            building = building_rows.get(bid, {})
+            prop_group = property_rows.get(building.get("property_id"), {})
+
+            haystack = " ".join(filter(None, [
+                r.get("flat_number") or "",
+                r.get("title") or "",
+                r.get("street_address") or "",
+                r.get("city") or "",
+                r.get("state") or "",
+                r.get("country") or "",
+                building.get("name") or "",
+                prop_group.get("name") or "",
+            ])).lower()
+
+            if query_lower in haystack:
+                matches.append({
+                    "listing_uuid": r["uuid"],
+                    "flat_number": r["flat_number"],
+                    "building_name": building.get("name") or "",
+                    "property_name": prop_group.get("name") or "",
+                    "address": ", ".join(filter(None, [
+                        r.get("street_address") or "",
+                        r.get("city") or "",
+                        r.get("state") or "",
+                    ])),
+                    "bedrooms": flat.get("bedrooms"),
+                    "bathrooms": flat.get("bathrooms"),
+                    "floor_number": str(flat.get("floor_number") or ""),
+                    "monthly_rent": float(r["monthly_rent"]),
+                    "available_from": str(r.get("available_from") or ""),
+                })
+
+        matches = matches[:5]
+        return {"found": bool(matches), "count": len(matches), "units": matches}
+
+    except Exception as e:
+        print(f"[ERROR] find_units: {e}")
+        return {"found": False, "count": 0, "units": []}
+
+
 @router.get("/search")
 async def search_available_listings(
     bedrooms: Optional[str] = Query(None),

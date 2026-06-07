@@ -71,7 +71,9 @@ def provision_vapi_for_manager(manager_id: str, db: Client) -> None:
         vapi_phone_number_id = pool_row["vapi_phone_number_id"]
         phone_number = pool_row["phone_number"]
 
-        lease_cfg = build_lease_config(BACKEND_URL, manager_id)
+        profile_res = svc_db.table("manager_profiles").select("name").eq("user_id", manager_id).maybe_single().execute()
+        manager_name = (profile_res.data or {}).get("name") or "our property management team"
+        lease_cfg = build_lease_config(BACKEND_URL, manager_id, manager_name=manager_name)
         if existing_assistant_id:
             print(f"[VAPI PROVISION] Updating existing assistant {existing_assistant_id} (no duplicate)")
             lease = client.assistants.update(id=existing_assistant_id, **lease_cfg)
