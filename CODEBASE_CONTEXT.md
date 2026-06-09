@@ -175,6 +175,9 @@ PropertyGroup (properties_list)
 | street_address, address_line, city, state | text | Structured address (migration 022); auto-filled from parent building on frontend |
 | country | text | Default 'Canada' |
 | bedrooms, bathrooms | int | |
+| living_rooms | int | Default 1 (migration 028) |
+| kitchen | int | Default 1 (migration 028) |
+| quebec_size | text | Computed server-side: `(bedrooms + living_rooms + kitchen + max(0, bathrooms-1))½` (migration 028) |
 | occupied | boolean | Derived from tenant_uuid presence |
 | is_listed | boolean | Default false; true when an active lease_listing exists for this flat (migration 026); prevents duplicate listings |
 | image_url | text | Supabase Storage URL |
@@ -264,6 +267,11 @@ PropertyGroup (properties_list)
 | photo_urls | text[] | |
 | is_active | boolean | |
 | custom_rules | JSONB | `{max_occupants, income_required, pets_allowed, vegetarian_only, lease_term_months, custom_question}` |
+| bedrooms | int | Denormalized from flat at listing creation (migration 028) |
+| bathrooms | int | Denormalized from flat at listing creation (migration 028) |
+| living_rooms | int | Denormalized from flat at listing creation (migration 028) |
+| kitchen | int | Denormalized from flat at listing creation (migration 028) |
+| quebec_size | text | Denormalized from flat at listing creation; used for direct filtering by lease agent (migration 028) |
 | manager_id | UUID | |
 
 #### `lease_leads`

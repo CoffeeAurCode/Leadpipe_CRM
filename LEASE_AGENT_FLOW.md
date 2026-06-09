@@ -10,6 +10,26 @@
 
 ---
 
+## Quebec Apartment Size Reference
+
+Quebec uses a unique sizing system rooted in the architecture of its classic duplexes and triplexes. The convention stuck and is now universal across the province.
+
+**Formula:** count all full rooms (bedroom, living room, kitchen), then add ½ for the one bathroom.
+
+> e.g. 1 bedroom + 1 living room + 1 kitchen + 1 bathroom = **3½**
+
+| Quebec | Rest of Canada / World |
+|--------|----------------------|
+| 1½ | Studio |
+| 2½ | Bachelor |
+| 3½ | 1-bedroom |
+| 4½ | 2-bedroom |
+| 5½ | 3-bedroom |
+
+Max uses this lingo natively when asking Q3 and when pitching units.
+
+---
+
 ## 1. Entry Point
 
 🟣 **Greeting**

@@ -713,6 +713,7 @@ function PropertiesPage() {
                     onClose={() => setShowAddUnit(false)}
                     onSuccess={handleUnitAdded}
                     initialBuildingId={selectedBuilding?.id ?? null}
+                    initialStreetAddress={selectedBuilding?.street_address ?? null}
                     initialCity={selectedBuilding?.city ?? null}
                     initialState={selectedBuilding?.state ?? null}
                     initialCountry={selectedBuilding?.country ?? null}

@@ -158,7 +158,7 @@ async def find_units(
         q = (
             db.table("lease_listings")
             .select(
-                "uuid, flat_number, title, monthly_rent, available_from, "
+                "uuid, flat_number, title, monthly_rent, available_from, quebec_size, "
                 "street_address, city, state, country, "
                 "flats!inner(bedrooms, bathrooms, floor_number, building_id)"
             )
@@ -221,6 +221,7 @@ async def find_units(
                     ])),
                     "bedrooms": flat.get("bedrooms"),
                     "bathrooms": flat.get("bathrooms"),
+                    "quebec_size": r.get("quebec_size") or "",
                     "floor_number": str(flat.get("floor_number") or ""),
                     "monthly_rent": float(r["monthly_rent"]),
                     "available_from": str(r.get("available_from") or ""),
@@ -382,6 +383,7 @@ async def search_listings(
     state: Optional[str] = Query(None),
     parking: Optional[str] = Query(None),
     laundry: Optional[str] = Query(None),
+    quebec_size: Optional[str] = Query(None),
     db: Client = Depends(get_service_db),
 ):
     try:
@@ -406,6 +408,7 @@ async def search_listings(
         state_filter = state.strip() if state and state.strip() else None
         parking_filter = parking.strip().lower() if parking and parking.strip() else None
         laundry_filter = laundry.strip().lower() if laundry and laundry.strip() else None
+        quebec_size_filter = quebec_size.strip() if quebec_size and quebec_size.strip() else None
 
         q = (
             db.table("lease_listings")
@@ -427,6 +430,8 @@ async def search_listings(
             q = q.ilike("city", f"%{city_filter}%")
         if state_filter:
             q = q.ilike("state", f"%{state_filter}%")
+        if quebec_size_filter:
+            q = q.eq("quebec_size", quebec_size_filter)
 
         results = q.order("monthly_rent").limit(20).execute()
         rows = results.data or []
@@ -469,7 +474,7 @@ async def create_listing(
     svc_db: Client = Depends(get_service_db),
 ):
     # Ownership check via RLS-enforced authenticated client
-    flat_resp = db.table("flats").select("flat_number, building_id, tenant_uuid, occupied, is_listed, street_address, city, state, country").eq("uuid", str(body.flat_uuid)).limit(1).execute()
+    flat_resp = db.table("flats").select("flat_number, building_id, tenant_uuid, occupied, is_listed, street_address, city, state, country, bedrooms, bathrooms, living_rooms, kitchen, quebec_size").eq("uuid", str(body.flat_uuid)).limit(1).execute()
     if not flat_resp.data:
         raise HTTPException(status_code=404, detail="Flat not found")
 
@@ -502,6 +507,10 @@ async def create_listing(
 
     for col in ("street_address", "city", "state", "country"):
         if flat.get(col):
+            payload[col] = flat[col]
+
+    for col in ("bedrooms", "bathrooms", "living_rooms", "kitchen", "quebec_size"):
+        if flat.get(col) is not None:
             payload[col] = flat[col]
 
     if "custom_rules" in payload and hasattr(payload["custom_rules"], "model_dump"):

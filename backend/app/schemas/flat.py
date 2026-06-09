@@ -10,6 +10,8 @@ class FlatBase(BaseModel):
     floor_number: Optional[int] = Field(None, description="Floor number")
     bedrooms: Optional[int] = Field(None, description="Number of bedrooms")
     bathrooms: Optional[int] = Field(None, description="Number of bathrooms")
+    living_rooms: Optional[int] = Field(None, description="Number of living rooms")
+    kitchen: Optional[int] = Field(None, description="Number of kitchens")
     occupied: Optional[bool] = Field(True, description="Is the flat currently occupied?")
 
 
@@ -20,6 +22,8 @@ class FlatCreate(BaseModel):
     floor_number: Optional[int] = Field(None, ge=0, description="Floor number")
     bedrooms: Optional[int] = Field(None, ge=1, le=10, description="Number of bedrooms")
     bathrooms: Optional[int] = Field(None, ge=0, le=10, description="Number of bathrooms")
+    living_rooms: Optional[int] = Field(None, ge=0, le=20, description="Number of living rooms")
+    kitchen: Optional[int] = Field(None, ge=0, le=5, description="Number of kitchens")
     image_url: Optional[str] = Field(None, description="URL to property image in Supabase Storage")
     street_address: Optional[str] = None
     address_line: Optional[str] = None
@@ -34,6 +38,8 @@ class FlatUpdate(BaseModel):
     floor_number: Optional[int] = Field(None, ge=0)
     bedrooms: Optional[int] = Field(None, ge=0, le=10)
     bathrooms: Optional[int] = Field(None, ge=0, le=10)
+    living_rooms: Optional[int] = Field(None, ge=0, le=20)
+    kitchen: Optional[int] = Field(None, ge=0, le=5)
     occupied: Optional[bool] = None
     street_address: Optional[str] = None
     address_line: Optional[str] = None
@@ -68,6 +74,7 @@ class FlatResponse(FlatBase):
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
+    quebec_size: Optional[str] = None
     building_name: Optional[str] = None
     property_name: Optional[str] = None
     is_listed: Optional[bool] = None

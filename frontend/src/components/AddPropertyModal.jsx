@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../lib';
 import { createProperty } from '../services/apiService';
 
-export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId = null, initialAddress = null, initialCity = null, initialState = null, initialCountry = null }) {
+export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId = null, initialAddress = null, initialStreetAddress = null, initialCity = null, initialState = null, initialCountry = null }) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -23,6 +23,8 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
         floor_number: '',
         bedrooms: '',
         bathrooms: '',
+        living_rooms: '1',
+        kitchen: '1',
         tenant_name: '',
         tenant_phone: '',
         image: null
@@ -31,6 +33,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
     useEffect(() => {
         if (isOpen) {
             const updates = {};
+            if (initialStreetAddress) updates.street_address = initialStreetAddress;
             if (initialCity) updates.city = initialCity;
             if (initialState) updates.state = initialState;
             if (initialCountry) updates.country = initialCountry;
@@ -39,7 +42,7 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                 setAddressAutoFilled(true);
             }
         }
-    }, [isOpen, initialCity, initialState, initialCountry]);
+    }, [isOpen, initialStreetAddress, initialCity, initialState, initialCountry]);
 
     const resetForm = () => {
         setFormData({
@@ -52,6 +55,8 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
             floor_number: '',
             bedrooms: '',
             bathrooms: '',
+            living_rooms: '1',
+            kitchen: '1',
             tenant_name: '',
             tenant_phone: '',
             image: null
@@ -104,6 +109,14 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
 
             if (formData.bathrooms) {
                 formDataToSend.append('bathrooms', formData.bathrooms);
+            }
+
+            if (formData.living_rooms) {
+                formDataToSend.append('living_rooms', formData.living_rooms);
+            }
+
+            if (formData.kitchen) {
+                formDataToSend.append('kitchen', formData.kitchen);
             }
 
             if (assignTenant) {
@@ -198,10 +211,16 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     <input
                                         type="text"
                                         value={formData.street_address}
-                                        onChange={(e) => setFormData({ ...formData, street_address: e.target.value })}
+                                        onChange={(e) => { setFormData({ ...formData, street_address: e.target.value }); setAddressAutoFilled(false); }}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        placeholder="e.g. Unit 4A"
+                                        placeholder="e.g. 123 Maple St"
                                     />
+                                    {addressAutoFilled && formData.street_address && (
+                                        <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
+                                            <Info className="w-3 h-3" />
+                                            Auto-filled from building
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-2">Additional Address</label>
@@ -262,29 +281,64 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-2">{t('unit.bedrooms')}</label>
-                                    <select
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="10"
                                         value={formData.bedrooms}
                                         onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
-                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                        <option value="">{t('common.select')}</option>
-                                        {[1, 2, 3, 4, 5].map(n => (
-                                            <option key={n} value={n}>{n} BHK</option>
-                                        ))}
-                                    </select>
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        placeholder="2"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-2">{t('unit.bathrooms')}</label>
-                                    <select
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="10"
                                         value={formData.bathrooms}
                                         onChange={(e) => setFormData({ ...formData, bathrooms: e.target.value })}
-                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                        <option value="">{t('common.select')}</option>
-                                        {[1, 2, 3, 4, 5].map(n => (
-                                            <option key={n} value={n}>{n} Bath{n !== 1 ? 's' : ''}</option>
-                                        ))}
-                                    </select>
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        placeholder="1"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Living rooms</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="20"
+                                        value={formData.living_rooms}
+                                        onChange={(e) => setFormData({ ...formData, living_rooms: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Kitchen</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="5"
+                                        value={formData.kitchen}
+                                        onChange={(e) => setFormData({ ...formData, kitchen: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                    />
                                 </div>
                             </div>
+                            {(formData.bedrooms || formData.bathrooms) && (
+                                <div className="px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-sm text-foreground">
+                                    Quebec size: <span className="font-semibold">
+                                        {(() => {
+                                            const bd = parseInt(formData.bedrooms) || 0;
+                                            const bt = parseInt(formData.bathrooms) || 0;
+                                            const lr = parseInt(formData.living_rooms) || 1;
+                                            const k = parseInt(formData.kitchen) || 1;
+                                            return `${bd + lr + k + Math.max(0, bt - 1)}½`;
+                                        })()}
+                                    </span>
+                                </div>
+                            )}
 
                             {/* Image Upload */}
                             <div>
