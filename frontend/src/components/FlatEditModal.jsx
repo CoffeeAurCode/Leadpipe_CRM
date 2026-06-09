@@ -18,6 +18,8 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
     const [flatData, setFlatData] = useState({
         bedrooms: '',
         bathrooms: '',
+        living_rooms: '1',
+        kitchen: '1',
         floor_number: '',
         street_address: '',
         address_line: '',
@@ -39,6 +41,8 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
             setFlatData({
                 bedrooms: flat.bedrooms || '',
                 bathrooms: flat.bathrooms || '',
+                living_rooms: flat.living_rooms ?? 1,
+                kitchen: flat.kitchen ?? 1,
                 floor_number: flat.floor_number || '',
                 street_address: flat.street_address || flat.building_street_address || '',
                 address_line: flat.address_line || '',
@@ -71,9 +75,11 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
             const updatedFlat = await updateFlat(flat.uuid, {
                 action: 'UPDATE_FLAT_ONLY',
                 flat_details: {
-                    bedrooms: parseInt(flatData.bedrooms),
-                    bathrooms: parseInt(flatData.bathrooms),
-                    floor_number: parseInt(flatData.floor_number),
+                    bedrooms: parseInt(flatData.bedrooms) || null,
+                    bathrooms: parseInt(flatData.bathrooms) || null,
+                    living_rooms: parseInt(flatData.living_rooms) || 1,
+                    kitchen: parseInt(flatData.kitchen) || 1,
+                    floor_number: parseInt(flatData.floor_number) || null,
                     street_address: flatData.street_address || null,
                     address_line: flatData.address_line || null,
                     city: flatData.city || null,
@@ -275,6 +281,7 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                     <input
                                         id="floor"
                                         type="number"
+                                        min="0"
                                         value={flatData.floor_number}
                                         onChange={(e) => setFlatData({ ...flatData, floor_number: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
@@ -284,35 +291,72 @@ export function FlatEditModal({ flat, isOpen, onClose, onUpdate, features }) {
                                     <label htmlFor="bedrooms" className="block text-sm font-medium text-foreground mb-2">
                                         {t('unit.bedrooms')}
                                     </label>
-                                    <select
+                                    <input
                                         id="bedrooms"
-                                        value={String(flatData.bedrooms)}
+                                        type="number"
+                                        min="0"
+                                        max="10"
+                                        value={flatData.bedrooms}
                                         onChange={(e) => setFlatData({ ...flatData, bedrooms: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                                    >
-                                        <option value="">{t('common.select')}</option>
-                                        {[1, 2, 3, 4, 5].map(num => (
-                                            <option key={num} value={String(num)}>{num} BHK</option>
-                                        ))}
-                                    </select>
+                                    />
                                 </div>
                                 <div>
                                     <label htmlFor="bathrooms" className="block text-sm font-medium text-foreground mb-2">
                                         {t('unit.bathrooms')}
                                     </label>
-                                    <select
+                                    <input
                                         id="bathrooms"
-                                        value={String(flatData.bathrooms)}
+                                        type="number"
+                                        min="0"
+                                        max="10"
+                                        value={flatData.bathrooms}
                                         onChange={(e) => setFlatData({ ...flatData, bathrooms: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                                    >
-                                        <option value="">{t('common.select')}</option>
-                                        {[1, 2, 3, 4, 5].map(num => (
-                                            <option key={num} value={String(num)}>{num} Bath</option>
-                                        ))}
-                                    </select>
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="living_rooms" className="block text-sm font-medium text-foreground mb-2">
+                                        Living rooms
+                                    </label>
+                                    <input
+                                        id="living_rooms"
+                                        type="number"
+                                        min="0"
+                                        max="20"
+                                        value={flatData.living_rooms}
+                                        onChange={(e) => setFlatData({ ...flatData, living_rooms: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="kitchen" className="block text-sm font-medium text-foreground mb-2">
+                                        Kitchen
+                                    </label>
+                                    <input
+                                        id="kitchen"
+                                        type="number"
+                                        min="0"
+                                        max="5"
+                                        value={flatData.kitchen}
+                                        onChange={(e) => setFlatData({ ...flatData, kitchen: e.target.value })}
+                                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                    />
                                 </div>
                             </div>
+                            {(flatData.bedrooms || flatData.bathrooms) && (
+                                <div className="px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-sm text-foreground">
+                                    Quebec size: <span className="font-semibold">
+                                        {(() => {
+                                            const bd = parseInt(flatData.bedrooms) || 0;
+                                            const bt = parseInt(flatData.bathrooms) || 0;
+                                            const lr = parseInt(flatData.living_rooms) || 1;
+                                            const k = parseInt(flatData.kitchen) || 1;
+                                            return `${bd + lr + k + Math.max(0, bt - 1)}½`;
+                                        })()}
+                                    </span>
+                                </div>
+                            )}
                             <div className="flex justify-end gap-3 pt-4">
                                 <button
                                     onClick={onClose}

@@ -1040,7 +1040,7 @@ Do NOT describe the unit unprompted — answer only what they directly ask.
 Answer each question with the shortest accurate response from the listing data:
 - Rent → "[amount] per month"
 - Availability → "Available from [date]"
-- Bedrooms → "[N] bedrooms"
+- Size / bedrooms → use the Quebec size: "It's a [quebec_size]" (e.g. "It's a 3½"). If the caller asks "how many bedrooms?" you may also say "two bedrooms plus a living room" — but lead with the Quebec size.
 - Floor → "Floor [N]"
 - Bathrooms, parking, laundry, pets → answer from listing data
 - Data not available → "I don't have that detail — the team will follow up."
@@ -1067,8 +1067,10 @@ Pause naturally — if the caller says goodbye or nothing: "Take care!" then end
 Never end the call immediately after a tool call without first delivering a closing line.
 
 [Preference-Based Browsing — Secondary Flow]
-If a caller explicitly says they're looking for something (not a specific unit): "I'm looking for a 2-bedroom" / "I want something under $1,500" — use search_listings with those filters.
-Present results concisely: just unit number, building name, rent, bedrooms.
+If a caller explicitly says they're looking for something (not a specific unit): "I'm looking for a 3½" / "I want a 4 and a half" / "I want something under $1,500" — use search_listings with those filters.
+- If the caller states a Quebec size (e.g. "3½", "three and a half", "4 and a half") → pass it as quebec_size to search_listings (e.g. "3½" or "4½").
+- If they say "2-bedroom" without a Quebec size → use the bedrooms filter instead.
+Present results concisely: unit number, building name, rent, Quebec size.
 Let caller ask follow-up questions — do not describe everything upfront.
 
 [Disqualification]
@@ -1110,6 +1112,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
         f"{backend_url}/leasing/search-listings?manager_id={manager_id or ''}"
         "&bedrooms={{bedrooms}}&budget_max={{budget_max}}"
         "&city={{city}}&bathrooms={{bathrooms}}&parking={{parking}}&laundry={{laundry}}"
+        "&quebec_size={{quebec_size}}"
     )
     listing_item_schema = {
         "type": "object",
@@ -1123,6 +1126,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
             "country": {"type": "string"},
             "bedrooms": {"type": "integer"},
             "bathrooms": {"type": "integer"},
+            "quebec_size": {"type": "string"},
             "monthly_rent": {"type": "number"},
             "floor_number": {"type": "string"},
             "available_from": {"type": "string"},
@@ -1182,6 +1186,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                                     "address": {"type": "string"},
                                     "bedrooms": {"type": "integer"},
                                     "bathrooms": {"type": "integer"},
+                                    "quebec_size": {"type": "string"},
                                     "floor_number": {"type": "string"},
                                     "monthly_rent": {"type": "number"},
                                     "available_from": {"type": "string"},
@@ -1203,8 +1208,8 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "for a unit by criteria — bedrooms, budget, city, etc. — rather than asking about "
                     "a specific unit. Pass all known preferences; send 0 or empty string for unknown ones. "
                     "Returns up to 5 matching listings with: listing_uuid, flat_number, address, city, "
-                    "state, bedrooms, bathrooms, monthly_rent, floor_number, available_from, title, parking, laundry. "
-                    "Present results concisely — unit number, building name, rent, bedrooms only. "
+                    "state, bedrooms, bathrooms, quebec_size, monthly_rent, floor_number, available_from, title, parking, laundry. "
+                    "Present results concisely — unit number, building name, rent, Quebec size. "
                     "Let the caller ask follow-up questions."
                 ),
             },
@@ -1220,6 +1225,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "bathrooms": {"type": "number", "description": "Minimum bathrooms required (0 if not mentioned)", "default": 0},
                     "parking": {"type": "string", "description": "Parking preference e.g. 'included', 'garage' (empty string if not mentioned)", "default": ""},
                     "laundry": {"type": "string", "description": "Laundry preference e.g. 'in-unit', 'shared' (empty string if not mentioned)", "default": ""},
+                    "quebec_size": {"type": "string", "description": "Quebec apartment size string if caller stated it (e.g. '3½', '4½'). Empty string if not mentioned.", "default": ""},
                 },
             },
             "variableExtractionPlan": {

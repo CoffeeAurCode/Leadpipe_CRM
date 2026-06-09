@@ -29,6 +29,15 @@ from pydantic import BaseModel as _BaseModel
 router = APIRouter(prefix="/flats", tags=["Flats"])
 
 
+def compute_quebec_size(bedrooms: int, living_rooms: int, kitchen: int, bathrooms: int) -> str:
+    bd = bedrooms or 0
+    lr = living_rooms if living_rooms is not None else 1
+    k = kitchen if kitchen is not None else 1
+    bt = bathrooms or 0
+    full_rooms = bd + lr + k + max(0, bt - 1)
+    return f"{full_rooms}½"
+
+
 def _digits_only(phone: str) -> str:
     """Strip everything except digits from a phone string."""
     return re.sub(r"\D", "", phone)
@@ -465,6 +474,8 @@ async def create_flat(
     floor_number: Optional[int] = Form(None),
     bedrooms: Optional[int] = Form(None),
     bathrooms: Optional[int] = Form(None),
+    living_rooms: Optional[int] = Form(None),
+    kitchen: Optional[int] = Form(None),
     tenant_name: Optional[str] = Form(None),
     tenant_phone: Optional[str] = Form(None),
     building_id: Optional[str] = Form(None),
@@ -613,6 +624,14 @@ async def create_flat(
             "tenant_uuid": None,
             "occupied": False,
         }
+        if living_rooms is not None:
+            flat_payload["living_rooms"] = living_rooms
+        if kitchen is not None:
+            flat_payload["kitchen"] = kitchen
+        if bedrooms is not None and bathrooms is not None:
+            lr = living_rooms if living_rooms is not None else 1
+            k = kitchen if kitchen is not None else 1
+            flat_payload["quebec_size"] = compute_quebec_size(bedrooms, lr, k, bathrooms)
         if street_address: flat_payload["street_address"] = street_address
         if address_line: flat_payload["address_line"] = address_line
         if city: flat_payload["city"] = city
@@ -844,7 +863,16 @@ async def update_flat_details(
         flat_update_payload = {}
         if request.flat_details:
              flat_update_payload = request.flat_details.model_dump(exclude_unset=True, exclude={'occupied'})
-        
+
+        # Recompute quebec_size whenever any room count field is touched
+        room_fields = {'bedrooms', 'living_rooms', 'kitchen', 'bathrooms'}
+        if room_fields.intersection(flat_update_payload.keys()):
+            bd = flat_update_payload.get('bedrooms', current_flat.get('bedrooms', 0))
+            lr = flat_update_payload.get('living_rooms', current_flat.get('living_rooms', 1))
+            k = flat_update_payload.get('kitchen', current_flat.get('kitchen', 1))
+            bt = flat_update_payload.get('bathrooms', current_flat.get('bathrooms', 0))
+            flat_update_payload['quebec_size'] = compute_quebec_size(bd, lr, k, bt)
+
         # Always update tenant_uuid connection
         if new_tenant_uuid != current_tenant_uuid:
             flat_update_payload['tenant_uuid'] = new_tenant_uuid

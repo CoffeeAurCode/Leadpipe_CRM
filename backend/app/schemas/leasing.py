@@ -28,6 +28,9 @@ class ListingCreate(BaseModel):
     included_utilities: Optional[List[str]] = Field(default_factory=list)
     parking: Optional[str] = None
     laundry: Optional[str] = None
+    living_rooms: Optional[int] = None
+    kitchen: Optional[int] = None
+    quebec_size: Optional[str] = None
 
 
 class ListingUpdate(BaseModel):
@@ -61,6 +64,11 @@ class ListingResponse(BaseModel):
     included_utilities: List[str] = Field(default_factory=list)
     parking: Optional[str] = None
     laundry: Optional[str] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    living_rooms: Optional[int] = None
+    kitchen: Optional[int] = None
+    quebec_size: Optional[str] = None
     manager_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
