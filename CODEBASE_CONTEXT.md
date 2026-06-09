@@ -772,15 +772,14 @@ Four builder functions:
 - `build_lease_config_shared(backend_url)` — shared lease agent with no manager scope (used by `update_shared_agents.py` and `setup_vapi_agents.py`)
 - `submit_lease_lead` tool includes `interested_listing_ids` (array of UUIDs) — agent captures all listing UUIDs the caller showed interest in, not just the primary one
 
-**Lease agent conversation behaviour (updated 2026-06-07 — query-first flow):**
+**Lease agent conversation behaviour (updated 2026-06-09 — two-branch flow):**
 - `first_message_mode` = `assistant-speaks-first-with-model-generated-message` — AI generates a fresh bilingual greeting each call; no hardcoded `first_message`
-- Step 1: bilingual greeting ends with "Which unit are you calling about?"
-- Step 2: caller says any identifying info → agent calls `find_units` tool immediately (no preference collection first)
-- `find_units` searches flat_number, title, address, building name, and property group name; returns up to 5 compact matches (identifiers only, not full details)
-- Agent reads back only unit/building names to caller; waits for confirmation; NEVER volunteers rent, floor, or other details until caller asks
-- Step 3: after unit confirmed, agent answers ONLY what the caller specifically asks — one fact per response
-- Preference-based browsing (`search_listings`) is a **secondary flow** — only used when caller explicitly says "I'm looking for a 2-bedroom" etc.
-- `load_listings` tool has been **removed** — background preloading is replaced by the query-first `find_units` approach
+- **Branch A (Specific unit):** caller names a unit/building/address → agent calls `find_units`, confirms match, then proceeds directly to Qualification Flow
+- **Branch B (General inquiry):** caller has no specific unit → agent collects preferences via 5 ordered questions (city → area → size → budget → move-in), then calls `search_listings` silently; pitches best match using only Quebec size + street + rent; loops through results on rejection; no-match path collects contact info and submits unmatched lead
+- **Qualification Flow (shared):** after either branch confirms a unit, agent collects employment, occupants, pets, smoking preference, and contact info one at a time; calls `submit_lease_lead` with `qualification_status = "qualified"`
+- Size answers always use Quebec notation: "It's a 3½" — not raw bedroom count
+- When pitching in Branch B: state ONLY Quebec size, street name, and monthly rent — nothing else unprompted
+- Never say "let me put you through to the team" — always "I'll make sure someone from the team reaches out"
 
 **Model (all agents):** OpenAI `gpt-5.2-chat-latest` (provider `"openai"`). Applies to `build_assistant_config`, `build_complaint_config`, and `_lease_assistant_shell` in `vapi_agent_config.py`.
 
@@ -1142,13 +1141,12 @@ Per-building feature control stored in `property_features` table.
 - Reschedule: checks availability → calls `PATCH /appointments/update`
 - Cancel: calls `PATCH /appointments/cancel`
 
-### Lease Agent Flow (updated 2026-06-07 — query-first)
+### Lease Agent Flow (updated 2026-06-09 — two-branch flow)
 1. Prospect calls the manager's lease line (per-manager Twilio number)
-2. Agent generates a bilingual greeting (model-generated, not hardcoded); asks "Which unit are you calling about?"
-3. Caller states any identifying info (unit number, building, address, city, etc.) → agent calls `GET /leasing/find-units` silently
-4. Agent reads back only unit/building names from results; waits for caller to confirm the unit
-5. Agent answers ONLY what the caller specifically asks — one fact per response (never volunteers rent, floor, etc. unprompted)
-6. Agent collects caller name; calls `submit_lease_lead` → `POST /voice/lease-lead-direct`
+2. Agent generates a bilingual greeting; asks an open-ended question about what they're looking for
+3. **Branch A — Specific unit:** caller names a unit/building/address → agent calls `find_units` silently, confirms the unit, then proceeds to Qualification Flow
+4. **Branch B — General inquiry:** agent asks Q1–Q5 in order (city, area, size, budget, move-in) → calls `search_listings` silently → pitches best match (Quebec size + street + rent only) → loops on rejection → no-match path collects contact info
+5. **Qualification Flow:** agent collects employment, occupants, pets, smoking, contact info one at a time
+6. Agent calls `submit_lease_lead` → `POST /voice/lease-lead-direct` with `qualification_status = "qualified"` or `"unmatched"` or `"not_qualified"`
 7. EOC fallback: `POST /voice/lease-eoc-webhook` creates partial unmatched lead if no submit occurred
-8. Preference-based browsing (secondary): if caller explicitly says "I'm looking for a 2-bedroom", agent uses `search_listings` instead
-9. Manager sees lead in `LeasingTab` → Leads table
+8. Manager sees lead in `LeasingTab` → Leads table
