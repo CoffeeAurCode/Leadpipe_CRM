@@ -1,166 +1,295 @@
-# Lease Agent (Max) — Conversation Flow
+# Lease Agent Flow — Max (AI Leasing Assistant)
 
-**Legend**
-| Symbol | Meaning |
-|--------|---------|
-| 🟣 | Max speaks |
-| 🟢 | Caller input / decision |
-| ⬜ | System action |
-| 🟠 | Branch decision |
+## Legend
 
----
-
-## Quebec Apartment Size Reference
-
-Quebec uses a unique sizing system rooted in the architecture of its classic duplexes and triplexes. The convention stuck and is now universal across the province.
-
-**Formula:** count all full rooms (bedroom, living room, kitchen), then add ½ for the one bathroom.
-
-> e.g. 1 bedroom + 1 living room + 1 kitchen + 1 bathroom = **3½**
-
-| Quebec | Rest of Canada / World |
-|--------|----------------------|
-| 1½ | Studio |
-| 2½ | Bachelor |
-| 3½ | 1-bedroom |
-| 4½ | 2-bedroom |
-| 5½ | 3-bedroom |
-
-Max uses this lingo natively when asking Q3 and when pitching units.
+| Shape | Meaning |
+|---|---|
+| Purple / blue box | Max speaks |
+| Light green box | Caller responds |
+| Orange / tan diamond | Decision / condition |
+| Grey / beige box | System or CRM action |
 
 ---
 
-## 1. Entry Point
-
-🟣 **Greeting**
-> "Hi, this is Max — AI leasing assistant. Which unit are you inquiring about?"
-
----
-
-## 2. Branch — Does the caller have a specific unit in mind?
-
-🟠 **Caller has a specific unit?** *(Named unit / address vs. general inquiry)*
-
-| Answer | Path |
-|--------|------|
-| General inquiry | → [Discovery Flow](#3a-discovery-flow) |
-| Yes, specific unit | → [Specific Unit Flow](#3b-specific-unit-flow) |
-
----
-
-## 3a. Discovery Flow
-
-### Step 1 — Acknowledge
-🟣 "Of course! Let me help you find something."
-
-### Step 2 — Collect Preferences (Q1–Q5)
-
-| # | Question | Max says |
-|---|----------|----------|
-| Q1 | City | "Which city are you looking in?" |
-| Q2 | Area | "Any specific neighbourhood or area?" |
-| Q3 | Unit size | "What size — 3½, 4½, or number of bedrooms?" |
-| Q4 | Budget | "What monthly rent are you comfortable with?" |
-| Q5 | Move-in date | "When are you looking to move in?" |
-
-### Step 3 — Inventory Lookup
-⬜ **CRM query** — city → area → size → budget → move-in date
-
-### Step 4 — Match found?
-
-🟠 **Unshown unit fits all filters?**
-
-| Result | Path |
-|--------|------|
-| No | → [No Match](#no-match) |
-| Yes | → [Pitch Unit](#pitch-unit) |
-
----
-
-### No Match
-
-🟣 "Nothing available right now — I'll pass your info to the team."
-
-⬜ **Collect contact** — Log to CRM, flag for follow-up
-
-> *(End of call)*
-
----
-
-### Pitch Unit
-
-🟣 "I have a 3½ on Rue X at $1,100/mo — does that interest you?"
-
-🟠 **Caller interested?**
-
-| Answer | Action |
-|--------|--------|
-| No | Try next unit → loop back to **Pitch Unit** |
-| Yes | → **Begin Qualification** |
-
-🟣 **Begin Qualification**
-> "Perfect — I'll ask a few quick questions to get you set up."
-
-→ Proceed to [Qualification Flow](#5-qualification-flow)
-
----
-
-## 3b. Specific Unit Flow
-
-🟣 **Confirm unit**
-> "Great — I'll ask a few quick questions."
-
-→ Proceed directly to [Qualification Flow](#5-qualification-flow)
-
----
-
-## 5. Qualification Flow
-
-⬜ Collect the following details:
-
-- Employment
-- Number of occupants
-- Pets
-- Smoking
-- Contact information
-
----
-
-## 6. CRM Handoff
-
-⬜ **CRM handoff + notify landlord**
-
-> *(End of call)*
-
----
-
-## Summary Flowchart (text)
+## ① GREETING
 
 ```
-Greeting
-  └─ Specific unit? ──Yes──► Confirm unit ──► Qualification flow ──► CRM handoff
-         │
-       General
-         │
-       Acknowledge
-         │
-       Q1 City → Q2 Area → Q3 Size → Q4 Budget → Q5 Move-in
-         │
-       Inventory lookup (CRM)
-         │
-       Match found? ──No──► No match ──► Collect contact
-         │
-        Yes
-         │
-       Pitch unit ◄──────────────────────────────────┐
-         │                                            │
-       Interested? ──No── try next unit ──────────────┘
-         │
-        Yes
-         │
-       Begin qualification
-         │
-       Qualification flow (employment, occupants, pets, smoking, contact)
-         │
-       CRM handoff + notify landlord
+┌──────────────────────────────────────────────┐
+│  Greeting                                    │
+│  "Hi! / Bonjour! I'm Max, [Owner]'s          │
+│   leasing AI..."                             │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│  Detect caller language                      │
+│  EN or FR → lock for rest of call            │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│  Open listening                              │
+│  "Sure! What would you like to know?"        │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
 ```
+
+---
+
+## ② UNIT DISCOVERY
+
+```
+┌──────────────────────────────────────────────┐
+│  Location / building                         │
+│  "Which area or building are you             │
+│   looking at?"                               │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+             ┌─────────────────────┐
+             │  Location           │◄──────────────────────┐
+             │  identified?        │                       │
+             │  Match to owner's   │                       │
+             │  inventory by area  │                       │
+             └────┬────────────────┘                       │
+                  │ Unsure                                 │
+                  ▼                                        │
+    ┌─────────────────────────────┐                        │
+    │  Describe available areas   │                        │
+    │  List owner's locations     │────────────────────────┘
+    └─────────────────────────────┘
+                  │ Identified
+                  ▼
+┌──────────────────────────────────────────────┐
+│  Unit size                                   │
+│  "What size are you looking for —            │
+│   3.5, 4.5...?"                              │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│  Budget                                      │
+│  "What's your budget per month?"             │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│  Search inventory                            │
+│  Filter by location · size · budget          │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+             ┌─────────────────────┐
+             │  Matching units     │
+             │  found?             │
+             │  Check availability │
+             │  in system          │
+             └────┬────────────────┘
+                  │ No match
+                  ▼
+    ┌─────────────────────────────┐
+    │  Inform caller              │
+    │  No units available,        │
+    │  log inquiry                │
+    └─────────────────────────────┘
+                  │ Match(es) found
+                  ▼
+┌──────────────────────────────────────────────┐
+│  Present all matches                         │
+│  "I have X units that fit —                  │
+│   here's what's available..."                │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│  Caller selects a unit                       │
+│  Unit confirmed → begin qualification        │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+```
+
+---
+
+## ③ QUALIFICATION
+
+```
+┌──────────────────────────────────────────────┐
+│  Move-in date                                │
+│  "When are you looking to move in?"          │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+             ┌─────────────────────┐
+             │  Date aligns with   │
+             │  availability?      │
+             │  Compare to         │
+             │  selected unit      │
+             │  availability       │
+             └────┬────────────────┘
+                  │ Doesn't align
+                  ▼
+    ┌─────────────────────────────┐
+    │  Note mismatch              │
+    │  Log & continue             │──────────────────────────┐
+    └─────────────────────────────┘                          │
+                  │ Aligns                                   │
+                  ▼                                          │
+┌──────────────────────────────────────────────┐            │
+│  Landlord awareness  ◄───────────────────────────────────-┘
+│  "Does your current landlord know            │
+│   you're looking?"                           │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│  Property questions                          │
+│  "Any questions about the unit?"             │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+             ┌─────────────────────┐
+             │  Caller has         │◄──────────────────────┐
+             │  questions?         │                       │
+             │  Pull answers from  │                       │
+             │  listing data       │                       │
+             └────┬────────────────┘                       │
+                  │ Yes                                    │
+                  ▼                                        │
+    ┌─────────────────────────────┐                        │
+    │  Answer dynamically         │                        │
+    │  Pull from listing details  │────────────────────────┘
+    └─────────────────────────────┘
+                  │ No questions
+                  ▼
+┌──────────────────────────────────────────────┐
+│  Employment status                           │
+│  "Are you employed full-time,                │
+│   part-time, or...?"                         │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+         ┌─────────────────────────────┐
+         │  Employment type?           │
+         │  Full-time / part-time /    │
+         │  unemployed                 │
+         └──┬──────────────┬────────┬──┘
+            │ Full-time    │Part-   │ Unemployed
+            ▼              │time    ▼
+┌────────────────┐         │  ┌────────────────┐
+│ Log: full-time │         │  │ Log: unemployed│
+│ Strong         │         │  │ Flag, continue │
+│ qualifier      │         │  └────────┬───────┘
+└───────┬────────┘         ▼           │
+        │        ┌────────────────┐    │
+        │        │ Log: part-time │    │
+        │        │ Noted,         │    │
+        │        │ continue       │    │
+        │        └───────┬────────┘    │
+        └────────────────┴─────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────┐
+│  Number of occupants                         │
+│  "How many people will be living             │
+│   in the unit?"                              │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+             ┌─────────────────────┐
+             │  Within unit        │
+             │  capacity?          │
+             │  Compare to         │
+             │  selected unit max  │
+             └────┬────────────────┘
+                  │ Over capacity
+                  ▼
+    ┌─────────────────────────────┐
+    │  Note & flag                │
+    │  Log, continue              │──────────────────────────┐
+    └─────────────────────────────┘                          │
+                  │ Within capacity                          │
+                  ▼                                          │
+┌──────────────────────────────────────────────┐            │
+│  Pets  ◄─────────────────────────────────────────────────-┘
+│  "Do you have any pets?"                     │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+             ┌─────────────────────┐
+             │  Pets allowed per   │
+             │  policy?            │
+             │  Pull from selected │
+             │  unit rules         │
+             └────┬────────────────┘
+                  │ Not allowed
+                  ▼
+    ┌─────────────────────────────┐
+    │  Inform caller              │
+    │  Policy note, log &         │──────────────────────────┐
+    │  continue                   │                          │
+    └─────────────────────────────┘                          │
+                  │ Allowed / no pets                        │
+                  ▼                                          │
+```                                                          
+
+---
+
+## ④ HANDOFF
+
+```
+                  ◄────────────────────────────────────────-┘
+┌──────────────────────────────────────────────┐
+│  Closing                                     │
+│  "Thanks — I'll pass your info to            │
+│   [Owner]..."                                │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│  Log to CRM                                  │
+│  Name · phone · selected unit ·              │
+│  move-in date · Employment ·                 │
+│  occupants · pets                            │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│  Lead created in CRM                         │
+│  Owner reviews & follows up                  │
+└──────────────────────────────────────────────┘
+```
+
+---
+
+## Data collected per call
+
+| Field | Collected at step |
+|---|---|
+| Language (EN / FR) | ① Greeting — detect |
+| Location / building | ② Unit Discovery |
+| Unit size | ② Unit Discovery |
+| Budget | ② Unit Discovery |
+| Selected unit | ② Unit Discovery — caller selects |
+| Move-in date | ③ Qualification |
+| Current landlord awareness | ③ Qualification |
+| Employment type | ③ Qualification |
+| Number of occupants | ③ Qualification |
+| Pets | ③ Qualification |
+
+---
+
+## Branch outcomes
+
+| Condition | Outcome |
+|---|---|
+| Location unsure | List available areas, re-ask |
+| No inventory match | Inform caller, log inquiry, end |
+| Move-in date mismatch | Note mismatch, log, continue |
+| Caller has property questions | Answer from listing data, loop back |
+| Full-time employment | Log as strong qualifier |
+| Part-time employment | Log, continue |
+| Unemployed | Flag, continue |
+| Over occupancy capacity | Note & flag, continue |
+| Pets not allowed | Inform caller, log, continue |
