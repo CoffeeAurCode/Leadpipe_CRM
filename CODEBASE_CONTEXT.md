@@ -772,14 +772,18 @@ Four builder functions:
 - `build_lease_config_shared(backend_url)` — shared lease agent with no manager scope (used by `update_shared_agents.py` and `setup_vapi_agents.py`)
 - `submit_lease_lead` tool includes `interested_listing_ids` (array of UUIDs) — agent captures all listing UUIDs the caller showed interest in, not just the primary one
 
-**Lease agent conversation behaviour (updated 2026-06-09 — two-branch flow):**
+**Lease agent conversation behaviour (updated 2026-06-11 — four-stage flow):**
 - `first_message_mode` = `assistant-speaks-first-with-model-generated-message` — AI generates a fresh bilingual greeting each call; no hardcoded `first_message`
-- **Branch A (Specific unit):** caller names a unit/building/address → agent calls `find_units`, confirms match, then proceeds directly to Qualification Flow
-- **Branch B (General inquiry):** caller has no specific unit → agent collects preferences via 5 ordered questions (city → area → size → budget → move-in), then calls `search_listings` silently; pitches best match using only Quebec size + street + rent; loops through results on rejection; no-match path collects contact info and submits unmatched lead
-- **Qualification Flow (shared):** after either branch confirms a unit, agent collects employment, occupants, pets, smoking preference, and contact info one at a time; calls `submit_lease_lead` with `qualification_status = "qualified"`
+- Four stages: **① Greeting → ② Unit Discovery → ③ Qualification → ④ Handoff**
+- **② Unit Discovery:** agent asks Location → calls `find_units` (lists in-inventory areas if no match) → Size → Budget → calls `search_listings` → presents all matches and lets caller pick one
+- **③ Qualification:** Q1 move-in date (compared to `available_from`), Q2 landlord awareness, Q3 property questions (answered from listing payload, loops), Q4 employment (unemployed → flag, not hard-disqualify), Q5 occupants (vs `custom_rules.max_occupants`), Q6 pets (vs `custom_rules.pets_allowed`), Q7 name. Soft disqualifiers are flagged in `qualifying_answers`/`notes` but the call always continues
+- **④ Handoff:** agent calls `submit_lease_lead` EXACTLY ONCE with full lead data (`qualification_status` = qualified / not_qualified / unmatched). No-match path still submits an `unmatched` lead
 - Size answers always use Quebec notation: "It's a 3½" — not raw bedroom count
-- When pitching in Branch B: state ONLY Quebec size, street name, and monthly rent — nothing else unprompted
-- Never say "let me put you through to the team" — always "I'll make sure someone from the team reaches out"
+- Never say "let me put you through to the team" — always "I'll make sure someone reaches out"
+- **Background tool calls / silence prevention** (filler messages set in `_build_lease_tools`):
+  - `find_units` → `async: False`, blocking filler `"One moment."` (result needed before continuing)
+  - `search_listings` → `async: True`, non-blocking filler `"Let me see what fits."` — agent immediately asks Q1 (move-in) while the search runs in the background; weaves results into its next turn
+  - `submit_lease_lead` → `async: True`, non-blocking filler `"Let me get that over to the team."` — closing line delivered as the tool fires, no wait for response
 
 **Model (all agents):** OpenAI `gpt-5.2-chat-latest` (provider `"openai"`). Applies to `build_assistant_config`, `build_complaint_config`, and `_lease_assistant_shell` in `vapi_agent_config.py`.
 
@@ -1141,12 +1145,11 @@ Per-building feature control stored in `property_features` table.
 - Reschedule: checks availability → calls `PATCH /appointments/update`
 - Cancel: calls `PATCH /appointments/cancel`
 
-### Lease Agent Flow (updated 2026-06-09 — two-branch flow)
+### Lease Agent Flow (updated 2026-06-11 — four-stage flow)
 1. Prospect calls the manager's lease line (per-manager Twilio number)
-2. Agent generates a bilingual greeting; asks an open-ended question about what they're looking for
-3. **Branch A — Specific unit:** caller names a unit/building/address → agent calls `find_units` silently, confirms the unit, then proceeds to Qualification Flow
-4. **Branch B — General inquiry:** agent asks Q1–Q5 in order (city, area, size, budget, move-in) → calls `search_listings` silently → pitches best match (Quebec size + street + rent only) → loops on rejection → no-match path collects contact info
-5. **Qualification Flow:** agent collects employment, occupants, pets, smoking, contact info one at a time
-6. Agent calls `submit_lease_lead` → `POST /voice/lease-lead-direct` with `qualification_status = "qualified"` or `"unmatched"` or `"not_qualified"`
-7. EOC fallback: `POST /voice/lease-eoc-webhook` creates partial unmatched lead if no submit occurred
-8. Manager sees lead in `LeasingTab` → Leads table
+2. **① Greeting:** agent generates a bilingual greeting and asks an open question
+3. **② Unit Discovery:** Location → `find_units` (lists in-inventory areas if no match) → Size → Budget → `search_listings` (runs in background while agent asks move-in date) → presents all matches → caller picks a unit
+4. **③ Qualification:** move-in date (vs `available_from`), landlord awareness, property questions (answered from listing payload), employment, occupants (vs `max_occupants`), pets (vs `pets_allowed`), name — one at a time; soft disqualifiers are flagged but never end the call
+5. **④ Handoff:** agent calls `submit_lease_lead` → `POST /voice/lease-lead-direct` EXACTLY ONCE with `qualification_status = "qualified"` / `"not_qualified"` / `"unmatched"`; closing line delivered as the tool fires
+6. EOC fallback: `POST /voice/lease-eoc-webhook` creates partial unmatched lead if no submit occurred
+7. Manager sees lead in `LeasingTab` → Leads table
