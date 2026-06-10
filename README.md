@@ -1,4 +1,4 @@
-# Tenant Management MVP(in testing)
+# Tenant Management MVP(in testing.)
 
 An AI-powered property and tenant management system with voice call intake, an AI chat assistant, automated SMS notifications, and a full-featured React dashboard.
 
