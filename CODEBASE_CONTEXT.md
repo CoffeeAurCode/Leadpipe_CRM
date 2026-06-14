@@ -779,6 +779,7 @@ Four builder functions:
 - **③ Qualification:** Q1 move-in date (compared to `available_from`), Q2 landlord awareness, Q3 property questions (answered from listing payload, loops), Q4 employment (unemployed → flag, not hard-disqualify), Q5 occupants (vs `custom_rules.max_occupants`), Q6 pets (vs `custom_rules.pets_allowed`), Q7 name. Soft disqualifiers are flagged in `qualifying_answers`/`notes` but the call always continues
 - **④ Handoff:** agent calls `submit_lease_lead` EXACTLY ONCE with full lead data (`qualification_status` = qualified / not_qualified / unmatched). No-match path still submits an `unmatched` lead
 - Size answers always use Quebec notation: "It's a 3½" — not raw bedroom count
+- **Unit size pronunciation** (`[Unit Size Pronunciation]` block in `_LEASE_SYSTEM_PROMPT_BASE`): English calls speak the size as written ("a 3½"); **French calls speak it as words** — "N½" → "<nombre> et demi" ("4½" → "quatre et demi", "2½" → "deux et demi"). ElevenLabs mispronounces the raw "N½" glyph in French. Speech only — `quebec_size` submitted to tools always keeps the raw "N½" form
 - Never say "let me put you through to the team" — always "I'll make sure someone reaches out"
 - **Background tool calls / silence prevention** (filler messages set in `_build_lease_tools`):
   - `find_units` → `async: False`, blocking filler `"One moment."` (result needed before continuing)
