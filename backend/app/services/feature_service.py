@@ -268,3 +268,4 @@ class FeatureService:
             self._upsert_unit_features(unit_id, defaults)
         except Exception as e:
             print(f"[FeatureService] Error initializing unit {unit_id}: {e}")
+            raise

@@ -362,7 +362,7 @@ TOOLS = [
 ]
 
 
-def execute_tool(tool_name: str, args: dict, db: Client) -> str:
+def execute_tool(tool_name: str, args: dict, db: Client, manager_id: str | None = None) -> str:
     try:
         if tool_name == "add_new_unit":
             flat_number = args.get("flat_number")
@@ -389,6 +389,8 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
                 return f"A unit with flat number '{flat_number}' already exists."
 
             payload = {"flat_number": flat_number, "building_id": building_id}
+            if manager_id:
+                payload["manager_id"] = manager_id
             if address:
                 payload["address"] = address
 
@@ -922,7 +924,7 @@ def execute_tool(tool_name: str, args: dict, db: Client) -> str:
 _APPOINTMENT_WRITE_TOOLS = {"reschedule_appointment", "cancel_appointment", "update_appointment_status"}
 
 
-def run_chat(messages: list, db: Client) -> tuple[str, bool]:
+def run_chat(messages: list, db: Client, manager_id: str | None = None) -> tuple[str, bool]:
     """Returns (reply, refresh_needed) where refresh_needed is True only when an appointment was mutated."""
     client = OpenAI(api_key=settings.OPEN_AI_API)
 
@@ -982,7 +984,7 @@ def run_chat(messages: list, db: Client) -> tuple[str, bool]:
             except (json.JSONDecodeError, TypeError):
                 tool_args = {}
 
-            result = execute_tool(tool_call.function.name, tool_args, db)
+            result = execute_tool(tool_call.function.name, tool_args, db, manager_id)
 
             full_messages.append({
                 "role": "tool",
