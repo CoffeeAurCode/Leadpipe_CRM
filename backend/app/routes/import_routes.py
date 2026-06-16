@@ -373,6 +373,7 @@ async def import_properties(
                     "flat_number": flat_number.upper(),
                     "building_id": None,
                     "manager_id": user["sub"],
+                    "occupied": False,
                     **_flat_attrs_from_row(row),
                 }
                 created = db.table("flats").insert(flat_payload).execute()
@@ -440,6 +441,7 @@ async def import_properties(
                 "building_id": building_id,
                 "flat_number": flat_number.upper(),
                 "manager_id": user["sub"],
+                "occupied": False,
                 **_flat_attrs_from_row(row),
             }
             created = db.table("flats").insert(flat_payload).execute()
