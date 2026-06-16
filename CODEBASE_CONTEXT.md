@@ -182,7 +182,7 @@ PropertyGroup (properties_list)
 | uuid | UUID PK | New primary key |
 | id | int | Legacy PK |
 | flat_number | text UNIQUE | Normalized to UPPER |
-| address, floor_number | text/int | `address` is legacy |
+| address, floor_number | text/int | `address` is legacy and **nullable** — `create_flat`/import never send it, so it is NOT the cause of standalone-unit insert failures |
 | street_address, address_line, city, state | text | Structured address (migration 022); auto-filled from parent building on frontend |
 | country | text | Default 'Canada' |
 | bedrooms, bathrooms | int | |
@@ -195,7 +195,7 @@ PropertyGroup (properties_list)
 | building_id | UUID | FK → buildings (NULL for standalone units e.g. bungalows) |
 | property_type_id | UUID | FK → property_types |
 | tenant_uuid | UUID | FK → tenants (nullable) |
-| manager_id | UUID | FK → `auth.users(id)`, direct owner; set on creation to `user["sub"]` in all insert paths (create_flat / import / chatbot). RLS key — policies authorize a unit by building chain **OR** `manager_id = auth.uid()` (migration 029), so building-less standalone units are still owned/visible. |
+| manager_id | UUID **NOT NULL** (no default) | FK → `auth.users(id)`, direct owner; **every** flats INSERT must set it to `user["sub"]` (create_flat / both import branches / chatbot) — omitting it raises `23502` → "A required field is missing." RLS key — policies authorize a unit by building chain **OR** `manager_id = auth.uid()` (migration 029), so building-less standalone units are still owned/visible. Added nullable in migration 029, then set NOT NULL after backfilling all rows. |
 
 #### `tenants`
 | Column | Type | Notes |
@@ -658,7 +658,7 @@ Common to all lease webhooks:
 | Method | Path | Description |
 |---|---|---|
 | POST | `/import/analyze` | Detect if uploaded file columns match schema; call `gpt-4o-mini` to semantically map non-matching columns; return `{needs_mapping, mapping, unmapped_required, row_count}` |
-| POST | `/import/properties` | CSV or XLSX → PropertyGroup + Building + Flat hierarchy; optional `column_mapping` form field (JSON) |
+| POST | `/import/properties` | CSV or XLSX → PropertyGroup + Building + Flat hierarchy; optional `column_mapping` form field (JSON). **Only `flat_number` is a required column.** A row WITH `building_name` creates the property/building chain (requires `property_name`); a row WITHOUT `building_name` creates a **standalone unit** (`building_id` NULL, `manager_id = user["sub"]`). If a row has `tenant_name` + `tenant_phone`, a tenant is created, the unit marked occupied, and an active rent added from `rent_amount` (`_maybe_create_tenant_and_rent`). Unit attrs pulled via `_flat_attrs_from_row` (floor/bed/bath/living_rooms/kitchen + structured address) |
 | POST | `/import/tenants` | CSV or XLSX → Tenants linked to existing flats; optional `column_mapping` form field (JSON); when a CSV row assigns a tenant to a flat, that flat's `lease_listings` row is **deleted** (leads nullified first) |
 
 **Smart import flow:**

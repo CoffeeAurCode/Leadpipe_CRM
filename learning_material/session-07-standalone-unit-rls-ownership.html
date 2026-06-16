@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 07 — Standalone Units, RLS &amp; Direct Manager Ownership</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    /* syntax (dark) */
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;        /* keep code dark even in light mode for readability */
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  /* ============================== TOP PROGRESS BAR ============================== */
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  /* ============================== HEADER ============================== */
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ============================== LAYOUT ============================== */
+  .layout { display: grid; grid-template-columns: 280px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  /* ============================== HERO HEADER CARD ============================== */
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  /* ============================== TYPOGRAPHY ============================== */
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  /* ============================== CALLOUTS ============================== */
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  /* ============================== CODE BLOCKS ============================== */
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  /* terminal block */
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+
+  /* ============================== TABLES ============================== */
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  /* details / collapsible */
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  /* checklist */
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  /* diagram */
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+
+  /* footer nav */
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  /* ============================== RESPONSIVE ============================== */
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  /* ============================== PRINT ============================== */
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 07</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-rls" style="padding-left:1.4rem">— Row-Level Security</a>
+    <a href="#c-authuid" style="padding-left:1.4rem">— auth.uid() &amp; JWT</a>
+    <a href="#c-using" style="padding-left:1.4rem">— USING vs WITH CHECK</a>
+    <a href="#c-clients" style="padding-left:1.4rem">— Service vs Anon client</a>
+    <a href="#c-chain" style="padding-left:1.4rem">— The ownership chain</a>
+    <a href="#c-standalone" style="padding-left:1.4rem">— Standalone units</a>
+    <a href="#c-additive" style="padding-left:1.4rem">— Additive policies</a>
+    <a href="#c-fk" style="padding-left:1.4rem">— FK &amp; CASCADE</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 07 · Backend &amp; Database Security</div>
+      <h1>Standalone Units, Row-Level Security &amp; Direct Manager Ownership</h1>
+      <p class="lead muted">How a single line of production logs — <code class="ic">42501: new row violates row-level security policy</code> — unravelled a hidden hole in our database security model, and how we closed it for good.</p>
+      <div class="meta">
+        <span class="chip diff">🔴 Advanced</span>
+        <span class="chip time">⏱️ ~70 min read / build</span>
+        <span class="chip pre">📋 Requires: Module 02 (DB Layer), 03 (Auth/JWT), 06 (Flats), 14 (Feature Flags)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This session was not a "build a new feature" session. It was a <strong>diagnosis-and-fix</strong> session — the kind that happens constantly in real software work and teaches more than any greenfield feature ever could. A user pasted a slice of production logs from <strong>Render</strong> (our backend hosting platform) and asked a simple question: <em>"why is this happening?"</em></p>
+
+      <p>The log line that started everything:</p>
+      <div class="term">
+<span class="dim">2026-06-16T03:44:57Z</span> [FLAT CREATED] UUID: 63d37150-…, Number: 201
+<span class="dim">2026-06-16T03:44:57Z</span> <span class="err">[FeatureService] Error initializing unit 298: {'message': 'new row violates row-level security policy for table "property_features"', 'code': '42501', …}</span>
+<span class="dim">2026-06-16T03:44:57Z</span> [FEATURES INITIALIZED] unit_id: 298
+<span class="dim">2026-06-16T03:44:57Z</span> INFO: "POST /flats HTTP/1.1" <span class="ok">201 Created</span>
+      </div>
+
+      <p>By the end of this session we had:</p>
+      <ul>
+        <li>Traced a <strong>Postgres error code <code class="ic">42501</code></strong> to a mismatch between two database clients.</li>
+        <li>Discovered that <strong>"standalone units"</strong> (think a single bungalow with no building above it) had <em>no way</em> to prove who owned them.</li>
+        <li>Shipped an <strong>immediate code fix</strong> and a <strong>durable database migration</strong> that adds a direct owner column to every unit.</li>
+        <li>Rewrote four <strong>Row-Level Security policies</strong> to be safer and more correct.</li>
+        <li>Hand-recovered six orphaned rows of real production data.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Read a Postgres RLS error and reason about <em>which</em> policy rejected <em>which</em> row.</li>
+          <li>Explain the difference between a <em>service-role</em> client and an <em>authenticated</em> client, and when each is safe.</li>
+          <li>Understand why <code class="ic">USING</code> and <code class="ic">WITH CHECK</code> are different, and what happens when you omit one.</li>
+          <li>Design an <em>additive</em> RLS migration that fixes a hole without hiding existing data.</li>
+          <li>Recover ownership of database rows that were created before the column that tracks ownership existed.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>In earlier modules we built the spine of the CRM (<strong>Customer Relationship Management</strong> — the app property managers use to track buildings, units, tenants, complaints and rent). Specifically, the parts that matter for <em>this</em> session were already in place:</p>
+      <ul>
+        <li><strong>Module 02 — The Database Layer.</strong> We use <strong>Supabase</strong> (a hosted Postgres database with an auto-generated REST API). We talk to it through <em>two</em> client objects: an <em>anon</em> client that respects security rules, and a <em>service-role</em> client that bypasses them.</li>
+        <li><strong>Module 03 — Auth &amp; JWT.</strong> When a manager logs in, they get a <strong>JWT</strong> (JSON Web Token — a signed string that proves who they are). Every request carries it, and the database reads it to know which manager is asking.</li>
+        <li><strong>Module 06 — Flats.</strong> We can create "flats" (units). A unit usually belongs to a building, which belongs to a property, which belongs to a manager.</li>
+        <li><strong>Module 14 — Feature Flags.</strong> Each unit has a set of on/off toggles stored in a table called <code class="ic">property_features</code> (e.g. "rent management on/off"). When a unit is created, we initialize a default row for each feature.</li>
+      </ul>
+
+      <p>Everything <em>appeared</em> to work. Managers created units, the UI showed them, life was good. But quietly, in the logs, every time someone created a unit, an error was being printed and <em>swallowed</em>. The unit was created, the request returned <code class="ic">201 Created</code> (HTTP for "success, something was made"), and nobody noticed the red text. That swallowed error is where this session begins.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need the previous modules open. Every term below is re-explained the first time it appears. The module references above are just so you know where the foundations were poured.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Eight ideas power everything we did. Read these once and the build log and bug journal will feel obvious.</p>
+
+      <!-- Concept: RLS -->
+      <h3 id="c-rls">1 · Row-Level Security (RLS)</h3>
+      <h4 class="sub">Plain-English explanation</h4>
+      <p>Normally, if you can read a database table, you can read <em>every</em> row in it. <strong>Row-Level Security</strong> (RLS — a Postgres feature that filters rows per user) changes that: the database itself attaches an invisible <code class="ic">WHERE</code> clause to every query, so each user only ever sees (or writes) the rows they're allowed to. The rule lives <em>in the database</em>, not in your application code.</p>
+      <h4 class="sub">Why we need it — for the CRM specifically</h4>
+      <p>Our CRM is <strong>multi-tenant</strong> (many separate customers share one database). Manager A must never see Manager B's tenants, buildings, or rent records. We could try to enforce that in Python on every single query — but humans forget. RLS makes the database the last line of defence: even if a backend route had a bug and forgot to filter, Postgres would still refuse to hand over another manager's data.</p>
+      <h4 class="sub">How it works — an analogy</h4>
+      <p>RLS is like a <strong>nightclub bouncer who also follows you around inside</strong>. It's not enough to get through the door (authentication). For every room you try to enter (every row you touch), the bouncer checks your wristband against the rule for that room. Wrong wristband? You're physically blocked — not because the app asked, but because the building won't let you.</p>
+      <h4 class="sub">Jargon decoder</h4>
+      <ul>
+        <li><strong>RLS</strong> (Row-Level Security): per-row access rules enforced by Postgres.</li>
+        <li><strong>Policy</strong>: a named rule attached to a table that says which rows a user may read/write.</li>
+        <li><strong>Multi-tenant</strong>: one system serving many isolated customers ("tenants" in the SaaS sense — not to be confused with the renters our app calls "tenants"!).</li>
+      </ul>
+      <h4 class="sub">Annotated example</h4>
+      <div class="code-block" data-lang="sql" data-file="scripts/02_rls_policies.sql">
+<pre><code>-- Turn on RLS for the table. Until a policy is added, the default is DENY ALL.
+ALTER TABLE property_features ENABLE ROW LEVEL SECURITY;
+
+-- A policy named "manager_owns_property_features".
+-- FOR ALL = applies to SELECT, INSERT, UPDATE and DELETE.
+CREATE POLICY "manager_owns_property_features"
+ON property_features FOR ALL
+USING (                               -- the rule: a row is "visible/usable" only if...
+  unit_id IN (                        -- ...its unit_id belongs to a flat that...
+    SELECT f.id FROM flats f
+    JOIN buildings b ON f.building_id = b.id          -- ...sits in a building...
+    JOIN properties_list p ON b.property_id = p.id    -- ...inside a property...
+    WHERE p.manager_id = auth.uid()                   -- ...owned by the logged-in manager.
+  )
+);</code></pre>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">📖 Resources — RLS</div>
+        <ul>
+          <li>Official: <a class="inline" href="https://www.postgresql.org/docs/current/ddl-rowsecurity.html">PostgreSQL — Row Security Policies</a></li>
+          <li>Beginner: <a class="inline" href="https://supabase.com/docs/guides/database/postgres/row-level-security">Supabase — Row Level Security guide</a> (video + examples)</li>
+          <li>Deep dive: <a class="inline" href="https://www.crunchydata.com/blog/row-level-security-for-tenants-in-postgres">Crunchy Data — RLS for multi-tenant Postgres</a></li>
+        </ul>
+      </div>
+
+      <!-- Concept: auth.uid -->
+      <h3 id="c-authuid">2 · <code class="ic">auth.uid()</code> and the JWT</h3>
+      <h4 class="sub">Plain-English explanation</h4>
+      <p><code class="ic">auth.uid()</code> is a function you can call <em>inside</em> a Postgres policy that returns "the ID of the user making this request." Supabase fills it in by reading the <strong>JWT</strong> (JSON Web Token — a tamper-proof ID card) that the request carried. No JWT → <code class="ic">auth.uid()</code> is <code class="ic">NULL</code> → most policies reject everything.</p>
+      <h4 class="sub">Why we need it — for the CRM</h4>
+      <p>It is the bridge between "who is logged in" (an app concept) and "which rows are allowed" (a database concept). Every ownership rule in our schema ends in <code class="ic">… = auth.uid()</code>.</p>
+      <h4 class="sub">How it works — an analogy</h4>
+      <p>The JWT is your <strong>passport</strong>; <code class="ic">auth.uid()</code> is the <strong>border officer reading the passport number aloud</strong> so the rest of the system can check it against the guest list. If you show up with no passport, the officer says "NULL" and you're not on anyone's list.</p>
+      <h4 class="sub">Annotated code — how the JWT gets attached</h4>
+      <div class="code-block" data-lang="python" data-file="backend/app/dependencies/authenticated_db.py">
+<pre><code># This FastAPI "dependency" runs before any protected route.
+async def get_authenticated_db(
+    credentials: HTTPAuthorizationCredentials = Depends(security),  # pulls the Bearer token from the request header
+    db: Client = Depends(get_db),                                  # the shared anon Supabase client
+) -> Client:
+    # Attach THIS user's JWT to the client. Now every query this client makes
+    # runs "as" this manager, so auth.uid() resolves to their ID inside RLS.
+    db.postgrest.auth(credentials.credentials)
+    return db</code></pre>
+      </div>
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — this client is shared</div>
+        <p>Notice <code class="ic">get_db()</code> returns a single, module-level client object that is reused across requests, and we mutate its token on every call. That is a latent <strong>race condition</strong> (two requests fighting over one object) — we flagged it this session but it was <em>not</em> the cause of our bug. Keep it in your peripheral vision.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">📖 Resources — auth.uid &amp; JWT</div>
+        <ul>
+          <li>Official: <a class="inline" href="https://supabase.com/docs/guides/database/postgres/row-level-security#authuid-and-authrole">Supabase — <code>auth.uid()</code> in policies</a></li>
+          <li>Beginner: <a class="inline" href="https://jwt.io/introduction">jwt.io — Introduction to JSON Web Tokens</a></li>
+          <li>Deep dive: <a class="inline" href="https://postgrest.org/en/stable/references/auth.html">PostgREST — JWT-based auth internals</a></li>
+        </ul>
+      </div>
+
+      <!-- Concept: USING vs WITH CHECK -->
+      <h3 id="c-using">3 · <code class="ic">USING</code> vs <code class="ic">WITH CHECK</code></h3>
+      <h4 class="sub">Plain-English explanation</h4>
+      <p>An RLS policy can have two predicates (conditions):</p>
+      <ul>
+        <li><code class="ic">USING</code> — checks rows that <em>already exist</em>. "Can you SELECT/UPDATE/DELETE this row?"</li>
+        <li><code class="ic">WITH CHECK</code> — checks rows you are <em>about to write</em>. "Are you allowed to INSERT/UPDATE a row that looks like <em>this</em>?"</li>
+      </ul>
+      <p>The crucial gotcha: <strong>if you write a policy with only <code class="ic">USING</code> and no <code class="ic">WITH CHECK</code>, Postgres uses the <code class="ic">USING</code> expression for inserts too.</strong> So an INSERT must satisfy the same condition that controls reads.</p>
+      <h4 class="sub">Why it mattered this session</h4>
+      <p>Our <code class="ic">property_features</code> policy had only a <code class="ic">USING</code>. So inserting a feature row required the new row's <code class="ic">unit_id</code> to already trace up to the logged-in manager. For a unit with no building, that trace was impossible — and the INSERT was rejected. <em>That is the whole bug in one sentence.</em></p>
+      <h4 class="sub">How it works — an analogy</h4>
+      <p><code class="ic">USING</code> is the <strong>"who may take a book off the shelf"</strong> rule. <code class="ic">WITH CHECK</code> is the <strong>"what books you're allowed to put on the shelf"</strong> rule. If a library only writes down the first rule, it quietly applies the same rule to returns — and a book that doesn't match gets refused at the drop box.</p>
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key concept</div>
+        <p>Omitting <code class="ic">WITH CHECK</code> isn't "no insert rule" — it's "the read rule, reused for inserts." Many RLS bugs hide in that one fact.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">📖 Resources — USING / WITH CHECK</div>
+        <ul>
+          <li>Official: <a class="inline" href="https://www.postgresql.org/docs/current/sql-createpolicy.html">PostgreSQL — <code>CREATE POLICY</code></a> (read the <code>WITH CHECK</code> paragraph)</li>
+          <li>Beginner: <a class="inline" href="https://supabase.com/docs/guides/database/postgres/row-level-security#policies">Supabase — policy anatomy</a></li>
+          <li>Deep dive: <a class="inline" href="https://www.postgresql.org/docs/current/ddl-rowsecurity.html">PG docs — combining USING and WITH CHECK</a></li>
+        </ul>
+      </div>
+
+      <!-- Concept: service vs anon -->
+      <h3 id="c-clients">4 · Service-role client vs Authenticated (anon) client</h3>
+      <h4 class="sub">Plain-English explanation</h4>
+      <p>Supabase gives you two API keys:</p>
+      <ul>
+        <li>The <strong>anon key</strong> (anonymous/public): requests made with it <em>obey RLS</em>. This is what logged-in managers use.</li>
+        <li>The <strong>service-role key</strong>: requests made with it <em>bypass RLS entirely</em> — it is a master key. It must <strong>only</strong> live on the server, never in a browser.</li>
+      </ul>
+      <p>In our code, <code class="ic">db</code> is the RLS-respecting client and <code class="ic">svc</code> is the master-key client.</p>
+      <h4 class="sub">Why we need both — for the CRM</h4>
+      <p>Most manager actions use <code class="ic">db</code> so RLS protects them. But some operations legitimately need to bypass RLS: a Stripe webhook (no logged-in user), a phone-call lookup, or — as we'll see — an internal step that runs <em>after</em> we've already verified ownership ourselves.</p>
+      <h4 class="sub">How it works — an analogy</h4>
+      <p><code class="ic">db</code> is a <strong>hotel guest keycard</strong> — it opens your room and the gym, nothing else. <code class="ic">svc</code> is the <strong>housekeeping master key</strong> — it opens every door. You hand the master key to trusted staff for specific jobs; you never tape it to the front entrance.</p>
+      <h4 class="sub">Annotated code</h4>
+      <div class="code-block" data-lang="python" data-file="backend/app/db/session.py">
+<pre><code># Anon client — RLS ENFORCED. Per-request JWT is attached later (see get_authenticated_db).
+_anon_client: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
+# Service-role client — RLS BYPASSED. Built only if the secret key is configured.
+_service_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+
+def get_db() -> Client:        # hand routes the RLS-respecting client
+    return _anon_client
+
+def get_service_db() -> Client:  # hand webhooks/admin the master-key client
+    return _service_client</code></pre>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">📖 Resources — Supabase keys</div>
+        <ul>
+          <li>Official: <a class="inline" href="https://supabase.com/docs/guides/api/api-keys">Supabase — anon vs service_role keys</a></li>
+          <li>Beginner: <a class="inline" href="https://supabase.com/docs/guides/auth">Supabase Auth overview</a></li>
+          <li>Deep dive: <a class="inline" href="https://supabase.com/docs/guides/database/postgres/roles">Postgres roles &amp; how service_role bypasses RLS</a></li>
+        </ul>
+      </div>
+
+      <!-- Concept: ownership chain -->
+      <h3 id="c-chain">5 · The building → property → manager ownership chain</h3>
+      <h4 class="sub">Plain-English explanation</h4>
+      <p>Originally, the <em>only</em> way our database knew who owned a unit was by following a chain of foreign keys: a unit points to a building, a building points to a property, a property records its manager. To answer "does this manager own this unit?", Postgres had to <strong>JOIN</strong> (stitch together) three tables.</p>
+      <h4 class="sub">How it works — an analogy</h4>
+      <p>It's like proving you own a parking spot by showing: spot → floor → garage → garage's deed-holder. Fine when every spot sits inside a garage. But what about a <strong>driveway</strong> with no garage above it? The chain has a missing link, and the proof collapses.</p>
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — INNER JOIN drops the orphans</div>
+        <p>The chain used <code class="ic">JOIN buildings b ON f.building_id = b.id</code>. An <strong>inner join</strong> only keeps rows that match on <em>both</em> sides. A unit with <code class="ic">building_id = NULL</code> matches nothing, so it silently vanishes from the result — and therefore from the set of "rows you own." That silent disappearance is the heart of the bug.</p>
+      </div>
+
+      <!-- Concept: standalone -->
+      <h3 id="c-standalone">6 · Standalone units (the missing link)</h3>
+      <h4 class="sub">Plain-English explanation</h4>
+      <p>A <strong>standalone unit</strong> is a rentable place that isn't inside a building — a bungalow, a detached house, a single shop. In our data that means <code class="ic">building_id IS NULL</code>. The product genuinely supports these. The frontend even has code for them:</p>
+      <div class="code-block" data-lang="javascript" data-file="frontend/src/components/SettingsPage.jsx">
+<pre><code>// "standalone units" = attached to a property directly, with no building above them
+const standalones = allFlats.filter(f => f.property_id === property.id && !f.building_id);</code></pre>
+      </div>
+      <p>Here's the twist we discovered: the <code class="ic">flats</code> table <em>doesn't actually have</em> a usable <code class="ic">property_id</code> column — so that frontend filter was reading a field that doesn't exist (always <code class="ic">undefined</code>), and the database had <em>no</em> column at all that tied a standalone unit to its owner. The concept existed in the UI but had no foundation in the schema.</p>
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key concept — a data-model hole</div>
+        <p>The feature/security layer assumed "every unit lives in a building." The product assumed "some units stand alone." Those two assumptions silently disagreed. <strong>Most nasty bugs are really two correct assumptions that were never introduced to each other.</strong></p>
+      </div>
+
+      <!-- Concept: additive -->
+      <h3 id="c-additive">7 · Additive RLS policies (fix without hiding)</h3>
+      <h4 class="sub">Plain-English explanation</h4>
+      <p>When you change a security rule on live data, the scary failure mode is the opposite of a leak: you <em>hide</em> data people could rightfully see. An <strong>additive</strong> policy avoids that by widening, never narrowing: it authorizes a row if the <em>old</em> rule passes <strong>OR</strong> a <em>new</em> rule passes.</p>
+      <h4 class="sub">Why we need it — for the CRM</h4>
+      <p>We added a brand-new owner column (<code class="ic">manager_id</code>) but couldn't backfill it instantly for every row. With an additive policy, building-attached units stay visible via the old chain <em>even before</em> their <code class="ic">manager_id</code> is filled in — so nobody loses access mid-migration.</p>
+      <h4 class="sub">How it works — an analogy</h4>
+      <p>It's like adding a <strong>fingerprint scanner next to an existing keypad</strong>. Old staff who only know the code still get in; new staff can use their fingerprint. You never rip out the keypad until everyone has enrolled a fingerprint.</p>
+
+      <!-- Concept: FK & cascade -->
+      <h3 id="c-fk">8 · Foreign keys &amp; <code class="ic">ON DELETE CASCADE</code></h3>
+      <h4 class="sub">Plain-English explanation</h4>
+      <p>A <strong>foreign key</strong> (FK) is a column that must point at a real row in another table — the database refuses values that don't exist. <code class="ic">ON DELETE CASCADE</code> says "if the parent row is deleted, automatically delete my row too." We made <code class="ic">flats.manager_id</code> a foreign key to the auth users table with cascade, so deleting a manager cleans up their units.</p>
+      <h4 class="sub">How it works — an analogy</h4>
+      <p>A foreign key is a <strong>seat reservation that must reference a real ticket</strong>. <code class="ic">CASCADE</code> means: cancel the flight (delete the parent), and every seat reservation for it is torn up automatically — no orphan stubs left lying around.</p>
+      <div class="callout c-deep">
+        <div class="c-title">📖 Resources — foreign keys</div>
+        <ul>
+          <li>Official: <a class="inline" href="https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-FK">PostgreSQL — Foreign Keys</a></li>
+          <li>Beginner: <a class="inline" href="https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-foreign-key/">PostgreSQL Tutorial — Foreign Key</a></li>
+          <li>Deep dive: <a class="inline" href="https://www.postgresql.org/docs/current/sql-createtable.html">PG docs — referential actions (CASCADE/SET NULL/RESTRICT)</a></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p class="muted">Every action, in order, with the reasoning for why it happened <em>then</em>.</p>
+
+      <h3>Step 1 — Read the symptom carefully</h3>
+      <p>We opened <code class="ic">Render_logs.md</code> and read the failing line. The two facts that shaped everything:</p>
+      <ul>
+        <li>The error is Postgres code <code class="ic">42501</code> = <em>insufficient privilege</em>, specifically an RLS violation on <code class="ic">property_features</code>.</li>
+        <li>The request still returned <code class="ic">201 Created</code>. So the failure was <strong>non-fatal</strong> and being swallowed.</li>
+      </ul>
+      <p><strong>Why now:</strong> you never start fixing before you can state the symptom in one sentence. Ours: "Creating a unit logs an RLS insert failure on <code class="ic">property_features</code> but still succeeds."</p>
+
+      <h3>Step 2 — Find the code that prints the error</h3>
+      <p>We searched the codebase for the log string and the table name.</p>
+      <div class="term">
+<span class="pmt">$</span> grep -rn "Error initializing unit" backend/
+<span class="dim">backend/app/services/feature_service.py:270:  print(f"[FeatureService] Error initializing unit {unit_id}: {e}")</span>
+      </div>
+      <p><strong>Why now:</strong> the log message is a literal string in the source. Grepping it jumps you straight to the scene of the crime instead of guessing.</p>
+
+      <h3>Step 3 — Read the two suspects: the route and the service</h3>
+      <p>We read <code class="ic">backend/app/routes/flats.py</code> (the <code class="ic">POST /flats</code> handler) and <code class="ic">feature_service.py</code>. The key discovery — the flat is inserted with one client, the features with another:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/flats.py (create_flat — BEFORE the fix)">
+<pre><code># The flat row is inserted with the SERVICE-ROLE client (svc) — RLS bypassed.
+flat_response = svc.table("flats").insert(flat_payload).execute()
+flat_id = flat["id"]
+
+# ...but features are initialized with the AUTHENTICATED client (db) — RLS enforced.
+feature_service = FeatureService(db)            # &lt;-- the mismatch
+await feature_service.initialize_unit_features(flat_id)
+print(f"[FEATURES INITIALIZED] unit_id: {flat_id}")  # printed even on failure (bug #2)</code></pre>
+      </div>
+
+      <h3>Step 4 — Read the RLS policy that is rejecting the insert</h3>
+      <p>We opened <code class="ic">scripts/02_rls_policies.sql</code> and migration <code class="ic">007</code>. The <code class="ic">property_features</code> policy (shown in Concept&nbsp;1) traced ownership <em>only</em> through <code class="ic">building_id</code>, and had no <code class="ic">WITH CHECK</code>. Now the mechanism was clear.</p>
+
+      <h3>Step 5 — Confirm the trigger: standalone units</h3>
+      <p>We checked the <code class="ic">flats</code> schema and the frontend. We found the "standalone units" filter and confirmed the <code class="ic">flats</code> table has <strong>no usable <code class="ic">property_id</code></strong> and a <code class="ic">manager_id</code> column that was never populated. So building-less units had no ownership path at all.</p>
+
+      <h3>Step 6 — Ship the immediate fix (Option A)</h3>
+      <p>Make feature initialization use the same client that already created the flat, and stop the log from lying.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/flats.py (AFTER)">
+<pre><code># Use svc: ownership was already validated before the flat was created,
+# so bypassing RLS here is safe — and it works for standalone units too.
+feature_service = FeatureService(svc)           # was FeatureService(db)
+await feature_service.initialize_unit_features(flat_id)
+print(f"[FEATURES INITIALIZED] unit_id: {flat_id}")</code></pre>
+      </div>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/feature_service.py (AFTER)">
+<pre><code>async def initialize_unit_features(self, unit_id: int) -> None:
+    defaults = {f.value: get_default_state(f) for f in Feature}
+    try:
+        self._upsert_unit_features(unit_id, defaults)
+    except Exception as e:
+        print(f"[FeatureService] Error initializing unit {unit_id}: {e}")
+        raise        # &lt;-- re-raise so the success log only prints on real success</code></pre>
+      </div>
+      <p><strong>Why now, not later:</strong> Option A is a one-line, zero-migration change that stops the production error immediately. You always stop the bleeding before performing surgery.</p>
+
+      <h3>Step 7 — Design the durable fix (Option B) with the user</h3>
+      <p>We presented three directions and the user chose: <em>standalone units are first-class and should connect <strong>directly</strong> to the manager.</em> That means a new <code class="ic">flats.manager_id</code> foreign key, populated on creation, with additive RLS.</p>
+
+      <h3>Step 8 — Write the migration</h3>
+      <p>We created <code class="ic">backend/migrations/029_flats_manager_id_and_rls.sql</code>. It is <strong>idempotent</strong> (safe to run more than once — every statement guards with <code class="ic">IF NOT EXISTS</code> or <code class="ic">DROP … IF EXISTS</code>).</p>
+      <details>
+        <summary>Show the full migration 029 (annotated)</summary>
+      <div class="code-block" data-lang="sql" data-file="backend/migrations/029_flats_manager_id_and_rls.sql">
+<pre><code>-- 1. Add the owner column, a foreign key to the auth users table, and an index.
+ALTER TABLE flats ADD COLUMN IF NOT EXISTS manager_id UUID;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (                         -- only add the FK if it isn't there yet
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_flats_manager' AND table_name = 'flats'
+  ) THEN
+    ALTER TABLE flats
+      ADD CONSTRAINT fk_flats_manager
+      FOREIGN KEY (manager_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_flats_manager_id ON flats(manager_id);
+
+-- 2. Backfill: building-attached flats can derive their owner from the old chain.
+UPDATE flats f
+SET manager_id = p.manager_id
+FROM buildings b
+JOIN properties_list p ON b.property_id = p.id
+WHERE f.building_id = b.id
+  AND f.manager_id IS NULL;
+-- NOTE: standalone flats made before this migration have NO chain to follow,
+-- so they stay NULL and must be backfilled by hand (see the orphan script).
+
+-- 3. Rewrite the 4 policies to be ADDITIVE: old building chain OR new manager_id.
+DROP POLICY IF EXISTS "manager_owns_property_features" ON property_features;
+CREATE POLICY "manager_owns_property_features"
+ON property_features FOR ALL
+USING (
+  unit_id IN (SELECT id FROM flats WHERE manager_id = auth.uid())   -- NEW direct path
+  OR unit_id IN (                                                    -- OLD building chain
+    SELECT f.id FROM flats f
+    JOIN buildings b ON f.building_id = b.id
+    JOIN properties_list p ON b.property_id = p.id
+    WHERE p.manager_id = auth.uid()
+  )
+)
+WITH CHECK (   -- explicit now, so INSERTs are governed by the SAME rule on purpose
+  unit_id IN (SELECT id FROM flats WHERE manager_id = auth.uid())
+  OR unit_id IN (
+    SELECT f.id FROM flats f
+    JOIN buildings b ON f.building_id = b.id
+    JOIN properties_list p ON b.property_id = p.id
+    WHERE p.manager_id = auth.uid()
+  )
+);
+-- (flats, tenants and rents policies were rewritten the same additive way.)</code></pre>
+      </div>
+      </details>
+      <p><strong>Why all four tables:</strong> a standalone <em>occupied</em> unit also has a tenant and a rent. Those tables used the same building-only chain, so they'd hit the identical wall the moment you added a tenant to a bungalow. Fixing only <code class="ic">property_features</code> would have left two more landmines.</p>
+
+      <h3>Step 9 — Populate <code class="ic">manager_id</code> in all three insert paths</h3>
+      <p>A new owner column is worthless if creation code doesn't fill it. Units are born in three places, so all three were updated to write <code class="ic">manager_id = user["sub"]</code> (the manager's ID from their JWT).</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Path</th><th>File</th><th>Change</th></tr></thead>
+          <tbody>
+            <tr><td>Manual create</td><td><code>routes/flats.py</code></td><td>Added <code>"manager_id": user["sub"]</code> to the flat payload</td></tr>
+            <tr><td>CSV import</td><td><code>routes/import_routes.py</code></td><td>Added <code>"manager_id": user["sub"]</code> to the flat payload</td></tr>
+            <tr><td>AI chatbot</td><td><code>ai/chatbot.py</code> + <code>routes/chat.py</code></td><td>Threaded <code>manager_id</code> through <code>run_chat → execute_tool → add_new_unit</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/chat.py">
+<pre><code># user["sub"] = the manager's auth UID, read from their validated JWT.
+reply, refresh_needed = chatbot.run_chat(messages, db, user["sub"])</code></pre>
+      </div>
+
+      <h3>Step 10 — Verify the code compiles</h3>
+      <div class="term">
+<span class="pmt">$</span> cd backend &amp;&amp; python -m py_compile app/services/feature_service.py app/routes/flats.py app/routes/import_routes.py app/ai/chatbot.py app/routes/chat.py
+<span class="ok">OK: all compile</span>
+      </div>
+      <p><strong>Why now:</strong> <code class="ic">py_compile</code> parses each file without running it — a 1-second check that catches typos and broken syntax before they reach the server. (It does <em>not</em> prove the logic is right, only that the Python is valid.)</p>
+
+      <h3>Step 11 — Run the migration &amp; recover the orphans</h3>
+      <p>The user ran migration 029 in the Supabase SQL editor, then ran the orphan-recovery script. This is documented in detail as Bug Stories #3 and #4 below, because the recovery did not go smoothly the first time.</p>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p class="muted">Four distinct issues. The first is the headline bug; the rest are the smaller traps we hit while fixing and verifying it. These are the most valuable part of the session.</p>
+
+      <!-- BUG 1 -->
+      <h3>🐛 Bug #1 — <code class="ic">42501</code>: RLS rejects the feature insert</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The symptom</div>
+        <p>On every unit creation, the logs showed:</p>
+        <div class="term"><span class="err">[FeatureService] Error initializing unit 298: {'message': 'new row violates row-level security policy for table "property_features"', 'code': '42501', 'hint': None, 'details': None}</span></div>
+        <p>…yet <code class="ic">POST /flats</code> returned <code class="ic">201 Created</code>. New units silently had <em>no</em> feature rows.</p>
+      </div>
+      <div class="callout c-ex">
+        <div class="c-title">🔍 The diagnosis (the actual trail)</div>
+        <ol>
+          <li><strong>Decoded the error:</strong> <code class="ic">42501</code> + "violates row-level security policy" = an RLS rule blocked a write to <code class="ic">property_features</code>.</li>
+          <li><strong>Grepped the log string</strong> → landed in <code class="ic">feature_service.py</code>, which caught the exception and only printed it.</li>
+          <li><strong>Read <code class="ic">create_flat</code></strong> and spotted the mismatch: flat inserted via <code class="ic">svc</code> (bypasses RLS), features inserted via <code class="ic">db</code> (enforces RLS).</li>
+          <li><strong>Read the policy</strong> → it authorizes a unit only through <code class="ic">building_id → building → property → manager</code>, with no <code class="ic">WITH CHECK</code> (so that read-rule also governs inserts).</li>
+          <li><strong>Hypothesis:</strong> the failing units have <code class="ic">building_id = NULL</code>, so the inner joins drop them and the insert check fails.</li>
+          <li><strong>Red herring considered &amp; rejected:</strong> the shared-anon-client race condition. We ruled it out because the failure was <em>deterministic</em> (every create, same single user) and reads in the same logs returned <code class="ic">200</code> — so <code class="ic">auth.uid()</code> was resolving fine.</li>
+          <li><strong>Confirmed the data-model hole</strong> via the frontend's "standalone units" filter and the missing <code class="ic">property_id</code> column.</li>
+        </ol>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🧠 The root cause</div>
+        <p>Two correct-but-incompatible designs collided: (1) flat creation was moved to the <em>service-role</em> client to dodge an RLS insert restriction, but (2) feature initialization was left on the <em>RLS-enforced</em> client. For a <strong>standalone unit</strong> (<code class="ic">building_id NULL</code>), the RLS policy literally <em>cannot express</em> its ownership — the only path it knows is through a building that doesn't exist. So Postgres correctly refused the insert. It was never a typo; it was a <strong>missing concept in the security model</strong>.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The fix (before → after)</div>
+        <p>Immediate (code):</p>
+      <div class="code-block" data-lang="python" data-file="create_flat — diff">
+<pre><code>- feature_service = FeatureService(db)    # RLS-enforced; rejects building-less units
++ feature_service = FeatureService(svc)   # service-role; ownership already verified above</code></pre>
+      </div>
+        <p>Durable (database) — give every unit a direct owner and make RLS understand it (migration 029, Step 8). After that, even the RLS-enforced client can write features for a standalone unit, because <code class="ic">flats.manager_id = auth.uid()</code> is a path the policy now recognizes.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🛡️ The lesson</div>
+        <p>When you "fix" an RLS rejection by switching one query to the service-role key, you haven't fixed the rule — you've <em>moved</em> the rejection to the next query that still uses the safe client. Treat a service-role workaround as a flag that says "the policy can't express something true." The real fix is usually to teach the policy that truth (here: a direct owner column). Tools that would have caught this earlier: not swallowing exceptions, and an alert on <code class="ic">42501</code> in logs.</p>
+      </div>
+
+      <!-- BUG 2 -->
+      <h3>🐛 Bug #2 — The log that always said "success"</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The symptom</div>
+        <p><code class="ic">[FEATURES INITIALIZED] unit_id: 298</code> printed on the very same units where initialization had just <em>failed</em>. The logs were actively lying, which is why nobody noticed the bug for so long.</p>
+      </div>
+      <div class="callout c-ex">
+        <div class="c-title">🔍 Diagnosis &amp; 🧠 root cause</div>
+        <p><code class="ic">initialize_unit_features</code> caught its own exception, printed it, and <em>returned normally</em> (it didn't re-raise). So control flowed back to <code class="ic">create_flat</code>, which unconditionally printed the success line. The "error then success" pair in the logs was the tell.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The fix</div>
+        <p>Add <code class="ic">raise</code> after logging (Step 6). Now the exception propagates, the success <code class="ic">print</code> is skipped, and an outer <code class="ic">try/except</code> records a truthful <code class="ic">[FEATURE INIT ERROR]</code>.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🛡️ The lesson</div>
+        <p>"Swallowing" an exception (catch, log, continue) is sometimes intentional for non-critical steps — but if you do it, <strong>do not print a success message afterward</strong>. A log line should never be able to claim victory over a step that threw. When in doubt, re-raise and let the caller decide.</p>
+      </div>
+
+      <!-- BUG 3 -->
+      <h3>🐛 Bug #3 — The "single-manager shortcut" did nothing</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The symptom</div>
+        <p>After running migration 029, the user ran a tidy one-liner to assign all orphaned standalone units to "the one manager," then re-checked — and <strong>6 orphans still remained</strong>. The UPDATE reported zero rows changed.</p>
+      </div>
+      <div class="callout c-ex">
+        <div class="c-title">🔍 Diagnosis &amp; 🧠 root cause</div>
+        <p>The shortcut was deliberately guarded:</p>
+        <div class="code-block" data-lang="sql" data-file="single-manager shortcut">
+<pre><code>UPDATE flats
+SET manager_id = (SELECT user_id FROM manager_profiles LIMIT 1)
+WHERE building_id IS NULL AND manager_id IS NULL
+  AND (SELECT COUNT(*) FROM manager_profiles) = 1;   -- only fires if EXACTLY one manager exists</code></pre>
+        </div>
+        <p>Running <code class="ic">SELECT user_id, name FROM manager_profiles;</code> returned <strong>multiple</strong> rows. The guard <code class="ic">COUNT(*) = 1</code> was false, so the statement was a safe no-op. It wasn't broken — it was <em>correctly refusing to guess</em> among several managers.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The fix — infer the owner from related data</div>
+        <p>Since the flats themselves never recorded a creator, we looked at tables that <em>do</em> carry a manager link and still point at these units:</p>
+        <div class="code-block" data-lang="sql" data-file="orphan inference query">
+<pre><code>SELECT f.id, f.flat_number, f.occupied,
+       (SELECT COUNT(*) FROM complaints c WHERE c.flat_uuid = f.uuid)     AS complaints,
+       (SELECT COUNT(*) FROM lease_listings l WHERE l.flat_uuid = f.uuid) AS listings,
+       (SELECT c.assigned_manager_id FROM complaints c
+          WHERE c.flat_uuid = f.uuid AND c.assigned_manager_id IS NOT NULL
+          LIMIT 1)                                                        AS hint_mgr
+FROM flats f
+WHERE f.building_id IS NULL AND f.manager_id IS NULL
+ORDER BY f.created_at;</code></pre>
+        </div>
+        <p>The result told the whole story: one unit (id 46, flat "355") had <strong>10 complaints</strong> all assigned to one manager — a confident owner. The other five were empty, with names like "AEAWE" / "EAWE" / duplicate "201" — obvious throwaway test rows. So: assign the real one, delete the test junk.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🛡️ The lesson</div>
+        <p>You can't read back a fact the database never stored. When you add an ownership/audit column, the rows that predate it are <strong>permanently ambiguous</strong> — your best recovery is to triangulate from whatever still references them. The deeper lesson: capture <code class="ic">created_by</code>/<code class="ic">owner</code> from day one; retrofitting it is archaeology.</p>
+      </div>
+
+      <!-- BUG 4 -->
+      <h3>🐛 Bug #4 — <code class="ic">42601</code>: running a template literally</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The symptom</div>
+        <div class="term"><span class="err">ERROR: 42601: syntax error at or near "&lt;"</span>
+LINE 5:  UPDATE flats SET manager_id = '&lt;MANAGER_AUTH_UID&gt;' WHERE id = &lt;flat_id&gt;;</div>
+      </div>
+      <div class="callout c-ex">
+        <div class="c-title">🔍 Diagnosis &amp; 🧠 root cause</div>
+        <p><code class="ic">42601</code> is Postgres for "syntax error." The placeholders <code class="ic">&lt;MANAGER_AUTH_UID&gt;</code> and <code class="ic">&lt;flat_id&gt;</code> were copy-pasted and run <em>as-is</em>. Angle brackets aren't valid SQL — they were fill-in-the-blanks, not code. (And <code class="ic">&lt;flat_id&gt;</code> needs a bare integer, while the UUID needs single quotes — two different substitution rules.)</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The fix</div>
+        <p>Substitute real values before running. Concretely:</p>
+        <div class="code-block" data-lang="sql" data-file="assign one real unit">
+<pre><code>UPDATE flats SET manager_id = '24b1b33e-861b-4ed0-acdc-e83f5b5cd27f' WHERE id = 46;</code></pre>
+        </div>
+        <p>And delete the five empty test units (children first, to respect foreign keys):</p>
+        <div class="code-block" data-lang="sql" data-file="delete test orphans">
+<pre><code>DELETE FROM lease_listings   WHERE flat_uuid IN (SELECT uuid FROM flats WHERE id IN (143,145,146,298,299));
+DELETE FROM property_features WHERE unit_id IN (143,145,146,298,299);
+DELETE FROM flats            WHERE id IN (143,145,146,298,299);</code></pre>
+        </div>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🛡️ The lesson</div>
+        <p>A convention like <code class="ic">&lt;PLACEHOLDER&gt;</code> is human shorthand, not machine input. When you hand someone runnable SQL, prefer forms that need <em>zero</em> editing (like the guarded single-manager UPDATE) and clearly mark anything that still needs substitution. <code class="ic">42601</code> almost always means "you ran a template, a comment, or pasted two statements as one."</p>
+      </div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose this</th><th>Trade-offs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Ship Option A (use <code>svc</code> for feature init) immediately</td>
+              <td>Wait and do only the "proper" RLS fix</td>
+              <td>One-line, zero-migration; stops a live production error now. Ownership is already verified before this line</td>
+              <td>Treats the symptom; later UI feature-saves for standalone units still needed Option B</td>
+            </tr>
+            <tr>
+              <td>Add a direct <code>flats.manager_id</code> FK</td>
+              <td>(a) Require every unit to have a building; (b) revive a <code>property_id</code> path</td>
+              <td>User wants standalone units (bungalows) as first-class; a direct owner is the simplest thing RLS can check, and matches the existing <code>call_logs.manager_id</code> pattern</td>
+              <td>Denormalized — ownership now lives in two places for building units and could drift if a property were reassigned</td>
+            </tr>
+            <tr>
+              <td>Additive policies (chain <code>OR</code> manager_id)</td>
+              <td>Replace the chain outright with manager_id only</td>
+              <td>Can't backfill instantly; additive guarantees no currently-visible row gets hidden mid-migration</td>
+              <td>Slightly more verbose policies; the old chain lingers until everything is backfilled</td>
+            </tr>
+            <tr>
+              <td>Fix <code>flats</code>, <code>property_features</code>, <code>tenants</code>, <code>rents</code> together</td>
+              <td>Fix only <code>property_features</code></td>
+              <td>An occupied standalone unit needs all four; fixing one leaves two more identical landmines</td>
+              <td>Bigger migration, more policies to review at once</td>
+            </tr>
+            <tr>
+              <td>FK to <code>auth.users(id)</code> with <code>ON DELETE CASCADE</code></td>
+              <td>Plain UUID with no FK; FK to <code>manager_profiles</code></td>
+              <td><code>auth.uid()</code> returns an <code>auth.users</code> id, so the FK matches the value RLS compares against; cascade cleans up a deleted manager's units</td>
+              <td>Cascade is destructive by design — deleting a manager deletes their units</td>
+            </tr>
+            <tr>
+              <td>Keep <code>manager_id</code> nullable (for now)</td>
+              <td><code>NOT NULL</code> immediately</td>
+              <td>Pre-existing standalone orphans can't be auto-attributed; <code>NOT NULL</code> now would block the migration</td>
+              <td>A future insert path could forget to set it; tighten to <code>NOT NULL</code> after backfill</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+
+      <h4 class="sub">1. The code change is valid</h4>
+      <div class="term"><span class="pmt">$</span> cd backend &amp;&amp; python -m py_compile app/routes/flats.py app/services/feature_service.py
+<span class="ok">OK: all compile</span></div>
+
+      <h4 class="sub">2. The migration created the 4 policies</h4>
+      <p>After running migration 029, this query should return exactly four rows:</p>
+      <div class="code-block" data-lang="sql" data-file="verify policies">
+<pre><code>SELECT tablename, policyname, cmd FROM pg_policies
+WHERE tablename IN ('flats','property_features','tenants','rents')
+ORDER BY tablename, cmd;</code></pre>
+      </div>
+      <div class="term"><span class="dim">tablename,policyname,cmd</span>
+flats,manager_owns_flats,ALL
+property_features,manager_owns_property_features,ALL
+rents,manager_owns_rents,ALL
+tenants,manager_owns_tenants,ALL  <span class="ok">✓</span></div>
+
+      <h4 class="sub">3. No orphans remain</h4>
+      <div class="code-block" data-lang="sql" data-file="orphan count">
+<pre><code>SELECT COUNT(*) FROM flats WHERE building_id IS NULL AND manager_id IS NULL;  -- expect 0</code></pre>
+      </div>
+
+      <p><strong>It works if…</strong></p>
+      <ul class="check">
+        <li>Creating a unit no longer logs <code class="ic">42501</code>, and you see <code class="ic">[FEATURES INITIALIZED]</code> only when it truly succeeded.</li>
+        <li>A newly created standalone unit appears in the manager's unit list (RLS now lets them see it).</li>
+        <li>The policy query returns four <code class="ic">ALL</code> rows.</li>
+        <li>The orphan count is <code class="ic">0</code>.</li>
+      </ul>
+      <p><strong>Something's wrong if…</strong></p>
+      <ul class="xlist">
+        <li>You still see <code class="ic">42501</code> on insert → the migration didn't run, or a flat insert path isn't setting <code class="ic">manager_id</code>.</li>
+        <li>A manager suddenly can't see units they used to → a policy was made <em>narrowing</em> instead of additive; re-check the <code class="ic">OR</code> branches.</li>
+        <li><code class="ic">42601</code> when running SQL → you pasted a placeholder, a comment, or two statements at once.</li>
+      </ul>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — read the policy out loud</div>
+        <p>Write, in plain English, what this <code class="ic">WITH CHECK</code> allows and forbids:</p>
+        <div class="code-block" data-lang="sql">
+<pre><code>WITH CHECK (
+  flat_uuid IN (SELECT uuid FROM flats WHERE manager_id = auth.uid())
+)</code></pre>
+        </div>
+        <details><summary>Hint / answer</summary><p>"You may INSERT or UPDATE a tenant/rent row only if its <code class="ic">flat_uuid</code> points at a flat that <em>you</em> own (your manager id matches the logged-in user). Otherwise the write is rejected." It forbids attaching a tenant to a flat you don't own.</p></details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — tighten the column</div>
+        <p>After confirming the orphan count is 0, write the single statement that makes it impossible to ever create a flat without an owner again. Then explain what error a future buggy insert would now get.</p>
+        <details><summary>Hint / answer</summary>
+        <div class="code-block" data-lang="sql"><pre><code>ALTER TABLE flats ALTER COLUMN manager_id SET NOT NULL;</code></pre></div>
+        <p>A future insert that forgets <code class="ic">manager_id</code> now fails with Postgres code <code class="ic">23502</code> (<em>not_null_violation</em>) — a loud, immediate failure instead of a silent orphan.</p></details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — prevent ownership drift</div>
+        <p>Our design's main weakness is drift: if a property is reassigned to a new manager, the building's flats keep their old <code class="ic">manager_id</code>. Sketch (in words or SQL) a Postgres <strong>trigger</strong> that keeps <code class="ic">flats.manager_id</code> in sync whenever a property's <code class="ic">manager_id</code> changes.</p>
+        <details><summary>Hint</summary><p>Create an <code class="ic">AFTER UPDATE OF manager_id ON properties_list</code> trigger. In its function, <code class="ic">UPDATE flats f SET manager_id = NEW.manager_id FROM buildings b WHERE f.building_id = b.id AND b.property_id = NEW.id;</code>. Consider what to do for standalone units (they have no property, so they're unaffected — which is correct).</p></details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🚑 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary><code>42501: new row violates row-level security policy</code></summary>
+        <p>A write was blocked by RLS. Ask three questions: (1) Which table? (2) Which client made the call — RLS-enforced (<code class="ic">db</code>) or service-role (<code class="ic">svc</code>)? (3) Does the row satisfy the policy's <code class="ic">WITH CHECK</code> (or the <code class="ic">USING</code> that stands in for it)? Usually the row references something the policy can't trace back to <code class="ic">auth.uid()</code>.</p>
+      </details>
+      <details>
+        <summary><code>42601: syntax error at or near "&lt;"</code> (or near a word)</summary>
+        <p>You ran something that isn't valid SQL — most often a <code class="ic">&lt;placeholder&gt;</code>, a commented line run on its own, or two statements pasted as one. Replace placeholders with real values (integers bare, UUIDs/strings in single quotes).</p>
+      </details>
+      <details>
+        <summary>An <code>UPDATE</code> reports "0 rows affected" but you expected changes</summary>
+        <p>The <code class="ic">WHERE</code> matched nothing. Check guards like <code class="ic">AND (SELECT COUNT(*) … ) = 1</code> — they can silently make a statement a no-op. Run the <code class="ic">SELECT</code> version of your <code class="ic">WHERE</code> first to see what it matches.</p>
+      </details>
+      <details>
+        <summary>"Connection terminated due to connection timeout" from the database</summary>
+        <p>On free Supabase tiers the project <strong>auto-pauses</strong> when idle (status <code class="ic">INACTIVE</code>). Open the dashboard / SQL editor to wake it, then retry. This is why, this session, automated queries failed while the user's SQL-editor runs succeeded.</p>
+      </details>
+      <details>
+        <summary>A manager can't see units they created before a policy change</summary>
+        <p>Your new policy is narrowing, not additive. Make sure it reads <code class="ic">old_path OR new_path</code>, and that the data the new path needs (<code class="ic">manager_id</code>) is backfilled.</p>
+      </details>
+      <details>
+        <summary><code>23503: foreign key violation</code> when inserting a flat</summary>
+        <p><code class="ic">manager_id</code> must reference a real <code class="ic">auth.users(id)</code>. If you pass an id that doesn't exist (or the wrong value), the FK rejects it. Confirm you're passing <code class="ic">user["sub"]</code> from a validated JWT.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🚀 What's Next</h2>
+      <p>We left two clear follow-ups on the table. First, after the orphan count hits zero, tighten <code class="ic">flats.manager_id</code> to <code class="ic">NOT NULL</code> so the database itself guarantees no future unit can be born without an owner. Second, the shared-anon-client race condition we flagged in Concept&nbsp;2 deserves its own session: we'll look at request-scoped clients and why mutating a global object per request is dangerous under load. We'll also revisit whether the original <code class="ic">svc</code> workaround on the <code class="ic">flats</code> insert can finally be retired now that the policies understand direct ownership. Expect the next session to dig into <strong>concurrency, request isolation, and connection pooling</strong> — the invisible forces that only bite when many users arrive at once.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📚 Glossary</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+          <tbody>
+            <tr><td>Additive policy</td><td>An RLS rule rewritten as <code>old OR new</code> so it widens access and never hides previously-visible rows.</td></tr>
+            <tr><td>Anon key / anon client</td><td>The public Supabase key (and client) whose requests obey RLS. Used by logged-in managers.</td></tr>
+            <tr><td><code>auth.uid()</code></td><td>Postgres function that returns the current request's user ID, read from its JWT. <code>NULL</code> if no valid token.</td></tr>
+            <tr><td>Backfill</td><td>A one-time data update that fills a newly added column for rows that already existed.</td></tr>
+            <tr><td>CASCADE (<code>ON DELETE</code>)</td><td>A foreign-key rule that auto-deletes child rows when their parent is deleted.</td></tr>
+            <tr><td>Denormalization</td><td>Storing the same fact in more than one place (e.g. owner on both the property chain and the unit) for convenience, accepting drift risk.</td></tr>
+            <tr><td>Foreign key (FK)</td><td>A column constrained to reference a real row in another table.</td></tr>
+            <tr><td>Idempotent</td><td>Safe to run multiple times with the same end result (our migration's <code>IF NOT EXISTS</code> guards).</td></tr>
+            <tr><td>Inner JOIN</td><td>A query that keeps only rows matching on both tables — silently drops rows with a <code>NULL</code> join key.</td></tr>
+            <tr><td>JWT</td><td>JSON Web Token — a signed, tamper-proof token proving a user's identity on each request.</td></tr>
+            <tr><td>Migration</td><td>A versioned SQL script that evolves the database schema in a repeatable way.</td></tr>
+            <tr><td>Multi-tenant</td><td>One system serving many isolated customers from shared infrastructure.</td></tr>
+            <tr><td>Orphan row</td><td>A row whose owner/parent can't be determined — here, a standalone unit created before the owner column existed.</td></tr>
+            <tr><td>PostgREST</td><td>The service that turns Postgres into a REST API; it reads the JWT to set <code>auth.uid()</code>.</td></tr>
+            <tr><td>RLS</td><td>Row-Level Security — Postgres feature that filters readable/writable rows per user via policies.</td></tr>
+            <tr><td>Service-role key / <code>svc</code></td><td>The secret Supabase master key (and client) that bypasses RLS. Server-only.</td></tr>
+            <tr><td>Standalone unit</td><td>A rentable unit with no building (a bungalow/house); <code>building_id IS NULL</code>.</td></tr>
+            <tr><td><code>USING</code></td><td>RLS predicate that decides which existing rows you can read/modify; doubles as the insert check when <code>WITH CHECK</code> is absent.</td></tr>
+            <tr><td><code>WITH CHECK</code></td><td>RLS predicate that decides whether a row you're about to INSERT/UPDATE is allowed.</td></tr>
+            <tr><td>42501</td><td>Postgres error code: insufficient privilege / RLS violation.</td></tr>
+            <tr><td>42601</td><td>Postgres error code: SQL syntax error.</td></tr>
+            <tr><td>23502</td><td>Postgres error code: not-null violation.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== FOOTER NAV (M) ===== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="module_26_settings_onboarding.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Module 26 — Settings &amp; Onboarding</div>
+    </a>
+    <a href="index.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Learning Material</div>
+    </a>
+    <a href="#" class="disabled right">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 08 — Concurrency &amp; Isolation (coming soon)</div>
+    </a>
+  </div>
+  <div class="copyright">
+    Session 07 — CRM Learning Series · Generated 2026-06-16 ·
+    Tenant Management MVP
+  </div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    // SQL
+    'SELECT','FROM','WHERE','UPDATE','SET','INSERT','INTO','VALUES','DELETE','CREATE','TABLE',
+    'POLICY','ALTER','ADD','COLUMN','CONSTRAINT','FOREIGN','KEY','REFERENCES','ON','USING','WITH',
+    'CHECK','AND','OR','NOT','NULL','IN','JOIN','LEFT','INNER','DROP','IF','EXISTS','INDEX','CASCADE',
+    'DEFAULT','UNIQUE','PRIMARY','COUNT','LIMIT','ORDER','BY','AS','ENABLE','ROW','LEVEL','SECURITY',
+    'BEGIN','END','THEN','DO','IS','DELETE',
+    // Python / JS
+    'def','return','if','else','elif','try','except','raise','import','await','async','class','None',
+    'True','False','for','while','self','const','let','filter','function'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // Tiny tokenizer: comments, strings, words(keywords), numbers, everything else.
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');     // original text for copying
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    // Build header
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    // Highlight then split into numbered lines
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    // Copy button
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>
