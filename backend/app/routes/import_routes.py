@@ -351,6 +351,7 @@ async def import_properties(
             flat_payload: dict = {
                 "building_id": building_id,
                 "flat_number": flat_number.upper(),
+                "manager_id": user["sub"],
             }
             for field in ("floor_number", "bedrooms", "bathrooms"):
                 raw = row.get(field, "")

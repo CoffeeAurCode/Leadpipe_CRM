@@ -106,7 +106,18 @@ Tenant_management_MVP/
 │   ├── package.json
 │   └── .env.example
 │
-├── CLAUDE.md                       # Claude Code instructions (this file is referenced there)
+├── docs/                           # All project docs — see CLAUDE.md "File Organization"
+│   ├── development_plans/          # Plans, specs, implementation/improvement docs
+│   ├── diagnoses/                  # Bug investigations & fix records
+│   ├── testing/                    # Test plans, reports, logs
+│   ├── sessions/                   # Session context / handoff notes
+│   ├── agent/                      # Voice-agent prompt/flow/script definitions
+│   └── reference/                  # Misc reference (env var lists, requirements)
+├── scripts/                        # Project SQL — seeds/, backfills/, numbered migrations
+├── tests/                          # Manual/integration test runner scripts (run from root)
+├── test_csvs/                      # CSV/XLSX import test fixtures
+├── e2e/                            # Playwright end-to-end tests
+├── CLAUDE.md                       # Claude Code instructions + File Organization rule
 └── CODEBASE_CONTEXT.md             # This file
 ```
 
@@ -181,10 +192,10 @@ PropertyGroup (properties_list)
 | occupied | boolean | Derived from tenant_uuid presence |
 | is_listed | boolean | Default false; true when an active lease_listing exists for this flat (migration 026); prevents duplicate listings |
 | image_url | text | Supabase Storage URL |
-| building_id | UUID | FK → buildings |
+| building_id | UUID | FK → buildings (NULL for standalone units e.g. bungalows) |
 | property_type_id | UUID | FK → property_types |
 | tenant_uuid | UUID | FK → tenants (nullable) |
-| manager_id | UUID | RLS key |
+| manager_id | UUID | FK → `auth.users(id)`, direct owner; set on creation to `user["sub"]` in all insert paths (create_flat / import / chatbot). RLS key — policies authorize a unit by building chain **OR** `manager_id = auth.uid()` (migration 029), so building-less standalone units are still owned/visible. |
 
 #### `tenants`
 | Column | Type | Notes |
@@ -445,7 +456,7 @@ Computed fields on GET (from `TenantResponse` schema):
 
 **VAPI rules:** Always returns HTTP 200. Inputs normalized with `.strip().upper()`.
 
-**RLS / flat creation:** `POST /flats` uses `svc` (service-role client) for the actual `flats` INSERT — the Supabase RLS INSERT policy rejects the anon client for some manager accounts. All ownership/subscription checks run first with the authenticated `db` client.
+**RLS / flat creation:** `POST /flats` uses `svc` (service-role client) for the actual `flats` INSERT — the Supabase RLS INSERT policy rejects the anon client for some manager accounts. All ownership/subscription checks run first with the authenticated `db` client. **Feature initialization (`FeatureService.initialize_unit_features`) also uses `svc`** — the `property_features` RLS policy only authorizes units reachable via `building_id → buildings → properties_list → manager_id = auth.uid()`, so initializing a building-less unit on the anon client raised `42501`. Building was already ownership-validated, so `svc` is safe here. Do not revert to `db`. **Durable fix (migration 029):** `flats` now has a direct `manager_id` FK (→ `auth.users`) set on every insert; the `flats`, `property_features`, `tenants`, and `rents` RLS policies were rewritten to be additive — they authorize a row via the building chain **OR** the unit's direct `manager_id`. This makes standalone (building-less) units fully ownable/visible and lets the authenticated client handle their features/tenants/rents. Migration must be run in the Supabase SQL editor (it was paused at implementation time).
 
 **Error messages:** `clean_db_error(e)` in `app/core/db_errors.py` maps PostgreSQL error codes to plain English — `23514` → invalid field value, `23505` → already exists, `23503` → FK violation (with lease_listing hint), `23502` → missing required field, `42501` → permission denied. Used by all DELETE routes and `import_routes.py`. Raw Supabase exception dicts never reach the frontend.
 
@@ -1024,6 +1035,7 @@ window.dispatchEvent(new Event('refresh-listings'))      // after tenant assignm
 - If the phone already exists and is assigned to another flat, returns HTTP 400: `"This phone number belongs to a tenant already in Unit {flat_number}."` (fetches the flat_number from DB; falls back to "another unit" if lookup fails). If phone exists but unassigned, returns "A tenant with this phone number already exists. Use 'Assign Existing Tenant'…"
 - Image uploaded to Storage is cleaned up if any subsequent check fails (no orphaned files)
 - **The `flats` INSERT uses `svc` (service-role client), not `db`** — some manager accounts have RLS INSERT policies that reject the anon client. Ownership is validated first via `require_active_subscription` and duplicate checks. Do not revert this to `db.table("flats").insert()`.
+- **Feature init (STEP 4.5) also uses `svc`**, for the same reason — `property_features` RLS only authorizes units reachable through a building, so a building-less unit's feature init failed RLS (`42501`) when run on `db`. `initialize_unit_features` now re-raises on failure so the `[FEATURES INITIALIZED]` log only prints on real success.
 
 ### VAPI Voice Webhook DB Client
 - `POST /voice/webhook` uses `get_service_db` (not `get_authenticated_db`) — inbound calls carry no user JWT

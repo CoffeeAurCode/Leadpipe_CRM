@@ -621,6 +621,7 @@ async def create_flat(
             "bathrooms": bathrooms,
             "image_url": image_url,
             "building_id": building_id if building_id else None,
+            "manager_id": user["sub"],
             "tenant_uuid": None,
             "occupied": False,
         }
@@ -663,7 +664,7 @@ async def create_flat(
         # ========== STEP 4.5: INITIALIZE FEATURES ==========
         try:
             from app.services.feature_service import FeatureService
-            feature_service = FeatureService(db)
+            feature_service = FeatureService(svc)
             await feature_service.initialize_unit_features(flat_id)
             print(f"[FEATURES INITIALIZED] unit_id: {flat_id}")
         except Exception as f_err:

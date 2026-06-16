@@ -16,6 +16,34 @@ At the end of **every session** where you make code changes that affect any of t
 
 ---
 
+## File Organization (mandatory)
+
+**The repo root is reserved.** The only files that belong at the root are the canonical entry docs (`CLAUDE.md`, `CODEBASE_CONTEXT.md`, `README.md`) and config (`.gitignore`, etc.). **Never create a new file in the repo root** — put it in the folder for its kind, so any human or agent can find it by looking in one predictable place.
+
+| Content type | Folder | Example |
+|---|---|---|
+| Plans, specs, implementation / improvement docs | `docs/development_plans/` | `PLAN_quebec_sizing_and_address_autofill.md` |
+| Bug investigations & fix records | `docs/diagnoses/` | `VOICE_AGENT_BUG_DIAGNOSIS.md` |
+| Test plans, reports, logs | `docs/testing/` | `LEAD_AGENT_TEST_REPORT.md` |
+| Session context / handoff notes | `docs/sessions/` | `SESSION_HANDOFF.md` |
+| Voice-agent prompt / flow / script definitions | `docs/agent/` | `SYSTEM_PROMPT.md` |
+| Misc reference (env var lists, requirements, snapshots) | `docs/reference/` | `RENDER_ENV_VARS.md` |
+| Seed SQL + seed data CSVs (kept together) | `scripts/seeds/` | `seed_listings.sql` |
+| One-off data-fix / backfill SQL | `scripts/backfills/` | `backfill_call_logs_manager_id.sql` |
+| Numbered schema / RLS migration SQL | `scripts/` (project) · `backend/migrations/` (app) | `02_rls_policies.sql` |
+| Manual / integration test runner scripts | `tests/` | `run_api_tests.py` |
+| CSV / XLSX test fixtures | `test_csvs/` | `prop_happy.csv` |
+| Python deploy / admin scripts | `backend/scripts/` | `update_lease_agents.py` |
+| E2E (Playwright) tests | `e2e/` | `tests/a-auto-delist.spec.ts` |
+
+**Naming rules (so names stay unique and searchable):**
+- Give every file a **descriptive, unique** name that states its subsystem and topic. Prefix with the subsystem when relevant: `lease_agent_`, `complaint_`, `csv_import_`, `voice_agent_`.
+- **Banned generic stems** — never name a file `PLAN.md`, `FIX.md`, `FIX_PLAN.md`, `changes.md`, `notes.md`, `WORKSHEET.md`, or anything that collides on a common word. They are unsearchable and clash across topics.
+- For dated artifacts (diagnoses, test reports, session notes), append an ISO date: `lease_agent_diagnosis_2026-06-14.md`.
+- Before creating a doc, check the target folder for an existing file on the same topic and **update it instead** of adding a near-duplicate.
+
+---
+
 ## Hard Rules (non-negotiable)
 
 - **No `/api` prefix** on any backend route — routes are registered without it in `main.py`
@@ -26,6 +54,7 @@ At the end of **every session** where you make code changes that affect any of t
 - **Pydantic V2** — use `model_validator` / `field_validator`, not `@validator`
 - **Groq model**: `llama-3.3-70b-versatile` — `llama-3.1-70b-versatile` is decommissioned
 - **Date format**: `YYYY-MM-DDTHH:MM:SS` (T separator) for `parseISO` compatibility; store as IST
+- **Never create files in the repo root** — every new doc/script/data file goes in its folder with a unique, descriptive name (see [File Organization](#file-organization-mandatory))
 
 ## Code Style
 

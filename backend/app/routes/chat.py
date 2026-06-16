@@ -31,7 +31,7 @@ async def chat_endpoint(request: ChatRequest, user: dict = Depends(require_activ
 
     try:
         messages = [m.model_dump() for m in request.messages]
-        reply, refresh_needed = chatbot.run_chat(messages, db)
+        reply, refresh_needed = chatbot.run_chat(messages, db, user["sub"])
         return {"reply": reply, "refresh_needed": refresh_needed}
     except Exception as e:
         print(f"[ERROR] Chat endpoint failed: {type(e).__name__}: {e}")
