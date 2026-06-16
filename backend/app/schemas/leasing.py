@@ -50,7 +50,7 @@ class ListingUpdate(BaseModel):
 class ListingResponse(BaseModel):
     id: int
     uuid: UUID
-    property_group_id: UUID
+    property_group_id: Optional[UUID] = None
     flat_uuid: UUID
     flat_number: str
     title: Optional[str] = None
