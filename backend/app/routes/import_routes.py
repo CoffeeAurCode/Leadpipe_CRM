@@ -21,23 +21,36 @@ router = APIRouter(prefix="/import", tags=["Import"])
 MAX_ROWS = 1000
 MAX_FILE_BYTES = 5 * 1024 * 1024
 
-PROPERTIES_REQUIRED = {"property_name", "building_name", "flat_number"}
-PROPERTIES_OPTIONAL = {"property_address", "address", "street_address", "city", "state", "country", "floor_number", "bedrooms", "bathrooms"}
+# Only flat_number is mandatory. A row WITH a building_name creates a unit inside a
+# property/building; a row WITHOUT a building_name creates a STANDALONE unit
+# (building_id NULL) owned directly by the importing manager.
+PROPERTIES_REQUIRED = {"flat_number"}
+PROPERTIES_OPTIONAL = {
+    "property_name", "building_name", "property_address", "address",
+    "street_address", "address_line", "city", "state", "country",
+    "floor_number", "bedrooms", "bathrooms", "living_rooms", "kitchen",
+    "tenant_name", "tenant_phone", "rent_amount", "lease_start_date",
+}
 TENANTS_REQUIRED = {"name", "phone", "flat_number"}
 TENANTS_OPTIONAL = {"email", "lease_start_date", "lease_end_date", "rent_amount", "rent_status", "manager_notes"}
 
 _SCHEMA = {
     "properties": {
         "required": {
-            "property_name": "Top-level property group name (e.g. Sunrise Towers)",
-            "building_name": "Building inside the property (e.g. Block A)",
             "flat_number": "Unit identifier — letters and numbers only (e.g. A101)",
         },
         "optional": {
+            "property_name": "Top-level property group name — LEAVE BLANK for standalone units (bungalow/house)",
+            "building_name": "Building inside the property — LEAVE BLANK for standalone units",
             "property_address": "Street address of the property",
             "floor_number": "Integer floor number",
             "bedrooms": "Number of bedrooms (integer)",
             "bathrooms": "Number of bathrooms (integer)",
+            "living_rooms": "Number of living rooms (integer)",
+            "kitchen": "Number of kitchens (integer)",
+            "tenant_name": "Tenant full name — fill to mark the unit occupied, leave blank for vacant",
+            "tenant_phone": "Tenant phone — required alongside tenant_name to create the tenant",
+            "rent_amount": "Monthly rent as a plain number (only used when a tenant is given)",
         },
     },
     "tenants": {
@@ -72,6 +85,53 @@ def _find_invalid_flat_numbers(rows: list[dict]) -> list[dict]:
         if orig and _INVALID_FLAT_RE.search(orig) and orig not in seen:
             seen[orig] = _strip_flat_number(orig)
     return [{"original": k, "sanitized": v} for k, v in seen.items()]
+
+
+def _flat_attrs_from_row(row: dict) -> dict:
+    """Pull the optional unit attributes (numbers + structured address) out of a CSV row."""
+    payload: dict = {}
+    for field in ("floor_number", "bedrooms", "bathrooms", "living_rooms", "kitchen"):
+        raw = row.get(field, "")
+        if raw:
+            try:
+                payload[field] = int(raw)
+            except ValueError:
+                pass
+    for field in ("street_address", "address_line", "city", "state", "country"):
+        val = row.get(field, "")
+        if val:
+            payload[field] = val
+    return payload
+
+
+def _maybe_create_tenant_and_rent(db, row: dict, flat: dict, skipped: list, errors: list, i: int) -> None:
+    """If the row carries tenant_name + tenant_phone, create the tenant, mark the unit
+    occupied, and (optionally) add an active rent record. Blank tenant cols => vacant unit."""
+    name = row.get("tenant_name", "").strip()
+    phone = row.get("tenant_phone", "").strip()
+    if not (name and phone):
+        return  # vacant — nothing to do
+    flat_uuid = flat["uuid"]
+    try:
+        t = db.table("tenants").insert({"name": name, "phone": phone, "flat_uuid": flat_uuid}).execute()
+        if not t.data:
+            errors.append(f"Row {i}: unit created but tenant could not be added")
+            return
+        db.table("flats").update({"tenant_uuid": t.data[0]["uuid"], "occupied": True}).eq("uuid", flat_uuid).execute()
+    except Exception as exc:
+        errors.append(f"Row {i}: unit created but tenant failed — {clean_db_error(exc)}")
+        return
+    rent_raw = row.get("rent_amount", "").strip()
+    if rent_raw:
+        try:
+            db.table("rents").insert({
+                "flat_uuid": flat_uuid,
+                "monthly_rent": float(rent_raw),
+                "effective_from": row.get("lease_start_date", "") or str(date.today()),
+                "is_active": True,
+            }).execute()
+        except (ValueError, TypeError):
+            skipped.append(f"Row {i} ({name}): rent_amount '{rent_raw}' is not a number — tenant added without rent")
 
 
 # ── Parsers ───────────────────────────────────────────────────────────────────
@@ -293,8 +353,36 @@ async def import_properties(
                 flat_number = _strip_flat_number(flat_number)
             prop_address  = row.get("property_address", "") or row.get("address", "")
 
-            if not prop_name or not building_name or not flat_number:
-                errors.append(f"Row {i}: missing required value (property_name, building_name or flat_number)")
+            if not flat_number:
+                errors.append(f"Row {i}: missing required value (flat_number)")
+                continue
+
+            # ── Standalone unit: no building_name → building-less flat owned directly by the manager
+            if not building_name:
+                existing_flat = (
+                    db.table("flats")
+                    .select("uuid")
+                    .ilike("flat_number", flat_number)
+                    .is_("building_id", "null")
+                    .execute()
+                )
+                if existing_flat.data:
+                    skipped.append(f"Row {i}: standalone unit {flat_number} already exists")
+                    continue
+                flat_payload: dict = {
+                    "flat_number": flat_number.upper(),
+                    "building_id": None,
+                    "manager_id": user["sub"],
+                    **_flat_attrs_from_row(row),
+                }
+                created = db.table("flats").insert(flat_payload).execute()
+                created_flats += 1
+                _maybe_create_tenant_and_rent(db, row, created.data[0], skipped, errors, i)
+                continue
+
+            # ── Building-attached unit: a building needs a parent property
+            if not prop_name:
+                errors.append(f"Row {i}: building_name is set but property_name is missing")
                 continue
 
             prop_key = prop_name.lower()
@@ -352,21 +440,11 @@ async def import_properties(
                 "building_id": building_id,
                 "flat_number": flat_number.upper(),
                 "manager_id": user["sub"],
+                **_flat_attrs_from_row(row),
             }
-            for field in ("floor_number", "bedrooms", "bathrooms"):
-                raw = row.get(field, "")
-                if raw:
-                    try:
-                        flat_payload[field] = int(raw)
-                    except ValueError:
-                        pass
-            for field in ("street_address", "city", "state", "country"):
-                val = row.get(field, "")
-                if val:
-                    flat_payload[field] = val
-
-            db.table("flats").insert(flat_payload).execute()
+            created = db.table("flats").insert(flat_payload).execute()
             created_flats += 1
+            _maybe_create_tenant_and_rent(db, row, created.data[0], skipped, errors, i)
 
         except Exception as exc:
             errors.append(f"Row {i}: {clean_db_error(exc)}")

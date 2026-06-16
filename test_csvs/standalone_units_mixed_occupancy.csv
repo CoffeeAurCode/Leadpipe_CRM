@@ -1,0 +1,5 @@
+flat_number,street_address,city,state,country,bedrooms,bathrooms,living_rooms,kitchen,tenant_name,tenant_phone,rent_amount,lease_start_date
+HOUSE101,4821 Rue Sherbrooke,Montreal,Quebec,Canada,3,2,1,1,Marie Tremblay,+15145550101,2200,2026-03-01
+BUNG22,77 Avenue des Pins,Montreal,Quebec,Canada,2,1,1,1,,,,
+VILLA9,1290 Boulevard Saint-Laurent,Montreal,Quebec,Canada,4,3,2,1,Liam OConnor,+15145550909,3500,2026-05-15
+COTTAGE1,15 Chemin du Lac,Laval,Quebec,Canada,1,1,1,1,,,,

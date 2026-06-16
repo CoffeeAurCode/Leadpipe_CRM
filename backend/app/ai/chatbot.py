@@ -373,6 +373,8 @@ def execute_tool(tool_name: str, args: dict, db: Client, manager_id: str | None 
                 return "Missing required field: flat_number."
             if not building_name:
                 return "Missing required field: building_name."
+            if not manager_id:
+                return "Cannot create a unit without an authenticated manager."
 
             # Look up building by name
             building_res = db.table("buildings").select("id, name, address").ilike("name", f"%{building_name}%").execute()
@@ -388,9 +390,7 @@ def execute_tool(tool_name: str, args: dict, db: Client, manager_id: str | None 
             if existing.data:
                 return f"A unit with flat number '{flat_number}' already exists."
 
-            payload = {"flat_number": flat_number, "building_id": building_id}
-            if manager_id:
-                payload["manager_id"] = manager_id
+            payload = {"flat_number": flat_number, "building_id": building_id, "manager_id": manager_id}
             if address:
                 payload["address"] = address
 
