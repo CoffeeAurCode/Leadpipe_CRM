@@ -487,22 +487,26 @@ async def create_listing(
     if flat.get("is_listed"):
         raise HTTPException(status_code=400, detail="This unit already has an active listing. Remove the existing listing before creating a new one.")
 
-    building_resp = (
-        db.table("buildings")
-        .select("property_id")
-        .eq("id", flat["building_id"])
-        .limit(1)
-        .execute()
-    )
-    if not building_resp.data:
-        raise HTTPException(status_code=400, detail="Flat is not linked to a building")
-
-    property_group_id = str(building_resp.data[0]["property_id"])
+    # Standalone units have no building → no property group. Building-attached units
+    # resolve the property group via the building chain.
+    property_group_id = None
+    if flat.get("building_id"):
+        building_resp = (
+            db.table("buildings")
+            .select("property_id")
+            .eq("id", flat["building_id"])
+            .limit(1)
+            .execute()
+        )
+        if not building_resp.data:
+            raise HTTPException(status_code=400, detail="Flat is not linked to a building")
+        property_group_id = str(building_resp.data[0]["property_id"])
 
     payload = body.model_dump(exclude_none=True)
     payload["flat_uuid"] = str(body.flat_uuid)
     payload["flat_number"] = flat_number
-    payload["property_group_id"] = property_group_id
+    if property_group_id:
+        payload["property_group_id"] = property_group_id
     payload["manager_id"] = user.get("sub")
 
     for col in ("street_address", "city", "state", "country"):

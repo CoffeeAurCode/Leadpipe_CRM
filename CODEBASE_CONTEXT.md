@@ -268,7 +268,7 @@ PropertyGroup (properties_list)
 |---|---|---|
 | id | int PK | |
 | uuid | UUID UNIQUE | |
-| property_group_id | UUID | FK → properties_list |
+| property_group_id | UUID | FK → properties_list. **Nullable** (migration 030) — standalone (building-less) units have no property group; `create_listing` omits it and ownership/search fall back to `manager_id` |
 | flat_uuid | UUID | FK → flats |
 | flat_number | text | Denormalized |
 | title | text | |
@@ -624,7 +624,7 @@ Common to all lease webhooks:
 | Method | Path | Description |
 |---|---|---|
 | GET | `/leasing/listings` | List manager's **active** listings only (`is_active=true`); newest first |
-| POST | `/leasing/listings` | Create listing — looks up flat, rejects with 400 if flat is occupied (`tenant_uuid` IS NOT NULL or `occupied=true`) or already listed (`is_listed=true`); resolves property_group_id; sets `is_listed=true` on flat after insert |
+| POST | `/leasing/listings` | Create listing — looks up flat, rejects with 400 if flat is occupied (`tenant_uuid` IS NOT NULL or `occupied=true`) or already listed (`is_listed=true`); resolves `property_group_id` via the building chain **only when `building_id` is set** (standalone units get NULL `property_group_id`); sets `is_listed=true` on flat after insert |
 | PATCH | `/leasing/listings/{listing_uuid}` | Update listing fields; if `is_active=false` is set, also sets `is_listed=false` on the flat |
 | DELETE | `/leasing/listings/{listing_uuid}` | Hard delete; sets `is_listed=false` on the flat before deleting |
 | GET | `/leasing/leads?listing_uuid=&qualification_status=` | List leads scoped to manager's property groups; `listing_uuid` filter matches both `listing_uuid` and `interested_listing_ids` contains |
