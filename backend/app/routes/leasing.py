@@ -12,6 +12,7 @@ from app.db.session import get_service_db
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
 from app.schemas.leasing import ListingCreate, ListingUpdate, ListingResponse, LeadUpdate, LeadResponse
+from app.services.city_matching import normalize_place, city_matches
 
 router = APIRouter(prefix="/leasing", tags=["Leasing"])
 
@@ -169,8 +170,13 @@ async def find_units(
 
         results = q.limit(50).execute()
         listings = results.data or []
+        available_cities = sorted({
+            (r.get("city") or "").strip()
+            for r in listings
+            if (r.get("city") or "").strip()
+        })
         if not listings:
-            return {"found": False, "count": 0, "units": []}
+            return {"found": False, "count": 0, "units": [], "available_cities": []}
 
         building_ids = list({
             r["flats"]["building_id"]
@@ -189,6 +195,9 @@ async def find_units(
                     property_rows[p["id"]] = p
 
         query_lower = query.lower()
+        tokens = [t for t in query_lower.split() if len(t) > 2]
+        query_norm = normalize_place(query)
+        norm_tokens = [nt for t in tokens if (nt := normalize_place(t))]
         matches = []
         for r in listings:
             flat = r.get("flats") or {}
@@ -207,8 +216,13 @@ async def find_units(
                 prop_group.get("name") or "",
             ])).lower()
 
-            tokens = [t for t in query_lower.split() if len(t) > 2]
-            if any(tok in haystack for tok in tokens):
+            city_norm = normalize_place(r.get("city") or "")
+            substring_hit = any(tok in haystack for tok in tokens)
+            city_hit = bool(city_norm) and (
+                city_matches(query_norm, city_norm)
+                or any(city_matches(t, city_norm) for t in norm_tokens)
+            )
+            if substring_hit or city_hit:
                 matches.append({
                     "listing_uuid": r["uuid"],
                     "flat_number": r["flat_number"],
@@ -228,11 +242,11 @@ async def find_units(
                 })
 
         matches = matches[:5]
-        return {"found": bool(matches), "count": len(matches), "units": matches}
+        return {"found": bool(matches), "count": len(matches), "units": matches, "available_cities": available_cities}
 
     except Exception as e:
         print(f"[ERROR] find_units: {e}")
-        return {"found": False, "count": 0, "units": []}
+        return {"found": False, "count": 0, "units": [], "available_cities": []}
 
 
 @router.get("/search")
@@ -426,8 +440,6 @@ async def search_listings(
             q = q.lte("monthly_rent", budget_filter)
         if available_before:
             q = q.lte("available_from", available_before)
-        if city_filter:
-            q = q.ilike("city", f"%{city_filter}%")
         if state_filter:
             q = q.ilike("state", f"%{state_filter}%")
         if quebec_size_filter:
@@ -436,6 +448,9 @@ async def search_listings(
         results = q.order("monthly_rent").limit(20).execute()
         rows = results.data or []
 
+        if city_filter:
+            city_query_norm = normalize_place(city_filter)
+            rows = [r for r in rows if city_matches(city_query_norm, normalize_place(r.get("city") or ""))]
         if bedrooms_filter is not None:
             rows = [r for r in rows if (r.get("flats") or {}).get("bedrooms") == bedrooms_filter]
         if bathrooms_filter is not None:
