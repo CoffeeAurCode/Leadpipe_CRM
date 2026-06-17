@@ -1,0 +1,6 @@
+flat_number,street_address,city,state,country,bedrooms,bathrooms,living_rooms,kitchen,tenant_name,tenant_phone,rent_amount,lease_start_date
+STDTEST01,12 Rue Vacante,Montreal,Quebec,Canada,2,1,1,1,,,,
+STDTEST02,48 Avenue Libre,Montreal,Quebec,Canada,1,1,1,1,,,,
+STDTEST03,310 Chemin du Verger,Laval,Quebec,Canada,3,2,1,1,,,,
+STDTEST04,7 Boulevard Occupe,Montreal,Quebec,Canada,4,3,2,1,Camille Roy,+15145559901,3100,2026-07-01
+STDTEST05,221 Rue Saint-Denis,Montreal,Quebec,Canada,2,2,1,1,Noah Beaulieu,+15145559902,2050,2026-07-15

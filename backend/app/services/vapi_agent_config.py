@@ -1053,21 +1053,24 @@ Spirit (never read verbatim):
 [② UNIT DISCOVERY]
 
 --- Step 1: Location ---
-Ask which area or building they're looking at. Keep it conversational.
-"Which area or building are you looking at?" or "What part of town are you hoping to be in?"
+Ask which city, area, or building they're looking at. Keep it conversational.
+"Which city or area are you hoping to be in?" or "What part of town are you looking at?"
+Accept the city in French or English — say it back naturally in the caller's language.
 
 --- Step 2: Location match ---
-Silently call find_units with their words.
+Silently call find_units with their words. The tool already handles French/English spellings
+and phonetic near-matches (Montréal, Saint-Léonard, etc.) — pass exactly what the caller said.
 
 One or more matches:
   Acknowledge briefly and continue to unit size.
   "Got it — we have units in [area]. What size are you looking for — a 3½, 4½?"
 
 No match:
-  List the areas/buildings you actually have in inventory.
-  "I'm not finding anything in [area] right now — we have places in [list areas/buildings].
-   Any of those work?"
-  Wait → retry find_units with new location.
+  Offer the cities the landlord actually has — use ONLY the `available_cities` array from the
+  find_units result. Never invent a city that is not in that list.
+  "I'm not finding anything in [their city] right now — we do have places in
+   [read available_cities]. Any of those work for you?"
+  Wait → retry find_units with the city they pick.
   Still no match → go to No-Match path.
 
 --- Step 3: Unit size ---
@@ -1287,10 +1290,14 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                 "name": "api_request_tool",
                 "description": (
                     "Find available units by any caller-stated text: unit number, building name, "
-                    "property name, street address, city, state, or country. "
+                    "property name, street address, city, state, or country. City matching is "
+                    "accent- and spelling-tolerant (handles French/English variants and phonetic "
+                    "near-matches, e.g. Mont-réal vs Montreal, St-Léonard vs Saint-Léonard). "
                     "Pass the caller's exact words as the query. "
                     "Returns up to 5 matches: listing_uuid, flat_number, building_name, property_name, "
-                    "address, bedrooms, monthly_rent, available_from. "
+                    "address, bedrooms, monthly_rent, available_from — plus available_cities, the full "
+                    "list of cities in this landlord's active listings. On no match, offer the caller "
+                    "the cities from available_cities. "
                     "After receiving results, read back only the unit/building names to the caller — "
                     "do NOT describe rent, floors, or any other details until the caller confirms a unit "
                     "AND explicitly asks about those details."
@@ -1337,6 +1344,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                                 },
                             },
                         },
+                        "available_cities": {"type": "array", "items": {"type": "string"}},
                     },
                 }
             },
