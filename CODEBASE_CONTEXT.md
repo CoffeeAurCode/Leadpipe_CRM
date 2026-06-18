@@ -183,7 +183,7 @@ PropertyGroup (properties_list)
 | id | int | Legacy PK |
 | flat_number | text UNIQUE | Normalized to UPPER |
 | address, floor_number | text/int | `address` is legacy and **nullable** — `create_flat`/import never send it, so it is NOT the cause of standalone-unit insert failures |
-| street_address, address_line, city, state | text | Structured address (migration 022); auto-filled from parent building on frontend |
+| street_address, address_line, city, state | text | Structured address (migration 022); auto-filled from parent building on frontend. `create_flat` also inherits `street_address`/`city`/`state` (+`country`) from the building server-side when the form leaves them blank; `address_line` (additional line) is per-unit only and never inherited |
 | country | text | Default 'Canada' |
 | bedrooms, bathrooms | int | |
 | living_rooms | int | Default 1 (migration 028) |
@@ -444,11 +444,11 @@ Computed fields on GET (from `TenantResponse` schema):
 |---|---|---|
 | POST | `/flats/verify-phone` | **VAPI endpoint** — verifies caller phone matches tenant; returns `{status: valid/invalid/vacant}` |
 | POST | `/flats/identify-caller` | VAPI — identify caller by phone number |
-| POST | `/flats` | Create flat |
+| POST | `/flats` | Create flat — `living_rooms`/`kitchen` default to **1** when omitted; address fields inherit from the parent building when blank (see flats table note) |
 | GET | `/flats` | List flats (optional `?vacant=true`, `?not_listed=true`); when `vacant=true` uses PostgREST nested join to include `building_name` (from `buildings.name`) and `property_name` (from `properties_list.name`) in each row; `not_listed=true` (requires `vacant=true`) further filters to `is_listed=false` flats only — used by AddListingModal dropdown; non-vacant path returns raw flat rows |
 | GET | `/flats/{uuid}/details` | Single flat with tenant details |
 | GET | `/flats/{flat_number}` | Flat by flat number |
-| PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT); ADD_TENANT nullifies leads that referenced the listing, **deletes** the `lease_listings` row, sets `is_listed=false`, and auto-sets rent from listing's `monthly_rent` |
+| PATCH | `/flats/{flat_uuid}` | Update flat + tenant action (ADD_TENANT / REMOVE_TENANT / UPDATE_TENANT); ADD_TENANT nullifies leads that referenced the listing, **deletes** the `lease_listings` row, sets `is_listed=false`, and auto-sets rent from listing's `monthly_rent`. When a changed flat field is one of the unit columns mirrored on `lease_listings` (`street_address`/`city`/`state`/`country`/`bedrooms`/`bathrooms`/`living_rooms`/`kitchen`/`quebec_size`), the active listing's denormalized copy is updated in the same call (svc client) to keep flats ↔ listing in sync; `address_line` is not stored on listings so it is not synced |
 | DELETE | `/flats/bulk` | Bulk delete flats by UUID list; body `{uuids: [...]}`; returns `{deleted, errors}` |
 | DELETE | `/flats/{flat_uuid}` | Delete flat (cascade: lease_listings → rents → tenant → flat) |
 | PATCH | `/flats/{flat_uuid}/assign-tenant` | Assign existing tenant to flat (bidirectional link); fetches active listing's `monthly_rent` first, nullifies any leads that referenced it, **deletes** the `lease_listings` row, sets `is_listed=false` on flat, then if listing had a rent value auto-inserts an active rent record for the flat — no-op if no listing exists |
