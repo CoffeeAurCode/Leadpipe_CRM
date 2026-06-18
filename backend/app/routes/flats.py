@@ -613,26 +613,37 @@ async def create_flat(
                 )
         
         # ========== STEP 4: CREATE FLAT ==========
+        # Units inside a building inherit its street/city/state/country when the form
+        # leaves them blank. address_line (additional line) is always per-unit and is
+        # never inherited — it stays empty unless the manager fills it in.
+        if building_id:
+            bldg_resp = db.table("buildings").select("street_address, city, state, country").eq("id", building_id).limit(1).execute()
+            if bldg_resp.data:
+                bldg = bldg_resp.data[0]
+                if not street_address: street_address = bldg.get("street_address")
+                if not city: city = bldg.get("city")
+                if not state: state = bldg.get("state")
+                if bldg.get("country"): country = bldg["country"]
+
+        lr_value = living_rooms if living_rooms is not None else 1
+        k_value = kitchen if kitchen is not None else 1
+
         flat_payload = {
             "flat_number": flat_number_normalized,
             "address": address,
             "floor_number": floor_number,
             "bedrooms": bedrooms,
             "bathrooms": bathrooms,
+            "living_rooms": lr_value,
+            "kitchen": k_value,
             "image_url": image_url,
             "building_id": building_id if building_id else None,
             "manager_id": user["sub"],
             "tenant_uuid": None,
             "occupied": False,
         }
-        if living_rooms is not None:
-            flat_payload["living_rooms"] = living_rooms
-        if kitchen is not None:
-            flat_payload["kitchen"] = kitchen
         if bedrooms is not None and bathrooms is not None:
-            lr = living_rooms if living_rooms is not None else 1
-            k = kitchen if kitchen is not None else 1
-            flat_payload["quebec_size"] = compute_quebec_size(bedrooms, lr, k, bathrooms)
+            flat_payload["quebec_size"] = compute_quebec_size(bedrooms, lr_value, k_value, bathrooms)
         if street_address: flat_payload["street_address"] = street_address
         if address_line: flat_payload["address_line"] = address_line
         if city: flat_payload["city"] = city
@@ -883,6 +894,15 @@ async def update_flat_details(
             if not update_res.data:
                  raise HTTPException(status_code=500, detail="Failed to update flat details")
             final_flat = update_res.data[0]
+
+            # Keep an active listing's denormalized copy of the unit in sync with the flat.
+            # lease_listings mirrors these flat columns (address_line is not stored there).
+            listing_sync_cols = ("street_address", "city", "state", "country",
+                                 "bedrooms", "bathrooms", "living_rooms", "kitchen", "quebec_size")
+            listing_sync_payload = {c: flat_update_payload[c] for c in listing_sync_cols if c in flat_update_payload}
+            if listing_sync_payload:
+                listing_sync_payload["updated_at"] = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
+                svc.table("lease_listings").update(listing_sync_payload).eq("flat_uuid", flat_uuid).eq("is_active", True).execute()
         else:
             final_flat = current_flat
             
