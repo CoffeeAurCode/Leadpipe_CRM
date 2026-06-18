@@ -278,6 +278,7 @@ PropertyGroup (properties_list)
 | photo_urls | text[] | |
 | is_active | boolean | |
 | custom_rules | JSONB | `{max_occupants, income_required, pets_allowed, vegetarian_only, lease_term_months, custom_question}` |
+| street_address, city, state, country | text | Denormalized from flat at listing creation; kept in sync by `PATCH /flats/{uuid}`. Exposed by `GET /leasing/listings` (in `ListingResponse`) and rendered on each listing card in `LeasingTab` |
 | bedrooms | int | Denormalized from flat at listing creation (migration 028) |
 | bathrooms | int | Denormalized from flat at listing creation (migration 028) |
 | living_rooms | int | Denormalized from flat at listing creation (migration 028) |
@@ -754,6 +755,7 @@ Includes a Pydantic `field_validator` on `phone` enforcing E.164 format (`^\+[1-
 ### `app/schemas/leasing.py`
 - `CustomRules` — JSONB config: `max_occupants`, `income_required`, `pets_allowed`, `vegetarian_only`, `lease_term_months`, `custom_question`
 - `ListingCreate / ListingUpdate / ListingResponse`
+- `ListingResponse` exposes the denormalized address fields `street_address`, `city`, `state`, `country` (plus `quebec_size`) — required because `GET /leasing/listings` does `select("*")` and Pydantic drops any column not declared on the response model; `LeasingTab` renders these on each listing card
 - `LeadUpdate / LeadResponse`
 - `LeadResponse.updated_at` is `Optional[datetime] = None` — the insert never sets this field and the DB column has no DEFAULT; making it optional prevents a Pydantic 500 on fresh rows
 
@@ -878,7 +880,7 @@ class Feature(str, Enum):
 | `components/VoiceStatsTab.jsx` | Voice call analytics |
 | `components/SmsWorkflow.jsx` | Bulk SMS broadcast to tenants |
 | `components/OnboardingChecklist.jsx` | Interactive onboarding checklist |
-| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export, Refresh button; on load calls `GET /property-groups/users/me/vapi-config` and shows one account-level lease line banner (active phone number / provisioning spinner / retry button); `pending` state shows "Stuck? Trigger setup" link alongside the spinner; `handleRetryProvisioning` debounced with `retrying` guard; auto-polls once after 8 s on retry click; leads table shows primary matched listing flat_number column; passes `listings` to `LeadDetailModal` |
+| `components/LeasingTab.jsx` | Leasing management page — listings CRUD, lead pipeline, metrics KPIs, CSV export, Refresh button; on load calls `GET /property-groups/users/me/vapi-config` and shows one account-level lease line banner (active phone number / provisioning spinner / retry button); `pending` state shows "Stuck? Trigger setup" link alongside the spinner; `handleRetryProvisioning` debounced with `retrying` guard; auto-polls once after 8 s on retry click; each listing card shows the unit address (street address + city, state, country via `MapPin`) and `quebec_size` badge (`Ruler` icon) alongside rent and availability; leads table shows primary matched listing flat_number column; passes `listings` to `LeadDetailModal` |
 
 ### Modals
 | File | Purpose |

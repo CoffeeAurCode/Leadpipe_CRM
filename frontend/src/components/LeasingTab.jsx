@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Pencil, Trash2, ExternalLink, Phone, BedDouble, Banknote, PhoneCall, RefreshCw, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, ExternalLink, Phone, BedDouble, Banknote, PhoneCall, RefreshCw, Loader2, MapPin, Ruler } from 'lucide-react';
 import {
     getListings, deleteListing,
     getLeaseLeads, deleteLead,
@@ -232,18 +232,37 @@ export default function LeasingTab() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {listings.map(listing => (
+                        {listings.map(listing => {
+                            const regionLine = [listing.city, listing.state, listing.country].filter(Boolean).join(', ');
+                            const hasAddress = listing.street_address || regionLine;
+                            return (
                             <div key={listing.uuid} className="bg-card border border-border rounded-xl p-4 space-y-3">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <p className="font-medium text-foreground">{listing.flat_number}</p>
-                                        {listing.title && <p className="text-xs text-muted-foreground">{listing.title}</p>}
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="font-medium text-foreground">{listing.flat_number}</p>
+                                            {listing.quebec_size && (
+                                                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium" title={t('leasing.listings.quebecSize')}>
+                                                    <Ruler className="w-3 h-3" />{listing.quebec_size}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {listing.title && <p className="text-xs text-muted-foreground truncate">{listing.title}</p>}
                                     </div>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${listing.is_active ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'}`}>
+                                    <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${listing.is_active ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'}`}>
                                         {listing.is_active ? t('leasing.listings.active') : t('leasing.listings.inactive')}
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                {hasAddress && (
+                                    <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                        <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-muted-foreground/70" />
+                                        <span className="leading-snug">
+                                            {listing.street_address && <span className="block text-foreground/90">{listing.street_address}</span>}
+                                            {regionLine}
+                                        </span>
+                                    </div>
+                                )}
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
                                     <span className="flex items-center gap-1"><Banknote className="w-3.5 h-3.5" />${Number(listing.monthly_rent).toLocaleString('en-CA')}/mo</span>
                                     {listing.available_from && <span className="flex items-center gap-1"><ExternalLink className="w-3.5 h-3.5" />{t('leasing.listings.from')} {listing.available_from}</span>}
                                 </div>
@@ -258,7 +277,8 @@ export default function LeasingTab() {
                                     </button>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </section>
