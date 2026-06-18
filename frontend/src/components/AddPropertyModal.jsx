@@ -207,9 +207,10 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Street Address</label>
+                                    <label className="block text-sm font-medium mb-2">Street Address <span className="text-red-500">*</span></label>
                                     <input
                                         type="text"
+                                        required
                                         value={formData.street_address}
                                         onChange={(e) => { setFormData({ ...formData, street_address: e.target.value }); setAddressAutoFilled(false); }}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
@@ -233,9 +234,10 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">City</label>
+                                    <label className="block text-sm font-medium mb-2">City <span className="text-red-500">*</span></label>
                                     <input
                                         type="text"
+                                        required
                                         value={formData.city}
                                         onChange={(e) => { setFormData({ ...formData, city: e.target.value }); setAddressAutoFilled(false); }}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
@@ -249,9 +251,10 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     )}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Province / State</label>
+                                    <label className="block text-sm font-medium mb-2">Province / State <span className="text-red-500">*</span></label>
                                     <input
                                         type="text"
+                                        required
                                         value={formData.state}
                                         onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
@@ -259,9 +262,10 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Country</label>
+                                    <label className="block text-sm font-medium mb-2">Country <span className="text-red-500">*</span></label>
                                     <input
                                         type="text"
+                                        required
                                         value={formData.country}
                                         onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                                         className="w-full px-3 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
@@ -280,10 +284,11 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">{t('unit.bedrooms')}</label>
+                                    <label className="block text-sm font-medium mb-2">{t('unit.bedrooms')} <span className="text-red-500">*</span></label>
                                     <input
                                         type="number"
-                                        min="0"
+                                        required
+                                        min="1"
                                         max="10"
                                         value={formData.bedrooms}
                                         onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
@@ -292,9 +297,10 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">{t('unit.bathrooms')}</label>
+                                    <label className="block text-sm font-medium mb-2">{t('unit.bathrooms')} <span className="text-red-500">*</span></label>
                                     <input
                                         type="number"
+                                        required
                                         min="0"
                                         max="10"
                                         value={formData.bathrooms}
@@ -304,9 +310,10 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Living rooms</label>
+                                    <label className="block text-sm font-medium mb-2">Living rooms <span className="text-red-500">*</span></label>
                                     <input
                                         type="number"
+                                        required
                                         min="0"
                                         max="20"
                                         value={formData.living_rooms}
@@ -315,9 +322,10 @@ export function AddPropertyModal({ isOpen, onClose, onSuccess, initialBuildingId
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Kitchen</label>
+                                    <label className="block text-sm font-medium mb-2">Kitchen <span className="text-red-500">*</span></label>
                                     <input
                                         type="number"
+                                        required
                                         min="0"
                                         max="5"
                                         value={formData.kitchen}
