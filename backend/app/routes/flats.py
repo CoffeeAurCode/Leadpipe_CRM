@@ -569,17 +569,49 @@ async def create_flat(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="floor_number must be >= 0"
             )
-        
-        if bedrooms is not None and (bedrooms < 1 or bedrooms > 10):
+
+        if bedrooms is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="bedrooms is required"
+            )
+        if bedrooms < 1 or bedrooms > 10:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="bedrooms must be between 1 and 10"
             )
 
-        if bathrooms is not None and (bathrooms < 0 or bathrooms > 10):
+        if bathrooms is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="bathrooms is required"
+            )
+        if bathrooms < 0 or bathrooms > 10:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="bathrooms must be between 0 and 10"
+            )
+
+        if living_rooms is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="living_rooms is required"
+            )
+        if living_rooms < 0 or living_rooms > 20:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="living_rooms must be between 0 and 20"
+            )
+
+        if kitchen is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="kitchen is required"
+            )
+        if kitchen < 0 or kitchen > 5:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="kitchen must be between 0 and 5"
             )
         
         # ========== STEP 3: CHECK FOR DUPLICATES BEFORE ANY DB WRITES ==========
@@ -624,6 +656,19 @@ async def create_flat(
                 if not city: city = bldg.get("city")
                 if not state: state = bldg.get("state")
                 if bldg.get("country"): country = bldg["country"]
+
+        required_address = {
+            "street_address": street_address,
+            "city": city,
+            "state": state,
+            "country": country,
+        }
+        for field_name, field_value in required_address.items():
+            if not field_value or not str(field_value).strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"{field_name} is required"
+                )
 
         lr_value = living_rooms if living_rooms is not None else 1
         k_value = kitchen if kitchen is not None else 1

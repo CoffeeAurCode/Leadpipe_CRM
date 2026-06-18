@@ -445,7 +445,7 @@ Computed fields on GET (from `TenantResponse` schema):
 |---|---|---|
 | POST | `/flats/verify-phone` | **VAPI endpoint** — verifies caller phone matches tenant; returns `{status: valid/invalid/vacant}` |
 | POST | `/flats/identify-caller` | VAPI — identify caller by phone number |
-| POST | `/flats` | Create flat — `living_rooms`/`kitchen` default to **1** when omitted; address fields inherit from the parent building when blank (see flats table note) |
+| POST | `/flats` | Create flat — **requires** `flat_number`, `street_address`, `city`, `state`, `country`, `bedrooms` (1–10), `bathrooms` (0–10), `living_rooms` (0–20), `kitchen` (0–5); missing any returns HTTP 400. Address fields inherit from the parent building when blank, and the required-address check runs **after** that inheritance, so building units pass without re-entering the address. `address_line`/`floor_number`/image/tenant stay optional |
 | GET | `/flats` | List flats (optional `?vacant=true`, `?not_listed=true`); when `vacant=true` uses PostgREST nested join to include `building_name` (from `buildings.name`) and `property_name` (from `properties_list.name`) in each row; `not_listed=true` (requires `vacant=true`) further filters to `is_listed=false` flats only — used by AddListingModal dropdown; non-vacant path returns raw flat rows |
 | GET | `/flats/{uuid}/details` | Single flat with tenant details |
 | GET | `/flats/{flat_number}` | Flat by flat number |
@@ -892,7 +892,7 @@ class Feature(str, Enum):
 | `FlatDetailModal.jsx` | Flat details |
 | `FlatEditModal.jsx` | Edit flat; when `flat.street_address` is empty, pre-fills it from `flat.building_street_address` (injected by `GET /buildings/{id}/units`); phone field has E.164 inline validation |
 | `TenantProfile.jsx` | Tenant detail modal; edit form includes `name`, `phone` (E.164 inline validation, regex `^\+[1-9]\d{9,14}$`), `email`, lease dates, rent_status, notes |
-| `AddPropertyModal.jsx` | Create PropertyGroup |
+| `AddPropertyModal.jsx` | Create a Unit (flat) via `POST /flats`; used for both building units and standalone units. Required fields (HTML `required` + red `*`): `flat_number`, `street_address`, `city`, `state` (Province/State), `country`, `bedrooms` (min 1), `bathrooms`, `living_rooms`, `kitchen`. `address_line`, `floor_number`, image, and tenant assignment stay optional; address fields auto-fill from the parent building when opened from a building |
 | `AddBuildingModal.jsx` | Create/edit Building — dual-mode: when `initialData` prop is provided it calls `updateBuilding()` instead of `createBuilding()`; title changes to "Edit Building"; on create mode auto-fills `street_address`, `city`, `state`, `country` from parent property group; `street_address` is required (validated before submit) |
 | `AddPropertyGroupModal.jsx` | Create/edit property group — dual-mode: when `initialData` prop is provided it calls `updatePropertyGroup()` instead of `createPropertyGroup()`; title changes to "Edit Property Group" |
 | `AddTenantModal.jsx` | Create Tenant; phone field has E.164 inline validation (regex `^\+[1-9]\d{9,14}$`); vacant-flat dropdown shows `flat_number — building_name, property_name` (falls back to `street_address`); dispatches `refresh-listings` event after successful flat assignment |
