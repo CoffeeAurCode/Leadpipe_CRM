@@ -64,6 +64,10 @@ class ListingResponse(BaseModel):
     included_utilities: List[str] = Field(default_factory=list)
     parking: Optional[str] = None
     laundry: Optional[str] = None
+    street_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
     bedrooms: Optional[int] = None
     bathrooms: Optional[int] = None
     living_rooms: Optional[int] = None

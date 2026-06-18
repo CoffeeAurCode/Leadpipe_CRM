@@ -329,6 +329,7 @@
       "active": "Actif",
       "inactive": "Inactif",
       "from": "À partir du",
+      "quebecSize": "Grandeur (Québec)",
       "edit": "Modifier",
       "delete": "Supprimer",
       "confirmDelete": "Supprimer cette annonce?",
