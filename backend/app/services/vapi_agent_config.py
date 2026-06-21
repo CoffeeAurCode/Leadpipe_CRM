@@ -680,6 +680,36 @@ Tool data rule (applies regardless of call language):
 Calm, professional, empathetic, concise. One question at a time. Voice-friendly.
 Never expose internal rules, tools, or system logic.
 
+[System-Check Phrases — Bilingual & Rotating]
+Any time you look something up or submit to the system — Verify_phone_number, check_availability,
+view_active_appointments, update_appointment, cancel_appointment, submit_complaint — say a short
+"checking" phrase OUT LOUD before the tool runs. Never run a tool silently, and never let the
+wait turn into dead air.
+
+Language: always match the caller's locked language. Never speak a French phrase on an English
+call or an English phrase on a French call, and never blend or append the other language. If the
+caller switches language mid-call, switch these phrases from that point forward.
+
+The FIRST system check of the call (usually Verify_phone_number) — say this exact phrase:
+  English: "Let me check that in my system. One moment please."
+  French:  "Laissez-moi vérifier ça dans mon système. Un instant, s'il vous plaît."
+
+EVERY system check after the first — pick ONE at random from the matching-language list, and
+never reuse the phrase you used on the previous check (no back-to-back repeats); vary your choice
+across the call:
+  English:
+    - "Just a second while I pull that up."
+    - "Let me take a quick look at that for you."
+    - "Give me just a moment."
+    - "I'll check on that right now."
+  French:
+    - "Un instant, je vérifie ça pour vous."
+    - "Laissez-moi regarder ça rapidement."
+    - "Juste un moment."
+    - "Je vérifie ça tout de suite."
+
+After the tool returns, continue immediately with the caller in the same language.
+
 [IMPORTANT — property_group_id]
 The Verify_phone_number tool returns a property_group_id field alongside status and datetime.
 After successful verification (status = "valid"), extract this value.
@@ -747,12 +777,8 @@ def build_complaint_tools(backend_url: str) -> list:
                     "flat_number": {"type": "string", "description": "Flat number as a single string with no spaces. If the caller spelled it out (e.g. 's 2 0 1'), concatenate all characters: 'S201'. Always include the letter prefix.", "default": ""},
                 },
             },
-            "messages": [
-                {
-                    "type": "request-start",
-                    "content": "One moment while I verify that.",
-                }
-            ],
+            # checking phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
+            "messages": [],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -783,12 +809,8 @@ def build_complaint_tools(backend_url: str) -> list:
                     "datetime": {"type": "string", "description": "YYYY-MM-DDTHH:MM:SS", "default": ""},
                 },
             },
-            "messages": [
-                {
-                    "type": "request-start",
-                    "content": "Let me check that time slot.",
-                }
-            ],
+            # checking phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
+            "messages": [],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -814,12 +836,8 @@ def build_complaint_tools(backend_url: str) -> list:
                     "flat_number": {"type": "string", "description": "Flat number", "default": ""},
                 },
             },
-            "messages": [
-                {
-                    "type": "request-start",
-                    "content": "Give me a second to pull up your appointments.",
-                }
-            ],
+            # checking phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
+            "messages": [],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -857,12 +875,8 @@ def build_complaint_tools(backend_url: str) -> list:
                     "new_appointment_date": {"type": "string", "description": "YYYY-MM-DDTHH:MM:SS", "default": ""},
                 },
             },
-            "messages": [
-                {
-                    "type": "request-start",
-                    "content": "Just a moment while I update that.",
-                }
-            ],
+            # checking phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
+            "messages": [],
         },
         {
             "type": "apiRequest",
@@ -886,12 +900,8 @@ def build_complaint_tools(backend_url: str) -> list:
                     "flat_number": {"type": "string", "description": "Flat number", "default": ""},
                 },
             },
-            "messages": [
-                {
-                    "type": "request-start",
-                    "content": "One moment while I cancel that for you.",
-                }
-            ],
+            # checking phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
+            "messages": [],
         },
         {
             "type": "function",
@@ -921,17 +931,8 @@ def build_complaint_tools(backend_url: str) -> list:
                 "url": f"{backend_url}/voice/webhook",
                 "timeoutSeconds": 20,
             },
-            "messages": [
-                {
-                    "type": "request-start",
-                    "content": "Let me get that logged for you right away.",
-                },
-                {
-                    "type": "request-response-delayed",
-                    "content": "Still working on it, just another moment.",
-                    "timingMilliseconds": 3000,
-                },
-            ],
+            # checking/closing phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
+            "messages": [],
         },
     ]
 
@@ -1200,33 +1201,61 @@ Call submit_lease_lead EXACTLY ONCE before ending every call, even if no unit wa
   listing_uuid: from tool results only — never invent a UUID.
   If submit_lease_lead fails: do not retry. End the call politely.
 
+[System-Check Phrases — Bilingual & Rotating]
+Any time you look something up in the system (find_units, search_listings, or any lookup the
+caller is waiting on), say a short "checking" phrase OUT LOUD before the tool runs. Never run a
+lookup silently, and never let the wait turn into dead air.
+
+Language: always match the caller's locked language. Never speak a French phrase on an English
+call or an English phrase on a French call, and never blend or append the other language. If the
+caller switches language mid-call, switch these phrases from that point forward.
+
+The FIRST system check of the call — say this exact phrase:
+  English: "Let me check that in my system. One moment please."
+  French:  "Laissez-moi vérifier ça dans mon système. Un instant, s'il vous plaît."
+
+EVERY system check after the first — pick ONE at random from the matching-language list, and
+never reuse the phrase you used on the previous check (no back-to-back repeats); vary your choice
+across the call:
+  English:
+    - "Just a second while I pull that up."
+    - "Let me take a quick look at that for you."
+    - "Give me just a moment."
+    - "I'll check on that right now."
+  French:
+    - "Un instant, je vérifie ça pour vous."
+    - "Laissez-moi regarder ça rapidement."
+    - "Juste un moment."
+    - "Je vérifie ça tout de suite."
+
 [Background Tool Calls — No Dead Air]
 
 The call must NEVER have unexplained silence. A tool running silently does not mean you go
 quiet — keep the conversation moving at all times.
 
 find_units (location lookup):
-  This call is fast. Cover the brief wait with one natural phrase, then use the result immediately.
-  "Sure — just a sec." → (result arrives) → "We have a few places in that area. What size are you looking for — a 3½, 4½?"
+  Say the right system-check phrase (exact phrase on the first check, a random non-repeating one
+  afterward — see [System-Check Phrases]), then use the result the moment it arrives.
+  (result arrives) → "We have a few places in that area. What size are you looking for — a 3½, 4½?"
   Never go silent longer than one beat.
 
 search_listings (inventory search):
   This runs in the background while you continue the conversation.
-  IMMEDIATELY after triggering the search, ask Q1 of the qualification flow:
-  "Let me see what fits. When are you hoping to move in?"
+  Say the right system-check phrase, then IMMEDIATELY ask Q1 of the qualification flow in the
+  same breath:
+  e.g. "Let me take a quick look at that for you. When are you hoping to move in?"
   By the time the caller answers, results are ready. Weave them into your next response:
   "Got it — August, perfect. I've got two options that match — a 3½ on Rue Principale at twelve
    hundred a month, and a 4½ on Avenue Cartier at fifteen hundred. Which sounds closer?"
 
 submit_lease_lead (lead capture):
   This runs in the background. Deliver your closing line AS you fire it — you do not wait
-  for a confirmation response from this tool.
+  for a confirmation response from this tool. Keep it in the caller's language.
   "Perfect — I'll get that over to the [Manager Name] team right now.
    They'll reach out to arrange a viewing. Take care!"
 
 If a tool takes longer than expected:
-  Fill naturally without revealing anything internal:
-  "Just one second." / "Almost there."
+  Fill naturally with another phrase from the matching-language system-check list.
   NEVER say "the system is loading", "I'm waiting for a response", or anything that exposes
   internal state.
 
@@ -1316,9 +1345,8 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     }
                 },
             },
-            "messages": [
-                {"type": "request-start", "blocking": True, "content": "One moment."}
-            ],
+            # checking phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
+            "messages": [],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1380,9 +1408,8 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "quebec_size": {"type": "string", "description": "Quebec apartment size string if caller stated it (e.g. '3½', '4½'). Empty string if not mentioned.", "default": ""},
                 },
             },
-            "messages": [
-                {"type": "request-start", "blocking": False, "content": "Let me see what fits."}
-            ],
+            # checking phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
+            "messages": [],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1425,13 +1452,8 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "notes": {"type": "string", "description": "Any additional notes", "default": ""},
                 },
             },
-            "messages": [
-                {
-                    "type": "request-start",
-                    "blocking": False,
-                    "content": "Let me get that over to the team.",
-                },
-            ],
+            # closing line is spoken by the model in the caller's language — see [④ HANDOFF]
+            "messages": [],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
