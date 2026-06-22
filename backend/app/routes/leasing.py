@@ -12,7 +12,7 @@ from app.db.session import get_service_db
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
 from app.schemas.leasing import ListingCreate, ListingUpdate, ListingResponse, LeadUpdate, LeadResponse
-from app.services.city_matching import normalize_place, city_matches
+from app.services.city_matching import normalize_place, city_matches, rank_candidates
 
 router = APIRouter(prefix="/leasing", tags=["Leasing"])
 
@@ -149,6 +149,40 @@ async def find_listing(
         return {"found": False, "count": 0, "listings": []}
 
 
+def _empty_disambiguation(query: str) -> dict:
+    return {"needs_confirmation": False, "field": "city", "spoken": query, "candidates": []}
+
+
+def _build_city_disambiguation(query: str, listings: list, available_cities: list) -> dict:
+    """Banded 'did you mean X or Y?' over the manager's real cities.
+
+    Returns needs_confirmation=true ONLY when the spoken city is genuinely confusable
+    (CONFIRM band): a clear winner auto-accepts (no extra turn) and junk falls through
+    to available_cities. Each candidate carries its rent range so the prompt can
+    disambiguate homophones by rent (numeric, STT-safe) instead of by proper noun.
+    """
+    rank = rank_candidates(query, available_cities, field_name="city")
+    if rank.decision != "CONFIRM" or not rank.candidates:
+        return _empty_disambiguation(query)
+
+    rent_by_city: dict = {}
+    for r in listings:
+        c = (r.get("city") or "").strip()
+        if not c:
+            continue
+        rent_by_city.setdefault(normalize_place(c), []).append(float(r["monthly_rent"]))
+
+    candidates = []
+    for cand in rank.candidates:
+        rents = rent_by_city.get(normalize_place(cand.value), [])
+        candidates.append({
+            "value": cand.value,
+            "rent_low": int(min(rents)) if rents else None,
+            "rent_high": int(max(rents)) if rents else None,
+        })
+    return {"needs_confirmation": True, "field": "city", "spoken": query, "candidates": candidates}
+
+
 @router.get("/find-units")
 async def find_units(
     query: str = Query(...),
@@ -176,7 +210,7 @@ async def find_units(
             if (r.get("city") or "").strip()
         })
         if not listings:
-            return {"found": False, "count": 0, "units": [], "available_cities": []}
+            return {"found": False, "count": 0, "units": [], "available_cities": [], "disambiguation": _empty_disambiguation(query)}
 
         building_ids = list({
             r["flats"]["building_id"]
@@ -242,11 +276,18 @@ async def find_units(
                 })
 
         matches = matches[:5]
-        return {"found": bool(matches), "count": len(matches), "units": matches, "available_cities": available_cities}
+        disambiguation = _build_city_disambiguation(query, listings, available_cities)
+        return {
+            "found": bool(matches),
+            "count": len(matches),
+            "units": matches,
+            "available_cities": available_cities,
+            "disambiguation": disambiguation,
+        }
 
     except Exception as e:
         print(f"[ERROR] find_units: {e}")
-        return {"found": False, "count": 0, "units": [], "available_cities": []}
+        return {"found": False, "count": 0, "units": [], "available_cities": [], "disambiguation": _empty_disambiguation(query)}
 
 
 @router.get("/search")

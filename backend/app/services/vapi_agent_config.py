@@ -1062,17 +1062,33 @@ Accept the city in French or English — say it back naturally in the caller's l
 Silently call find_units with their words. The tool already handles French/English spellings
 and phonetic near-matches (Montréal, Saint-Léonard, etc.) — pass exactly what the caller said.
 
-One or more matches:
-  Acknowledge briefly and continue to unit size.
-  "Got it — we have units in [area]. What size are you looking for — a 3½, 4½?"
+Read the result in THIS order — disambiguation first, then matches, then no-match:
 
-No match:
-  Offer the cities the landlord actually has — use ONLY the `available_cities` array from the
-  find_units result. Never invent a city that is not in that list.
-  "I'm not finding anything in [their city] right now — we do have places in
-   [read available_cities]. Any of those work for you?"
-  Wait → retry find_units with the city they pick.
-  Still no match → go to No-Match path.
+A) disambiguation.needs_confirmation is TRUE → the city they said is confusable (one ambiguous real
+   city, or two+ near-homophones). Confirm BEFORE going further. Ask ONLY about disambiguation.candidates
+   — never drag in any other city. Disambiguate in a way the caller can answer with a NUMBER, a
+   yes/no, or an ordinal — NEVER by asking them to re-say a place name (the same accent that garbled
+   it will garble the answer too).
+     • Two+ candidates whose rents differ → disambiguate by RENT (most reliable):
+       "I've got two spots that sound close — one's around [rent_low of A] a month, the other's
+        about [rent_low of B]. Which one sounds right?"
+     • Two+ candidates with the same or missing rent → disambiguate by ORDINAL, enumerating slowly:
+       "I want to make sure I've got the right one — the first I mentioned, or the second?"
+     • A single weak candidate → quick yes/no: "Just to confirm — did you mean the one around
+       [rent] a month?"
+   Once the caller picks → retry find_units with the chosen city's name, then continue to unit size.
+
+B) Otherwise, one or more matches (found is true):
+   Acknowledge briefly and continue to unit size.
+   "Got it — we have units in [area]. What size are you looking for — a 3½, 4½?"
+
+C) No match (found is false and needs_confirmation is false):
+   Offer the cities the landlord actually has — use ONLY the `available_cities` array from the
+   find_units result. Never invent a city that is not in that list.
+   "I'm not finding anything in [their city] right now — we do have places in
+    [read available_cities]. Any of those work for you?"
+   Wait → retry find_units with the city they pick.
+   Still no match → go to No-Match path.
 
 --- Step 3: Unit size ---
 "What size are you looking for — a 3½, 4½, or would you rather say bedrooms?"
@@ -1327,6 +1343,9 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "address, bedrooms, monthly_rent, available_from — plus available_cities, the full "
                     "list of cities in this landlord's active listings. On no match, offer the caller "
                     "the cities from available_cities. "
+                    "Also returns disambiguation: when needs_confirmation is true the spoken city is "
+                    "confusable with two or more real cities (its candidates each carry rent_low/rent_high) "
+                    "— ask the caller to choose between ONLY those before going further (see [② UNIT DISCOVERY]). "
                     "After receiving results, read back only the unit/building names to the caller — "
                     "do NOT describe rent, floors, or any other details until the caller confirms a unit "
                     "AND explicitly asks about those details."
@@ -1373,6 +1392,25 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                             },
                         },
                         "available_cities": {"type": "array", "items": {"type": "string"}},
+                        "disambiguation": {
+                            "type": "object",
+                            "properties": {
+                                "needs_confirmation": {"type": "boolean"},
+                                "field": {"type": "string"},
+                                "spoken": {"type": "string"},
+                                "candidates": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "value": {"type": "string"},
+                                            "rent_low": {"type": "number"},
+                                            "rent_high": {"type": "number"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     },
                 }
             },
