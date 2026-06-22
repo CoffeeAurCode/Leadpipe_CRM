@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lease Agent (Max) — Call Diagnosis · 2026-06-22</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#1c2330; --muted:#5b6573; --line:#e3e7ee;
+    --accent:#2d6cdf; --ok:#177245; --okbg:#e7f5ec; --warn:#9a5b00; --warnbg:#fff3e0;
+    --bad:#b3261e; --badbg:#fdecec; --code:#0f172a; --codebg:#f1f3f7; --chip:#eef2fb;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px}
+  header.page{background:linear-gradient(135deg,#1f3a6e,#2d6cdf);color:#fff;border-radius:16px;
+    padding:28px 30px;box-shadow:0 8px 24px rgba(20,40,90,.18)}
+  header.page h1{margin:0 0 6px;font-size:26px;letter-spacing:-.2px}
+  header.page .sub{opacity:.92;font-size:15px}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .meta span{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);
+    padding:4px 10px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .quote{margin-top:16px;background:rgba(255,255,255,.12);border-left:3px solid #ffd479;
+    padding:10px 14px;border-radius:8px;font-style:italic;font-size:14.5px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px 26px;margin-top:22px;box-shadow:0 1px 2px rgba(20,40,90,.04)}
+  h2{font-size:20px;margin:2px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h3{font-size:16.5px;margin:20px 0 8px;color:#243049}
+  p{margin:10px 0}
+  .lead{font-size:16.5px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{background:var(--codebg);color:var(--code);padding:1px 6px;border-radius:5px;
+    font:13.5px/1.4 "SF Mono",ui-monospace,Consolas,Menlo,monospace}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#f3f6fc;font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.3px;color:#3a455c}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#fafbfe}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+  .t-ok{background:var(--okbg);color:var(--ok)}
+  .t-warn{background:var(--warnbg);color:var(--warn)}
+  .t-bad{background:var(--badbg);color:var(--bad)}
+  .t-pri{background:#e8edfb;color:#2447a8}
+  .callout{border-radius:10px;padding:14px 16px;margin:16px 0;font-size:14.5px}
+  .c-ok{background:var(--okbg);border:1px solid #bfe3cb}
+  .c-warn{background:var(--warnbg);border:1px solid #f3dcb0}
+  .c-info{background:#eef3fc;border:1px solid #cfdcf6}
+  .flow{background:var(--codebg);border:1px solid var(--line);border-radius:10px;
+    padding:16px;font:13px/1.5 "SF Mono",ui-monospace,Consolas,monospace;white-space:pre;overflow-x:auto;color:#243049}
+  ul{margin:10px 0;padding-left:22px}
+  li{margin:5px 0}
+  .verdict-grid td:first-child{font-weight:700;white-space:nowrap}
+  .small{font-size:13px;color:var(--muted)}
+  .who-max{color:#2447a8;font-weight:700}
+  .who-cal{color:#7a4b00;font-weight:700}
+  .who-tool{color:#177245;font-weight:700}
+  .footer{margin-top:30px;text-align:center;color:var(--muted);font-size:13px}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .toc a{background:var(--chip);padding:6px 12px;border-radius:8px;font-size:13.5px;font-weight:600}
+  @media print{body{background:#fff}section,header.page{box-shadow:none}.wrap{max-width:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page">
+  <h1>Lease Agent (Max) — Call Diagnosis</h1>
+  <div class="sub">“Pauses a lot / doesn’t understand me” · French partner test calls</div>
+  <div class="meta">
+    <span>📅 2026-06-22</span>
+    <span>🤖 Max · lease voice agent</span>
+    <span>📞 Transcript1.md · Transcript2.md</span>
+    <span>🏠 Lease_listing_shaun.csv</span>
+  </div>
+  <div class="quote">Partner’s report: “the agent was pausing a lot saying <b>one moment</b> a lot, and the agent was not understanding him.”</div>
+  <div class="toc">
+    <a href="#verdict">Verdict</a>
+    <a href="#method">Method</a>
+    <a href="#c1">Complaint 1 · Pausing</a>
+    <a href="#c2">Complaint 2 · Not understanding</a>
+    <a href="#compound">How they compound</a>
+    <a href="#secondary">Secondary findings</a>
+    <a href="#recs">Recommendations</a>
+    <a href="#appendix">Timelines</a>
+  </div>
+</header>
+
+<section id="verdict">
+  <h2>Verdict</h2>
+  <p class="lead"><b>Both complaints are confirmed by the transcripts.</b> They are two different problems with two different root causes, and they <b>compound each other</b>.</p>
+  <table class="verdict-grid">
+    <thead><tr><th>#</th><th>Complaint</th><th>Confirmed?</th><th>Root cause</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>“Pausing a lot / <em>one moment</em> a lot”</td>
+        <td><span class="tag t-bad">✅ Yes</span></td>
+        <td>The bilingual “system-check phrase” feature <b>shipped today</b> fires a stall phrase before <b>every</b> lookup, and the agent runs <code>find_units</code> on nearly every turn. Working as specified, but the <b>frequency</b> feels like constant stalling — and the model over-applies the phrase even on turns with no lookup.</td>
+        <td><span class="tag t-warn">By design · needs tuning</span></td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>“Not understanding him”</td>
+        <td><span class="tag t-bad">✅ Yes</span></td>
+        <td>Deepgram <code>language:"multi"</code> (<code>vapi_agent_config.py:289</code>) garbles Quebec-French speech — city names and short answers come back as English gibberish.</td>
+        <td><span class="tag t-warn">Known open issue · fix planned</span></td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout c-ok"><b>Good news:</b> Because Shaun’s portfolio is actually populated (unlike the 3 earlier <em>confounded</em> test calls), the <code>available_cities</code> fallback <b>recovered</b> call 2 despite the garble — the architecture works end-to-end here. The cost is extra turns, which feeds straight back into complaint 1.</div>
+</section>
+
+<section id="method">
+  <h2>Method &amp; sources</h2>
+  <ul>
+    <li>Read both transcripts turn-by-turn, including the <code>Find Units</code> tool events and timestamps.</li>
+    <li>Cross-checked the agent’s quotes against <code>Lease_listing_shaun.csv</code> (the 3 live listings).</li>
+    <li>Grounded the root causes in live config:
+      <ul>
+        <li>Transcriber: Deepgram <code>nova-3</code>, <code>language:"multi"</code>, <code>confidenceThreshold:0.4</code> (<code>vapi_agent_config.py:286-301</code>).</li>
+        <li>System-check phrases: <code>[System-Check Phrases — Bilingual &amp; Rotating]</code> (<code>:1204-1229</code>) + <code>[Background Tool Calls — No Dead Air]</code> (<code>:1231-1260</code>).</li>
+        <li>No-match fallback: offer <code>available_cities</code> (<code>:1069-1074</code>).</li>
+      </ul>
+    </li>
+    <li>Prior context (same system, same week):
+      <ul>
+        <li><code>voice_agent_bilingual_system_check_phrases_2026-06-22.md</code> — the stall-phrase feature was added <b>today</b>; static VAPI fillers were removed. Its own follow-up #1 was literally <em>“Test on real calls.”</em> These two calls are that test.</li>
+        <li><code>lease_agent_french_city_recognition_2026-06-22.md</code> + <code>lease_agent_french_city_stt_2026-06-18.md</code> — already diagnosed <code>multi</code> garbling French cities; the earlier 3 calls were <em>confounded</em> (no listings). Task 2 (STT fix) still open.</li>
+      </ul>
+    </li>
+  </ul>
+</section>
+
+<section id="c1">
+  <h2>Complaint 1 — “Pausing a lot, saying <em>one moment</em>” <span class="tag t-bad">✅ Confirmed</span></h2>
+  <h3>What the caller actually heard</h3>
+  <p>In <b>Transcript 2</b>, <em>every single</em> agent turn opens with a checking/stall phrase — 4 of them in ~85 seconds:</p>
+  <table>
+    <thead><tr><th>Time</th><th>Agent opener</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td>02:11:14</td><td>“Laissez-moi vérifier ça dans mon système. <b>Un instant s’il vous plaît.</b>”</td><td>Mandated FIRST-check phrase, <b>verbatim</b> (<code>:1215</code>)</td></tr>
+      <tr><td>02:11:33</td><td>“<b>Un instant, je vérifie ça pour vous</b>, parfait…”</td><td>Rotating phrase #1 (<code>:1226</code>)</td></tr>
+      <tr><td>02:11:52</td><td>“<b>Juste un moment</b>, nous avons un quatre et demi…”</td><td>Rotating phrase #3 (<code>:1228</code>) — <b>no <code>find_units</code> ran before this turn</b></td></tr>
+      <tr><td>02:12:16</td><td>“<b>Je vérifie ça tout de suite</b>, parfait…”</td><td>Rotating phrase #4 (<code>:1229</code>)</td></tr>
+    </tbody>
+  </table>
+  <p>In <b>Transcript 1</b>: “<b>1 moment.</b>” (02:30:04) as a standalone turn after <code>find_units</code>.</p>
+
+  <h3>Root cause</h3>
+  <p>This is the <b>direct, predictable side-effect of the feature shipped this morning</b>. The prompt now <em>mandates</em> a spoken checking phrase before every lookup and removed the old static VAPI filler. Two things make it feel like constant stalling:</p>
+  <ol>
+    <li><b>Lookup frequency is high.</b> <code>find_units</code> runs at the location step <b>and again after every city clarification</b> (<code>:1062</code> + the no-match “Wait → retry find_units” loop at <code>:1074</code>). In T2 it fired 3× (02:11:10, 02:11:30, 02:12:12) — once per garbled-then-corrected city — and each fire earns its own stall phrase. <b>Every STT miss = one more “un moment.”</b></li>
+    <li><b>The model over-applies the phrase to non-lookup turns.</b> At T2 02:11:52 it opens “<b>Juste un moment</b>” then immediately recites the rent — but there is <b>no <code>Find Units</code> event</b> between 02:11:30 and that turn. It already had the data; the stall was gratuitous.</li>
+  </ol>
+  <div class="callout c-info">The feature itself is <b>working to spec</b>: phrases are <b>French-locked</b>, <b>rotating</b>, and <b>never back-to-back repeats</b> (1st → #1 → #3 → #4). The problem is <b>density and misapplication</b>, not correctness.</div>
+  <p class="small">⚠️ The pauses are also genuinely <em>long</em> — T2 “Oui” 02:12:09 → reply 02:12:16 (~7s); T1 “Saint Lazole” 02:30:00 → “1 moment” 02:30:04 → answer 02:30:07. The stall phrase is papering over real tool-round-trip latency, so cutting the number of lookups helps latency <em>and</em> phrase count at once.</p>
+</section>
+
+<section id="c2">
+  <h2>Complaint 2 — “Not understanding him” <span class="tag t-bad">✅ Confirmed</span></h2>
+  <h3>The speech-to-text is garbling Quebec French</h3>
+  <p>The caller is a native French speaker. Deepgram <code>language:"multi"</code> mis-transcribes his speech into English-ish gibberish:</p>
+  <table>
+    <thead><tr><th>Caller almost certainly said</th><th>Transcribed as</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>Saint-Lazare (city)</td><td><b>“thing on low”</b></td><td>T1 02:29:39</td></tr>
+      <tr><td>Saint-Lazare</td><td><b>“Saint Lazole”</b></td><td>T1 02:30:00</td></tr>
+      <tr><td>(oui / short answer)</td><td><b>“Uh, we”</b> then <b>“we Wheat”</b></td><td>T1 02:31:00 / 02:31:06</td></tr>
+      <tr><td>Saint-Lazare</td><td><b>“Saint-L’Asor”</b></td><td>T2 02:11:01</td></tr>
+      <tr><td>Saint-Lazare</td><td><b>“Saint-Lavaure”</b></td><td>T2 02:11:27</td></tr>
+      <tr><td>quatre et demi (4½)</td><td><b>“Captain mi”</b></td><td>T2 02:11:44</td></tr>
+    </tbody>
+  </table>
+  <p>The garbled token then flows into the tool: the agent searched and <em>spoke back</em> “<b>Saint-LaSort</b>” / “<b>Saint-Laçore</b>” (T2 02:11:14) — i.e. it’s matching against noise, not the real city.</p>
+
+  <h3>Root cause</h3>
+  <p>Confirmed in config: <code>language:"multi"</code> (<code>vapi_agent_config.py:289</code>). This is the <b>exact failure mode already diagnosed</b> in <code>lease_agent_french_city_stt_2026-06-18.md</code>: in <code>multi</code>, French-accented Quebec proper nouns are mangled so badly that no downstream string-matcher can recover them (garbage in → garbage out). The planned fixes — Deepgram <b>keyterm prompting</b> (A1) and <b>LLM canonicalization</b> against the manager’s portfolio (B1) — are <b>not yet shipped</b>. <code>confidenceThreshold:0.4</code> also silently <em>drops</em> the worst tokens (see secondary finding 3).</p>
+
+  <h3>…but this time the fallback rescued the call</h3>
+  <div class="callout c-ok">
+    Unlike the earlier <em>confounded</em> calls (test managers had <b>no</b> listings → empty <code>available_cities</code>), Shaun’s portfolio is populated, so recovery engaged:
+    <ul>
+      <li>T2 02:11:14 — <code>find_units</code> on garbled “Saint-L’Asor” returned no match, and the agent correctly ran the <b>no-match → offer <code>available_cities</code></b> branch (<code>:1069-1073</code>): <em>“nous avons des logements à <b>Château Gué</b> et à <b>Saint-Laçore</b>”</em> — the real cities <b>Châteauguay</b> and <b>Saint-Lazare</b> from the CSV.</li>
+      <li>Caller picked Saint-Lazare, the second <code>find_units</code> matched, and the unit was quoted <b>correctly</b>: 4½, Saint-Lazare, <b>$1400/mo</b> (CSV row 84).</li>
+    </ul>
+    The matcher + <code>available_cities</code> fallback is the safety net — but it costs the caller 2–3 repeats of the city, which is exactly what “not understanding him” feels like, and each repeat triggers another stall phrase.
+  </div>
+</section>
+
+<section id="compound">
+  <h2>How the two complaints compound</h2>
+  <div class="flow">STT garbles the city  ─►  find_units no-match / wrong match  ─►  agent re-asks + re-runs find_units
+        ▲                                                                   │
+        │                                                                   ▼
+   caller repeats  ◄───────────  another mandated "un moment" stall phrase ─┘</div>
+  <p>Every STT miss forces an extra <code>find_units</code>, and every <code>find_units</code> earns another stall phrase. <b>Fixing the STT (complaint 2) directly reduces the number of lookups, which directly reduces the stall-phrase density (complaint 1).</b> They are not independent annoyances — #2 is a multiplier on #1.</p>
+</section>
+
+<section id="secondary">
+  <h2>Secondary findings</h2>
+  <ol>
+    <li><b>Company name renders blank in the T1 greeting.</b> T1: <em>“I’m Max, the AI leasing assistant <b>for.</b> Are you looking…”</em> — empty business-name variable. T2 rendered it fine (“Chantellery”). Same intermittent first-message bug flagged as open item #3 in the city-recognition session. Add a graceful fallback so it never says “…for.” blank.</li>
+    <li><b>The agent’s own French is sometimes broken (model output, not STT).</b>
+      <ul>
+        <li>T1 02:30:50: <em>“…juillet ça fonctionne… <b>bref c’est ce que votre propriétaire actuel sait que vous regardez pour déménager.</b>”</em> — the screening question came out malformed.</li>
+        <li>T1 02:31:04: <em>“<b>Tu n’es pas bien compris</b>…”</em> — grammatically wrong (should be <em>“Je n’ai pas bien compris”</em>) <b>and</b> switches <em>vous → tu</em> mid-call. <code>[Language Policy]</code> locks EN/FR but does <b>not</b> enforce <em>vous/tu</em> register.</li>
+      </ul>
+    </li>
+    <li><b>Back-to-back re-prompt into silence (T1).</b> 02:29:42 and 02:29:53 are two agent turns with no caller turn between, both re-asking for the city. The caller’s prior word (“thing on low”) was low-confidence and dropped by <code>confidenceThreshold:0.4</code> → it re-asked twice in 11s. Tune endpointing so a dropped token doesn’t trigger an immediate double re-prompt.</li>
+    <li><b>CSV data hygiene (verify):</b>
+      <ul>
+        <li>Agent quoted <em>“au <b>carré Saint-Laurent</b> à Saint-Lazare”</em> but CSV row 84 <code>street_address</code> = <b>“2803 Rue Du Comtois”</b>. Confirm the source so the agent doesn’t quote a building that contradicts the address.</li>
+        <li><code>state</code> inconsistent: row 84 = <b>“QC”</b>, row 85 = <b>“Quebec”</b>. Normalize.</li>
+        <li>Row 83 (flat 21, $1300, 3bd/2ba) has <b>no city, no street_address, no <code>available_from</code></b> — can’t surface sensibly in <code>find_units</code>. Backfill or deactivate.</li>
+      </ul>
+    </li>
+  </ol>
+</section>
+
+<section id="recs">
+  <h2>Recommendations (ranked)</h2>
+  <table>
+    <thead><tr><th>Pri</th><th>Fix</th><th>Why / where</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag t-bad">P0</span></td><td><b>Ship the STT city fix.</b> Enable Deepgram <b>keyterm prompting</b> (A1) seeded with the manager’s real cities (here: <em>Saint-Lazare, Châteauguay</em>) and/or add the <b>LLM city-canonicalization</b> turn (B1) before <code>find_units</code>.</td><td>Root cause of complaint 2 <b>and</b> the multiplier on complaint 1. Plan exists: <code>PLAN_lease_agent_french_accent_stt_city_recognition.md</code>. Seed <code>tests/test_city_matching.py</code> with the garble corpus above.</td></tr>
+      <tr><td><span class="tag t-bad">P0</span></td><td><b>Cut stall-phrase density.</b> (a) Only speak a checking phrase on turns where a tool <b>actually runs</b> (stop the over-application at T2 02:11:52). (b) Don’t re-call <code>find_units</code> for a city the call already resolved; cache the result/<code>available_cities</code> within the call.</td><td>Addresses complaint 1 without removing the correctly-working bilingual feature. Touches <code>[System-Check Phrases]</code> / <code>[Background Tool Calls]</code> (<code>:1204-1260</code>) and the retry loop (<code>:1062,:1074</code>).</td></tr>
+      <tr><td><span class="tag t-pri">P1</span></td><td><b>Fix the blank company name</b> so the first message can never render “…for.” with an empty variable.</td><td>Secondary finding 1; recurring.</td></tr>
+      <tr><td><span class="tag t-pri">P1</span></td><td><b>Add a <em>vous</em>/<em>tu</em> consistency rule</b> + fix the screening-question phrasing in <code>_LEASE_SYSTEM_PROMPT_BASE</code>; correct “Je n’ai pas bien compris.”</td><td>Secondary finding 2 — the agent’s own French.</td></tr>
+      <tr><td><span class="tag t-warn">P2</span></td><td><b>Tune endpointing</b> so a low-confidence dropped token doesn’t trigger an immediate double re-prompt.</td><td>Secondary finding 3.</td></tr>
+      <tr><td><span class="tag t-warn">P2</span></td><td><b>CSV data hygiene</b> — confirm “carré Saint-Laurent” vs “Rue Du Comtois”, normalize <code>state</code>, backfill/deactivate row 83.</td><td>Secondary finding 4.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout c-warn"><b>Deploy gotcha (from prior sessions):</b> none of the prompt/transcriber changes go live until the per-manager assistants are re-pushed — <code>python backend/scripts/update_lease_agents.py</code> (run with the backend venv: <code>backend\.venv\Scripts\python.exe</code>; that script needs <code>supabase</code>+<code>httpx</code>, <b>not</b> the <code>vapi</code> SDK).</div>
+</section>
+
+<section id="appendix">
+  <h2>Appendix — annotated call timelines</h2>
+
+  <h3>Transcript 1 (~2 min, ends mid-sentence)</h3>
+  <table>
+    <thead><tr><th>Time</th><th>Who</th><th>Content</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>02:29:12</td><td class="who-max">Max</td><td>“…the AI leasing assistant <b>for.</b> Are you looking…”</td><td><span class="tag t-warn">blank company name</span></td></tr>
+      <tr><td>02:29:21</td><td class="who-cal">Caller</td><td>“Oui salut… vous aviez des unités à louer, je serais intéressé.”</td><td>clean FR</td></tr>
+      <tr><td>02:29:31</td><td class="who-max">Max</td><td>“Dans quel quartier ou quelle ville se trouvait l’immeuble…”</td><td>asks city</td></tr>
+      <tr><td>02:29:39</td><td class="who-cal">Caller</td><td><b>“Uh, thing on low.”</b></td><td><span class="tag t-bad">STT garble</span> (Saint-Lazare)</td></tr>
+      <tr><td>02:29:42</td><td class="who-max">Max</td><td>“…vous pouvez me redire le nom de la rue ou de la ville…”</td><td>re-ask #1</td></tr>
+      <tr><td>02:29:53</td><td class="who-max">Max</td><td>“Je veux juste être sûr de bien comprendre… quelle ville…”</td><td><span class="tag t-warn">re-ask #2, no caller turn between</span></td></tr>
+      <tr><td>02:30:00</td><td class="who-cal">Caller</td><td><b>“Saint Lazole.”</b></td><td><span class="tag t-bad">STT garble</span></td></tr>
+      <tr><td>02:30:02</td><td class="who-tool">🔧 Find Units</td><td>Completed ✓</td><td></td></tr>
+      <tr><td>02:30:04</td><td class="who-max">Max</td><td><b>“1 moment.”</b></td><td><span class="tag t-warn">stall phrase (standalone)</span></td></tr>
+      <tr><td>02:30:07</td><td class="who-max">Max</td><td>“Parfait. Nous avons des logements à Saint-Lazare. Quelle grandeur…”</td><td>match recovered</td></tr>
+      <tr><td>02:30:15</td><td class="who-cal">Caller</td><td>“…des quatre et demi… il est à combien par mois?”</td><td>clean FR</td></tr>
+      <tr><td>02:30:30</td><td class="who-max">Max</td><td>“…un quatre et demi au carré Saint-Laurent à Saint-Lazare à <b>quatorze cents</b> par mois, dispo du 22 juin 2026…”</td><td><span class="tag t-ok">✓ CSV row 84</span> (but “carré Saint-Laurent” ≠ “Rue Du Comtois”)</td></tr>
+      <tr><td>02:30:45</td><td class="who-cal">Caller</td><td>“C’est pour juillet, le mois prochain.”</td><td>clean FR</td></tr>
+      <tr><td>02:30:50</td><td class="who-max">Max</td><td>“…juillet ça fonctionne… <b>bref c’est ce que votre propriétaire actuel sait que vous regardez pour déménager.</b>”</td><td><span class="tag t-bad">malformed FR</span> (screening Q)</td></tr>
+      <tr><td>02:31:00</td><td class="who-cal">Caller</td><td><b>“Uh, we”</b></td><td><span class="tag t-bad">STT garble</span></td></tr>
+      <tr><td>02:31:04</td><td class="who-max">Max</td><td>“<b>Tu n’es pas bien compris</b>, est-ce que… votre propriétaire actuel est au courant…”</td><td><span class="tag t-bad">wrong grammar + vous→tu</span></td></tr>
+      <tr><td>02:31:06</td><td class="who-cal">Caller</td><td><b>“we Wheat.”</b></td><td><span class="tag t-bad">STT garble</span></td></tr>
+      <tr><td>02:31:13</td><td class="who-max">Max</td><td>“Désolé, je veux juste confirmer…”</td><td>call cuts off</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Transcript 2 (~85s, ends cleanly mid-flow)</h3>
+  <table>
+    <thead><tr><th>Time</th><th>Who</th><th>Content</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>02:10:52</td><td class="who-max">Max</td><td>“I’m Max the AI leasing assistant for <b>Chantellery</b>…”</td><td><span class="tag t-ok">✓ name renders</span></td></tr>
+      <tr><td>02:11:01</td><td class="who-cal">Caller</td><td>“…je suis à <b>Saint-L’Asor</b> présentement… des unités à louer…”</td><td><span class="tag t-bad">STT garble</span> (Saint-Lazare)</td></tr>
+      <tr><td>02:11:10</td><td class="who-tool">🔧 Find Units</td><td>Completed ✓ (on garbled token)</td><td></td></tr>
+      <tr><td>02:11:14</td><td class="who-max">Max</td><td>“<b>Laissez-moi vérifier ça dans mon système. Un instant s’il vous plaît.</b> Je ne trouve rien à Saint-LaSort… mais nous avons <b>Château Gué</b> et <b>Saint-Laçore</b>…”</td><td>1st-check phrase + <span class="tag t-ok">✓ available_cities fallback</span></td></tr>
+      <tr><td>02:11:27</td><td class="who-cal">Caller</td><td>“Oui, <b>Saint-Lavaure</b>.”</td><td>picks Saint-Lazare (still garbled)</td></tr>
+      <tr><td>02:11:30</td><td class="who-tool">🔧 Find Units</td><td>Completed ✓</td><td></td></tr>
+      <tr><td>02:11:33</td><td class="who-max">Max</td><td>“<b>Un instant, je vérifie ça pour vous</b>, parfait. Nous avons un logement à Saint-Lazare. Quel format — 3½ ou 4½?”</td><td>rotating phrase #1</td></tr>
+      <tr><td>02:11:44</td><td class="who-cal">Caller</td><td>“<b>Captain mi</b> s’il vous plaît… c’est quoi le montant par mois pour les quatre et demi?”</td><td><span class="tag t-bad">STT garble</span> (quatre et demi)</td></tr>
+      <tr><td>02:11:52</td><td class="who-max">Max</td><td>“<b>Juste un moment</b>, nous avons un quatre et demi à Saint-Lazare à <b>quatorze cent</b> par mois. Ce budget vous convient?”</td><td><span class="tag t-warn">stall phrase, no preceding lookup</span>; price <span class="tag t-ok">✓ CSV row 84</span></td></tr>
+      <tr><td>02:12:09</td><td class="who-cal">Caller</td><td>“Oui,”</td><td>clean</td></tr>
+      <tr><td>02:12:12</td><td class="who-tool">🔧 Find Units</td><td>Completed ✓</td><td></td></tr>
+      <tr><td>02:12:16</td><td class="who-max">Max</td><td>“<b>Je vérifie ça tout de suite</b>, parfait. Le quatre et demi au carré Saint-Laurent à quatorze cent par mois.”</td><td>rotating phrase #4</td></tr>
+    </tbody>
+  </table>
+  <div class="callout c-info"><b>Stall-phrase count: 4 in ~85s.</b> Rotation correct (1st verbatim → #1 → #3 → #4, no repeats, all French). STT garble: 3 caller turns. Recovery: ✓ via <code>available_cities</code>.</div>
+</section>
+
+<div class="footer">Lease Agent (Max) call diagnosis · 2026-06-22 · generated from Transcript1.md, Transcript2.md, Lease_listing_shaun.csv</div>
+
+</div>
+</body>
+</html>
