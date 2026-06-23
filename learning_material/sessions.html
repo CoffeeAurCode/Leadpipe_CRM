@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CRM Learning Series — All Sessions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS (match session files) ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar a.modlink { color: var(--muted); text-decoration: none; font-size: .82rem; border: 1px solid var(--border); border-radius: 8px; padding: .4rem .7rem; transition: .15s; }
+  .topbar a.modlink:hover { color: var(--accent); border-color: var(--accent); }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 1.6rem 1.4rem 5rem; }
+
+  /* ============================== HERO ============================== */
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2.2rem; margin-bottom: 1.8rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.3rem; line-height: 1.12; margin: .5rem 0 .6rem; font-weight: 800; }
+  .hero p.sub { color: var(--muted); font-size: 1.05rem; max-width: 60ch; }
+  .hero .stats { display: flex; flex-wrap: wrap; gap: 1.4rem; margin-top: 1.4rem; }
+  .stat .n { font-size: 1.6rem; font-weight: 800; color: var(--accent); }
+  .stat .l { font-size: .74rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+
+  /* ============================== PROGRESS ============================== */
+  .progress-wrap { margin-top: 1.4rem; }
+  .progress-line { display: flex; justify-content: space-between; font-size: .82rem; color: var(--muted); margin-bottom: .4rem; }
+  .progress-line strong { color: var(--text); }
+  .pbar { height: 10px; background: var(--bg-code); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; }
+  .pbar > span { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--bug)); transition: width .35s ease; }
+
+  /* ============================== CONTROLS ============================== */
+  .controls { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; margin: 1.6rem 0 1.1rem; }
+  .search { flex: 1; min-width: 220px; position: relative; }
+  .search input {
+    width: 100%; background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: .65rem .9rem .65rem 2.2rem; font-size: .9rem; font-family: inherit; transition: .15s;
+  }
+  .search input:focus { outline: none; border-color: var(--accent); }
+  .search .ico { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: .9rem; }
+  .reset { background: var(--bg-card); color: var(--muted); border: 1px solid var(--border); border-radius: 10px; padding: .55rem .9rem; cursor: pointer; font-size: .82rem; transition: .15s; }
+  .reset:hover { color: var(--accent); border-color: var(--accent); }
+  .count { font-size: .82rem; color: var(--muted); }
+
+  /* ============================== CARD GRID ============================== */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1.2rem; }
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.2rem 1.2rem 1.1rem; box-shadow: var(--shadow); display: flex; flex-direction: column;
+    transition: transform .15s, border-color .15s; position: relative;
+  }
+  .card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .card.done { border-color: color-mix(in srgb, var(--success) 55%, var(--border)); }
+  .card.hidden { display: none; }
+  .card .top { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }
+  .card .num { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: .78rem; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 7px; padding: .2rem .5rem; }
+  .card .diff { font-size: .72rem; font-weight: 700; }
+  .card .diff.beg { color: var(--success); }
+  .card .diff.int { color: var(--warning); }
+  .card .diff.adv { color: var(--danger); }
+  .card .time { font-size: .72rem; color: var(--muted); margin-left: auto; }
+  .card h3 { font-size: 1.08rem; font-weight: 700; line-height: 1.3; margin: .1rem 0 .6rem; }
+  .card a.title { color: var(--text); text-decoration: none; }
+  .card a.title:hover { color: var(--accent); }
+  .tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .8rem; }
+  .tag { font-size: .68rem; font-weight: 600; padding: .2rem .55rem; border-radius: 99px; border: 1px solid var(--border); }
+  .tag.t-voice { color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, var(--border)); }
+  .tag.t-data { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+  .tag.t-sec  { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .tag.t-perf { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+  .tag.t-ops  { color: #c084fc; border-color: color-mix(in srgb, #c084fc 40%, var(--border)); }
+  .card .meta-row { display: flex; align-items: center; gap: .5rem; margin-top: auto; padding-top: .7rem; border-top: 1px solid var(--border); }
+  .bugbadge { font-size: .68rem; font-weight: 700; color: var(--bug); background: color-mix(in srgb, var(--bug) 16%, transparent); border-radius: 6px; padding: .18rem .5rem; }
+  .card .open { margin-left: auto; font-size: .8rem; color: var(--accent); text-decoration: none; font-weight: 600; }
+  .card .open:hover { text-decoration: underline; }
+  .chk { display: inline-flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--muted); cursor: pointer; user-select: none; }
+  .chk input { width: 16px; height: 16px; accent-color: var(--success); cursor: pointer; }
+
+  .empty { text-align: center; color: var(--muted); padding: 3rem 1rem; display: none; }
+
+  footer { max-width: 1180px; margin: 2rem auto 0; padding: 1.4rem; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: .82rem; }
+
+  @media (max-width: 560px) {
+    .hero h1 { font-size: 1.7rem; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">CRM <span>Learning Series</span></div>
+  <div class="spacer"></div>
+  <a class="modlink" href="index.html">📚 Module course →</a>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="wrap">
+  <!-- ============================== HERO ============================== -->
+  <div class="hero">
+    <div class="eyebrow">Self-paced · build-along</div>
+    <h1>CRM Learning Series</h1>
+    <p class="sub">Every build session on the Tenant-Management / Leadpipe CRM, written up as a standalone, illustrated lesson — concepts, annotated code, the real bugs we hit, and hands-on exercises.</p>
+    <div class="stats">
+      <div class="stat"><div class="n" id="statTotal">4</div><div class="l">Sessions</div></div>
+      <div class="stat"><div class="n" id="statDone">0</div><div class="l">Completed</div></div>
+      <div class="stat"><div class="n" id="statBugs">4</div><div class="l">With bug stories</div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-line"><span>Your progress</span><span><strong id="pPct">0%</strong> · <span id="pFrac">0 / 4</span></span></div>
+      <div class="pbar"><span id="pFill"></span></div>
+    </div>
+  </div>
+
+  <!-- ============================== CONTROLS ============================== -->
+  <div class="controls">
+    <div class="search">
+      <span class="ico">🔎</span>
+      <input id="search" type="text" placeholder="Search by title or concept — e.g. latency, RLS, phonetics, deploy…" autocomplete="off" />
+    </div>
+    <button class="reset" id="reset">Clear</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <!-- ============================== CARD GRID ============================== -->
+  <div class="grid" id="grid">
+
+    <!-- Session 10 -->
+    <article class="card" data-num="10" data-title="Cutting Voice-Agent Latency &amp; Tuning the Employment Prompt" data-concepts="latency performance ttft time-to-first-token n+1 query postgrest embed voice tts gpt-4o elevenlabs deploy rollback prompt vapi" data-bugs="1">
+      <div class="top">
+        <span class="num">SESSION 10</span>
+        <span class="diff int">🟡 Intermediate</span>
+        <span class="time">⏱️ ~70 min</span>
+      </div>
+      <h3><a class="title" href="session-10-voice-agent-latency-and-prompt-tuning.html">Cutting Voice-Agent Latency &amp; Tuning the Employment Prompt</a></h3>
+      <div class="tags">
+        <span class="tag t-perf">Latency</span>
+        <span class="tag t-perf">Performance</span>
+        <span class="tag t-data">SQL Embeds</span>
+        <span class="tag t-voice">Voice AI</span>
+        <span class="tag t-ops">Deploy</span>
+      </div>
+      <div class="meta-row">
+        <label class="chk"><input type="checkbox" data-done="10" /> Done</label>
+        <span class="bugbadge">🐛 Bug Stories</span>
+        <a class="open" href="session-10-voice-agent-latency-and-prompt-tuning.html">Open →</a>
+      </div>
+    </article>
+
+    <!-- Session 09 -->
+    <article class="card" data-num="09" data-title="Shipping &amp; Deploying Banded Did-You-Mean City Confirmation" data-concepts="phonetics metaphone jellyfish rapidfuzz fuzzy similarity disambiguation confidence band deploy vapi render contract dataclass voice" data-bugs="1">
+      <div class="top">
+        <span class="num">SESSION 09</span>
+        <span class="diff adv">🔴 Advanced</span>
+        <span class="time">⏱️ ~80 min</span>
+      </div>
+      <h3><a class="title" href="session-09-banded-confirmation-ship-and-deploy.html">Shipping &amp; Deploying Banded "Did You Mean?" City Confirmation</a></h3>
+      <div class="tags">
+        <span class="tag t-voice">Phonetics</span>
+        <span class="tag t-voice">Metaphone</span>
+        <span class="tag t-data">Fuzzy Matching</span>
+        <span class="tag t-ops">Deploy</span>
+        <span class="tag t-voice">VAPI</span>
+      </div>
+      <div class="meta-row">
+        <label class="chk"><input type="checkbox" data-done="09" /> Done</label>
+        <span class="bugbadge">🐛 Bug Stories</span>
+        <a class="open" href="session-09-banded-confirmation-ship-and-deploy.html">Open →</a>
+      </div>
+    </article>
+
+    <!-- Session 08 -->
+    <article class="card" data-num="08" data-title="French Voice-Agent Diagnosis &amp; Fuzzy-Band City Matching" data-concepts="voice speech-to-text stt deepgram french accent diagnosis fuzzy matching normalize difflib transcript multi language" data-bugs="1">
+      <div class="top">
+        <span class="num">SESSION 08</span>
+        <span class="diff adv">🔴 Advanced</span>
+        <span class="time">⏱️ ~85 min</span>
+      </div>
+      <h3><a class="title" href="session-08-french-stt-diagnosis-and-fuzzy-city-matching.html">French Voice-Agent Diagnosis &amp; Fuzzy-Band City Matching</a></h3>
+      <div class="tags">
+        <span class="tag t-voice">Voice AI</span>
+        <span class="tag t-voice">Speech-to-Text</span>
+        <span class="tag t-data">Fuzzy Matching</span>
+        <span class="tag t-ops">Diagnosis</span>
+      </div>
+      <div class="meta-row">
+        <label class="chk"><input type="checkbox" data-done="08" /> Done</label>
+        <span class="bugbadge">🐛 Bug Stories</span>
+        <a class="open" href="session-08-french-stt-diagnosis-and-fuzzy-city-matching.html">Open →</a>
+      </div>
+    </article>
+
+    <!-- Session 07 -->
+    <article class="card" data-num="07" data-title="Standalone Units, Row-Level Security &amp; Direct Manager Ownership" data-concepts="rls row-level security postgresql supabase auth ownership manager standalone units backend database policy jwt" data-bugs="1">
+      <div class="top">
+        <span class="num">SESSION 07</span>
+        <span class="diff adv">🔴 Advanced</span>
+        <span class="time">⏱️ ~70 min</span>
+      </div>
+      <h3><a class="title" href="session-07-standalone-unit-rls-ownership.html">Standalone Units, Row-Level Security &amp; Direct Manager Ownership</a></h3>
+      <div class="tags">
+        <span class="tag t-sec">RLS</span>
+        <span class="tag t-sec">Security</span>
+        <span class="tag t-data">PostgreSQL</span>
+        <span class="tag t-sec">Auth</span>
+      </div>
+      <div class="meta-row">
+        <label class="chk"><input type="checkbox" data-done="07" /> Done</label>
+        <span class="bugbadge">🐛 Bug Stories</span>
+        <a class="open" href="session-07-standalone-unit-rls-ownership.html">Open →</a>
+      </div>
+    </article>
+
+  </div>
+
+  <div class="empty" id="empty">No sessions match that search. <a class="open" href="#" id="emptyReset">Clear the filter →</a></div>
+</div>
+
+<footer>CRM Learning Series · sessions index · generated 2026-06-23 · looking for the original module course? <a class="open" href="index.html">Open the module index →</a></footer>
+
+<script>
+/* ============================== THEME TOGGLE (shared localStorage key) ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== COMPLETION + PROGRESS (localStorage) ============================== */
+(function () {
+  const KEY = 'crm-sessions-done';
+  const boxes = Array.from(document.querySelectorAll('input[data-done]'));
+  const total = boxes.length;
+  const cards = {};
+  document.querySelectorAll('.card').forEach(c => cards[c.getAttribute('data-num')] = c);
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
+  }
+  function save(state) { localStorage.setItem(KEY, JSON.stringify(state)); }
+
+  const fill = document.getElementById('pFill');
+  const pct  = document.getElementById('pPct');
+  const frac = document.getElementById('pFrac');
+  const statDone = document.getElementById('statDone');
+
+  function refresh() {
+    const state = load();
+    let done = 0;
+    boxes.forEach(b => {
+      const id = b.getAttribute('data-done');
+      const on = !!state[id];
+      b.checked = on;
+      cards[id].classList.toggle('done', on);
+      if (on) done++;
+    });
+    const p = total ? Math.round((done / total) * 100) : 0;
+    fill.style.width = p + '%';
+    pct.textContent = p + '%';
+    frac.textContent = done + ' / ' + total;
+    statDone.textContent = done;
+  }
+
+  boxes.forEach(b => b.addEventListener('change', () => {
+    const state = load();
+    const id = b.getAttribute('data-done');
+    if (b.checked) state[id] = true; else delete state[id];
+    save(state);
+    refresh();
+  }));
+
+  refresh();
+})();
+
+/* ============================== SEARCH / FILTER ============================== */
+(function () {
+  const input = document.getElementById('search');
+  const reset = document.getElementById('reset');
+  const cards = Array.from(document.querySelectorAll('.card'));
+  const count = document.getElementById('count');
+  const empty = document.getElementById('empty');
+  const emptyReset = document.getElementById('emptyReset');
+
+  function hay(card) {
+    return (
+      card.getAttribute('data-num') + ' ' +
+      card.getAttribute('data-title') + ' ' +
+      card.getAttribute('data-concepts')
+    ).toLowerCase();
+  }
+
+  function apply() {
+    const q = input.value.trim().toLowerCase();
+    let shown = 0;
+    cards.forEach(c => {
+      const match = !q || hay(c).includes(q);
+      c.classList.toggle('hidden', !match);
+      if (match) shown++;
+    });
+    count.textContent = q ? (shown + ' of ' + cards.length + ' shown') : (cards.length + ' sessions');
+    empty.style.display = shown === 0 ? 'block' : 'none';
+  }
+
+  input.addEventListener('input', apply);
+  reset.addEventListener('click', () => { input.value = ''; apply(); input.focus(); });
+  emptyReset.addEventListener('click', e => { e.preventDefault(); input.value = ''; apply(); input.focus(); });
+  apply();
+})();
+</script>
+</body>
+</html>

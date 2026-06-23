@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 10 — Cutting Voice-Agent Latency &amp; Tuning the Employment Prompt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 10</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-turn" style="padding-left:1.4rem">— Anatomy of a turn</a>
+    <a href="#c-ttft" style="padding-left:1.4rem">— LLM time-to-first-token</a>
+    <a href="#c-toolturn" style="padding-left:1.4rem">— Why tool turns are slowest</a>
+    <a href="#c-forensic" style="padding-left:1.4rem">— Reading a transcript</a>
+    <a href="#c-nplus1" style="padding-left:1.4rem">— N+1 &amp; nested embeds</a>
+    <a href="#c-blast" style="padding-left:1.4rem">— Shared-config blast radius</a>
+    <a href="#c-tradeoff" style="padding-left:1.4rem">— Asymmetric trade-offs</a>
+    <a href="#c-rollback" style="padding-left:1.4rem">— Rollback engineering</a>
+    <a href="#c-prompt" style="padding-left:1.4rem">— Prompt = product behaviour</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 10 · Voice AI · Latency · Performance · Deploy</div>
+      <h1>Cutting Voice-Agent Latency &amp; Tuning the Employment Prompt</h1>
+      <p class="lead muted">A French test-caller's partner said Max <em>"pauses 2–3 seconds before answering."</em> This session is the detective work that <strong>confirmed</strong> the pause from a real transcript, found <em>why</em> it happens (it's the model, not the silence detector), and shipped three independent speed-ups: a <strong>faster LLM</strong>, a <strong>faster text-to-speech model</strong>, and a database query that went from <strong>three round-trips down to one</strong>. Along the way we changed what Max asks about employment, decided <em>not</em> to build two planned features yet, and wrote a rollback plan so any of it can be undone in one command.</p>
+      <div class="meta">
+        <span class="chip diff">🟡 Intermediate</span>
+        <span class="chip time">⏱️ ~70 min read / build</span>
+        <span class="chip pre">📋 Requires: Sessions 08–09 (French STT, the deploy pipeline)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was a <strong>diagnose-decide-optimise</strong> session. It started not with code but with a complaint and a transcript. The exact words that kicked it off:</p>
+
+      <div class="term">
+<span class="spk">You:</span> the agent is waiting/delay/pausing for like 2-3 seconds thats a lot...
+       is that the case and what is the reason of that break
+<span class="spk">You:</span> also the lease agent must not ask what the caller does for job, instead
+       lease agent should ask if the caller is employed and is the employment
+       full time or part time
+<span class="spk">You:</span> also do we do the phase 2 and 3 of the plan
+<span class="dim">         ...later...</span>
+<span class="spk">You:</span> deploy with update_lease_agents.py and tell me what are the possible
+       fixes for the latency
+<span class="spk">You:</span> the render is always warm, don't do #2 and do rest of the stuff and
+       make note of the previous and this config... so that if we... roll back
+      </div>
+
+      <p>By the end of the session we had:</p>
+      <ul>
+        <li><strong>Confirmed</strong> the 2–3 second pause from <code class="ic">Transcript3.md</code> using the call's own timestamps, and pinned the cause to <strong>LLM time-to-first-token</strong> — not the silence detector everybody blames first.</li>
+        <li>Changed the agent's <strong>employment question</strong> from "what do you do for work?" to "are you employed, and is it full- or part-time?" — and deployed it to five live phone assistants.</li>
+        <li>Given a reasoned <strong>"not yet"</strong> on Phases 2 &amp; 3 of the disambiguation plan, with the sequencing to do instead.</li>
+        <li>Shipped three latency fixes: the lease LLM <code class="ic">gpt-5.2-chat-latest → gpt-4o</code>; the lease text-to-speech <code class="ic">eleven_turbo_v2_5 → eleven_flash_v2_5</code> (scoped to <em>only</em> the lease agent); and <code class="ic">find_units</code> rewritten from <strong>3 database round-trips to 1</strong> via a nested embed.</li>
+        <li><strong>Validated the risky query change against the live database before deploying it</strong>, wrote a before/after <strong>rollback document</strong>, and updated <code class="ic">CODEBASE_CONTEXT.md</code>.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Break a voice-agent's response delay into its <strong>stages</strong> and reason about which one to attack.</li>
+          <li>Explain <strong>time-to-first-token</strong> and why a bigger model + bigger prompt is slower on <em>every single turn</em>.</li>
+          <li>Confirm (or refute) a performance complaint from a <strong>transcript's timestamps</strong>, while respecting their ambiguity.</li>
+          <li>Spot an <strong>N+1 query</strong> and collapse it with a database <strong>nested embed</strong> — and validate it before shipping.</li>
+          <li>Recognise <strong>shared-config blast radius</strong> and scope a change with the spread-override pattern.</li>
+          <li>Make an <strong>asymmetric trade-off</strong> safely (gate the risky change behind an A/B and a rollback plan).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our CRM (<strong>Customer Relationship Management</strong> — the app property managers use to track buildings, units, tenants and leads) has a <strong>voice agent</strong> called <strong>Max</strong>: an AI that answers the phone, holds a spoken conversation with a prospective tenant, figures out which unit they want, asks a few qualifying questions, and hands the manager a "lead." Max runs on <strong>VAPI</strong> (a hosted "Voice API" that wires the phone line to a speech-to-text engine, a language model, and a text-to-speech voice). His tools call our <strong>FastAPI</strong> backend, which lives on <strong>Render</strong> (a cloud host) and reads from <strong>Supabase</strong> (our hosted PostgreSQL database).</p>
+
+      <p>In <strong>Session 08</strong> we diagnosed two complaints from a French-speaking test caller: Max <em>paused too much</em> and <em>didn't understand him</em>. We proved the "didn't understand" half was a speech-to-text problem and wrote a plan. In <strong>Session 09</strong> we built and shipped the <em>"did you mean X or Y?"</em> city confirmation — a phonetic matcher plus a backend↔model JSON contract — and learned the <strong>two-stage deploy</strong>: a voice-agent change isn't live until <em>both</em> the backend (on Render) and the assistant config (on VAPI, via <code class="ic">update_lease_agents.py</code>) are updated.</p>
+
+      <p>That city work landed, and a fresh test call (<code class="ic">Transcript3.md</code>) shows Max now <em>understanding</em> the French city Saint-Lazare correctly. But the partner flagged the <em>other</em> half of the original Session-08 complaint — the <strong>pausing</strong> — as still painful: "2–3 seconds, that's a lot." So this session finally turns to latency. We start exactly where a good engineer should: <em>is the complaint even real, and if so, which stage is to blame?</em></p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need Sessions 08 or 09 open. Every term is re-explained on first use here. Those sessions are the backstory for the city-matching feature; <em>this</em> session is about making Max <strong>answer faster</strong> and asking a better question.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Nine ideas carry the whole session. The first four are about <em>finding</em> the latency; the next three are the <em>fixes</em>; the last two are how we shipped them safely.</p>
+
+      <!-- ---- Concept 1: anatomy of a turn ---- -->
+      <h3 id="c-turn">1 · Anatomy of a voice-agent "turn" (the latency budget)</h3>
+      <p><strong>Plain-English explanation.</strong> A "turn" is one back-and-forth: the caller says something, then the agent replies. The gap the caller <em>feels</em> — the silence after they stop talking and before Max starts — is not one delay. It's a relay race of separate stages, each adding a slice of time. To fix "the pause," you have to know which runner in the relay is slow.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Our partner said "it pauses 2–3 seconds." If you attack the wrong stage — say, you make the silence-detector trigger faster when the real cost is the model thinking — you spend effort and the caller still waits. Naming the stages is what let us aim at the one that actually mattered.</p>
+
+      <p><strong>How it works (analogy).</strong> Think of an <strong>assembly line</strong>. The caller's voice is the raw material; the spoken reply is the finished product. It passes through six stations, and the total wait is the sum of every station's time:</p>
+
+      <div class="diagram"><span class="lbl">caller stops talking</span>
+   │
+   ▼  ① ENDPOINTING — "are they actually done, or just pausing?"   (~0.1s, we tuned this aggressive)
+   ▼  ② STT FINALIZE — turn the audio into final text             (Deepgram)
+   ▼  ③ LLM time-to-first-token — model reads prompt+history,
+   │     decides what to say, emits its FIRST word                 <span class="bad">← the big one, EVERY turn</span>
+   ▼  ④ TOOL ROUND-TRIP — only on lookup turns: call the backend,
+   │     wait for the database, feed the result back to the model  <span class="warn">← extra, lookup turns only</span>
+   ▼  ⑤ LLM SECOND PASS — on tool turns, generate the spoken reply <span class="warn">← extra, lookup turns only</span>
+   ▼  ⑥ TTS first-byte — turn the reply text into the first audio  (ElevenLabs)
+   │
+   ▼ <span class="good">caller hears Max</span></div>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>endpointing</strong> — the logic that decides the caller has <em>finished</em> speaking (not just taking a breath). Too eager and it cuts people off; too patient and every turn feels laggy.</li>
+        <li><strong>STT</strong> (speech-to-text) — converting spoken audio into text. Our engine is Deepgram <code class="ic">nova-3</code>.</li>
+        <li><strong>TTS</strong> (text-to-speech) — converting the reply text back into spoken audio. Our engine is ElevenLabs.</li>
+        <li><strong>round-trip</strong> — a request that leaves our system, does work elsewhere (the backend, the database), and comes back. Each one costs network time.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — find the dominant stage first</div>
+        <p>The whole session pivots on one realisation: stages ③ and ⑥ are paid on <em>every</em> turn, while ④ and ⑤ are paid only on the lonely lookup turn. So if the caller feels a pause on <em>most</em> replies — including ones with no database lookup — the culprit can't be the database. It has to be the model or the voice. That single deduction is what told us to change the LLM, not the endpointing.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/customization/speech-configuration">VAPI speech configuration (endpointing)</a> ·
+        <a class="inline" href="https://docs.vapi.ai/customization/custom-llm/fine-tuned-openai-models">VAPI model latency notes</a>
+      </p>
+
+      <!-- ---- Concept 2: TTFT ---- -->
+      <h3 id="c-ttft">2 · LLM time-to-first-token (why bigger = slower, every turn)</h3>
+      <p><strong>Plain-English explanation.</strong> A language model produces its answer one <strong>token</strong> (roughly, a word-piece) at a time. The delay that matters for "feeling laggy" is <strong>time-to-first-token (TTFT)</strong> — how long until the <em>first</em> word comes out. Before it can speak word one, the model must <em>read</em> everything you gave it: the system prompt, the conversation so far, and the tool definitions. The more it has to read, and the heavier the model, the longer that first word takes.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Max's lease prompt is <em>long</em> — roughly 300 lines of instructions — plus the schemas for three tools, and the whole thing is re-sent on every single turn (the model has no memory between calls; you hand it the full context each time). On a heavy model, reading all that before each reply is exactly the 2–3 second pause the partner felt. Shrinking that delay is the single highest-leverage fix because it's paid on <em>every</em> turn.</p>
+
+      <p><strong>How it works (analogy).</strong> Imagine a lawyer who must re-read the entire case file from scratch every time you ask a question, before saying a word. A <em>faster reader</em> (a lighter model) gets to "word one" sooner. A <em>shorter file</em> (a smaller prompt) helps too. We chose the faster reader this session.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>token</strong> — a chunk of text the model reads/produces; "Saint-Lazare" might be 3–4 tokens.</li>
+        <li><strong>TTFT</strong> (time-to-first-token) — latency until the first output token. The number a human perceives as "responsiveness."</li>
+        <li><strong>prefill</strong> — the model reading/encoding all the input tokens before it can generate; longer input = longer prefill.</li>
+        <li><code class="ic">maxTokens</code> — a cap on how <em>long</em> the answer can be. It limits the tail, not the first word, so it barely affects perceived lag (Max's is 300).</li>
+        <li><code class="ic">gpt-4o</code> / <code class="ic">gpt-5.2-chat-latest</code> — two OpenAI models; the former is the lighter, lower-latency one we switched to for the lease agent.</li>
+      </ul>
+
+      <p><strong>Annotated code — the one-line model change.</strong> The lease assistant's model lives in a small "shell" config. We changed exactly one field:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — _lease_assistant_shell"><pre><code>"model": {
+    "provider": "openai",
+    "model": "gpt-4o",          # was "gpt-5.2-chat-latest" — lighter model, lower time-to-first-token
+    "messages": [{"role": "system", "content": system_prompt}],  # the ~300-line prompt, re-sent each turn
+    "maxTokens": 300,           # caps reply LENGTH (the tail), not the first word — left unchanged
+    "temperature": 0.7,         # creativity dial — unchanged
+    "tools": tools,             # three tool schemas the model also has to read every turn
+},</code></pre></div>
+
+      <div class="callout c-deep">
+        <div class="c-title">📖 Deep Dive — why this is the highest-leverage change</div>
+        <p>Stage ③ (TTFT) appears on <em>every</em> reply, tool or not. If TTFT is ~2s and you shave it to ~0.7s, you save ~1.3s on <strong>every single turn</strong> of every call. Compare that to optimising the database lookup (stage ④), which only happens once or twice per call. Fixing the per-turn cost beats fixing the per-call cost almost every time. The catch — and the reason this is the <em>scary</em> change — is that a lighter model can be a worse <em>writer</em> (see <a class="inline" href="#c-tradeoff">Concept 7</a>).</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://platform.openai.com/docs/models">OpenAI models overview</a> ·
+        <a class="inline" href="https://huggingface.co/blog/tgi-benchmarking">TTFT vs throughput, explained</a>
+      </p>
+
+      <!-- ---- Concept 3: tool turns ---- -->
+      <h3 id="c-toolturn">3 · Why tool-call turns are the slowest (double pass + a hop)</h3>
+      <p><strong>Plain-English explanation.</strong> Most turns are one model pass: read context → speak. But a <em>lookup</em> turn (when Max needs the database) is three things glued together: the model first decides "I should call <code class="ic">find_units</code>" (pass one), then we wait for the backend and database (the hop), then the model reads the result and decides what to say (pass two). Two model passes plus a network hop — so the lookup turn is always the longest.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The very first thing a caller does is name a city, which triggers <code class="ic">find_units</code>. In <code class="ic">Transcript3.md</code> that first reply was the slowest gap of the whole call. Knowing the lookup turn is doubly expensive tells us two fixes help here: a faster model (helps both passes) <em>and</em> a faster database lookup (helps the hop, Concept 5).</p>
+
+      <p><strong>How it works (analogy).</strong> A waiter taking a normal request just answers you. But if you ask "what's the soup today?", the waiter walks to the kitchen, waits, walks back, <em>then</em> tells you. The kitchen trip is the tool hop; the two conversations with you are the two model passes.</p>
+
+      <p><strong>The stall phrase is a curtain, not a fix.</strong> In Session 09's agent there's a "system-check phrase" — Max says <em>"Un instant, s'il vous plaît"</em> ("one moment please") before a lookup. That exists precisely to fill the lookup-turn silence so it doesn't feel like dead air. But it only covers the lookup turn. On the many <em>non</em>-lookup turns (answering rent, answering an amenities question) there's no phrase by design — so the raw model latency is exposed as bare silence. That's why the partner still heard pauses even though the stall phrase "works."</p>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — don't paper over latency you can remove</div>
+        <p>It's tempting to "fix" perceived pauses by adding more filler phrases. But filler on a non-lookup turn just means Max talks more before answering — it doesn't make him faster, and over-used it sounds robotic (that was the Session-08 over-application bug). Prefer <em>removing</em> the latency (faster model, fewer round-trips) over <em>hiding</em> it.</p>
+      </div>
+
+      <!-- ---- Concept 4: transcript forensics ---- -->
+      <h3 id="c-forensic">4 · Reading a transcript forensically (confirm before you fix)</h3>
+      <p><strong>Plain-English explanation.</strong> Before changing anything, prove the complaint is real and measure it. A VAPI transcript stamps each turn with a time offset from the start of the call (e.g. <code class="ic">(+00:46.23)</code> = 46.23 seconds in). By subtracting consecutive timestamps you can <em>measure</em> the gaps the caller actually experienced.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> "It feels slow" is a feeling; engineers fix numbers. The timestamps turned a vague complaint into "~3.5–7 seconds between the caller starting and Max replying, on turns with <em>no</em> database lookup" — which both confirmed the pause <em>and</em> pointed straight at the model.</p>
+
+      <p><strong>The measured gaps</strong> (caller-turn start → Max-turn start, from <code class="ic">Transcript3.md</code>):</p>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Caller said (start)</th><th>Max replied (start)</th><th>Gap</th><th>Tool call?</th></tr></thead>
+        <tbody>
+          <tr><td>asks about city · <code>+11.46</code></td><td><code>+24.59</code></td><td><strong>13.1s</strong> (tool done at +19.37 → 5.2s after)</td><td><span class="badge b-conf">find_units</span></td></tr>
+          <tr><td>"how much per month?" · <code>+39.31</code></td><td><code>+46.23</code></td><td><strong>6.9s</strong></td><td><span class="badge b-ok">none</span></td></tr>
+          <tr><td>"internet/TV/cable?" · <code>+54.43</code></td><td><code>+69.36</code></td><td><strong>14.9s</strong></td><td><span class="badge b-ok">none</span></td></tr>
+          <tr><td>short answer · <code>+100.48</code></td><td><code>+105.56</code></td><td><strong>5.1s</strong></td><td><span class="badge b-ok">none</span></td></tr>
+          <tr><td>"Hello?" · <code>+134.42</code></td><td><code>+137.86</code></td><td><strong>3.4s</strong></td><td><span class="badge b-ok">none</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <p>The gaps include the caller's own speaking time (we only know when each turn <em>starts</em>, not when the caller stopped). Subtract ~1–3 seconds of speech and you land on the partner's "2–3 seconds" of real silence — and crucially, <strong>most of those rows have no tool call</strong>, which is the proof that the database isn't the main culprit.</p>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — respect the ambiguity of timestamps</div>
+        <p>We don't know exactly when the caller stopped talking, so we can't attribute every millisecond. That's fine — forensics is about the <em>conclusion</em> ("most replies lag 2–4s, lookup or not"), not false precision. State what the data <em>can't</em> tell you; it keeps you honest and stops you over-fitting a fix.</p>
+      </div>
+
+      <!-- ---- Concept 5: N+1 + embeds ---- -->
+      <h3 id="c-nplus1">5 · The N+1 query problem &amp; PostgREST nested embeds</h3>
+      <p><strong>Plain-English explanation.</strong> When you fetch a list of things and then loop to fetch a related thing for each one, you've made <strong>1 + N</strong> database queries — the "N+1 problem." Each query is a separate network round-trip. The fix is to ask the database for everything you need <em>in one query</em> by telling it to include the related rows. In Supabase/PostgREST you do this with a <strong>nested embed</strong>: name the related table inside your <code class="ic">select</code>.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Our <code class="ic">find_units</code> lookup was doing <em>three</em> sequential queries: first the listings, then the buildings for those listings, then the property groups for those buildings — each waiting on the previous one's IDs. That's three network hops stacked inside stage ④, on the call's slowest (first) turn. Collapsing them to one hop directly shrinks the lookup pause.</p>
+
+      <p><strong>How it works (analogy).</strong> Instead of phoning the warehouse once for a box, then phoning again for what's <em>in</em> the box, then a third time for the box's shelf label — you send <em>one</em> order that says "the box, its contents, and the shelf label, all together." One call, everything back.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>PostgREST</strong> — the layer Supabase uses to turn database tables into a REST API; it understands "embeds."</li>
+        <li><strong>foreign key (FK)</strong> — a column that points at another table's row (here, a flat's <code class="ic">building_id</code> points at a <code class="ic">buildings</code> row). Embeds only work along declared FKs.</li>
+        <li><strong>to-one</strong> — a relationship where each row links to <em>one</em> related row (a flat has one building); PostgREST returns it as a single object (or <code class="ic">null</code>), not a list.</li>
+        <li><strong>embed</strong> — writing <code class="ic">buildings(name, ...)</code> inside a <code class="ic">select</code> so the related row comes back nested in the response.</li>
+      </ul>
+
+      <p><strong>Annotated code — before (3 round-trips).</strong> The shape we replaced:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — BEFORE"><pre><code>results = q.limit(50).execute()              # query #1: the listings (+ flats, with building_id)
+listings = results.data or []
+
+building_ids = list({ r["flats"]["building_id"] for r in listings if ... })
+if building_ids:
+    b_res = db.table("buildings").select("id, name, property_id").in_("id", building_ids).execute()  # query #2
+    for b in (b_res.data or []):
+        building_rows[b["id"]] = b
+    property_ids = list({ b["property_id"] for b in building_rows.values() if ... })
+    if property_ids:
+        p_res = db.table("properties_list").select("id, name").in_("id", property_ids).execute()     # query #3
+        ...
+# 3 sequential round-trips, each waiting on the previous one's IDs</code></pre></div>
+
+      <p><strong>Annotated code — after (1 round-trip).</strong> Ask for it all at once, then read the nested objects:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — AFTER"><pre><code>q = (
+    db.table("lease_listings")
+      .select(
+          "uuid, flat_number, title, monthly_rent, available_from, quebec_size, "
+          "street_address, city, state, country, "
+          # nest buildings INSIDE flats, and properties_list INSIDE buildings -> one query does it all
+          "flats!inner(bedrooms, bathrooms, floor_number, buildings(name, properties_list(name)))"
+      )
+      .eq("is_active", True)
+)
+results = q.limit(50).execute()              # the ONLY query now
+
+for r in listings:
+    flat = r.get("flats") or {}
+    building = flat.get("buildings") or {}            # to-one -> a dict, or {} if the flat has no building
+    prop_group = building.get("properties_list") or {}
+    if not isinstance(prop_group, dict):             # belt-and-suspenders: never let a list crash the call
+        prop_group = {}</code></pre></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — embeds only work along declared foreign keys</div>
+        <p>A nested embed isn't magic; PostgREST can only "walk" a relationship that exists as a real foreign key. We confirmed the chain was navigable because the <em>same</em> embed (one level shallower) was already used elsewhere in the codebase — <code class="ic">flats.py</code> does <code class="ic">select("*, buildings(name, properties_list(name))")</code>. Reusing a proven pattern is the cheapest way to de-risk a query change.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://supabase.com/docs/guides/database/joins-and-nesting">Supabase: querying joined &amp; nested data</a> ·
+        <a class="inline" href="https://postgrest.org/en/stable/references/api/resource_embedding.html">PostgREST resource embedding</a> ·
+        <a class="inline" href="https://stackoverflow.com/questions/97197/what-is-the-n1-selects-problem-in-orm">The N+1 problem explained</a>
+      </p>
+
+      <!-- ---- Concept 6: blast radius ---- -->
+      <h3 id="c-blast">6 · Shared-config blast radius &amp; the spread-override pattern</h3>
+      <p><strong>Plain-English explanation.</strong> When several things reference one shared settings object, editing that object changes <em>all of them at once</em>. The set of things a change can affect is its <strong>blast radius</strong>. Before editing shared config, you check who uses it — and if you only want to change <em>one</em> user, you make a copy that overrides just the field you need.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> We wanted a faster text-to-speech model for the <em>lease</em> agent. But the voice settings (<code class="ic">VOICE_CONFIG</code>) are <em>shared</em> by three agents — lease, complaint, and tenant. Editing it directly would silently change the complaint and tenant agents' voices too — a change nobody asked for, and one that wouldn't even deploy consistently (our script only pushes <em>lease</em> agents). So we made a lease-only copy.</p>
+
+      <p><strong>How it works (analogy).</strong> A shared thermostat heats the whole building. If you only want your room warmer, you don't crank the shared dial — you put a small space heater in <em>your</em> room. <code class="ic">LEASE_VOICE_CONFIG</code> is that space heater.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>blast radius</strong> — everything a change can affect. Small blast radius = safer change.</li>
+        <li><strong>spread / unpacking</strong> — <code class="ic">{**base, "key": newvalue}</code> copies every field of <code class="ic">base</code> into a new dict, then overrides one key. The original is untouched.</li>
+      </ul>
+
+      <p><strong>Annotated code — the scoped override.</strong> This mirrors a pattern already in the file (<code class="ic">COMPLAINT_TRANSCRIBER_CONFIG = {**TRANSCRIBER_CONFIG, ...}</code>):</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py"><pre><code># Lease agent uses the lower-latency Flash model to cut TTS first-byte on every turn.
+# Same voice library / voiceId, so the timbre is unchanged; only the model differs.
+LEASE_VOICE_CONFIG = {
+    **VOICE_CONFIG,                 # copy EVERY shared setting (voiceId, stability, speed, ...)
+    "model": "eleven_flash_v2_5",   # ...then override ONLY the TTS model (was eleven_turbo_v2_5)
+}
+# VOICE_CONFIG itself is left untouched, so the complaint + tenant agents are unaffected.</code></pre></div>
+
+      <p>Then the lease shell points at the new copy: <code class="ic">"voice": LEASE_VOICE_CONFIG</code> (was <code class="ic">VOICE_CONFIG</code>). One agent changed; the other two literally cannot be affected.</p>
+
+      <!-- ---- Concept 7: trade-offs ---- -->
+      <h3 id="c-tradeoff">7 · Asymmetric trade-offs &amp; gating the risky change</h3>
+      <p><strong>Plain-English explanation.</strong> Not every change is equally risky. Two of our three fixes (the single query, the Flash voice) are nearly pure wins. The third — the lighter LLM — buys speed but can <em>cost quality</em>: a smaller model may write worse French, skip a qualification step, or call a tool wrong. When the downside of a change is much bigger than its upside in the bad case, the trade-off is <strong>asymmetric</strong>, and you treat it differently: prove it before trusting it.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> A 2-second-faster reply is nice. But if the model botches French or drops a qualifying question, you <em>lose the lead</em> — far worse than a slightly slow call. So we recommended <strong>A/B testing</strong> the model on one manager's agent before all five, and we made it trivially reversible. Speed is worthless if it quietly tanks lead quality.</p>
+
+      <p><strong>How it works (analogy).</strong> Swapping your tyres for a slicker, faster set helps lap times — but might lose grip in the rain. You don't put them on the whole fleet on a hunch; you test one car in the conditions you actually race in (here: Quebec-French calls), and you keep the old tyres in the garage.</p>
+
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fix</th><th>Upside</th><th>Worst-case downside</th><th>How we gated it</th></tr></thead>
+        <tbody>
+          <tr><td>Single nested query (#3)</td><td>−2 network hops on the lookup turn</td><td>wrong join shape breaks <code>find_units</code></td><td>validated against the live DB before deploy</td></tr>
+          <tr><td>Flash TTS (#5)</td><td>lower audio first-byte</td><td>slightly worse French pronunciation</td><td>scoped to lease only; rolls back independently</td></tr>
+          <tr><td><strong>gpt-4o LLM (#1)</strong></td><td>−1–2s on <em>every</em> turn</td><td><strong>worse French / dropped questions / lost leads</strong></td><td>A/B on one agent recommended; rollback doc written</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — match your caution to the cost of being wrong</div>
+        <p>"Safe" and "risky" changes deserve different ceremony. The single query just needed a quick live check. The model swap deserved an A/B plan and a written rollback. Spending equal effort on both would be either reckless (under-testing the model) or wasteful (over-testing the query). Calibrate.</p>
+      </div>
+
+      <!-- ---- Concept 8: rollback ---- -->
+      <h3 id="c-rollback">8 · Rollback engineering: config snapshots + an idempotent push</h3>
+      <p><strong>Plain-English explanation.</strong> A change you can't undo is a change you should fear. "Rollback engineering" means: <em>before</em> you ship, write down the exact old values and the exact new values, and make sure restoring the old ones is a single, repeatable action. Then a regression is a one-minute fix, not a panic.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The user explicitly asked for this: "make note of the previous and this config… so that if we roll back, we can run the script and push." Our deploy script is <strong>idempotent</strong> — running it just makes the live assistants match the code, no matter how many times you run it. So "rollback" = restore the old value in the code file, then run the same push script. The snapshot document is what makes that restore unambiguous.</p>
+
+      <p><strong>How it works (analogy).</strong> Before repainting a wall, you write the old paint code on a sticky note. If you hate the new colour, you don't guess — you read the note, buy that exact paint, and roll it back on. The rollback doc is the sticky note; the push script is the roller.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>idempotent</strong> — an operation you can run repeatedly with the same end result. Our push script PATCHes each assistant to match the code; running it twice changes nothing extra.</li>
+        <li><strong>two deploy surfaces</strong> — VAPI config (model, voice; pushed by the script) vs backend code (the query; deployed by a git push to Render). They roll back differently — the doc spells out both.</li>
+      </ul>
+
+      <p>The snapshot we wrote (<code class="ic">docs/reference/lease_agent_latency_config_2026-06-23.md</code>) records, for each change, the BEFORE value, the AFTER value, and its specific rollback. Because the model and voice are <em>separate fields</em>, you can roll back <em>just</em> the voice (if French pronunciation regresses) while keeping the faster model — independent levers.</p>
+
+      <!-- ---- Concept 9: prompt = product ---- -->
+      <h3 id="c-prompt">9 · Prompt wording is product behaviour</h3>
+      <p><strong>Plain-English explanation.</strong> For an AI agent, the prompt isn't documentation <em>about</em> the product — it <em>is</em> the product's behaviour. Changing one sentence in the prompt changes what real callers are asked on real phone calls. So a prompt edit is a product change and deserves the same care (and the same deploy) as code.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The partner wanted Max to stop asking <em>"what do you do for work?"</em> and instead ask <em>whether</em> the caller is employed and, if so, full- or part-time. That's a better question for three reasons: it collects the <strong>structured</strong> fact the manager actually screens on (employment status), it's <strong>less intrusive</strong> (no job-title fishing), and it's <strong>faster to answer</strong>. We changed the one line and added a guard so the model never drifts back to asking the open-ended version.</p>
+
+      <p><strong>Annotated change — the employment question.</strong></p>
+      <div class="code-block" data-lang="text" data-file="backend/app/services/vapi_agent_config.py — Q4 (BEFORE)"><pre><code>--- Q4: Employment ---
+"Just so the team has the full picture — what do you do for work?"</code></pre></div>
+      <div class="code-block" data-lang="text" data-file="backend/app/services/vapi_agent_config.py — Q4 (AFTER)"><pre><code>--- Q4: Employment ---
+"Just so the team has the full picture — are you currently employed? And if so, is that full-time or part-time?"
+Never ask what the caller does for a living, their job title, or their employer — only whether they are
+employed and, if so, whether it is full-time or part-time.</code></pre></div>
+      <p>The existing logging branches (full-time / part-time / unemployed) still apply downstream — we only changed the <em>question</em>, not how the answer is recorded.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — pin behaviour with an explicit "never"</div>
+        <p>Language models drift toward the most natural phrasing they've seen. If you just reword a question, the model may still wander back to the open-ended version. Adding an explicit negative instruction ("never ask job title…") fences the behaviour in. Treat prompts like code with assertions.</p>
+      </div>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p class="muted">Every action this session, in order, with why each happens <em>now</em> and what would break if skipped.</p>
+
+      <h3>Step 1 — Gather the evidence (transcript + prior diagnosis + plan)</h3>
+      <p>We read three things before touching code: <code class="ic">Transcript3.md</code> (the new call), the Session-08 pausing/STT diagnosis (to reuse its findings), and <code class="ic">PLAN_lease_agent_fuzzy_band_entity_confirmation.md</code> (for the Phase 2/3 question).</p>
+      <p><strong>Why now:</strong> you can't diagnose a pause you haven't measured, and the prior diagnosis already established the architecture. <strong>Skip it and</strong> you re-derive known facts and risk "fixing" the wrong stage.</p>
+
+      <h3>Step 2 — Locate the relevant config in the agent file</h3>
+      <p>We searched <code class="ic">vapi_agent_config.py</code> for the employment question and the stall-phrase / endpointing settings. This revealed the file has <em>multiple</em> agents in it (Alex the complaint agent around line 27/653; Max the lease agent's prompt in <code class="ic">_LEASE_SYSTEM_PROMPT_BASE</code> from ~980) — so we had to target the <em>lease</em> copy specifically.</p>
+      <div class="term"><span class="pmt">$</span> grep -n "what do you do for work\|gpt-5.2\|VOICE_CONFIG\|start_speaking_plan" vapi_agent_config.py
+<span class="dim">1148:  "Just so the team has the full picture — what do you do for work?"</span>
+<span class="dim">1520:  "model": "gpt-5.2-chat-latest",</span>
+<span class="dim">1536:  "start_speaking_plan": {"waitSeconds": 0.1, ... onNumberSeconds: 0.1}   # already aggressive</span></div>
+      <p><strong>Why now:</strong> the endpointing values <em>ruled out</em> stage ① as the cause (it's already 0.1s) — essential for the diagnosis. <strong>Skip it and</strong> you might "fix" endpointing and achieve nothing.</p>
+
+      <h3>Step 3 — Diagnose: confirm the pause &amp; name the cause</h3>
+      <p>Using Concept 4's timestamp method we confirmed ~2–4s of real silence on most turns, including non-lookup turns, and tied it to LLM TTFT (Concept 2) on a heavy model with a long prompt — <em>not</em> endpointing. We reported this plus the ranked list of possible fixes.</p>
+      <p><strong>Why now:</strong> the fix list flows from the diagnosis. <strong>Skip it and</strong> you optimise blind.</p>
+
+      <h3>Step 4 — Change the employment question (Q4)</h3>
+      <p>One edit to the lease prompt's Q4 (shown in Concept 9), plus the explicit "never ask job title" guard.</p>
+      <p><strong>Why now:</strong> it's an independent, low-risk product change the user asked for; shipping it early gets value live. <strong>Skip it and</strong> Max keeps asking the intrusive question.</p>
+
+      <h3>Step 5 — Deploy the prompt change (dry-run, then real)</h3>
+      <p>We pushed only the prompt change first (the latency fixes weren't written yet). Always rehearse with <code class="ic">--dry-run</code>.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py --dry-run
+Lease agents to update: <span class="ok">4 per-manager + 1 shared</span>
+<span class="ok">Done. 5 updated, 0 failed.</span>
+<span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py
+  [28c43c77]  <span class="ok">[OK]</span>  tools=['find_units', 'search_listings', 'submit_lease_lead']
+  ...
+<span class="ok">Done. 5 updated, 0 failed.</span></div>
+      <p><strong>Why now:</strong> the prompt lives on VAPI; the change isn't live until pushed. <strong>Skip the dry-run and</strong> a bad credential hits production directly.</p>
+
+      <h3>Step 6 — Answer the Phase 2/3 question (a decision, no code)</h3>
+      <p>We recommended <strong>not</strong> building Phases 2 (buildings) and 3 (streets) yet. Reasons: they add confirmation turns (<em>more</em> latency — the opposite of the live complaint); Phase 1's thresholds aren't validated yet; data hygiene is a prerequisite; and the plan itself marks Phase 3 optional. Sequence instead: latency → validate Phase 1 → data hygiene → maybe Phase 2.</p>
+      <p><strong>Why now:</strong> deciding <em>not</em> to build is a real deliverable that saves the most time. <strong>Skip it and</strong> you build low-ROI features that worsen the current complaint.</p>
+
+      <h3>Step 7 — Present the latency fix menu; take the user's scoping</h3>
+      <p>We listed five possible fixes ranked by impact-to-effort and explained the trade-off of each (Concept 7). The user scoped it: "Render is always warm" (drop #4 keep-alive), "don't do #2" (no prompt trim), "do the rest" (#1 model, #3 query, #5 TTS), and "make note… so we can roll back."</p>
+      <p><strong>Why now:</strong> scoping with the owner avoids wasted work and respects the asymmetric-risk call. <strong>Skip it and</strong> you might trim the prompt (risking regressions) or chase a non-problem (cold starts that don't exist here).</p>
+
+      <h3>Step 8 — De-risk #3: prove the nested embed before writing it</h3>
+      <p>We confirmed the FK chain by finding the same embed already used in <code class="ic">flats.py</code> and checking the migrations declared the foreign keys, then wrote a throwaway script to run the deeper embed against the <em>live</em> database.</p>
+      <div class="code-block" data-lang="python" data-file="scratchpad/verify_find_units_embed.py (throwaway)"><pre><code>db = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+res = (db.table("lease_listings")
+   .select("uuid, flat_number, city, "
+           "flats!inner(bedrooms, buildings(name, properties_list(name)))")  # the NEW deeper embed
+   .eq("is_active", True).limit(5).execute())
+for r in res.data or []:
+    flat = r.get("flats") or {}
+    building = flat.get("buildings") or {}
+    prop = building.get("properties_list") or {}
+    print(r.get("city"), building.get("name"),
+          prop.get("name") if isinstance(prop, dict) else "NON-DICT")  # confirm it's a dict, not a list</code></pre></div>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scratchpad/verify_find_units_embed.py
+rows returned: <span class="ok">5</span>
+{'city': 'Saint-Lazare', 'building_name': 'Bâtiment Principal', 'property_name': 'Carré Saint-Laurent', ...}
+{'city': 'Laval', 'building_name': None, 'property_name': None, ...}   <span class="dim"># null building handled fine</span>
+<span class="ok">EMBED OK</span></div>
+      <p><strong>Why now:</strong> the query runs on the call's slowest turn — a wrong join would break live calls. Proving it on real data first turns a scary change into a safe one. <strong>Skip it and</strong> you find out in production.</p>
+
+      <h3>Step 9 — Write the three fixes</h3>
+      <p>(a) Model <code class="ic">gpt-5.2-chat-latest → gpt-4o</code> in the lease shell. (b) New <code class="ic">LEASE_VOICE_CONFIG</code> with <code class="ic">eleven_flash_v2_5</code>, pointed at by the lease shell only. (c) <code class="ic">find_units</code> rewritten to one nested query, reading <code class="ic">flat["buildings"]["properties_list"]</code> with a <code class="ic">isinstance</code> guard (all in Concepts 5, 6, 2).</p>
+      <p><strong>Why now / order:</strong> we validated the query shape (Step 8) before committing to it. <strong>Skip the guard and</strong> an unexpected list shape could throw inside the loop and blank the lookup.</p>
+
+      <h3>Step 10 — Write the rollback snapshot doc</h3>
+      <p>Created <code class="ic">docs/reference/lease_agent_latency_config_2026-06-23.md</code> with BEFORE/AFTER and per-change rollback for both deploy surfaces (Concept 8).</p>
+      <p><strong>Why now / before deploy:</strong> you write the escape hatch <em>before</em> you need it. <strong>Skip it and</strong> a regression becomes archaeology.</p>
+
+      <h3>Step 11 — Deploy the config changes (#1, #5)</h3>
+      <p>Dry-run, then the real push — all 5 lease agents updated to <code class="ic">gpt-4o</code> + <code class="ic">eleven_flash_v2_5</code>.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py
+  [28c43c77]  <span class="ok">[OK]</span>  name=Lease Agent [28c43c77]  serverMessages=['end-of-call-report']
+  ...
+<span class="ok">Done. 5 updated, 0 failed.</span></div>
+
+      <h3>Step 12 — Sanity-check the backend &amp; update the docs</h3>
+      <p>We compile-checked the edited Python and grepped for stale references (no leftover <code class="ic">building_rows</code>/<code class="ic">property_rows</code>), then updated <code class="ic">CODEBASE_CONTEXT.md</code> so the model/voice lines note the lease agent now differs from the others.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe -c "import py_compile; py_compile.compile(r'backend/app/routes/leasing.py', doraise=True); print('COMPILE OK')"
+<span class="ok">COMPILE OK</span></div>
+      <p><strong>Why now:</strong> a compile check catches a typo before Render does, and the docs rule (in <code class="ic">CLAUDE.md</code>) is mandatory. <strong>Note:</strong> fix #3 is <em>backend code</em> — it is only live after a git push to Render redeploys it. Fixes #1 and #5 are live now; #3 is staged, awaiting that backend deploy.</p>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal — a mostly-clean session</h2>
+      <p>There were no <em>logic</em> bugs in the shipped changes — and that's not luck. Two of the three fixes are exactly the kind that <em>silently</em> break things, and we headed each off before it could. The most valuable lessons this session are the <strong>traps we sidestepped</strong>, documented in full Bug-Story format below, plus one real (harmless) display artifact.</p>
+
+      <!-- Bug 1: the avoided embed bug -->
+      <h3>🐛 Trap #1 (avoided) — the nested embed could have silently broken <code class="ic">find_units</code></h3>
+      <p><strong>🚨 The Symptom (the one we <em>didn't</em> get).</strong> Had we shipped the query change untested, the realistic failure is silent: <code class="ic">find_units</code> wrapped in a <code class="ic">try/except</code> that returns <code class="ic">{found: False}</code> on any error. So a bad join wouldn't crash loudly — Max would just stop finding <em>any</em> unit and dump every caller to the "here's what we do have" fallback. A latency fix that quietly kills matching is worse than the latency.</p>
+      <p><strong>🔍 The Diagnosis (done up front).</strong> Two questions had to be true for the embed to work: (1) does the foreign-key chain <code class="ic">lease_listings → flats → buildings → properties_list</code> actually exist so PostgREST can walk it? (2) does the deepest relation come back as a <em>single object</em> (to-one) and not a list, since the code calls <code class="ic">.get("name")</code> on it? We answered both with evidence: grepped and found <code class="ic">flats.py</code> already embeds <code class="ic">buildings(name, properties_list(name))</code>; confirmed FK declarations in the migrations; then ran the deeper embed live and printed the Python type of each nested value.</p>
+      <p><strong>🧠 The Root Cause it would have had.</strong> Two classic ORM/REST footguns: an embed only works along a <em>declared</em> FK (an undeclared one returns nothing), and a to-<em>many</em> relation returns a <em>list</em> — calling <code class="ic">.get()</code> on a list throws. We weren't sure of either from reading alone, so we measured.</p>
+      <p><strong>🔧 The Fix (preventive).</strong> Validate on real data before deploying (Step 8), and add a defensive guard so even an unexpected shape degrades gracefully:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py"><pre><code>prop_group = building.get("properties_list") or {}   # to-one -> dict; null -> {}
+if not isinstance(prop_group, dict):                  # if it ever comes back a list, don't crash
+    prop_group = {}                                   # the loop continues; this listing just lacks a property name</code></pre></div>
+      <p><strong>🛡️ The Lesson.</strong> When a change touches a <em>live, hard-to-observe</em> path (a phone call), buy certainty cheaply <em>before</em> you ship: reuse a proven pattern, confirm your assumptions against real data, and guard the shapes you're unsure of. "It compiled" is not "it works."</p>
+
+      <!-- Bug 2: the avoided shared config bug -->
+      <h3>🐛 Trap #2 (avoided) — editing shared <code class="ic">VOICE_CONFIG</code> would have changed three agents</h3>
+      <p><strong>🚨 The Symptom (the one we <em>didn't</em> get).</strong> Change the TTS model directly in <code class="ic">VOICE_CONFIG</code> and the complaint <em>and</em> tenant agents quietly inherit it too — a voice change nobody requested. Worse, our deploy script only pushes <em>lease</em> agents, so the code would say one thing while two live agents still ran the old voice: a config-vs-reality mismatch that's maddening to debug later.</p>
+      <p><strong>🔍 The Diagnosis (done up front).</strong> Before editing, we grepped for every use of <code class="ic">VOICE_CONFIG</code> and found three: <code class="ic">build_assistant_config</code> (tenant), <code class="ic">build_complaint_config</code> (complaint), and <code class="ic">_lease_assistant_shell</code> (lease). Three references = blast radius of three.</p>
+      <p><strong>🧠 The Root Cause it would have had.</strong> Shared mutable config: one object, many owners. The "obvious" edit has a blast radius far larger than the intent.</p>
+      <p><strong>🔧 The Fix (preventive).</strong> Make a lease-only copy with the spread-override pattern (Concept 6) and repoint only the lease shell — exactly mirroring the file's existing <code class="ic">COMPLAINT_TRANSCRIBER_CONFIG = {**TRANSCRIBER_CONFIG, ...}</code> convention.</p>
+      <p><strong>🛡️ The Lesson.</strong> Before editing a shared constant, grep its usages and count the blast radius. To change one consumer, branch a copy — don't mutate the shared one. Bonus: follow an existing pattern in the file so the next reader recognises it instantly.</p>
+
+      <!-- Bug 3: real display artifact -->
+      <h3>🐛 Bug #3 (real, harmless) — the deploy output printed <code class="ic">�</code> for an em-dash</h3>
+      <p><strong>🚨 The Symptom.</strong> The script's banner came back mangled:</p>
+      <div class="term">DRY RUN <span class="err">�</span> no changes will be made</div>
+      <p><strong>🧠 The Root Cause.</strong> The script prints an em-dash (<code class="ic">—</code>, a non-ASCII character). The Windows console's legacy code page can't represent it, so it shows the replacement glyph <code class="ic">�</code>. The script ran perfectly — only the <em>display</em> of one character was lossy. (This is the same class as Session 09's <code class="ic">UnicodeEncodeError</code> on <code class="ic">→</code>, but milder: here it degrades to a placeholder instead of throwing.)</p>
+      <p><strong>🔧 The Fix.</strong> None needed — it's cosmetic. The verification that matters (<code class="ic">5 updated, 0 failed</code>) printed fine. If you want clean output, set the console to UTF-8 or stick to ASCII in script banners.</p>
+      <p><strong>🛡️ The Lesson.</strong> Separate "is the program wrong?" from "is my terminal mangling the display?" A garbled character in <em>output</em> almost never means the work failed. Read the result line, not the decoration.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Why so few bugs?</div>
+        <p>This was a <em>measure-and-tune</em> session, not a <em>build-new-features</em> session. The changes were small and surgical (one model field, one voice copy, one query rewrite, one prompt line), and we front-loaded the risk checks (live validation, usage grep) instead of discovering failures after deploy. Fewer integration points + verification before shipping = a clean log.</p>
+      </div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose it</th><th>Trade-offs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Attack the LLM, not endpointing</strong></td>
+            <td>Loosen/tighten endpointing; add more filler phrases</td>
+            <td>Endpointing was already 0.1s; pauses showed on non-lookup turns → it's TTFT</td>
+            <td>The LLM swap carries quality risk; endpointing would've been "free" but useless</td>
+          </tr>
+          <tr>
+            <td><strong>gpt-4o</strong> for the lease agent</td>
+            <td>Keep gpt-5.2; trim the prompt instead; a mini model</td>
+            <td>Biggest per-turn win; gpt-4o is fast with good French + tool-calling</td>
+            <td>Possible quality dip → gate behind an A/B; user vetoed prompt trim</td>
+          </tr>
+          <tr>
+            <td><strong>Flash TTS, lease-only</strong></td>
+            <td>Edit shared VOICE_CONFIG; lower inputMinCharacters; bump optimizeStreamingLatency</td>
+            <td>Lower first-byte without touching other agents; voiceId unchanged</td>
+            <td>Slightly less natural FR pronunciation → most likely thing to roll back</td>
+          </tr>
+          <tr>
+            <td><strong>One nested query</strong> in find_units</td>
+            <td>Keep 3 queries; parallelize them; cache per call</td>
+            <td>The 3 were sequential (can't parallelize); embed makes it 1 hop, stateless</td>
+            <td>Depends on FK chain → validated live before shipping</td>
+          </tr>
+          <tr>
+            <td><strong>Skip a per-call cache</strong></td>
+            <td>Module-level cache of listings</td>
+            <td>Once it's 1 query, a cache adds state/complexity for marginal gain</td>
+            <td>Repeat lookups still re-query (cheap now); revisit only if needed</td>
+          </tr>
+          <tr>
+            <td><strong>Defer Phases 2 &amp; 3</strong></td>
+            <td>Build buildings/streets disambiguation now</td>
+            <td>They add confirmation turns (more latency) and Phase 1 isn't validated yet</td>
+            <td>Less coverage for now; sequence after latency + tuning + data hygiene</td>
+          </tr>
+          <tr>
+            <td><strong>Write a rollback doc</strong></td>
+            <td>Rely on git history / memory</td>
+            <td>User asked; makes any single change reversible in one push</td>
+            <td>A few minutes of writing — cheap insurance</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+      <p>Run these to confirm the build is healthy. Use the venv's Python.</p>
+
+      <h4 class="sub">1 · Backend compiles</h4>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe -m py_compile \
+    backend/app/routes/leasing.py backend/app/services/vapi_agent_config.py
+<span class="dim"># (no output = success)</span></div>
+
+      <h4 class="sub">2 · The nested embed returns names against the live DB</h4>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scratchpad/verify_find_units_embed.py
+<span class="ok">EMBED OK</span>   <span class="dim"># building_name / property_name populated; null building handled</span></div>
+
+      <h4 class="sub">3 · Assistants carry the new config (dry-run)</h4>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py --dry-run
+Lease agents to update: <span class="ok">4 per-manager + 1 shared</span></div>
+
+      <ul class="check">
+        <li><strong>It works if…</strong> the deploy prints <code class="ic">5 updated, 0 failed</code>; on a test call Max asks "are you employed? full- or part-time?" (never "what do you do?"); replies feel noticeably snappier.</li>
+        <li><strong>It works if…</strong> after the backend is deployed to Render, <code class="ic">find_units</code> still returns the right <code class="ic">building_name</code>/<code class="ic">property_name</code> on matches.</li>
+      </ul>
+      <ul class="xlist">
+        <li><strong>Something's wrong if…</strong> Max's French gets clumsier or he skips a qualifying question (the gpt-4o quality risk — roll back the model).</li>
+        <li><strong>Something's wrong if…</strong> French place names sound mispronounced (the Flash TTS risk — roll back just the voice).</li>
+        <li><strong>Something's wrong if…</strong> matches stop returning building/property names (the embed isn't deployed, or a join issue — redeploy the backend / re-run the live check).</li>
+      </ul>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — measure a pause yourself</div>
+        <p>Open <code class="ic">Transcript3.md</code>. Find the turn where the caller asks about internet/TV and the turn where Max answers. Subtract the offsets to get the gap. Was a tool called on that turn? What does that tell you about the cause?</p>
+        <details><summary>Hint</summary><p>Caller at <code class="ic">+54.43</code>, Max at <code class="ic">+69.36</code> → ~14.9s gap, and there's <em>no</em> <code class="ic">Find Units</code> event between them. No tool means the delay is model + TTS, not the database — pointing at the LLM.</p></details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — roll back just the voice (on paper)</div>
+        <p>Suppose a test call shows Flash mispronounces "Saint-Lazare." Using only the rollback doc, write the exact two-step procedure to revert <em>only</em> the TTS model while keeping gpt-4o. Why can you do this without touching the model field?</p>
+        <details><summary>Hint</summary><p>(1) In <code class="ic">vapi_agent_config.py</code>, set <code class="ic">LEASE_VOICE_CONFIG</code>'s <code class="ic">model</code> back to <code class="ic">eleven_turbo_v2_5</code> (or point the lease <code class="ic">voice</code> back at <code class="ic">VOICE_CONFIG</code>). (2) Re-run <code class="ic">update_lease_agents.py</code>. It works because model and voice are <em>separate fields</em> — independent levers, as Concept 8 stressed.</p></details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — design the gpt-4o A/B test</div>
+        <p>We recommended A/B testing the model on one agent before all five. Sketch the experiment: which agent, what you'd measure (latency <em>and</em> quality), how many calls, and the decision rule for "roll out to all five" vs "revert." What's your guard metric for quality?</p>
+        <details><summary>Hint</summary><p>Pick one active per-manager agent. Measure median TTFT/turn (speed) <em>and</em> a quality score: French grammar correctness, qualification-questions-asked rate, and lead-capture rate vs the gpt-5.2 baseline. Roll out only if speed improves <em>and</em> quality is statistically no worse. Lead-capture rate is the guard — a faster agent that captures fewer leads is a regression, not a win.</p></details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary><code>find_units</code> returns matches but <code>building_name</code>/<code>property_name</code> are empty</summary>
+        <p>Either the backend on Render is still the old 3-query version (redeploy), or the embed walked a relation that returned <code>null</code> for that row (a flat with no building — expected; <code>or {}</code> handles it). Re-run the live validation script to see the real shapes.</p>
+      </details>
+      <details>
+        <summary>The agent still asks "what do you do for work?"</summary>
+        <p>The prompt change didn't deploy. Re-run <code class="ic">update_lease_agents.py</code> (config changes on VAPI aren't live until pushed), and confirm you edited the <em>lease</em> Q4 (~line 1148), not a different agent's prompt in the same file.</p>
+      </details>
+      <details>
+        <summary>Replies feel <em>more</em> sluggish, not less, after the model swap</summary>
+        <p>Confirm the push actually applied (the script prints each assistant's model? if not, GET the assistant from VAPI to inspect). If gpt-4o is genuinely slower for your traffic, roll back the model field per the rollback doc — that's exactly why we wrote it.</p>
+      </details>
+      <details>
+        <summary>Console shows <code>�</code> or a <code>UnicodeEncodeError</code> when running scripts</summary>
+        <p>A display/encoding issue on Windows, not a failure. The file/work is fine. Read the result line; if you want clean output, switch the console to UTF-8. See Bug #3.</p>
+      </details>
+      <details>
+        <summary>Deploy says <code>[FAIL] HTTP 401</code></summary>
+        <p>A bad/expired <code class="ic">PRIVATE_VAPI_API</code> key in <code class="ic">.env</code>. The script verifies each assistant after patching and reports per-agent OK/FAIL — fix the key and re-run (it's idempotent).</p>
+      </details>
+      <details>
+        <summary>The single-query refactor crashes with an AttributeError on <code>.get</code></summary>
+        <p>A nested relation came back as a list, not a dict (a to-many you didn't expect). The <code class="ic">isinstance(..., dict)</code> guard prevents this for <code>properties_list</code>; if it happens elsewhere, add the same guard. See Trap #1.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🔮 What's Next</h2>
+      <p>Two threads are open. First, <strong>finish shipping fix #3</strong>: it's backend code, so it only goes live when the backend is pushed to Render — until then, fixes #1 and #5 are live but the 3-query lookup still runs in production. Second, <strong>verify on real calls</strong>: the gpt-4o swap needs the French partner to confirm Max's French and qualification flow held up (ideally as the A/B from the 🔴 exercise), and Flash needs a pronunciation check. If either regresses, the rollback doc makes it a one-push fix. Once latency is confirmed good and Phase 1's city thresholds are tuned against a real garble corpus, the roadmap's <strong>Phase 2 (building-name disambiguation)</strong> becomes the next feature — the same engine from Session 09 pointed at a new list. The next session will likely cover whichever the calls demand: lock in the latency wins, or extend disambiguation to buildings.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📚 Glossary</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>A/B test</strong></td><td>Running two versions in parallel on a slice of traffic to compare them before a full rollout.</td></tr>
+          <tr><td><strong>blast radius</strong></td><td>Everything a change can affect; editing shared config has a large one.</td></tr>
+          <tr><td><strong>Deepgram</strong></td><td>The speech-to-text engine (model <code>nova-3</code>) that turns caller audio into text.</td></tr>
+          <tr><td><strong>embed (nested)</strong></td><td>Naming a related table inside a <code>select</code> so its rows come back nested — one query instead of many.</td></tr>
+          <tr><td><strong>endpointing</strong></td><td>Detecting that the caller has finished speaking, not just pausing.</td></tr>
+          <tr><td><strong>ElevenLabs</strong></td><td>The text-to-speech provider; <code>eleven_turbo_v2_5</code> (old) / <code>eleven_flash_v2_5</code> (new, faster).</td></tr>
+          <tr><td><strong>foreign key (FK)</strong></td><td>A column pointing at another table's row; embeds only work along declared FKs.</td></tr>
+          <tr><td><strong>gpt-4o</strong></td><td>The lighter, lower-latency OpenAI model we switched the lease agent to.</td></tr>
+          <tr><td><strong>idempotent</strong></td><td>An operation safe to run repeatedly with the same result (our deploy script).</td></tr>
+          <tr><td><strong>N+1 problem</strong></td><td>Making 1 query for a list then N more (one per item); fixed by fetching related data in one query.</td></tr>
+          <tr><td><strong>PostgREST</strong></td><td>The layer that exposes Supabase tables as a REST API and understands embeds.</td></tr>
+          <tr><td><strong>prefill</strong></td><td>The model reading/encoding all input tokens before it can emit the first output token.</td></tr>
+          <tr><td><strong>Render</strong></td><td>The cloud host running the FastAPI backend (deploy surface for code changes).</td></tr>
+          <tr><td><strong>rollback doc</strong></td><td>A before/after record of a change plus how to revert it, written before shipping.</td></tr>
+          <tr><td><strong>spread / unpacking</strong></td><td><code>{**base, "k": v}</code> — copy a dict, override one field, leave the original intact.</td></tr>
+          <tr><td><strong>stall phrase</strong></td><td>A spoken filler ("one moment") that masks a lookup-turn pause; it doesn't reduce latency.</td></tr>
+          <tr><td><strong>to-one / to-many</strong></td><td>A relation returning one related row (an object) vs many (a list); affects how you read an embed.</td></tr>
+          <tr><td><strong>token</strong></td><td>A word-piece the model reads/produces.</td></tr>
+          <tr><td><strong>TTFT</strong></td><td>Time-to-first-token: latency until the model's first output word — the felt "responsiveness."</td></tr>
+          <tr><td><strong>turn</strong></td><td>One caller-says / agent-replies cycle in a conversation.</td></tr>
+          <tr><td><strong>VAPI</strong></td><td>Hosted "Voice API" wiring phone + STT + model + TTS; holds each assistant's config.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-09-banded-confirmation-ship-and-deploy.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 09 — Shipping &amp; Deploying Banded City Confirmation</div>
+    </a>
+    <a href="sessions.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a class="right disabled">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 11 — coming soon</div>
+    </a>
+  </div>
+  <div class="copyright">Session 10 — CRM Learning Series · generated 2026-06-23</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>
