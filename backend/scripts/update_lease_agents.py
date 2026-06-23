@@ -46,6 +46,7 @@ def _to_vapi_payload(cfg: dict) -> dict:
         "model": cfg.get("model"),
         "server": cfg.get("server"),
         "serverMessages": cfg.get("server_messages"),
+        "analysisPlan": cfg.get("analysis_plan"),
         "startSpeakingPlan": cfg.get("start_speaking_plan"),
         "stopSpeakingPlan": cfg.get("stop_speaking_plan"),
         "backgroundSpeechDenoisingPlan": cfg.get("background_speech_denoising_plan"),

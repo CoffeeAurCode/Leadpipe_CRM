@@ -754,28 +754,117 @@ async def lease_eoc_webhook(request: Request, db: Client = Depends(get_service_d
             if mvc_row.data:
                 manager_id = mvc_row.data[0].get("manager_id")
 
-        notes = (
-            "[Incomplete call — lead captured from end-of-call fallback]\n\nTranscript:\n"
-            + transcript[:2000]
-            if transcript
-            else "[Incomplete call — no transcript available]"
-        )
+        # Structured data extracted by VAPI from the transcript (analysisPlan.structuredDataPlan).
+        # When present, build a COMPLETE lead. When absent, fall back to the bare Unknown row so
+        # the manager at least sees that a call happened.
+        analysis = message.get("analysis") or {}
+        structured = analysis.get("structuredData") or analysis.get("structured_data") or {}
+        if not isinstance(structured, dict):
+            structured = {}
+
+        def _pos_num(v):
+            try:
+                n = float(v)
+                return n if n > 0 else None
+            except (TypeError, ValueError):
+                return None
+
+        def _pos_int(v):
+            try:
+                n = int(v)
+                return n if n > 0 else None
+            except (TypeError, ValueError):
+                return None
+
+        caller_name = (str(structured.get("caller_name") or "")).strip() or "Unknown"
+        unit_text = (str(structured.get("unit_of_interest") or "")).strip()
+
+        # Transcripts never contain UUIDs — resolve the spoken unit to a real listing, best-effort.
+        listing_uuid = None
+        property_group_id = None
+        if manager_id and unit_text:
+            try:
+                rows = (
+                    db.table("lease_listings")
+                    .select("uuid, property_group_id, street_address, city, flat_number")
+                    .eq("manager_id", str(manager_id))
+                    .eq("is_active", True)
+                    .execute()
+                )
+                ut = unit_text.lower()
+                hits = [
+                    r for r in (rows.data or [])
+                    if any(
+                        (r.get(f) or "").strip() and (r.get(f) or "").strip().lower() in ut
+                        for f in ("street_address", "city", "flat_number")
+                    )
+                ]
+                if len(hits) == 1:
+                    listing_uuid = hits[0]["uuid"]
+                    property_group_id = hits[0].get("property_group_id")
+            except Exception as res_err:
+                print(f"  [EOC] listing resolve failed (non-fatal): {res_err}")
+
+        qualifying_answers = {}
+        for k in ("employment", "landlord_aware", "pets"):
+            v = (str(structured.get(k) or "")).strip()
+            if v:
+                qualifying_answers[k] = v
+        if unit_text:
+            qualifying_answers["unit_of_interest"] = unit_text
+
+        if structured:
+            qualification_status = (str(structured.get("qualification_status") or "")).strip() or "unmatched"
+            note_lines = ["[Lead captured from end-of-call structured extraction]"]
+            extra = (str(structured.get("notes") or "")).strip()
+            if extra:
+                note_lines.append(extra)
+            if transcript:
+                note_lines.append("\nTranscript:\n" + transcript[:2000])
+            notes = "\n".join(note_lines)
+        else:
+            qualification_status = "unmatched"
+            notes = (
+                "[Incomplete call — lead captured from end-of-call fallback]\n\nTranscript:\n"
+                + transcript[:2000]
+                if transcript
+                else "[Incomplete call — no transcript available]"
+            )
 
         lead_payload = {
             "manager_id": str(manager_id) if manager_id else None,
-            "property_group_id": None,
-            "listing_uuid": None,
-            "interested_listing_ids": [],
-            "caller_name": "Unknown",
+            "property_group_id": str(property_group_id) if property_group_id else None,
+            "listing_uuid": listing_uuid,
+            "interested_listing_ids": [listing_uuid] if listing_uuid else [],
+            "caller_name": caller_name,
             "phone": phone,
-            "qualification_status": "unmatched",
+            "budget_max": _pos_num(structured.get("budget_max")),
+            "move_in_timeline": (str(structured.get("move_in_timeline") or "")).strip() or None,
+            "occupants": _pos_int(structured.get("occupants")),
+            "qualification_status": qualification_status,
+            "disqualifying_reason": (str(structured.get("disqualifying_reason") or "")).strip() or None,
+            "qualifying_answers": qualifying_answers,
             "source": "voice",
             "call_id": call_id,
             "notes": notes,
         }
 
-        db.table("lease_leads").insert(lead_payload).execute()
-        print(f"[LEASE EOC] Partial lead saved for call_id={call_id} phone={phone} manager={manager_id}")
+        result = db.table("lease_leads").insert(lead_payload).execute()
+        print(f"[LEASE EOC] Lead saved (structured={bool(structured)}) call_id={call_id} name={caller_name} status={qualification_status} listing={listing_uuid}")
+
+        if result.data and qualification_status == "qualified" and manager_id:
+            try:
+                saved = result.data[0]
+                db.table("notifications").insert({
+                    "manager_id": str(manager_id),
+                    "title": "New Qualified Lead",
+                    "body": f"{caller_name} is interested in leasing — review their details.",
+                    "type": "lead",
+                    "entity_id": str(saved["uuid"]),
+                    "is_read": False,
+                }).execute()
+            except Exception as notif_err:
+                print(f"  [EOC NOTIFICATION] failed (non-fatal): {notif_err}")
 
     except Exception as e:
         print(f"[ERROR] lease_eoc_webhook: {e}")
