@@ -1526,7 +1526,7 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
         "voice": LEASE_VOICE_CONFIG,
         "model": {
             "provider": "openai",
-            "model": "gpt-4o",
+            "model": "gpt-5.2-chat-latest",
             "messages": [{"role": "system", "content": system_prompt}],
             "maxTokens": 300,
             "temperature": 0.7,

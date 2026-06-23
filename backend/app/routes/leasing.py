@@ -149,6 +149,19 @@ async def find_listing(
         return {"found": False, "count": 0, "listings": []}
 
 
+def _normalize_quebec_size(s: str) -> str:
+    """Canonicalize a Quebec apartment size for tolerant matching.
+
+    The agent/caller may render the half-room as ½, 1/2, or .5, with or without
+    a space ("4½", "4 1/2", "4.5"). Collapse them all to the stored "<n>½" form.
+    """
+    if not s:
+        return ""
+    s = s.strip().lower().replace("Â", "")
+    s = s.replace("1/2", "½").replace(".5", "½")
+    return s.replace(" ", "")
+
+
 def _empty_disambiguation(query: str) -> dict:
     return {"needs_confirmation": False, "field": "city", "spoken": query, "candidates": []}
 
@@ -468,8 +481,6 @@ async def search_listings(
             q = q.lte("available_from", available_before)
         if state_filter:
             q = q.ilike("state", f"%{state_filter}%")
-        if quebec_size_filter:
-            q = q.eq("quebec_size", quebec_size_filter)
 
         results = q.order("monthly_rent").limit(20).execute()
         rows = results.data or []
@@ -485,6 +496,9 @@ async def search_listings(
             rows = [r for r in rows if parking_filter in (r.get("parking") or "").lower()]
         if laundry_filter:
             rows = [r for r in rows if laundry_filter in (r.get("laundry") or "").lower()]
+        if quebec_size_filter:
+            qs_norm = _normalize_quebec_size(quebec_size_filter)
+            rows = [r for r in rows if _normalize_quebec_size(r.get("quebec_size") or "") == qs_norm]
 
         listings = _format_listings(rows[:5])
         return {"count": len(listings), "listings": listings}
