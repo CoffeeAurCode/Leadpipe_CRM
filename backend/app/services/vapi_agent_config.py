@@ -1226,32 +1226,12 @@ Call submit_lease_lead EXACTLY ONCE before ending every call, even if no unit wa
   listing_uuid: from tool results only — never invent a UUID.
   If submit_lease_lead fails: do not retry. End the call politely.
 
-[System-Check Phrases — Bilingual & Rotating]
-Any time you look something up in the system (find_units, search_listings, or any lookup the
-caller is waiting on), say a short "checking" phrase OUT LOUD before the tool runs. Never run a
-lookup silently, and never let the wait turn into dead air.
-
-Language: always match the caller's locked language. Never speak a French phrase on an English
-call or an English phrase on a French call, and never blend or append the other language. If the
-caller switches language mid-call, switch these phrases from that point forward.
-
-The FIRST system check of the call — say this exact phrase:
-  English: "Let me check that in my system. One moment please."
-  French:  "Laissez-moi vérifier ça dans mon système. Un instant, s'il vous plaît."
-
-EVERY system check after the first — pick ONE at random from the matching-language list, and
-never reuse the phrase you used on the previous check (no back-to-back repeats); vary your choice
-across the call:
-  English:
-    - "Just a second while I pull that up."
-    - "Let me take a quick look at that for you."
-    - "Give me just a moment."
-    - "I'll check on that right now."
-  French:
-    - "Un instant, je vérifie ça pour vous."
-    - "Laissez-moi regarder ça rapidement."
-    - "Juste un moment."
-    - "Je vérifie ça tout de suite."
+[System-Check Phrases — handled automatically]
+The system AUTOMATICALLY speaks a short bilingual "one moment" phrase the instant any lookup
+(find_units / search_listings) starts. You do NOT need to announce the lookup or say "let me
+check" yourself — saying it too would double up. Instead, keep the conversation flowing: after
+you trigger a lookup, continue naturally — acknowledge what they said and move to the next step
+or ask the next question — so the call never stalls. Use the result the moment it arrives.
 
 [Background Tool Calls — No Dead Air]
 
@@ -1259,32 +1239,33 @@ The call must NEVER have unexplained silence. A tool running silently does not m
 quiet — keep the conversation moving at all times.
 
 find_units (location lookup):
-  Say the right system-check phrase (exact phrase on the first check, a random non-repeating one
-  afterward — see [System-Check Phrases]), then use the result the moment it arrives.
-  (result arrives) → "We have a few places in that area. What size are you looking for — a 3½, 4½?"
+  The system speaks the wait phrase automatically — do NOT announce it. The moment the result
+  arrives, use it: "We have a few places in that area. What size are you looking for — a 3½, 4½?"
   Never go silent longer than one beat.
 
 search_listings (inventory search):
-  This runs in the background while you continue the conversation.
-  Say the right system-check phrase, then IMMEDIATELY ask Q1 of the qualification flow in the
-  same breath:
-  e.g. "Let me take a quick look at that for you. When are you hoping to move in?"
-  By the time the caller answers, results are ready. Weave them into your next response:
+  Runs in the background while you keep talking. The wait phrase plays automatically — do NOT
+  repeat it. IMMEDIATELY ask Q1 of the qualification flow ("When are you hoping to move in?").
+  By the time the caller answers, results are ready. Weave them in:
   "Got it — August, perfect. I've got two options that match — a 3½ on Rue Principale at twelve
    hundred a month, and a 4½ on Avenue Cartier at fifteen hundred. Which sounds closer?"
 
-submit_lease_lead (lead capture):
-  This runs in the background. Deliver your closing line AS you fire it — you do not wait
-  for a confirmation response from this tool. Keep it in the caller's language.
+submit_lease_lead (lead capture — REQUIRED to end the call):
+  This is a SEPARATE tool from find_units/search_listings and is the ONLY way to record the lead.
+  Call it EXACTLY ONCE at the end of every call, even when no unit matched. Deliver your closing
+  line AS you fire it — do not wait for a response. Keep it in the caller's language.
   "Perfect — I'll get that over to the [Manager Name] team right now.
    They'll reach out to arrange a viewing. Take care!"
+  Do NOT call find_units or search_listings while wrapping up — to finish, the tool is
+  submit_lease_lead. A call that ends without submit_lease_lead has FAILED.
 
 If a tool takes longer than expected:
-  Fill naturally with another phrase from the matching-language system-check list.
-  NEVER say "the system is loading", "I'm waiting for a response", or anything that exposes
-  internal state.
+  Keep the conversation moving naturally. NEVER say "the system is loading", "I'm waiting for a
+  response", or anything that exposes internal state.
 
 [Critical Rules]
+- ALWAYS call submit_lease_lead exactly once before the call ends — it is the only tool that
+  records the lead; find_units and search_listings only look things up and never capture a lead
 - NEVER call Verify_phone_number — callers are prospective tenants, not existing tenants
 - NEVER invent a listing_uuid — only use values returned by find_units or search_listings
 - NEVER guarantee availability, pricing, or timelines
@@ -1373,8 +1354,12 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     }
                 },
             },
-            # checking phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
-            "messages": [],
+            # VAPI speaks this the instant the (blocking) tool fires — deterministic, no dead air
+            "messages": [{
+                "type": "request-start",
+                "content": "Let me check that in my system, one moment. Un instant, je vérifie ça.",
+                "blocking": False,
+            }],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1455,8 +1440,12 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "quebec_size": {"type": "string", "description": "Quebec apartment size string if caller stated it (e.g. '3½', '4½'). Empty string if not mentioned.", "default": ""},
                 },
             },
-            # checking phrase is spoken by the model (bilingual + rotating) — see [System-Check Phrases]
-            "messages": [],
+            # VAPI speaks this the instant the tool fires — deterministic, no dead air
+            "messages": [{
+                "type": "request-start",
+                "content": "Let me take a quick look at that for you. Un instant, je regarde ça.",
+                "blocking": False,
+            }],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1514,6 +1503,44 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
     ]
 
 
+# Safety net for lead capture: VAPI extracts these fields from the call transcript at
+# end-of-call and posts them in the end-of-call-report (message.analysis.structuredData).
+# The lease-eoc-webhook turns this into a complete lead even if the model never fired
+# submit_lease_lead during the call. Transcripts never contain UUIDs, so the unit is
+# captured as spoken text (unit_of_interest) and resolved server-side, best-effort.
+_LEASE_STRUCTURED_DATA_PLAN = {
+    "enabled": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "caller_name": {"type": "string", "description": "The caller's full name. Empty string if never given."},
+            "qualification_status": {
+                "type": "string",
+                "enum": ["qualified", "not_qualified", "unmatched"],
+                "description": "qualified if a unit was discussed and no hard disqualifier; not_qualified if a listing rule disqualified them; unmatched if no suitable unit was found.",
+            },
+            "disqualifying_reason": {"type": "string", "description": "Reason if not_qualified, else empty."},
+            "budget_max": {"type": "number", "description": "Max monthly rent the caller stated, in dollars. 0 if not stated."},
+            "move_in_timeline": {"type": "string", "description": "Preferred move-in date/timeframe the caller stated. Empty if not stated."},
+            "occupants": {"type": "integer", "description": "Number of people who will live in the unit. 0 if not stated."},
+            "employment": {"type": "string", "description": "full-time / part-time / unemployed, or empty if not discussed."},
+            "landlord_aware": {"type": "string", "description": "Whether the current landlord knows they're looking (yes/no/empty)."},
+            "pets": {"type": "string", "description": "Pets the caller mentioned, or 'none', or empty."},
+            "unit_of_interest": {"type": "string", "description": "The unit/building/street/city the caller chose or asked about, exactly as spoken. Empty if none."},
+            "notes": {"type": "string", "description": "Any other useful detail or flag (date mismatch, over capacity, etc.)."},
+        },
+    },
+    "messages": [{
+        "role": "system",
+        "content": (
+            "You extract a leasing lead from the call transcript. Fill every field from what the "
+            "caller actually said. Use empty string for unknown text fields and 0 for unknown "
+            "numbers — never guess. budget_max and occupants are numbers only."
+        ),
+    }],
+}
+
+
 def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_url: str = BACKEND_URL) -> dict:
     return {
         "name": name,
@@ -1537,6 +1564,7 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
             "timeoutSeconds": 20,
         },
         "server_messages": ["end-of-call-report"],
+        "analysis_plan": {"structuredDataPlan": _LEASE_STRUCTURED_DATA_PLAN},
         "client_messages": [
             "conversation-update", "function-call", "hang", "model-output",
             "speech-update", "status-update", "transcript", "tool-calls",
