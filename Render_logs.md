@@ -1,100 +1,75 @@
-2026-06-23T16:41:45.745509064Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:42:45.015725407Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:43:46.086410235Z INFO:     49.43.25.126:0 - "OPTIONS /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:43:46.30546138Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:44:45.029962597Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:45:45.84179554Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:46:44.995365486Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:47:45.580397241Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:48:46.740812035Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:49:44.982498035Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:50:44.980212127Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:51:45.567213323Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:52:44.961997619Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:53:45.535481062Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:54:44.970725934Z INFO:     49.43.25.126:0 - "OPTIONS /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:54:45.574673561Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:55:45.402758891Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T16:56:45.29963362Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:00:04.224538748Z ==> Deploying...
-2026-06-23T17:00:04.366371671Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
-2026-06-23T17:00:26.607632515Z ==> Running 'uvicorn app.main:app --host 0.0.0.0 --port $PORT'
-2026-06-23T17:00:37.617206559Z INFO:     Started server process [67]
-2026-06-23T17:00:37.61726466Z INFO:     Waiting for application startup.
-2026-06-23T17:00:37.618057457Z INFO:     Application startup complete.
-2026-06-23T17:00:37.618580928Z INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-2026-06-23T17:00:38.620962248Z INFO:     127.0.0.1:47032 - "HEAD / HTTP/1.1" 405 Method Not Allowed
-2026-06-23T17:00:39.200427577Z ==> Your service is live 🎉
-2026-06-23T17:00:39.55987955Z INFO:     35.227.183.65:0 - "GET / HTTP/1.1" 200 OK
-2026-06-23T17:00:39.682419065Z ==> 
-2026-06-23T17:00:39.684762665Z ==> ///////////////////////////////////////////////////////////
-2026-06-23T17:00:39.687462683Z ==> 
-2026-06-23T17:00:39.691889028Z ==> Available at your primary URL https://tenant-management-mvp.onrender.com
-2026-06-23T17:00:39.695344902Z ==> 
-2026-06-23T17:00:39.697884697Z ==> ///////////////////////////////////////////////////////////
-2026-06-23T17:01:38.352775584Z INFO:     Shutting down
-2026-06-23T17:01:38.453403479Z INFO:     Waiting for application shutdown.
-2026-06-23T17:01:38.453709106Z INFO:     Application shutdown complete.
-2026-06-23T17:01:38.453804088Z INFO:     Finished server process [61]
-2026-06-23T17:05:46.170424551Z ==> Detected service running on port 8000
-2026-06-23T17:05:46.349301032Z ==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
-2026-06-23T17:09:19.364091364Z INFO:     49.43.25.126:0 - "OPTIONS /notifications HTTP/1.1" 200 OK
-2026-06-23T17:09:19.365350241Z INFO:     49.43.25.126:0 - "OPTIONS /appointments?start_date=2026-03-25&end_date=2026-07-23 HTTP/1.1" 200 OK
-2026-06-23T17:09:19.369651132Z INFO:     49.43.25.126:0 - "OPTIONS /complaints HTTP/1.1" 200 OK
-2026-06-23T17:09:22.813772452Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:09:23.612963752Z INFO:     49.43.25.126:0 - "GET /complaints HTTP/1.1" 200 OK
-2026-06-23T17:09:24.570185614Z INFO:     49.43.25.126:0 - "GET /appointments?start_date=2026-03-25&end_date=2026-07-23 HTTP/1.1" 200 OK
-2026-06-23T17:09:25.701353244Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:09:28.371191041Z INFO:     49.43.25.126:0 - "OPTIONS /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:09:28.5844286Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:09:35.025220541Z INFO:     49.43.25.126:0 - "OPTIONS /voice/call/outbound HTTP/1.1" 200 OK
-2026-06-23T17:09:52.023799693Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:09:52.184078233Z INFO:     49.43.25.126:0 - "POST /voice/call/outbound HTTP/1.1" 200 OK
-2026-06-23T17:09:52.231793012Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:09:56.856341156Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:09:58.363958398Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:10:09.012222296Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:10:09.013251658Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:10:10.879683968Z INFO:     49.43.25.126:0 - "OPTIONS /leasing/metrics HTTP/1.1" 200 OK
-2026-06-23T17:10:10.880217279Z INFO:     49.43.25.126:0 - "OPTIONS /leasing/leads HTTP/1.1" 200 OK
-2026-06-23T17:10:10.88074239Z INFO:     49.43.25.126:0 - "OPTIONS /leasing/listings HTTP/1.1" 200 OK
-2026-06-23T17:10:11.865243469Z INFO:     49.43.25.126:0 - "GET /leasing/leads HTTP/1.1" 200 OK
-2026-06-23T17:10:11.869740444Z INFO:     49.43.25.126:0 - "OPTIONS /property-groups/users/me/vapi-config HTTP/1.1" 200 OK
-2026-06-23T17:10:12.368555103Z INFO:     49.43.25.126:0 - "GET /leasing/metrics HTTP/1.1" 200 OK
-2026-06-23T17:10:12.921222291Z INFO:     49.43.25.126:0 - "GET /leasing/listings HTTP/1.1" 200 OK
-2026-06-23T17:10:13.386135962Z INFO:     49.43.25.126:0 - "GET /property-groups/users/me/vapi-config HTTP/1.1" 200 OK
-2026-06-23T17:10:18.369085307Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:10:19.39628312Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:10:21.713768078Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=Montreal%20Avenue%20Libre%20something HTTP/1.1" 200 OK
-2026-06-23T17:10:28.932658986Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:10:32.825349066Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:10:38.362527174Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:10:49.951778549Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:10:49.952261349Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:10:58.93201061Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:11:08.916098673Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:11:18.925982932Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:11:28.91682299Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:11:36.332641022Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query= HTTP/1.1" 200 OK
-2026-06-23T17:11:38.911020361Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:11:40.28932686Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=48%20Avenue%20Libre,%20Montreal,%20Quebec HTTP/1.1" 200 OK
-2026-06-23T17:11:44.145549583Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=48%20Avenue%20Libre%20Montreal HTTP/1.1" 200 OK
-2026-06-23T17:11:48.300035894Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=48%20Avenue%20Libre,%20Montreal,%20Quebec HTTP/1.1" 200 OK
-2026-06-23T17:11:48.921019137Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:11:52.987684082Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=48%20Avenue%20Libre%20Montreal%20Quebec HTTP/1.1" 200 OK
-2026-06-23T17:11:56.723155382Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=STDTEST02 HTTP/1.1" 200 OK
-2026-06-23T17:12:01.222368894Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=48%20Avenue%20Libre%20Montreal HTTP/1.1" 200 OK
-2026-06-23T17:12:05.822770207Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=48%20Avenue%20Libre%20Montreal HTTP/1.1" 200 OK
-2026-06-23T17:12:34.423558907Z INFO:     184.32.149.8:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=STDTEST02 HTTP/1.1" 200 OK
-2026-06-23T17:12:42.902227175Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:12:44.024371168Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:12:49.031560237Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:12:49.032127559Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
-2026-06-23T17:12:51.206938685Z INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
-2026-06-23T17:12:52.773600489Z INFO:     49.43.25.126:0 - "GET /complaints HTTP/1.1" 200 OK
-2026-06-23T17:12:53.129583568Z INFO:     49.43.25.126:0 - "GET /appointments?start_date=2026-03-25&end_date=2026-07-23 HTTP/1.1" 200 OK
-2026-06-23T17:12:54.735421681Z INFO:     49.43.25.126:0 - "GET /leasing/leads HTTP/1.1" 200 OK
-2026-06-23T17:12:55.392909917Z INFO:     49.43.25.126:0 - "GET /leasing/metrics HTTP/1.1" 200 OK
-2026-06-23T17:12:56.790386813Z INFO:     49.43.25.126:0 - "GET /leasing/listings HTTP/1.1" 200 OK
-2026-06-23T17:12:57.085673618Z INFO:     49.43.25.126:0 - "GET /property-groups/users/me/vapi-config HTTP/1.1" 200 OK
-2026-06-23T17:13:00.18084409Z INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "POST /voice/call/outbound HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+[DEBUG] verify_phone: flat_number='1804' phone_number=' 919998064026'
+[DEBUG] flat lookup '1804': found=True
+[DEBUG] phone match: caller=' 919998064026' db='+919998064026' match=True
+INFO:     54.200.135.216:0 - "POST /flats/verify-phone?phone_number=+919998064026 HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "OPTIONS /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     54.200.135.216:0 - "GET /appointments/availability?appointment_date=2026-06-24T10:00:00 HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "OPTIONS /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "OPTIONS /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "OPTIONS /leasing/listings HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "OPTIONS /leasing/metrics HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "OPTIONS /leasing/leads HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /leasing/metrics HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /leasing/leads HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /leasing/listings HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "OPTIONS /property-groups/users/me/vapi-config HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /property-groups/users/me/vapi-config HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "POST /voice/call/outbound HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+[LEASE EOC] Lead saved (structured=False) call_id=019ef5a7-8cb6-7001-923b-c250b08df325 name=Unknown status=unmatched listing=None
+INFO:     35.165.20.249:0 - "POST /voice/lease-eoc-webhook HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /complaints HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /appointments?start_date=2026-03-25&end_date=2026-07-23 HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "POST /voice/call/outbound HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     16.146.19.32:0 - "GET /leasing/find-units?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&query=Laval HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /notifications HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     16.146.19.32:0 - "GET /leasing/search-listings?manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3&bedrooms=0&budget_max=10000&city=Laval&bathrooms=0&parking=&laundry=&quebec_size= HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+INFO:     49.43.25.126:0 - "GET /voice/call-status HTTP/1.1" 200 OK
+[LEASE LEAD DIRECT] call_id=019ef5a8-6566-7000-ae80-c7966c5cf02a phone= 919998064026 data={'notes': 'Move-in timeline may not align with available_from 2026-06-30.', 'bedrooms': 0, 'occupants': 1, 'budget_max': 10000, 'caller_name': 'a test person', 'listing_uuid': '72a5cabb-d623-483b-a819-2380c45ed312', 'floor_preference': '', 'move_in_timeline': 'next month', 'address_preference': 'Laval', 'qualifying_answers': '{"move_in":"next month (listing available from 2026-06-30)","landlord_aware":"yes","employment":"part-time","occupants":"1","pets":"no"}', 'disqualifying_reason': '', 'qualification_status': 'qualified', 'interested_listing_ids': ['72a5cabb-d623-483b-a819-2380c45ed312']}
+  [SAVED] phone= 919998064026 status=qualified
+INFO:     16.146.19.32:0 - "POST /voice/lease-lead-direct?call_id=019ef5a8-6566-7000-ae80-c7966c5cf02a&phone=+919998064026&manager_id=28c43c77-8c9c-496f-8d1e-39ffa9d619e3 HTTP/1.1" 200 OK
