@@ -332,6 +332,24 @@ LEASE_VOICE_CONFIG = {
 
 
 # ---------------------------------------------------------------------------
+# VAPI/OpenAI dedupe tools by function name — duplicates collapse and the model
+# can only ever reach the FIRST tool sharing a name. apiRequest tools historically
+# all used "api_request_tool", which made every tool after the first unreachable
+# (e.g. the lease agent could never call submit_lease_lead). Alias each apiRequest
+# tool's function.name to its already-unique top-level name. Pure function tools
+# (submit_complaint) carry their name in function.name and have no top-level name,
+# so they are left untouched.
+# ---------------------------------------------------------------------------
+def _alias_apirequest_tool_names(tools: list) -> list:
+    for t in tools:
+        top_name = t.get("name")
+        fn = t.get("function")
+        if top_name and isinstance(fn, dict):
+            fn["name"] = top_name
+    return tools
+
+
+# ---------------------------------------------------------------------------
 # Tools — 5 apiRequest tools + 1 function tool (submit_complaint)
 # ---------------------------------------------------------------------------
 def build_tools(backend_url: str) -> list:
@@ -606,7 +624,7 @@ def build_tools(backend_url: str) -> list:
 # ---------------------------------------------------------------------------
 def build_assistant_config() -> dict:
     backend_url = BACKEND_URL
-    tools = build_tools(backend_url)
+    tools = _alias_apirequest_tool_names(build_tools(backend_url))
 
     return {
         "name": "Complaint Intake Agent",
@@ -945,7 +963,7 @@ def build_complaint_tools(backend_url: str) -> list:
 
 
 def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
-    tools = build_complaint_tools(backend_url)
+    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url))
     return {
         "name": "Complaint Agent (Alex)",
         "first_message": "Hi, this is Alex — how can I help you today?",
@@ -1226,26 +1244,35 @@ Call submit_lease_lead EXACTLY ONCE before ending every call, even if no unit wa
   listing_uuid: from tool results only — never invent a UUID.
   If submit_lease_lead fails: do not retry. End the call politely.
 
-[System-Check Phrases — handled automatically]
-The system AUTOMATICALLY speaks a short bilingual "one moment" phrase the instant any lookup
-(find_units / search_listings) starts. You do NOT need to announce the lookup or say "let me
-check" yourself — saying it too would double up. Instead, keep the conversation flowing: after
-you trigger a lookup, continue naturally — acknowledge what they said and move to the next step
-or ask the next question — so the call never stalls. Use the result the moment it arrives.
+[System-Check Phrases — Locked Language Only]
+The instant you trigger a lookup (find_units or search_listings), say a SHORT, natural "one moment"
+phrase OUT LOUD so there is never dead air. Never run a lookup silently.
+
+Speak it ONLY in the caller's locked language — never the other language, never both in one breath,
+never the "English / French" slash format, never an appended translation. On an English call use an
+English phrase only; on a French call a French phrase only.
+
+Vary the phrase; do not repeat the same one back-to-back. Examples:
+  English: "One moment." / "Let me take a quick look." / "Give me just a second." / "Let me check that."
+  French:  "Un instant." / "Laissez-moi regarder ça." / "Juste une seconde." / "Je vérifie ça."
+
+Do NOT say a checking phrase for submit_lease_lead — that is the lead capture, not a lookup; deliver
+your closing line instead (see [④ HANDOFF]). After a result arrives, continue immediately in the
+same language.
 
 [Background Tool Calls — No Dead Air]
 
-The call must NEVER have unexplained silence. A tool running silently does not mean you go
-quiet — keep the conversation moving at all times.
+The call must NEVER have unexplained silence. Speak a short locked-language checking phrase the
+instant you trigger a lookup (see [System-Check Phrases]), then keep the conversation moving.
 
 find_units (location lookup):
-  The system speaks the wait phrase automatically — do NOT announce it. The moment the result
+  Say a brief "one moment" in the caller's language as you fire it. The moment the result
   arrives, use it: "We have a few places in that area. What size are you looking for — a 3½, 4½?"
   Never go silent longer than one beat.
 
 search_listings (inventory search):
-  Runs in the background while you keep talking. The wait phrase plays automatically — do NOT
-  repeat it. IMMEDIATELY ask Q1 of the qualification flow ("When are you hoping to move in?").
+  Runs in the background while you keep talking. Say a brief checking phrase, then
+  IMMEDIATELY ask Q1 of the qualification flow ("When are you hoping to move in?").
   By the time the caller answers, results are ready. Weave them in:
   "Got it — August, perfect. I've got two options that match — a 3½ on Rue Principale at twelve
    hundred a month, and a 4½ on Avenue Cartier at fifteen hundred. Which sounds closer?"
@@ -1354,12 +1381,9 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     }
                 },
             },
-            # VAPI speaks this the instant the (blocking) tool fires — deterministic, no dead air
-            "messages": [{
-                "type": "request-start",
-                "content": "Let me check that in my system, one moment. Un instant, je vérifie ça.",
-                "blocking": False,
-            }],
+            # No static content — a static string can't respect the per-call language lock.
+            # The model speaks a short checking phrase in the locked language (see [System-Check Phrases]).
+            "messages": [],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1440,12 +1464,9 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "quebec_size": {"type": "string", "description": "Quebec apartment size string if caller stated it (e.g. '3½', '4½'). Empty string if not mentioned.", "default": ""},
                 },
             },
-            # VAPI speaks this the instant the tool fires — deterministic, no dead air
-            "messages": [{
-                "type": "request-start",
-                "content": "Let me take a quick look at that for you. Un instant, je regarde ça.",
-                "blocking": False,
-            }],
+            # No static content — a static string can't respect the per-call language lock.
+            # The model speaks a short checking phrase in the locked language (see [System-Check Phrases]).
+            "messages": [],
             "variableExtractionPlan": {
                 "schema": {
                     "type": "object",
@@ -1581,7 +1602,7 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
 
 def build_lease_config(backend_url: str, manager_id: str, manager_name: str = "our property management team") -> dict:
     """Per-manager lease agent — handles all listings across all property groups for this account."""
-    tools = _build_lease_tools(backend_url, manager_id=manager_id)
+    tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=manager_id))
     context_block = _LEASE_CONTEXT_BLOCK.format(manager_id=manager_id, manager_name=manager_name)
     system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block
     return _lease_assistant_shell(
@@ -1594,7 +1615,7 @@ def build_lease_config(backend_url: str, manager_id: str, manager_name: str = "o
 
 def build_lease_config_shared(backend_url: str) -> dict:
     """Shared lease agent — no manager scope, searches across all active listings."""
-    tools = _build_lease_tools(backend_url, manager_id=None)
+    tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=None))
     return _lease_assistant_shell(
         name="Shared Lease Agent",
         system_prompt=_LEASE_SYSTEM_PROMPT_BASE,

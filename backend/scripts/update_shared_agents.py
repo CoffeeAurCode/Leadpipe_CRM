@@ -6,11 +6,17 @@ Push the latest vapi_agent_config.py config to the two live shared agents:
 Only updates assistant configs. Phone number bindings already exist and are
 not touched — reassigning them is unnecessary and risky.
 
+Uses direct HTTP PATCH (not the VAPI SDK) — the SDK silently drops firstMessageMode,
+apiRequest tool subfields, and other fields that aren't in its Pydantic types.
+PATCH is a partial merge, so fields we don't send are left untouched.
+
 Run from the project root:
-    python backend/scripts/update_shared_agents.py
+    python backend/scripts/update_shared_agents.py [--dry-run]
 """
 import os
 import sys
+import argparse
+import httpx
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -18,15 +24,44 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-from vapi import Vapi
-from vapi.core.api_error import ApiError
-
 from app.services.vapi_agent_config import build_complaint_config, build_lease_config_shared
 
 VAPI_API_KEY             = os.environ.get("PRIVATE_VAPI_API", "")
 COMPLAINT_ASSISTANT_ID   = os.environ.get("VAPI_COMPLAINT_ASSISTANT_ID", "")
 LEASE_ASSISTANT_ID       = os.environ.get("VAPI_SHARED_LEASE_ASSISTANT_ID", "")
 BACKEND_URL              = "https://tenant-management-mvp.onrender.com"
+VAPI_API_BASE            = "https://api.vapi.ai"
+
+# snake_case (vapi_agent_config) → camelCase (VAPI REST). Only keys present in a
+# given config are sent; PATCH merge leaves everything else intact.
+_KEY_MAP = {
+    "name": "name",
+    "first_message": "firstMessage",
+    "first_message_mode": "firstMessageMode",
+    "voicemail_message": "voicemailMessage",
+    "end_call_message": "endCallMessage",
+    "end_call_phrases": "endCallPhrases",
+    "background_sound": "backgroundSound",
+    "transcriber": "transcriber",
+    "voice": "voice",
+    "model": "model",
+    "server": "server",
+    "server_messages": "serverMessages",
+    "analysis_plan": "analysisPlan",
+    "client_messages": "clientMessages",
+    "start_speaking_plan": "startSpeakingPlan",
+    "stop_speaking_plan": "stopSpeakingPlan",
+    "background_speech_denoising_plan": "backgroundSpeechDenoisingPlan",
+}
+
+
+def _to_vapi_payload(cfg: dict) -> dict:
+    payload = {}
+    for snake, camel in _KEY_MAP.items():
+        v = cfg.get(snake)
+        if v is not None:
+            payload[camel] = v
+    return payload
 
 
 def check_env():
@@ -40,53 +75,74 @@ def check_env():
         sys.exit(1)
 
 
-def update_assistant(client: Vapi, label: str, assistant_id: str, cfg: dict, expected_server_messages: list):
+def update_assistant(label: str, assistant_id: str, cfg: dict, expected_server_messages: list, dry_run: bool, headers: dict) -> bool:
     print(f"\n[{label}]")
     print(f"  assistant_id : {assistant_id}")
+    if dry_run:
+        names = [t.get("name") or t.get("function", {}).get("name") for t in cfg.get("model", {}).get("tools", [])]
+        print(f"  DRY RUN — would update name={cfg.get('name')}  tools={names}")
+        return True
     try:
-        result = client.assistants.update(id=assistant_id, **cfg)
-        actual = getattr(result, "server_messages", None)
-        if actual != expected_server_messages:
-            print(f"  [FAIL] serverMessages = {actual} — expected {expected_server_messages}")
-            sys.exit(1)
-        print(f"  [OK]  name={result.name}  serverMessages={actual}")
-    except ApiError as e:
-        print(f"  FAILED {e.status_code}: {e.body}")
-        sys.exit(1)
+        resp = httpx.patch(
+            f"{VAPI_API_BASE}/assistant/{assistant_id}",
+            headers=headers,
+            json=_to_vapi_payload(cfg),
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            print(f"  [FAIL] HTTP {resp.status_code}: {resp.text[:300]}")
+            return False
+        data = resp.json()
+        actual_sm = data.get("serverMessages")
+        tools = data.get("model", {}).get("tools", [])
+        names = [t.get("name") or t.get("function", {}).get("name") for t in tools]
+        if actual_sm != expected_server_messages:
+            print(f"  [FAIL] serverMessages={actual_sm} — expected {expected_server_messages}")
+            return False
+        print(f"  [OK]  name={data.get('name')}  serverMessages={actual_sm}")
+        print(f"        firstMessageMode={data.get('firstMessageMode')}  tools={names}")
+        return True
     except Exception as e:
-        print(f"  FAILED: {e}")
-        sys.exit(1)
+        print(f"  [FAIL] {e}")
+        return False
 
 
 def main():
-    check_env()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dry-run", action="store_true", help="Preview updates without executing")
+    args = parser.parse_args()
 
-    client = Vapi(token=VAPI_API_KEY)
+    check_env()
+    headers = {"Authorization": f"Bearer {VAPI_API_KEY}", "Content-Type": "application/json"}
 
     print("=" * 60)
     print("Updating shared VAPI agents with new voice config")
     print(f"  Backend URL: {BACKEND_URL}")
+    if args.dry_run:
+        print("  DRY RUN mode — no changes will be made")
     print("=" * 60)
 
-    update_assistant(
-        client,
+    ok1 = update_assistant(
         "Complaint agent (+14382314283)",
         COMPLAINT_ASSISTANT_ID,
         build_complaint_config(BACKEND_URL),
-        expected_server_messages=["end-of-call-report", "tool-calls"],
+        ["end-of-call-report", "tool-calls"],
+        args.dry_run, headers,
     )
-
-    update_assistant(
-        client,
+    ok2 = update_assistant(
         "Shared lease agent (+14313415768)",
         LEASE_ASSISTANT_ID,
         build_lease_config_shared(BACKEND_URL),
-        expected_server_messages=["end-of-call-report"],
+        ["end-of-call-report"],
+        args.dry_run, headers,
     )
 
     print("\n" + "=" * 60)
-    print("Done. Both assistants updated.")
-    print("Phone number bindings were not changed.")
+    if ok1 and ok2:
+        print("Done. Both assistants updated. Phone number bindings were not changed.")
+    else:
+        print("FAILED — see errors above.")
+        sys.exit(1)
     print("=" * 60)
 
 
