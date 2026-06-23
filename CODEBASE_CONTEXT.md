@@ -761,6 +761,28 @@ Includes a Pydantic `field_validator` on `phone` enforcing E.164 format (`^\+[1-
 
 ---
 
+### `app/services/city_matching.py`
+Accent-/spelling-/sound-tolerant place matching for the lease agent. Two layers:
+
+**Layer 1 — fuzzy lookup (used by `find_units` / `search_listings` to find matches):**
+- `normalize_place(s)` — strips diacritics + hyphens, lowercases, folds `St/Ste → Saint/Sainte`. The shared pre-step for every scorer (correct because Deepgram garble carries no accents).
+- `city_matches(query_norm, city_norm, threshold=0.82)` — substring + FR/EN alias map + `difflib` ratio. Binary match/no-match.
+
+**Layer 2 — banded "did you mean X or Y?" confirmation (the fuzzy-band feature):**
+- `similarity(spoken, candidate)` — hybrid score in [0,1] = `max(rapidfuzz, Metaphone-via-jellyfish, difflib)`. The **phonetic leg is the point**: it scores sound-alike/spelled-different garble (`Saint-L'Asor` ↔ `Saint-Lazare`) at ~1.0 where pure string ratios give ~0.55 and would silently miss it. Phonetic encoder is **swappable** via `set_phonetic_encoder()` (default = single Metaphone; swap to Beider-Morse FR if a corpus bake-off shows it false-accepting at scale). Degrades to difflib-only if `rapidfuzz`/`jellyfish` aren't installed.
+- `rank_candidates(spoken, candidate_values, field_name="city", ...)` → `RankResult(decision, ...)` with a three-zone decision: **AUTO_ACCEPT** (clear winner — `top ≥ T_HIGH` and beats #2 by `≥ MARGIN`; proceed with no extra turn), **CONFIRM** (genuinely confusable — voice only the values within `BAND` of the top, capped at `N_MAX`), **NO_MATCH** (`top < T_FLOOR` — fall through to `available_cities`). Leans to confirming in the gray zone (false accept burns the call; false confirm costs one turn). Thresholds (`T_HIGH 0.86 / MARGIN 0.08 / T_CONFIRM 0.66 / BAND 0.06 / T_FLOOR 0.55 / N_MAX 3`) are module constants, overridable per call.
+- **Field-agnostic by design** — `field_name` is just a label; the same engine ranks cities, buildings, or streets depending on which distinct set you pass in.
+- New deps: `rapidfuzz`, `jellyfish` (pinned in `requirements.txt`). Tests: `tests/test_city_matching.py`. Phase-0 corpus tool: `backend/scripts/generate_stt_garble_corpus.py` (TTS→Deepgram round-trip over a manager's real values → labeled `garble→truth` pairs for threshold fitting; offline-seed fallback when no API keys).
+
+**Phased rollout (which fields the banded confirmation covers):**
+- **Phase 1 — City: IMPLEMENTED + DEPLOYED 2026-06-22** (backend on Render + all live VAPI lease assistants via `update_lease_agents.py`). `find_units` ranks the caller's words against the manager's distinct cities and returns the `disambiguation` block.
+- **Phase 2 — Building / property name: NOT BUILT.** Reuses the same `rank_candidates`/`similarity` engine pointed at the distinct building/property names (already fetched into `building_rows`/`property_rows` in `find_units`). Extra work = a **cross-field collision** precedence rule (a building name can contain a city token, e.g. "carré Saint-Laurent") so the agent doesn't confirm both city and building for one utterance.
+- **Phase 3 — Street address: NOT BUILT (optional).** Same engine over distinct streets. Extra work = a street-specific normalization step (strip civic numbers like "2803", fold Rue/Bd/Av) because streets are high-cardinality and noisy. Per the plan, only worth doing if Phases 1–2 prove out; most of the value is in Phase 1.
+
+To extend to Phase 2/3: build the field's distinct set from rows already in `find_units`, call `rank_candidates(query, that_set, field_name=...)`, add a branch to the `disambiguation` block, teach the Step-2 prompt the new field's question, then redeploy backend + run `update_lease_agents.py`.
+
+---
+
 ### `app/services/vapi_provisioning.py`
 - `provision_vapi_for_manager(manager_id, db)` — run as a FastAPI `BackgroundTask` when a manager creates their FIRST property group
 - **Per-manager provisioning** (one number + one assistant per manager account, not per group):
@@ -789,7 +811,7 @@ Four builder functions:
 - `first_message_mode` = `assistant-speaks-first-with-model-generated-message` — AI generates a fresh bilingual greeting each call; no hardcoded `first_message`
 - Four stages: **① Greeting → ② Unit Discovery → ③ Qualification → ④ Handoff**
 - **② Unit Discovery:** agent asks Location → calls `find_units` (city matching is accent-/spelling-tolerant via `city_matching.py`; on no match the agent offers the cities from the tool's `available_cities` array, never invented) → Size → Budget → calls `search_listings` (its `city` filter is also accent-insensitive — Python post-filter via `city_matches`, no DB `ilike`) → presents all matches and lets caller pick one
-- **Banded city confirmation (Step 2):** the agent reads `find_units`' `disambiguation` block **before** the matches. When `needs_confirmation` is true, the spoken city is genuinely confusable (CONFIRM band — e.g. Saint-Lazare vs Saint-Lazaire); the agent asks the caller to choose between **only** `disambiguation.candidates`, disambiguating by **rent** (or **ordinal** "first/second" when rents tie) — never by re-saying a place name (the same accent re-garbles the answer). Clear winners auto-accept silently (no extra turn); junk falls through to `available_cities`. Backed by `rank_candidates` + hybrid phonetic/string `similarity` (rapidfuzz + Metaphone via `jellyfish` + difflib) in `city_matching.py`
+- **Banded city confirmation (Step 2) — LIVE 2026-06-22 (city only):** the agent reads `find_units`' `disambiguation` block **before** the matches. When `needs_confirmation` is true, the spoken city is genuinely confusable (CONFIRM band — e.g. Saint-Lazare vs Saint-Lazaire); the agent asks the caller to choose between **only** `disambiguation.candidates`, disambiguating by **rent** (or **ordinal** "first/second" when rents tie) — never by re-saying a place name (the same accent re-garbles the answer). Clear winners auto-accept silently (no extra turn); junk falls through to `available_cities`. Backed by `rank_candidates` + hybrid phonetic/string `similarity` (rapidfuzz + Metaphone via `jellyfish` + difflib) in `city_matching.py`. Currently **city-only**; the engine is field-agnostic and designed to extend to building (Phase 2) and street (Phase 3) — see `app/services/city_matching.py` for the phased roadmap
 - **③ Qualification:** Q1 move-in date (compared to `available_from`), Q2 landlord awareness, Q3 property questions (answered from listing payload, loops), Q4 employment (unemployed → flag, not hard-disqualify), Q5 occupants (vs `custom_rules.max_occupants`), Q6 pets (vs `custom_rules.pets_allowed`), Q7 name. Soft disqualifiers are flagged in `qualifying_answers`/`notes` but the call always continues
 - **④ Handoff:** agent calls `submit_lease_lead` EXACTLY ONCE with full lead data (`qualification_status` = qualified / not_qualified / unmatched). No-match path still submits an `unmatched` lead
 - Size answers always use Quebec notation: "It's a 3½" — not raw bedroom count

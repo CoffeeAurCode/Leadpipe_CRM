@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 09 — Shipping &amp; Deploying Banded "Did You Mean?" City Confirmation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 09</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-hybrid" style="padding-left:1.4rem">— The hybrid <code>max()</code> score</a>
+    <a href="#c-metaphone" style="padding-left:1.4rem">— Metaphone in practice</a>
+    <a href="#c-zones" style="padding-left:1.4rem">— Three zones as code</a>
+    <a href="#c-contract" style="padding-left:1.4rem">— The backend↔model contract</a>
+    <a href="#c-optional" style="padding-left:1.4rem">— Optional dependencies</a>
+    <a href="#c-fieldagnostic" style="padding-left:1.4rem">— Field-agnostic design</a>
+    <a href="#c-deploy" style="padding-left:1.4rem">— The two-deploy pipeline</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 09 · Voice AI · Phonetics · Shipping &amp; Deploy</div>
+      <h1>Shipping &amp; Deploying Banded "Did You Mean?" City Confirmation</h1>
+      <p class="lead muted">Session 08 ended with a <em>plan</em>. This session turns that plan into <strong>running production code</strong>: a phonetic+string matcher that can tell <code class="ic">Saint-Lazare</code> from <code class="ic">Saint-Lazaire</code>, a tool response that tells the voice agent <em>when</em> to ask "did you mean X or Y?", the prompt that makes Max ask it politely, the tests that prove it, and the deploy that pushed it to five live phone assistants.</p>
+      <div class="meta">
+        <span class="chip diff">🔴 Advanced</span>
+        <span class="chip time">⏱️ ~80 min read / build</span>
+        <span class="chip pre">📋 Requires: Session 08 (French STT diagnosis &amp; the design plan)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was an <strong>implement-then-ship</strong> session. We started with a single instruction — <em>"implement the plan"</em> — pointing at the design document we wrote in Session 08 (<code class="ic">docs/development_plans/PLAN_lease_agent_fuzzy_band_entity_confirmation.md</code>). By the end, the feature was not just coded and tested but <strong>live in production</strong>, answering real phone calls.</p>
+
+      <div class="term">
+<span class="spk">You:</span> implement @docs\development_plans\PLAN_lease_agent_fuzzy_band_entity_confirmation.md
+<span class="dim">         ...later...</span>
+<span class="spk">You:</span> run `python backend/scripts/update_lease_agents.py` to deploy
+<span class="spk">You:</span> i have deployed the backend... on render
+      </div>
+
+      <p>The thing we built has a mouthful of a name — <strong>"banded fuzzy-band entity confirmation"</strong> — but the idea is simple. When a French-accented caller says a city and the speech-to-text mangles it, the agent should:</p>
+      <div class="diagram"><span class="good">clear winner</span>      → just proceed, no question        (AUTO_ACCEPT)
+<span class="warn">two sound-alikes</span> → "did you mean X or Y?"            (CONFIRM)
+<span class="bad">nothing close</span>    → "here's what we do have…"         (NO_MATCH)</div>
+
+      <p>By the end of the session we had:</p>
+      <ul>
+        <li>Rewritten <code class="ic">backend/app/services/city_matching.py</code> with a <strong>hybrid similarity score</strong> (string + phonetic) and a <strong>three-zone ranking function</strong>, <code class="ic">rank_candidates()</code>.</li>
+        <li>Made <code class="ic">find_units</code> (the leasing lookup route) return a new <code class="ic">disambiguation</code> block so the agent knows exactly when and how to confirm.</li>
+        <li>Rewritten the agent's <strong>Step-2 prompt</strong> and its tool schema so Max reads that block and confirms <em>by rent, not by name</em>.</li>
+        <li>Installed two new libraries (<code class="ic">rapidfuzz</code>, <code class="ic">jellyfish</code>), pinned them, wrote unit tests, and a <strong>corpus-generation script</strong> for future tuning.</li>
+        <li>Survived <strong>seven environment/tooling hitches</strong> (documented in the Bug Journal) and shipped to <strong>five live VAPI assistants</strong> + the Render backend.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Combine string and <strong>phonetic</strong> similarity into a single robust score, and explain why we take the <code class="ic">max()</code> of several scorers.</li>
+          <li>Turn a "confidence band" design into a real <strong>decision function</strong> with named thresholds, and reason about why each threshold exists.</li>
+          <li>Design a clean <strong>data contract</strong> (a JSON block) between a deterministic backend and a non-deterministic language model.</li>
+          <li>Make a feature degrade gracefully when an <strong>optional dependency</strong> is missing.</li>
+          <li>Deploy a voice-agent change through its <strong>two-stage pipeline</strong> (backend + assistant config) and verify each stage.</li>
+          <li>Recognise that most "bugs" in a shipping session are <strong>environment friction</strong>, and debug them calmly.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our CRM (<strong>Customer Relationship Management</strong> — the app property managers use to track buildings, units, tenants and leads) has a <strong>voice agent</strong> named <strong>Max</strong>: an AI that answers the phone and holds a real spoken conversation with a prospective tenant. Max figures out which unit the caller wants, asks a few qualifying questions, and hands the manager a "lead." If Max fumbles, the lead is lost before a human ever sees it.</p>
+
+      <p>In <strong>Session 08</strong>, a French-speaking partner test-called Max against a real Quebec portfolio and reported two problems: it <em>paused too much</em>, and it <em>didn't understand him</em>. We did the detective work and proved the "didn't understand" half was a <strong>speech-to-text (STT)</strong> problem: Deepgram (our STT engine) running in <code class="ic">language:"multi"</code> mode renders French-accented proper nouns as English-ish garble — "Saint-Lazare" comes out as "Saint-L'Asor." We also wrote a <strong>design plan</strong> for the fix and built a <em>first, basic</em> accent-tolerant matcher: <code class="ic">city_matching.py</code> had <code class="ic">normalize_place()</code> (strip accents/hyphens, fold St→Saint) and <code class="ic">city_matches()</code> (a plain <code class="ic">difflib</code> string-ratio check). That was enough to <em>find</em> a city, but not enough to <em>disambiguate</em> two cities that sound alike.</p>
+
+      <p>So at the <em>start</em> of this session, the plan's status line literally read <em>"proposed, not started."</em> The matcher could fuzzy-match one city, but it had no notion of <em>"I matched, but two candidates are about equally likely."</em> That gap is exactly where STT garble causes the agent to silently pick the wrong city. <strong>This session closes that gap and ships it.</strong></p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need Session 08 open. Every term is re-explained on first use here. If you want the deep "why French STT breaks" backstory, that's Session 08 — but everything you need to follow <em>this</em> build is below.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Seven ideas carry the whole session. Read these once and the build log and bug journal will feel obvious.</p>
+
+      <!-- ---- Concept 1: hybrid max() ---- -->
+      <h3 id="c-hybrid">1 · The hybrid <code class="ic">max()</code> similarity score</h3>
+      <p><strong>Plain-English explanation.</strong> "Similarity" means: <em>how alike are two pieces of text, as a number between 0 (nothing alike) and 1 (identical)?</em> The catch is that there are several different ways to measure "alike," and each one is blind to a different kind of mistake. So instead of trusting one, we run three measures and keep <strong>the highest</strong> — the logic being "if <em>any</em> reasonable measure thinks these are close, treat them as close."</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The caller's garbled city has to be matched against the manager's <em>real</em> city names. A purely letter-by-letter comparison catches typos ("Saint Lazole" vs "Saint Lazare") but completely misses sound-alikes spelled differently ("Saint-L'Asor"). A purely sound-based comparison catches those but can over-merge. Taking the max of both means a garble is rescued if it's close <em>either</em> way — which is the only way to reliably recover a mangled French city.</p>
+
+      <p><strong>How it works (analogy).</strong> Imagine three judges scoring a costume contest: one judge only looks at the <em>spelling</em> on the name tag, one only listens to how the name <em>sounds</em> when spoken, and one is a quick generalist. We don't average them (an average lets one harsh judge sink a good match). We take the <strong>most generous</strong> score, because our cost of <em>missing</em> a real match is far higher than the cost of a single extra confirmation question.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>difflib</strong> — a library built into Python. Its <code class="ic">SequenceMatcher.ratio()</code> measures how much two strings overlap, character by character. Cheap, already there, decent baseline.</li>
+        <li><strong>rapidfuzz</strong> — a fast third-party library for <strong>fuzzy string matching</strong> (matching text that's <em>almost</em> equal). Its <code class="ic">ratio()</code> is based on <strong>edit distance</strong> (how many single-character insert/delete/replace edits turn one string into the other). Returns 0–100, so we divide by 100.</li>
+        <li><strong>phonetic match</strong> — comparing how words <em>sound</em>, not how they're spelled (covered in Concept 2).</li>
+        <li><strong>normalize</strong> — clean both strings the same way before scoring (lowercase, drop accents/hyphens, fold "St"→"Saint") so cosmetic differences don't count against the match.</li>
+      </ul>
+
+      <p><strong>Annotated code — the heart of the matcher.</strong> Here is the exact hybrid we shipped:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/city_matching.py"><pre><code>def similarity(spoken: str, candidate: str) -> float:
+    # Clean BOTH strings the same way first (lowercase, strip accents/hyphens, St->Saint).
+    # Garble carries no accents, so normalizing both sides puts them on equal footing.
+    a, b = normalize_place(spoken), normalize_place(candidate)
+    if not a or not b:                       # empty after cleaning -> definitely not a match
+        return 0.0
+    return max(                              # keep the MOST generous of the three measures
+        _rapidfuzz_score(a, b),              # edit-distance garble: "Saint Lazole" -> "Saint Lazare"
+        _phonetic_ratio(a, b),               # sound-alike/spelled-different: "Saint-L'Asor"
+        difflib.SequenceMatcher(None, a, b).ratio(),  # cheap built-in baseline, kept as a floor
+    )</code></pre></div>
+
+      <div class="callout c-deep">
+        <div class="c-title">📖 Deep Dive — why <code class="ic">max</code>, not a weighted average?</div>
+        <p>Our errors are <strong>asymmetric</strong>: a <em>false accept</em> (silently proceeding on the wrong city) burns the entire call and captures a junk lead, while a <em>false confirm</em> (asking one extra question) costs a single turn. When the downside of missing a match dwarfs the downside of an extra check, you want the scorer that's <em>most willing</em> to call something a match — that's <code class="ic">max()</code>. A weighted average would let one pessimistic scorer veto a real match. We deliberately lean toward "notice the resemblance."</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.python.org/3/library/difflib.html">Python difflib docs</a> ·
+        <a class="inline" href="https://rapidfuzz.github.io/RapidFuzz/">RapidFuzz docs</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Levenshtein_distance">Edit distance (Levenshtein) explained</a>
+      </p>
+
+      <!-- ---- Concept 2: Metaphone ---- -->
+      <h3 id="c-metaphone">2 · Phonetic encoding with Metaphone (in practice)</h3>
+      <p><strong>Plain-English explanation.</strong> A <strong>phonetic algorithm</strong> turns a word into a short code that represents <em>how it sounds</em>, throwing away spelling details that don't change the sound. Words that sound alike get the <em>same</em> code. "Lazare" and "Lazaire" are spelled differently but sound the same — and both encode to the code <code class="ic">LSR</code>. That shared code is what lets us catch a sound-alike that the letter-by-letter scorers would rate as different.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> This is the single most important detail of the whole feature. The caller's complaint was literally "similar <em>sounding</em>." A spelling-only matcher gives "Saint-L'Asor" vs "Saint-Lazare" a weak ~0.55 — below our match floor — so it would be thrown away and the caller dumped to a full city list. The phonetic leg scores that same pair near 1.0 and rescues it. Without phonetics, the feature would miss exactly the cases it exists for.</p>
+
+      <p><strong>How it works (analogy).</strong> Think of phonetic encoding as a "soundex fingerprint." Two people with messy handwriting might write a name differently, but if you read both aloud they sound the same — the <em>sound</em> is the fingerprint, not the ink. Metaphone is one recipe for computing that fingerprint.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>jellyfish</strong> — the Python library we use for phonetic encoding. We call <code class="ic">jellyfish.metaphone()</code>.</li>
+        <li><strong>Metaphone</strong> — a phonetic algorithm. It's English-rule based, but it operates on <em>sound</em>, which is the right axis against Deepgram's pseudo-English rendering of French audio.</li>
+        <li><strong>Double Metaphone</strong> — a fancier successor that returns two codes (a primary and an alternate) for ambiguous spellings. The plan <em>asked</em> for this — but the installed jellyfish doesn't ship it (see Bug #4). We used single Metaphone, which was plenty here.</li>
+        <li><strong>swappable backend</strong> — we put the encoder behind a single variable (<code class="ic">_PHONETIC_ENCODER</code>) so a future, more French-aware encoder (e.g. Beider-Morse) can be dropped in without touching the rest of the code.</li>
+      </ul>
+
+      <p><strong>Annotated code — the phonetic leg.</strong> We encode word-by-word and compare the codes, so multi-word names ("saint lazare") work, and near-but-not-identical codes still score partially:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/city_matching.py"><pre><code># The encoder lives behind ONE name so it can be swapped for a better one later
+# without changing any caller. Defaults to single Metaphone if jellyfish is installed.
+_PHONETIC_ENCODER = jellyfish.metaphone if _HAS_JELLYFISH else None
+
+def _phonetic_code(norm: str) -> str:
+    if not _PHONETIC_ENCODER or not norm:    # no encoder available -> phonetic leg scores 0
+        return ""
+    try:
+        # Encode each WORD separately, then join the codes. "saint lazare" -> "SNT LSR".
+        return " ".join(_PHONETIC_ENCODER(tok) for tok in norm.split() if tok)
+    except Exception:
+        return ""                            # never let a phonetic hiccup crash a phone call
+
+def _phonetic_ratio(a_norm: str, b_norm: str) -> float:
+    ca, cb = _phonetic_code(a_norm), _phonetic_code(b_norm)
+    if not ca or not cb:
+        return 0.0
+    if ca == cb:                             # identical sound codes -> perfect phonetic match
+        return 1.0
+    # Codes differ but may still overlap (e.g. one word matches) -> graded, not all-or-nothing
+    return difflib.SequenceMatcher(None, ca, cb).ratio()</code></pre></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — see it for yourself</div>
+        <p>This is the actual proof we ran in the terminal that "Lazare" and "Lazaire" collapse to the same sound code:</p>
+      </div>
+      <div class="term"><span class="pmt">$</span> python -c "import jellyfish; print(jellyfish.metaphone('lazare'), jellyfish.metaphone('lazaire'))"
+<span class="ok">LSR LSR</span>     <span class="dim"># same code -> these two are phonetically identical</span></div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://jamesturk.github.io/jellyfish/">jellyfish docs</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Metaphone">Metaphone on Wikipedia</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Phonetic_algorithm">Phonetic algorithms overview</a>
+      </p>
+
+      <!-- ---- Concept 3: three zones ---- -->
+      <h3 id="c-zones">3 · Turning a "confidence band" into a decision function</h3>
+      <p><strong>Plain-English explanation.</strong> A score on its own does nothing — you have to <em>decide</em> something with it. We score the caller's word against every real city, sort the scores high-to-low, then sort each call into one of three <strong>zones</strong>. The cleverness is in the <em>gaps</em>: a high top score with a <em>distant</em> runner-up is a clear winner; a high top score with a <em>close</em> runner-up is genuinely ambiguous.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Before this, the agent had only two outcomes: "found a match, proceed" or "no match, read the whole list." There was no "I matched, but two are about equally likely." That missing middle is precisely where silent wrong-routing happened. The three-zone function <em>adds</em> that middle without changing the safety net.</p>
+
+      <p><strong>How it works (analogy).</strong> Picture a race photo-finish. If one runner is clearly ahead, you call the winner instantly (AUTO_ACCEPT). If two are neck-and-neck across the line, you go to the replay and ask the judges (CONFIRM). If nobody even reached the line, there's no race to call (NO_MATCH). Two numbers decide which case you're in: how far ahead #1 is (the <strong>margin</strong>), and who's close enough to be "in the photo" (the <strong>band</strong>).</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>threshold</strong> — a cutoff number a score must clear to count.</li>
+        <li><code class="ic">T_HIGH</code> (0.86) — top score must be at least this to be a "clear winner."</li>
+        <li><code class="ic">MARGIN</code> (0.08) — how far #1 must beat #2 to auto-accept. A close #2 means "ambiguous."</li>
+        <li><code class="ic">T_CONFIRM</code> / <code class="ic">T_FLOOR</code> (0.66 / 0.55) — the plausible-but-unsure band, and the "nothing close" floor below which we give up.</li>
+        <li><code class="ic">BAND</code> (0.06) — only cities within this distance of the top join the "did you mean?" question. This is the rule that keeps an unrelated city <em>out</em> of the question.</li>
+        <li><code class="ic">N_MAX</code> (3) — never read more than three options aloud.</li>
+        <li><strong>dataclass</strong> — a lightweight Python class for bundling named fields together (here, a <code class="ic">RankResult</code> holding the decision and the candidate list).</li>
+      </ul>
+
+      <p><strong>Annotated code — the decision.</strong> Note how only two outcomes <em>leave</em> the CONFIRM lane: a clear winner, or nothing close. Everything in between confirms — that's the deliberate lean toward asking in the gray zone:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/city_matching.py"><pre><code>def rank_candidates(spoken, candidate_values, field_name="city",
+                    t_high=T_HIGH, margin=MARGIN, t_confirm=T_CONFIRM,
+                    band=BAND, t_floor=T_FLOOR, n_max=N_MAX) -> RankResult:
+    spoken_norm = normalize_place(spoken)
+    best = {}                                # de-duplicate cities by their normalized form
+    for v in candidate_values:
+        vn = normalize_place(v)
+        if not vn:
+            continue
+        s = similarity(spoken, v)            # the hybrid score from Concept 1
+        if vn not in best or s > best[vn].score:
+            best[vn] = Candidate(value=v, score=s)   # keep the original display spelling
+    scored = sorted(best.values(), key=lambda c: c.score, reverse=True)  # high -> low
+
+    if not spoken_norm or not scored:
+        return RankResult("NO_MATCH", field_name, spoken, None, [], scored)
+
+    top = scored[0]
+    second = scored[1] if len(scored) &gt; 1 else None
+    gap = top.score - (second.score if second else 0.0)   # how far #1 beats #2
+
+    if top.score &lt; t_floor:                  # nothing even close -> fall back to the city list
+        return RankResult("NO_MATCH", field_name, spoken, None, [], scored)
+
+    if top.score &gt;= t_high and (second is None or gap &gt;= margin):  # clear winner
+        return RankResult("AUTO_ACCEPT", field_name, spoken, top, [top], scored)
+
+    # Everything else is ambiguous: voice ONLY the cities within `band` of the top, capped.
+    band_members = [c for c in scored if (top.score - c.score) &lt;= band][:n_max]
+    return RankResult("CONFIRM", field_name, spoken, top, band_members, scored)</code></pre></div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — the two gaps are not the same thing</div>
+        <p><code class="ic">MARGIN</code> decides <em>confident vs. ambiguous</em> (how far ahead #1 is). <code class="ic">BAND</code> decides <em>who gets invited into the question</em> (who's close to #1). Confusing them is the classic way to build this wrong — you'd either confirm too often or drag unrelated cities into the prompt.</p>
+      </div>
+
+      <!-- ---- Concept 4: the contract ---- -->
+      <h3 id="c-contract">4 · The backend↔model contract (a JSON "disambiguation" block)</h3>
+      <p><strong>Plain-English explanation.</strong> The <em>backend</em> (deterministic Python we can unit-test) does the math and decides whether to confirm. The <em>language model</em> (Max's brain, which we can't fully predict) only <em>speaks</em> the decision. The two communicate through a small, fixed JSON shape — a <strong>contract</strong>. The backend fills it in; the prompt teaches Max how to read it.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> We could have just handed the model the candidate list and let it decide whether to confirm. But a model is non-deterministic — it might confirm sometimes and not others, and we can't <em>guarantee</em> or test it. By computing the decision in Python, we get something deterministic, unit-testable, and tunable; the model is left with the one job it's good at — phrasing a natural sentence. This mirrors a pattern already in the codebase (<code class="ic">find_units</code> already returned an <code class="ic">available_cities</code> list the prompt reads).</p>
+
+      <p><strong>How it works (analogy).</strong> Think of a kitchen ticket. The chef (backend) decides exactly what goes on the plate and writes a precise ticket. The waiter (model) doesn't re-decide the dish — they just present it warmly to the table. A clear ticket means the waiter can't improvise the kitchen's job.</p>
+
+      <p><strong>The contract.</strong> Here is the exact block <code class="ic">find_units</code> now returns when two cities are confusable. Each candidate carries its <strong>rent range</strong> — that's how the agent will disambiguate by price instead of by name:</p>
+      <div class="code-block" data-lang="json" data-file="response from GET /leasing/find-units"><pre><code>{
+  "needs_confirmation": true,
+  "field": "city",
+  "spoken": "Saint-Lazar",
+  "candidates": [
+    { "value": "Saint-Lazare",  "rent_low": 1400, "rent_high": 1400 },
+    { "value": "Saint-Lazaire", "rent_low": 1600, "rent_high": 1700 }
+  ]
+}</code></pre></div>
+
+      <p><strong>Annotated code — building the block.</strong> The backend translates the <code class="ic">RankResult</code> into the contract, attaching each city's rent range:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py"><pre><code>def _build_city_disambiguation(query, listings, available_cities) -> dict:
+    rank = rank_candidates(query, available_cities, field_name="city")
+    # ONLY surface a confirmation when the decision is genuinely "CONFIRM".
+    # A clear winner (AUTO_ACCEPT) or junk (NO_MATCH) -> no extra turn.
+    if rank.decision != "CONFIRM" or not rank.candidates:
+        return _empty_disambiguation(query)   # {needs_confirmation: False, ...}
+
+    rent_by_city = {}                         # gather every listing's rent, keyed by normalized city
+    for r in listings:
+        c = (r.get("city") or "").strip()
+        if not c:
+            continue
+        rent_by_city.setdefault(normalize_place(c), []).append(float(r["monthly_rent"]))
+
+    candidates = []
+    for cand in rank.candidates:              # only the cities inside the band
+        rents = rent_by_city.get(normalize_place(cand.value), [])
+        candidates.append({
+            "value": cand.value,
+            "rent_low":  int(min(rents)) if rents else None,   # cheapest unit in that city
+            "rent_high": int(max(rents)) if rents else None,   # priciest unit in that city
+        })
+    return {"needs_confirmation": True, "field": "city", "spoken": query, "candidates": candidates}</code></pre></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — the homophone trap</div>
+        <p>If two cities sound alike when Max <em>speaks</em> them, the caller's spoken answer will be garbled the same way — so confirming <strong>by name</strong> resolves nothing. The fix: the question must be answerable as a <strong>number</strong> (rent), a <strong>yes/no</strong>, or an <strong>ordinal</strong> ("the first or the second?") — never another proper noun. That's why every candidate carries a rent range, and why the prompt forbids re-asking the city name.</p>
+      </div>
+
+      <!-- ---- Concept 5: optional deps ---- -->
+      <h3 id="c-optional">5 · Optional dependencies &amp; graceful degradation</h3>
+      <p><strong>Plain-English explanation.</strong> Our new libraries (<code class="ic">rapidfuzz</code>, <code class="ic">jellyfish</code>) make the matcher better, but the code should still <em>run</em> if they happen to be missing — just with a weaker score. We wrap their imports in <code class="ic">try/except</code> and set a flag; every place that uses them checks the flag first.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Different environments have different packages installed (we hit exactly this — see Bug #1). A leasing route that <em>crashes</em> because an optional scorer is absent would take down phone calls. Far better: fall back to the built-in <code class="ic">difflib</code> and keep answering. Tests can run anywhere; production gets the full hybrid.</p>
+
+      <p><strong>How it works (analogy).</strong> A car with a backup camera is nicer, but if the camera unplugs, the car still drives — you just rely on your mirrors. The camera is "optional"; driving is not.</p>
+
+      <div class="code-block" data-lang="python" data-file="backend/app/services/city_matching.py"><pre><code>try:
+    from rapidfuzz.fuzz import ratio as _rapidfuzz_ratio
+    _HAS_RAPIDFUZZ = True                     # full strength available
+except ImportError:
+    _HAS_RAPIDFUZZ = False                    # missing -> this leg quietly scores 0
+
+try:
+    import jellyfish
+    _HAS_JELLYFISH = True
+except ImportError:
+    _HAS_JELLYFISH = False
+
+def _rapidfuzz_score(a_norm, b_norm):
+    if not _HAS_RAPIDFUZZ:
+        return 0.0                            # degrade: difflib in similarity() still carries us
+    return _rapidfuzz_ratio(a_norm, b_norm) / 100.0   # rapidfuzz returns 0-100; we want 0-1</code></pre></div>
+
+      <!-- ---- Concept 6: field-agnostic ---- -->
+      <h3 id="c-fieldagnostic">6 · Field-agnostic design (why Phase 2/3 are "free-ish")</h3>
+      <p><strong>Plain-English explanation.</strong> <code class="ic">rank_candidates()</code> doesn't care whether the strings it's ranking are cities, building names, or streets. It takes a <code class="ic">field_name</code> label purely so the result can say "this was a city decision." The <em>same engine</em> can later disambiguate buildings or streets — you just feed it a different list of values.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> This is a multi-tenant SaaS: every manager uploads their own properties, so we never know their building or street names in advance. Because the candidate values are pulled <em>live from each manager's database at call time</em> (just like the city list already is), a brand-new manager with names we've never seen is handled automatically. The roadmap's later phases re-use this engine rather than reinventing it.</p>
+
+      <div class="diagram"><span class="lbl">Phase 1 → caller says a CITY     → rank against the manager's cities    </span><span class="good">✅ shipped this session</span>
+<span class="lbl">Phase 2 → caller says a BUILDING → rank against the manager's buildings</span> <span class="warn">⏳ same engine, new list</span>
+<span class="lbl">Phase 3 → caller says a STREET   → rank against the manager's streets  </span> <span class="warn">⏳ same engine, new list</span></div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — "free-ish," not free</div>
+        <p>The <em>values</em> supply themselves at runtime, but Phase 2 and 3 are still <strong>code you have to write and deploy</strong> — they won't appear on their own. Phase 2 needs a cross-field collision rule (a building name can contain a city token, e.g. "carré Saint-<em>Laurent</em>"); Phase 3 needs street-specific normalization (strip civic numbers like "2803", fold Rue/Bd/Av). See <a class="inline" href="#next">What's Next</a>.</p>
+      </div>
+
+      <!-- ---- Concept 7: two-deploy ---- -->
+      <h3 id="c-deploy">7 · The two-stage deploy pipeline</h3>
+      <p><strong>Plain-English explanation.</strong> A voice-agent change isn't live until <em>two</em> separate things are updated: (1) the <strong>backend</strong> code that the agent's tools call over HTTP, and (2) the <strong>assistant configuration</strong> stored on VAPI — the prompt and the tool definitions that tell the model how to behave. Update only one and you get a mismatch.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Our change touched both halves: the backend now <em>returns</em> the <code class="ic">disambiguation</code> block, and the prompt now <em>reads</em> it. If we'd deployed only the prompt, Max would look for a block the backend never sends (harmless — it falls back). If we'd deployed only the backend, the block would arrive but Max wouldn't know to act on it. Both must ship.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>Render</strong> — the cloud host running our FastAPI backend. Pushing the backend there is deploy stage 1 (you did this).</li>
+        <li><strong>VAPI</strong> ("Voice API") — the hosted platform that wires the phone line to the STT, the model, and the voice. Each manager has their own "assistant" record there.</li>
+        <li><code class="ic">update_lease_agents.py</code> — our script that pushes the latest prompt + tool config to every live assistant via direct HTTP <code class="ic">PATCH</code> (the VAPI SDK silently drops some fields, so we use raw HTTP). Deploy stage 2.</li>
+        <li><strong>dry-run</strong> — a rehearsal that shows what <em>would</em> change without changing anything. Always do this before a production push.</li>
+      </ul>
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/">VAPI docs</a> ·
+        <a class="inline" href="https://render.com/docs">Render docs</a>
+      </p>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p class="muted">Every action this session, in order, with why each happens <em>now</em> and what would break if skipped.</p>
+
+      <h3>Step 1 — Read the plan and the code it touches</h3>
+      <p>Before writing a line, we read the design plan plus the five files it names: <code class="ic">city_matching.py</code>, <code class="ic">leasing.py</code> (the <code class="ic">find_units</code> route), <code class="ic">vapi_agent_config.py</code> (the prompt + tools), <code class="ic">tests/test_city_matching.py</code>, and <code class="ic">requirements.txt</code>, plus <code class="ic">CODEBASE_CONTEXT.md</code> for the big picture.</p>
+      <p><strong>Why now:</strong> the project's own rule (in <code class="ic">CLAUDE.md</code>) is "read <code class="ic">CODEBASE_CONTEXT.md</code> before touching any code." <strong>Skip it and</strong> you re-explore the codebase from scratch and risk breaking an existing contract (like the <code class="ic">available_cities</code> safety net we had to leave intact).</p>
+
+      <h3>Step 2 — Install the new libraries into the backend's virtual environment</h3>
+      <p>A <strong>virtual environment (venv)</strong> is a project-local folder of Python packages, so this project's dependencies don't collide with other projects on the machine. We installed both libraries into it:</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe -m pip install "rapidfuzz&gt;=3.0.0" "jellyfish&gt;=1.0.0"
+<span class="ok">Successfully installed jellyfish-1.2.1 rapidfuzz-3.14.5</span></div>
+      <p>Then we <em>inspected</em> jellyfish to see what phonetic functions it actually exposes — and learned it has <code class="ic">metaphone</code> but not double-metaphone (this became Bug #4):</p>
+      <div class="term"><span class="pmt">$</span> python -c "import jellyfish; print([f for f in dir(jellyfish) if not f.startswith('_')])"
+<span class="dim">['damerau_levenshtein_distance', 'hamming_distance', 'jaccard_similarity',</span>
+<span class="dim"> 'jaro_similarity', 'jaro_winkler_similarity', 'levenshtein_distance',</span>
+<span class="dim"> 'match_rating_codex', 'match_rating_comparison', 'metaphone', 'nysiis', 'soundex']</span></div>
+      <p><strong>Why now:</strong> you can't write code against a library you haven't installed and inspected. <strong>Skip it and</strong> the import works on your machine but crashes on a fresh checkout — and you'd guess the wrong function name.</p>
+
+      <h3>Step 3 — Rewrite <code class="ic">city_matching.py</code> (the engine)</h3>
+      <p>We kept the existing <code class="ic">normalize_place()</code> and <code class="ic">city_matches()</code> untouched (other routes depend on them) and <em>added</em> the hybrid <code class="ic">similarity()</code>, the swappable phonetic backend, the thresholds, the <code class="ic">Candidate</code>/<code class="ic">RankResult</code> dataclasses, and <code class="ic">rank_candidates()</code> — all shown in Concepts 1–3 and 5.</p>
+      <p><strong>Why now:</strong> this is the foundation; the route and prompt both depend on it. <strong>Skip it and</strong> there's nothing to call.</p>
+
+      <h3>Step 4 — Add the <code class="ic">disambiguation</code> block to <code class="ic">find_units</code></h3>
+      <p>We added two helpers (<code class="ic">_empty_disambiguation</code>, <code class="ic">_build_city_disambiguation</code> — Concept 4) and wired the block into <em>all three</em> return paths of the route (the empty-portfolio early return, the main return, and the error/except return) so the field is <em>always</em> present and the agent never reads <code class="ic">undefined</code>.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — main return of find_units"><pre><code>matches = matches[:5]
+disambiguation = _build_city_disambiguation(query, listings, available_cities)
+return {
+    "found": bool(matches),
+    "count": len(matches),
+    "units": matches,
+    "available_cities": available_cities,    # the existing safety net — left untouched
+    "disambiguation": disambiguation,        # NEW: the confirm contract
+}</code></pre></div>
+      <p><strong>Why now:</strong> the prompt (next step) reads this block, so it must exist first. <strong>Skip a return path and</strong> some calls return a response missing the field — a classic source of "works sometimes" bugs.</p>
+
+      <h3>Step 5 — Teach the agent: tool schema + Step-2 prompt</h3>
+      <p>Two edits in <code class="ic">vapi_agent_config.py</code>. First, we declared the new block in the tool's <code class="ic">variableExtractionPlan</code> (the schema that tells VAPI which fields to pull out of the JSON response) and expanded the tool description. Second — the important one — we rewrote the agent's <strong>Step-2 (Location match)</strong> instructions to read the block <em>first</em>, in a strict A→B→C order:</p>
+      <div class="diagram">A) disambiguation.needs_confirmation is TRUE → confirm BEFORE going further.
+   Ask ONLY about disambiguation.candidates. Disambiguate by a NUMBER,
+   yes/no, or ordinal — NEVER by re-saying a place name.
+     • rents differ  → "one's around [rent_low A] a month, the other's about [rent_low B] — which?"
+     • rents tie     → "the first I mentioned, or the second?"
+     • single weak   → "just to confirm — did you mean the one around [rent] a month?"
+B) Otherwise, one or more matches (found is true) → acknowledge, continue to unit size.
+C) No match (found false, needs_confirmation false) → offer available_cities only.</div>
+      <p><strong>Why now:</strong> the model can't act on a block it hasn't been told about. <strong>Skip it and</strong> the backend sends the contract but Max ignores it — the feature silently does nothing.</p>
+
+      <h3>Step 6 — Add the Phase-0 corpus-generation script</h3>
+      <p>We created <code class="ic">backend/scripts/generate_stt_garble_corpus.py</code>. It pulls a manager's <em>real</em> city/building names from the database, optionally round-trips each through a French-accent text-to-speech and back through Deepgram to manufacture realistic <code class="ic">garble → truth</code> pairs, and writes a labeled corpus to <code class="ic">docs/testing/</code>. With no API keys it falls back to a hand-labeled seed set so the file always exists.</p>
+      <p><strong>Why now:</strong> the thresholds in Concept 3 are <em>starting</em> values; this script is the tool to tune them empirically later. <strong>Skip it and</strong> threshold-tuning has no data to learn from. (It doesn't gate the feature — Phase 1 ships with the defaults.)</p>
+
+      <h3>Step 7 — Extend and run the tests</h3>
+      <p>We added labeled cases to <code class="ic">tests/test_city_matching.py</code>: a portfolio with two near-homophones plus distinct cities, then assertions for each zone — must-AUTO_ACCEPT, must-CONFIRM (with the <em>exact expected band</em>), must-NO_MATCH, and a regression that an unrelated city (Châteauguay) never lands in a Saint-Lazare band.</p>
+      <div class="code-block" data-lang="python" data-file="tests/test_city_matching.py"><pre><code># Two genuinely near-homophone cities + clearly-distinct ones. Banding must confirm
+# Saint-Lazare/Saint-Lazaire TOGETHER while never dragging Chateauguay into the question.
+PORTFOLIO = ["Saint-Lazare", "Saint-Lazaire", "Châteauguay", "Montréal", "Longueuil", "Laval"]
+
+# Clear winner -> no extra turn:
+_check_rank("Montreal", PORTFOLIO, "AUTO_ACCEPT")
+# Confusable pair -> confirm, and ONLY those two are in the band:
+_check_rank("Saint-Lazar", PORTFOLIO, "CONFIRM", want_band=["Saint-Lazare", "Saint-Lazaire"])
+# Severe garble -> fall through to the city list:
+_check_rank("thing on low", PORTFOLIO, "NO_MATCH")</code></pre></div>
+      <p>Run with the venv's Python (so the phonetic libraries are present):</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe tests/test_city_matching.py
+<span class="dim">  [PASS] 'Montreal'    -> AUTO_ACCEPT  band=['Montréal']</span>
+<span class="dim">  [PASS] 'Saint-Lazar' -> CONFIRM      band=['Saint-Lazaire', 'Saint-Lazare']</span>
+<span class="dim">  [PASS] 'thing on low'-> NO_MATCH     band=[]</span>
+<span class="ok">ALL PASSED</span></div>
+      <p><strong>Why now:</strong> tests lock in the behavior <em>before</em> deploy, so a future change that breaks the band fails loudly. <strong>Skip it and</strong> you ship on hope.</p>
+
+      <h3>Step 8 — Pin the deps and update the docs</h3>
+      <p>We added <code class="ic">rapidfuzz==3.14.5</code> and <code class="ic">jellyfish==1.2.1</code> to <code class="ic">requirements.txt</code> (pinning the exact versions so Render installs the same ones we tested), and updated <code class="ic">CODEBASE_CONTEXT.md</code> — the <code class="ic">find-units</code> row, the lease-behaviour section, and a new module entry documenting the matcher and the phased roadmap.</p>
+      <p><strong>Why now:</strong> the deploy host reads <code class="ic">requirements.txt</code>; an unpinned/absent dep means the backend boots without the phonetic leg. <strong>Skip the docs and</strong> the next session re-discovers everything from scratch (the exact thing <code class="ic">CODEBASE_CONTEXT.md</code> exists to prevent).</p>
+
+      <h3>Step 9 — Deploy (dry-run, then for real)</h3>
+      <p>We always rehearse first. The dry-run confirmed the script could load config, reach the database, and see the assistants — without changing anything:</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scripts/update_lease_agents.py --dry-run
+Lease agents to update: <span class="ok">4 per-manager + 1 shared</span>
+  [28c43c77]  DRY RUN — would update with name=Lease Agent [28c43c77]
+  ...
+<span class="ok">Done. 5 updated, 0 failed.</span></div>
+      <p>Then the real push (you ran this), and you separately deployed the backend to Render:</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scripts/update_lease_agents.py
+  [28c43c77]  <span class="ok">[OK]</span>  tools=['find_units', 'search_listings', 'submit_lease_lead']
+  [7fb0c018]  <span class="ok">[OK]</span>  ...
+  [shared]    <span class="ok">[OK]</span>  ...
+<span class="ok">Done. 5 updated, 0 failed.</span></div>
+      <p><strong>Why now / last:</strong> you never deploy code that isn't tested. And you deploy <em>both</em> halves (Concept 7). <strong>Skip the dry-run and</strong> a bad credential or config error hits production directly instead of a harmless rehearsal.</p>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p>This was a "new code" session more than a "modify old code" session, so there were no <em>logic</em> bugs in the shipped feature — the tests passed first try. But shipping real software means fighting the <strong>environment</strong>, and we hit seven distinct hitches worth dissecting. Notice the pattern: almost every one is <em>tooling/environment</em>, not algorithm. That's normal, and recognising it keeps you calm.</p>
+
+      <!-- Bug 1 -->
+      <h3>🐛 Bug #1 — <code class="ic">ModuleNotFoundError: No module named 'fastapi'</code></h3>
+      <p><strong>🚨 The Symptom.</strong> We tried to import the leasing route to test the helper directly:</p>
+      <div class="term"><span class="pmt">$</span> .venv/Scripts/python.exe -c "from app.routes.leasing import _build_city_disambiguation"
+<span class="err">ModuleNotFoundError: No module named 'fastapi'</span></div>
+      <p><strong>🔍 The Diagnosis.</strong> Odd — this is a FastAPI backend, how is FastAPI missing? We listed what the venv actually contained:</p>
+      <div class="term"><span class="pmt">$</span> .venv/Scripts/python.exe -m pip list | grep -iE "fastapi|supabase|rapidfuzz"
+<span class="dim">jellyfish   1.2.1</span>
+<span class="dim">RapidFuzz   3.14.5</span>
+<span class="dim">supabase    2.27.2</span>
+<span class="dim"># fastapi: not present</span></div>
+      <p><strong>🧠 The Root Cause.</strong> The <code class="ic">backend/.venv</code> on this machine is a <em>partial</em> environment — it has Supabase, Pydantic, and now our two new libs, but not the full web stack. The real backend runs elsewhere (and on Render). Importing <code class="ic">app.routes.leasing</code> triggers <code class="ic">from fastapi import ...</code> at the top of the file, which fails. The lesson concept: a module's <em>top-level imports</em> run the moment you import it, even if you only want one tiny pure helper from the bottom.</p>
+      <p><strong>🔧 The Fix.</strong> Don't import the whole route. (1) Use <code class="ic">py_compile</code> to confirm the file has no syntax errors — it compiles without importing FastAPI. (2) Re-implement the pure helper's logic inline against <em>only</em> <code class="ic">city_matching</code> (which the venv <em>does</em> have) to verify behavior:</p>
+      <div class="term"><span class="pmt">$</span> .venv/Scripts/python.exe -m py_compile app/routes/leasing.py &amp;&amp; echo "COMPILE OK"
+<span class="ok">COMPILE OK</span>
+<span class="pmt">$</span> <span class="dim"># then ran a standalone snippet that imports only city_matching -> printed the exact block</span>
+<span class="ok">CONFIRM: {'needs_confirmation': True, ... 'candidates': [...rent_low 1400...]}</span></div>
+      <p><strong>🛡️ The Lesson.</strong> When an import explodes, ask "what does importing this <em>drag in</em>?" — not just "what did I ask for." To test pure logic, isolate it from heavy frameworks: <code class="ic">py_compile</code> for syntax, a minimal snippet for behavior. Keeping helpers dependent only on lightweight modules (here, <code class="ic">city_matching</code>) makes them testable anywhere.</p>
+
+      <!-- Bug 2 -->
+      <h3>🐛 Bug #2 — <code class="ic">cd: backend: No such file or directory</code></h3>
+      <p><strong>🚨 The Symptom.</strong> A command that worked a minute ago suddenly failed:</p>
+      <div class="term"><span class="pmt">$</span> cd backend &amp;&amp; .venv/Scripts/python.exe ...
+<span class="err">/usr/bin/bash: line 8: cd: backend: No such file or directory</span></div>
+      <p><strong>🔍 The Diagnosis.</strong> We printed the working directory and found we were <em>already inside</em> <code class="ic">backend</code> — so <code class="ic">cd backend</code> was trying to enter <code class="ic">backend/backend</code>, which doesn't exist.</p>
+      <p><strong>🧠 The Root Cause.</strong> The shell tool's working directory <strong>persists between calls</strong>. An earlier compound command (<code class="ic">cd backend &amp;&amp; ...</code>) left the shell parked in <code class="ic">backend/</code>. The next call's relative paths were then resolved from there — the classic "stateful shell" gotcha.</p>
+      <p><strong>🔧 The Fix.</strong> Stop assuming the starting directory. Either reference paths relative to the <em>actual</em> current directory, or <code class="ic">pwd</code> first to orient, or use absolute paths.</p>
+      <div class="term"><span class="pmt">$</span> pwd
+<span class="dim">/c/Users/BIT/Coding/Leadpipe_CRM/backend</span>      <span class="dim"># aha — already here</span></div>
+      <p><strong>🛡️ The Lesson.</strong> Persistent shells are convenient but stateful. Prefer absolute paths for anything important, and when a path error appears "out of nowhere," check <code class="ic">pwd</code> before anything else.</p>
+
+      <!-- Bug 3 -->
+      <h3>🐛 Bug #3 — Edit refused: "File has not been read yet"</h3>
+      <p><strong>🚨 The Symptom.</strong> Editing <code class="ic">CODEBASE_CONTEXT.md</code> failed even though we'd read it earlier:</p>
+      <div class="term"><span class="err">tool_use_error: File has not been read yet. Read it first before writing to it.</span></div>
+      <p><strong>🔍 The Diagnosis &amp; 🧠 Root Cause.</strong> <code class="ic">CODEBASE_CONTEXT.md</code> is large; the earlier read was <em>truncated</em> (a partial view of the first ~800 lines). The editing tool requires a confirmed, current read of the region you're changing — a partial/older read doesn't count, which is a <em>safety feature</em> to stop you editing stale content.</p>
+      <p><strong>🔧 The Fix.</strong> Re-read just the target region (a handful of lines around the exact text), then edit. Small, precise reads beat re-reading a 1,000-line file.</p>
+      <p><strong>🛡️ The Lesson.</strong> "Read before write" guards exist precisely so you don't clobber a file that changed under you. When blocked, satisfy the guard with a tight, fresh read rather than fighting it.</p>
+
+      <!-- Bug 4 -->
+      <h3>🐛 Bug #4 — The plan asked for Double Metaphone; the library doesn't have it</h3>
+      <p><strong>🚨 The Symptom.</strong> The design plan said, in writing, "Double Metaphone (<code class="ic">jellyfish</code>)." But inspecting jellyfish (Step 2) showed only <code class="ic">metaphone</code> — no <code class="ic">double_metaphone</code>.</p>
+      <p><strong>🧠 The Root Cause.</strong> A documentation/assumption mismatch. Double Metaphone lives in <em>other</em> packages; the installed jellyfish ships single Metaphone. The plan author conflated the family name with the specific function.</p>
+      <p><strong>🔧 The Fix.</strong> Use single <code class="ic">jellyfish.metaphone</code> — it's still <em>sound-based</em> (the right axis), and it already collapses our key pair: <code class="ic">lazare</code> and <code class="ic">lazaire</code> both encode to <code class="ic">LSR</code>. Crucially, we kept the encoder <strong>swappable</strong> (<code class="ic">_PHONETIC_ENCODER</code> + a <code class="ic">set_phonetic_encoder()</code> setter) so a true Double Metaphone or French Beider-Morse can replace it later with a one-line change.</p>
+      <p><strong>🛡️ The Lesson.</strong> Plans are hypotheses; verify library APIs against reality before committing. And when you must substitute, hide the choice behind a seam (one swappable variable) so the substitution doesn't ripple through your code.</p>
+
+      <!-- Bug 5 -->
+      <h3>🐛 Bug #5 — A dataclass field named <code class="ic">field</code> shadowing <code class="ic">dataclasses.field</code></h3>
+      <p><strong>🚨 The Symptom.</strong> No crash — but a footgun spotted on review. Our result class had an attribute literally named <code class="ic">field</code>, sitting two lines above a call to <code class="ic">field(default_factory=list)</code> imported from the <code class="ic">dataclasses</code> module.</p>
+      <div class="code-block" data-lang="python" data-file="the risky version"><pre><code>@dataclass
+class RankResult:
+    decision: str
+    field: str                               # &lt;-- same name as dataclasses.field!
+    spoken: str
+    ...
+    scored: list = field(default_factory=list)   # relies on `field` STILL meaning the import</code></pre></div>
+      <p><strong>🧠 The Root Cause.</strong> It happened to work because a bare annotation (<code class="ic">field: str</code> with no <code class="ic">=</code>) doesn't actually <em>bind</em> the name <code class="ic">field</code> in the class body — so the later <code class="ic">field(...)</code> still resolved to the import. But that's a subtle rule; one stray assignment and it would silently break. Fragile by construction.</p>
+      <p><strong>🔧 The Fix.</strong> Rename the attribute to <code class="ic">field_name</code> (which also reads better next to <code class="ic">field_name="city"</code> elsewhere), then re-run the tests to confirm nothing depended on the old name.</p>
+      <div class="term"><span class="pmt">$</span> .venv/Scripts/python.exe ../tests/test_city_matching.py &gt;/dev/null &amp;&amp; echo "TESTS PASS"
+<span class="ok">TESTS PASS</span></div>
+      <p><strong>🛡️ The Lesson.</strong> Don't name a variable the same as a function you're using in the same scope, even when the language lets you get away with it. "Works because of an obscure rule" is a future bug. Clear names &gt; clever names.</p>
+
+      <!-- Bug 6 -->
+      <h3>🐛 Bug #6 — A stray placeholder glyph in the prompt</h3>
+      <p><strong>🚨 The Symptom.</strong> While writing the Step-2 prompt, an editing slip left a stray box character in a sentence: <code class="ic">"same/▢missing rent"</code>.</p>
+      <p><strong>🧠 The Root Cause.</strong> A typo introduced during a large multi-line edit — the kind of thing that's invisible at a glance but ends up in the model's instructions, where it could confuse phrasing.</p>
+      <p><strong>🔧 The Fix.</strong> A one-line replacement to clean wording: <code class="ic">"the same or missing rent"</code>. We then re-read the whole edited block to confirm it was clean.</p>
+      <p><strong>🛡️ The Lesson.</strong> Prompts are code too. Proofread edited instruction text the same way you'd review a function — read the final result back, don't trust that the edit landed as intended.</p>
+
+      <!-- Bug 7 -->
+      <h3>🐛 Bug #7 — <code class="ic">UnicodeEncodeError: 'charmap' codec can't encode '→'</code></h3>
+      <p><strong>🚨 The Symptom.</strong> Trying to print the prompt block to verify it, the terminal threw:</p>
+      <div class="term"><span class="err">UnicodeEncodeError: 'charmap' codec can't encode character '→' ... maps to &lt;undefined&gt;</span></div>
+      <p><strong>🧠 The Root Cause.</strong> <code class="ic">→</code> is the arrow "→". The Windows console defaults to the legacy <strong>cp1252</strong> text encoding, which has no arrow character. The <em>file</em> was perfectly fine (it's UTF-8); only <em>printing it to this console</em> failed. A false alarm about the wrong thing.</p>
+      <p><strong>🔧 The Fix.</strong> Don't verify file content by printing through a lossy console. Use the file-reading tool (which handles UTF-8) to inspect the block instead.</p>
+      <p><strong>🛡️ The Lesson.</strong> Separate "is the file wrong?" from "is my terminal mangling the display?" An encoding error on <em>output</em> rarely means the data is bad. On Windows, expect cp1252 console limits and read files with a UTF-8-aware tool.</p>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose it</th><th>Trade-offs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Hybrid <code>max()</code> of 3 scorers</strong></td>
+            <td>difflib only; rapidfuzz only; a weighted blend</td>
+            <td>Each scorer is blind to a different error; max rescues a match if <em>any</em> sees it — right given our asymmetric costs</td>
+            <td>Slightly more generous → occasional extra confirm; mitigated by thresholds</td>
+          </tr>
+          <tr>
+            <td><strong>Single Metaphone</strong> (swappable)</td>
+            <td>Double Metaphone; Beider-Morse French; French Soundex</td>
+            <td>Sound-based, already in jellyfish, plenty at ~5 candidates; the encoder "barely matters" at small scale</td>
+            <td>Less French-aware than Beider-Morse; fine until a corpus shows otherwise (hence swappable)</td>
+          </tr>
+          <tr>
+            <td><strong>Backend computes; model only speaks</strong></td>
+            <td>Let the LLM judge ambiguity itself</td>
+            <td>Deterministic, unit-testable, tunable; guarantees we confirm when we should</td>
+            <td>Model must still phrase the question and route the answer back</td>
+          </tr>
+          <tr>
+            <td><strong>Disambiguate by rent / ordinal</strong></td>
+            <td>Confirm by city name; by street; by neighborhood</td>
+            <td>Numbers survive the STT garble that breaks proper nouns — the homophone trap</td>
+            <td>Needs rents to differ; ordinal fallback covers ties</td>
+          </tr>
+          <tr>
+            <td><strong>Lean toward CONFIRM in gray zone</strong></td>
+            <td>Lean toward auto-accept (fewer turns)</td>
+            <td>A false accept burns the whole call; a false confirm costs one turn</td>
+            <td>Higher confirm-rate; we cap it by watching confirm-rate-per-call</td>
+          </tr>
+          <tr>
+            <td><strong>Optional deps degrade to difflib</strong></td>
+            <td>Hard-require rapidfuzz/jellyfish</td>
+            <td>A missing scorer must never crash a phone call; tests run anywhere</td>
+            <td>Weaker matching where the libs are absent (not in production)</td>
+          </tr>
+          <tr>
+            <td><strong>Always return the block</strong> (even when false)</td>
+            <td>Omit it unless confirming</td>
+            <td>The agent never reads a missing field; one consistent shape</td>
+            <td>A few extra bytes per response — negligible</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+      <p>Run these to confirm the build is healthy. Use the venv's Python so the phonetic libs are present.</p>
+
+      <h4 class="sub">1 · Syntax compiles</h4>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe -m py_compile \
+    backend/app/services/city_matching.py backend/app/routes/leasing.py \
+    backend/app/services/vapi_agent_config.py
+<span class="dim"># (no output = success)</span></div>
+
+      <h4 class="sub">2 · Unit tests pass</h4>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe tests/test_city_matching.py
+<span class="ok">ALL PASSED</span></div>
+
+      <h4 class="sub">3 · Assistants carry the right tools (dry-run)</h4>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py --dry-run
+Lease agents to update: <span class="ok">4 per-manager + 1 shared</span></div>
+
+      <ul class="check">
+        <li><strong>It works if…</strong> tests print <code class="ic">ALL PASSED</code>; a CONFIRM case lists <em>only</em> the two sound-alike cities; AUTO_ACCEPT adds no extra turn; the deploy prints <code class="ic">5 updated, 0 failed</code>.</li>
+        <li><strong>It works if…</strong> on a real call, a clean city proceeds with no "did you mean," a near-homophone triggers a rent-based question, and a not-in-portfolio city offers the real city list.</li>
+      </ul>
+      <ul class="xlist">
+        <li><strong>Something's wrong if…</strong> a CONFIRM band contains an unrelated city (a <code class="ic">BAND</code>/threshold problem).</li>
+        <li><strong>Something's wrong if…</strong> Max asks "did you mean?" on nearly every call (thresholds too eager — tune via the corpus).</li>
+        <li><strong>Something's wrong if…</strong> the backend returns no <code class="ic">disambiguation</code> field (an old backend is still deployed — redeploy Render).</li>
+      </ul>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — predict the zone</div>
+        <p>Given <code class="ic">PORTFOLIO = ["Laval", "Longueuil", "Lasalle"]</code>, what does <code class="ic">rank_candidates("Laval", PORTFOLIO)</code> decide, and what's in the band? Then run it and check.</p>
+        <details><summary>Hint</summary><p>"Laval" scores ~1.0 against "Laval"; "Lasalle"/"Longueuil" are much lower, so the gap beats <code class="ic">MARGIN</code> → <strong>AUTO_ACCEPT</strong>, band = just <code class="ic">["Laval"]</code>. Watch out: "Lasalle" shares the "La" start but differs in sound — it should <em>not</em> be in the band.</p></details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — make thresholds per-field</div>
+        <p>Streets are noisier than cities, so they'll likely need a looser band later. <code class="ic">rank_candidates</code> already accepts the thresholds as parameters. Write a tiny wrapper <code class="ic">rank_streets(spoken, streets)</code> that calls <code class="ic">rank_candidates</code> with a wider <code class="ic">BAND</code> (say 0.10) and a lower <code class="ic">T_FLOOR</code>. Add a test proving a clear city band is unchanged.</p>
+        <details><summary>Hint</summary><p>No need to touch <code class="ic">rank_candidates</code> itself — just pass <code class="ic">band=0.10, t_floor=0.50, field_name="street"</code>. This is the design paying off: the engine is already field-agnostic.</p></details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — sketch Phase 2 (buildings)</div>
+        <p>In <code class="ic">find_units</code>, build a distinct set of building names from the rows it already fetches (<code class="ic">building_rows</code>), run <code class="ic">rank_candidates(query, building_names, field_name="building")</code>, and add a <code class="ic">building</code> branch to the disambiguation block. Then write the <em>cross-field collision</em> rule: if the same words score in CONFIRM for both city <em>and</em> building, which wins, and why?</p>
+        <details><summary>Hint</summary><p>A building name can <em>contain</em> a city token ("carré Saint-Laurent"). Prefer the field with the higher top score, or the more specific field (building) when both are confident — and make sure the agent only asks <em>one</em> confirmation, not two. There's no single right answer; justify your choice in a comment.</p></details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary><code>ModuleNotFoundError: No module named 'rapidfuzz'</code> (or <code>jellyfish</code>)</summary>
+        <p>The phonetic libs aren't installed in the Python you're running. Install into the right environment: <code class="ic">backend/.venv/Scripts/python.exe -m pip install rapidfuzz jellyfish</code>. On Render, make sure both are pinned in <code class="ic">requirements.txt</code>. The code won't crash without them (it degrades to difflib) — but you lose the phonetic rescue.</p>
+      </details>
+      <details>
+        <summary><code>ModuleNotFoundError: No module named 'fastapi'</code> when testing a route helper</summary>
+        <p>You're importing a whole route module, which pulls in FastAPI. Test pure helpers in isolation, or use <code class="ic">py_compile</code> for a syntax check. See Bug #1.</p>
+      </details>
+      <details>
+        <summary>The agent never asks "did you mean?" even for sound-alikes</summary>
+        <p>Two likely causes. (1) The backend deployed to Render is the <em>old</em> one and isn't returning <code class="ic">disambiguation</code> — redeploy. (2) The two cities aren't actually close enough to land in CONFIRM — print <code class="ic">rank_candidates(...).scored</code> to see the real scores, and check your thresholds.</p>
+      </details>
+      <details>
+        <summary>The agent asks "did you mean?" on almost every call</summary>
+        <p>Thresholds are too eager. Generate the corpus with <code class="ic">generate_stt_garble_corpus.py</code>, look at the <code class="ic">decision</code> distribution, and raise <code class="ic">T_CONFIRM</code> / widen <code class="ic">MARGIN</code> so more calls auto-accept. Track confirm-rate-per-call as your guard metric.</p>
+      </details>
+      <details>
+        <summary>Deploy says <code>[FAIL] HTTP 401</code> or <code>serverMessages mismatch</code></summary>
+        <p>401 = a bad/expired <code class="ic">PRIVATE_VAPI_API</code> key in <code class="ic">.env</code>. A serverMessages mismatch means the pushed config didn't take — re-run; the script verifies each assistant after patching and reports per-agent OK/FAIL.</p>
+      </details>
+      <details>
+        <summary>A path command fails with "No such file or directory" out of nowhere</summary>
+        <p>The shell's working directory persisted from a previous <code class="ic">cd</code>. Run <code class="ic">pwd</code> to orient, then use a correct relative or absolute path. See Bug #2.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🔮 What's Next</h2>
+      <p>Phase 1 (city) is live, but it shipped with <em>starting</em> thresholds. The natural next step is <strong>Phase 0 tuning</strong>: have the French partner run real test calls, run <code class="ic">generate_stt_garble_corpus.py</code> over the real portfolios to build a labeled garble set, and fit the thresholds by <em>false-accept rate at fixed recall</em> while watching confirm-rate-per-call. After that comes <strong>Phase 2 (building/property names)</strong> — the same <code class="ic">rank_candidates</code> engine pointed at a new list, plus the cross-field collision rule — and optionally <strong>Phase 3 (streets)</strong>, which needs civic-number stripping and Rue/Bd/Av folding. The next session will likely cover whichever the real calls prove we need: tune the city band, or extend the engine to a second field.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📚 Glossary</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>AUTO_ACCEPT</strong></td><td>Decision zone: a clear winning city — proceed with no confirmation turn.</td></tr>
+          <tr><td><strong>BAND</strong></td><td>Threshold (0.06) for who joins a confirmation question — only cities within this of the top score.</td></tr>
+          <tr><td><strong>CONFIRM</strong></td><td>Decision zone: genuinely ambiguous — ask "did you mean X or Y?" using only the band.</td></tr>
+          <tr><td><strong>contract</strong></td><td>A fixed data shape (here, the <code>disambiguation</code> JSON) two systems agree to exchange.</td></tr>
+          <tr><td><strong>dataclass</strong></td><td>A lightweight Python class for bundling named fields (e.g. <code>RankResult</code>).</td></tr>
+          <tr><td><strong>Deepgram</strong></td><td>The speech-to-text engine; <code>nova-3</code> in <code>language:"multi"</code> mode.</td></tr>
+          <tr><td><strong>difflib</strong></td><td>Python's built-in string-similarity library; our baseline scorer.</td></tr>
+          <tr><td><strong>disambiguation block</strong></td><td>The JSON the backend returns telling the agent whether/how to confirm.</td></tr>
+          <tr><td><strong>dry-run</strong></td><td>A rehearsal that shows what would change without changing anything.</td></tr>
+          <tr><td><strong>edit distance</strong></td><td>Number of single-character edits to turn one string into another; basis of rapidfuzz.</td></tr>
+          <tr><td><strong>field-agnostic</strong></td><td>Code that works on any field (city/building/street) given the right value list.</td></tr>
+          <tr><td><strong>homophone trap</strong></td><td>Confirming sound-alikes by name fails because the STT re-garbles the answer; use numbers instead.</td></tr>
+          <tr><td><strong>jellyfish</strong></td><td>Python library for phonetic encoding; we use <code>jellyfish.metaphone</code>.</td></tr>
+          <tr><td><strong>MARGIN</strong></td><td>Threshold (0.08) — how far #1 must beat #2 to be a clear winner.</td></tr>
+          <tr><td><strong>Metaphone</strong></td><td>A phonetic algorithm that encodes a word by how it sounds.</td></tr>
+          <tr><td><strong>NO_MATCH</strong></td><td>Decision zone: nothing close — fall back to offering the real city list.</td></tr>
+          <tr><td><strong>normalize</strong></td><td>Clean strings identically before scoring (lowercase, drop accents/hyphens, St→Saint).</td></tr>
+          <tr><td><strong>ordinal</strong></td><td>"First/second" — a position-based answer that survives STT garble.</td></tr>
+          <tr><td><strong>phonetic encoding</strong></td><td>Turning a word into a code representing its sound; sound-alikes share a code.</td></tr>
+          <tr><td><strong>py_compile</strong></td><td>Python tool that byte-compiles a file to check syntax without importing it.</td></tr>
+          <tr><td><strong>rapidfuzz</strong></td><td>Fast fuzzy-string-matching library based on edit distance.</td></tr>
+          <tr><td><strong>RankResult</strong></td><td>The dataclass returned by <code>rank_candidates</code>: decision + candidates + scores.</td></tr>
+          <tr><td><strong>Render</strong></td><td>The cloud host running the FastAPI backend (deploy stage 1).</td></tr>
+          <tr><td><strong>threshold</strong></td><td>A cutoff number a score must clear to count.</td></tr>
+          <tr><td><strong>VAPI</strong></td><td>Hosted "Voice API" platform wiring phone + STT + model + voice; holds each assistant's config.</td></tr>
+          <tr><td><strong>variableExtractionPlan</strong></td><td>The schema telling VAPI which fields to pull out of a tool's JSON response.</td></tr>
+          <tr><td><strong>venv</strong></td><td>A project-local Python environment isolating its package versions.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-08-french-stt-diagnosis-and-fuzzy-city-matching.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 08 — French STT Diagnosis &amp; Fuzzy-Band City Matching</div>
+    </a>
+    <a href="index.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a class="right disabled">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 10 — coming soon</div>
+    </a>
+  </div>
+  <div class="copyright">Session 09 — CRM Learning Series · generated 2026-06-22</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>

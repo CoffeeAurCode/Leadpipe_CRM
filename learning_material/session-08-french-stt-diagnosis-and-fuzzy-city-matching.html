@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 08 — French Voice-Agent Diagnosis &amp; Fuzzy-Band City Matching</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 08</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-stt" style="padding-left:1.4rem">— STT &amp; <code>language:"multi"</code></a>
+    <a href="#c-flow" style="padding-left:1.4rem">— Designed vs observed flow</a>
+    <a href="#c-filler" style="padding-left:1.4rem">— System-check filler phrases</a>
+    <a href="#c-fuzzy" style="padding-left:1.4rem">— Fuzzy string matching</a>
+    <a href="#c-phonetic" style="padding-left:1.4rem">— Phonetic matching</a>
+    <a href="#c-band" style="padding-left:1.4rem">— Confidence banding</a>
+    <a href="#c-family" style="padding-left:1.4rem">— The A1 / B1 / B2 fix family</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 08 · Voice AI · Speech Recognition · Fuzzy Matching</div>
+      <h1>French Voice-Agent Diagnosis &amp; Fuzzy-Band City Matching</h1>
+      <p class="lead muted">A French-speaking partner ran two test calls against our leasing voice agent and reported two things: <em>"it pauses a lot saying one moment"</em> and <em>"it doesn't understand me."</em> This session is the detective work that confirmed both — and the matcher we built so the agent can finally tell <code class="ic">Saint-Lazare</code> from <code class="ic">Saint-Lazaire</code> without bothering the caller about <code class="ic">Châteauguay</code>.</p>
+      <div class="meta">
+        <span class="chip diff">🔴 Advanced</span>
+        <span class="chip time">⏱️ ~85 min read / build</span>
+        <span class="chip pre">📋 Requires: Module 11 (VAPI Webhook), 12 (VAPI Provisioning), 16 (Leasing)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was a <strong>diagnosis-then-build</strong> session — one of the most valuable kinds in real software work. Nobody handed us a clean bug report with a stack trace. We had two <strong>call transcripts</strong> (the written record of who said what during a phone call), one <strong>CSV file</strong> (the partner's three rental listings), and a human complaint phrased in plain English: <em>"the agent pauses a lot and doesn't understand me."</em></p>
+
+      <p>The job was to turn that vague complaint into <strong>verified, code-level root causes</strong>, then design and ship a fix for the most tractable part of it. Here is the actual conversation that opened the session:</p>
+
+      <div class="term">
+<span class="spk">Partner:</span> "my french partner did two call testing… his agent was
+<span class="dim">         </span>pausing a lot saying <span class="garble">one moment</span> a lot and agent was
+<span class="dim">         </span><span class="garble">not understanding him</span>… check if that's the case"
+      </div>
+
+      <p>By the end of the session we had:</p>
+      <ul>
+        <li><strong>Confirmed both complaints</strong> against the actual code — and proved they are <em>two different bugs with two different root causes</em> that <em>amplify each other</em>.</li>
+        <li>Written a full <strong>diagnosis report</strong> (Markdown + a styled HTML version) into <code class="ic">docs/diagnoses/</code>.</li>
+        <li>Reconstructed the agent's <strong>designed flow vs. its observed flow</strong>, discovering that one tool (<code class="ic">find_units</code>) silently does the job of two.</li>
+        <li>Designed a <strong>"fuzzy-band entity confirmation"</strong> — the agent confirms a city <em>only when two real listings sound confusingly alike</em>, never otherwise.</li>
+        <li>Resolved two hard design questions (which phonetic algorithm to trust on Quebec French; how to disambiguate near-homophones) and <strong>implemented Phase 1</strong> in <code class="ic">city_matching.py</code> and <code class="ic">find_units</code>.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Explain what <strong>speech-to-text</strong> is, why <code class="ic">language:"multi"</code> garbles French-accented speech, and read a real mis-transcription corpus.</li>
+          <li>Trace a voice agent's <strong>conversation flow</strong> from a transcript and compare it to the flow defined in the prompt.</li>
+          <li>Tell the difference between <strong>fuzzy string matching</strong> and <strong>phonetic matching</strong>, and explain when each fails.</li>
+          <li>Design a <strong>three-zone confidence band</strong> (auto-accept / confirm / no-match) and reason about its thresholds.</li>
+          <li>Understand why the disambiguation question must be answerable as a <em>number</em>, never another <em>proper noun</em>.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our CRM (<strong>Customer Relationship Management</strong> — the app property managers use to track buildings, units, tenants and leads) has a <strong>voice agent</strong> named <strong>Max</strong>. A voice agent is an AI that answers the phone and holds a real spoken conversation. When a prospective tenant calls a listing's number, Max picks up, figures out which unit they want, asks a few qualifying questions, and hands a "lead" (a potential customer) to the manager. Max is the <em>front door</em> of the leasing business — if Max fumbles the call, the lead is lost before a human ever sees it.</p>
+
+      <p>Several earlier sessions built the machinery this session pokes at:</p>
+      <ul>
+        <li><strong>Module 11 &amp; 12 — VAPI Voice Agents.</strong> We use <strong>VAPI</strong> (a hosted platform — "Voice API" — that wires together the phone line, the speech-to-text, the language model, and the text-to-speech voice). Each manager gets their own Max assistant, configured in <code class="ic">backend/app/services/vapi_agent_config.py</code>.</li>
+        <li><strong>Module 16 — Leasing.</strong> Max looks up units by calling a backend route, <code class="ic">find_units</code>, in <code class="ic">backend/app/routes/leasing.py</code>. That route searches the manager's active listings and returns matches.</li>
+        <li><strong>Two prior sessions, same week.</strong> One added <strong>bilingual rotating "system-check" phrases</strong> — the agent says something like "one moment" before it looks something up, in the caller's language, never repeating the same phrase twice. Another started a <strong>city-name matcher</strong> (<code class="ic">city_matching.py</code>) to cope with French spellings. <em>Both of those are central to this session's two bugs.</em></li>
+      </ul>
+
+      <p>Everything <em>looked</em> fine in English. Then a native French speaker — testing against a real Quebec portfolio (cities like <strong>Saint-Lazare</strong> and <strong>Châteauguay</strong>) — made two calls, and the cracks showed. That is where this session begins.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need the earlier modules open. Every term is re-explained the first time it appears here. The module references above just tell you where the foundations were poured.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Seven ideas carry the whole session. Read these once and the build log and bug journal will feel obvious.</p>
+
+      <!-- ---- Concept 1: STT ---- -->
+      <h3 id="c-stt">1 · Speech-to-Text and <code class="ic">language:"multi"</code></h3>
+      <p><strong>Plain-English explanation.</strong> <strong>STT</strong> (Speech-To-Text, also called <strong>ASR</strong> — Automatic Speech Recognition) is the part of a voice agent that turns the sound of a person talking into written words. It's the agent's "ears." Everything downstream — the language model, the database lookup — only ever sees the <em>text</em> STT produced. If the ears mishear, the whole brain reasons about the wrong words. Garbage in, garbage out.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Our callers are prospective tenants in Quebec. They speak French, English, or both in the same breath. Max literally cannot find a unit if STT writes down the wrong city. A mishear here doesn't just annoy the caller — it loses a paying lead.</p>
+
+      <p><strong>How it works (analogy).</strong> Imagine a court stenographer who trained mostly on English. Sit a strong-accented Québécois speaker in front of them and ask them to transcribe <em>live</em>, one word at a time, with no chance to rewind. When the speaker says "Saint-Lazare," the stenographer hears sounds that don't map to any English word they know, and writes down the closest English-shaped thing: "Saint-L'Asor." That stenographer is our STT engine.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>Deepgram</strong> — the company/engine doing our STT. <strong>nova-3</strong> is the specific model version.</li>
+        <li><code class="ic">language:"multi"</code> — a setting that tells Deepgram "don't lock to one language; auto-detect English <em>and</em> French on the fly." Necessary, because we don't know which language the caller will use — but it's also where accented proper nouns get mangled worst.</li>
+        <li><strong>Transcriber</strong> — the STT component of the voice stack, configured separately from the voice and the brain.</li>
+        <li><code class="ic">confidenceThreshold</code> — a number from 0 to 1. If STT is less sure than this about a chunk of audio, it <em>drops</em> it rather than guess. Ours is <code class="ic">0.4</code>.</li>
+        <li><strong>WER</strong> (Word Error Rate) — the standard score for STT quality: what fraction of words it got wrong. Lower is better.</li>
+        <li><strong>Code-switching</strong> — switching language mid-sentence ("Oui, I'm interested in the trois et demi"). Hard for STT.</li>
+      </ul>
+
+      <p><strong>Annotated config — our real transcriber.</strong> This is the exact block that decides Max's "ears":</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py (lines ~286–301)">
+<pre><code># Transcriber — Deepgram nova-3 with an OpenAI fallback.
+TRANSCRIBER_CONFIG = {
+    "provider": "deepgram",        # which STT company we use
+    "model": "nova-3",             # the model version (their multilingual flagship)
+    "language": "multi",           # auto-detect EN + FR — needed, but the source of bug #2
+    "numerals": True,              # write "two" as "2" — makes prices/sizes easy to parse later
+    "confidenceThreshold": 0.4,    # below this confidence, DROP the audio chunk (don't guess)
+    "fallbackPlan": {              # if Deepgram fails entirely, switch engines mid-call
+        "transcribers": [
+            {
+                "provider": "openai",
+                "model": "gpt-4o-transcribe",   # a different STT engine as a safety net
+                # no language lock — OpenAI auto-detects EN/FR too
+            }
+        ]
+    },
+}</code></pre>
+      </div>
+
+      <div class="callout c-deep">
+        <div class="c-title">📖 Deep Dive — why "multi" mangles French names</div>
+        <p>A monolingual French model carries strong priors about French phonotactics (which sound sequences are legal in French). In <code class="ic">multi</code> mode the model is hedging across two languages at once, so a strongly French-accented proper noun — which is rare in its training data and ambiguous between two languages — collapses to whichever spelling scored highest, often an English-shaped one. The result isn't random noise; it's a <em>confident</em> wrong word. That confidence is exactly what makes it dangerous downstream.</p>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">📖 Resources — STT</div>
+        <ul>
+          <li><strong>Official:</strong> Deepgram Docs — Models &amp; Languages Overview (<code class="ic">developers.deepgram.com/docs/models-languages-overview</code>).</li>
+          <li><strong>Beginner:</strong> "What is Speech Recognition?" — AssemblyAI blog intro series.</li>
+          <li><strong>Advanced:</strong> Coval's 2026 independent STT benchmark (accents, code-switching, latency) — <code class="ic">coval.ai/blog</code>.</li>
+        </ul>
+      </div>
+
+      <!-- ---- Concept 2: Flow ---- -->
+      <h3 id="c-flow">2 · The agent's flow — designed vs. observed</h3>
+      <p><strong>Plain-English explanation.</strong> A voice agent has a <em>script</em> (the "system prompt" — the long instruction text that tells the AI how to behave) describing the conversation it's <em>supposed</em> to run. But the AI improvises around what the caller actually says. So there are always two flows: the one written in code, and the one that really happened on the call. Diagnosing a voice agent means putting them side by side.</p>
+
+      <p><strong>Why we need it (for CRM).</strong> If the designed flow and the real flow diverge, you'll fix the wrong thing. We almost "fixed" a search step that, it turned out, never even ran.</p>
+
+      <p><strong>Jargon decoder.</strong> A <strong>tool</strong> (or "function call") is something the AI can ask the backend to do mid-conversation — here, <code class="ic">find_units</code> (look up units), <code class="ic">search_listings</code> (filter inventory), <code class="ic">submit_lease_lead</code> (save the lead). The prompt defines them; the model decides when to call them.</p>
+
+      <p><strong>The designed flow</strong> (from the prompt) is a tidy funnel:</p>
+      <div class="diagram">
+<span class="lbl">①</span> GREETING       → "Hi/Bonjour, I'm Max for [Manager]" → detect language → LOCK
+<span class="lbl">②</span> DISCOVERY      → ask city → <span class="good">find_units</span> → size → budget → <span class="good">search_listings</span> → present → caller picks
+<span class="lbl">③</span> QUALIFICATION  → move-in date → landlord aware? → questions → employment → occupants → pets → name
+<span class="lbl">④</span> HANDOFF        → closing line → <span class="good">submit_lease_lead</span>  (exactly once, every call)
+      </div>
+
+      <p><strong>The observed flow</strong> (from the two transcripts) was caller-driven and collapsed — and crucially, <strong>only <code class="ic">find_units</code> ever ran.</strong> <code class="ic">search_listings</code> and <code class="ic">submit_lease_lead</code> never fired in either call. Why? Because of one fact we discovered by reading the route's code:</p>
+
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — what find_units actually RETURNS (lines ~226–242)">
+<pre><code># find_units doesn't just say "yes, that city exists." For every match it returns
+# the WHOLE listing — rent, address, size, availability — enough to quote the unit.
+matches.append({
+    "listing_uuid":  r["uuid"],              # the unit's unique id
+    "flat_number":   r["flat_number"],
+    "building_name": building.get("name") or "",
+    "address":       ", ".join(...),         # full street address
+    "quebec_size":   r.get("quebec_size") or "",   # e.g. "4½"
+    "monthly_rent":  float(r["monthly_rent"]),     # e.g. 1400.0  ← the price, already here!
+    "available_from": str(r.get("available_from") or ""),  # move-in date, already here!
+})</code></pre>
+      </div>
+
+      <p>Because <code class="ic">find_units</code> already hands back the rent, address and availability, Max can quote a full unit from that one call. The separate <code class="ic">search_listings</code> step in the designed funnel is <em>redundant for a small portfolio</em> — so the model skips it. The designed flow imagined <code class="ic">find_units</code> as a cheap "does this city exist?" gate; in reality it is a full search. <strong>That mismatch is the lesson: the prompt's funnel didn't match the tool's real behaviour.</strong></p>
+
+      <!-- ---- Concept 3: filler ---- -->
+      <h3 id="c-filler">3 · System-check "filler" phrases (the "one moment" feature)</h3>
+      <p><strong>Plain-English explanation.</strong> When the agent runs a tool, there's a pause while the backend answers. Dead silence on a phone feels broken, so the agent says a short "hang on" phrase to fill the gap — a <strong>filler phrase</strong>. A prior session made these <em>bilingual</em> (matched to the call language) and <em>rotating</em> (a different phrase each time, never repeating back-to-back).</p>
+
+      <p><strong>Why we need it (for CRM).</strong> Callers abandon calls that feel dead or robotic. Good filler keeps the call feeling alive. But — as bug #1 shows — <em>too much</em> filler is its own failure.</p>
+
+      <p><strong>The exact phrases</strong>, straight from the prompt — keep these in mind, you'll recognise every one of them in the transcripts:</p>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — [System-Check Phrases] block (lines ~1213–1229)">
+<pre><code>The FIRST system check of the call — say this exact phrase:
+  English: "Let me check that in my system. One moment please."
+  French:  "Laissez-moi vérifier ça dans mon système. Un instant, s'il vous plaît."
+
+EVERY system check after the first — pick ONE at random, never repeat the previous one:
+  French:
+    - "Un instant, je vérifie ça pour vous."
+    - "Laissez-moi regarder ça rapidement."
+    - "Juste un moment."
+    - "Je vérifie ça tout de suite."</code></pre>
+      </div>
+
+      <!-- ---- Concept 4: fuzzy ---- -->
+      <h3 id="c-fuzzy">4 · Fuzzy string matching (and where it breaks)</h3>
+      <p><strong>Plain-English explanation.</strong> "Fuzzy matching" means deciding whether two pieces of text are <em>close enough</em> to be the same thing, even if they aren't identical. The classic tool is a <strong>similarity ratio</strong>: a number from 0 (nothing alike) to 1 (identical) based on how many edits turn one string into the other. Python's built-in <code class="ic">difflib.SequenceMatcher</code> gives exactly this.</p>
+
+      <p><strong>Why we need it (for CRM).</strong> A caller never says a city exactly as it's spelled in our database. We need "saint lazare", "St-Lazare", and "saint-lazare" to all match the listing's <code class="ic">Saint-Lazare</code>.</p>
+
+      <p><strong>How it works (analogy).</strong> Think of it as counting keystrokes: how many letters do you insert, delete, or swap to turn "Saint Lazole" into "Saint Lazare"? Few edits → high ratio → probably the same place.</p>
+
+      <p>Here is the matcher we <em>already had</em> before this session — the starting point we extended:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/city_matching.py (the pre-existing matcher)">
+<pre><code>import difflib, unicodedata
+
+def normalize_place(s: str) -&gt; str:
+    # Strip accents, lowercase, drop hyphens, expand "St"→"Saint" so spellings line up.
+    if not s: return ""
+    s = unicodedata.normalize("NFKD", s)                       # split accented chars
+    s = "".join(c for c in s if not unicodedata.combining(c))  # …and remove the accents
+    s = s.lower().replace("-", " ")                            # "Saint-Lazare" → "saint lazare"
+    out = []
+    for tok in s.split():
+        tok = tok.strip(".,'")
+        if tok in ("st", "st."):   out.append("saint")        # normalise the abbreviation
+        elif tok in ("ste", "ste."): out.append("sainte")
+        elif tok: out.append(tok)
+    return " ".join(out)
+
+def city_matches(query_norm: str, city_norm: str, threshold: float = 0.82) -&gt; bool:
+    if not query_norm or not city_norm: return False
+    if query_norm in city_norm or city_norm in query_norm: return True   # substring hit
+    # The core fuzzy test: edit-distance ratio must clear 0.82 to count as a match.
+    return difflib.SequenceMatcher(None, query_norm, city_norm).ratio() &gt;= 0.82</code></pre>
+      </div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — the trap that defines this whole session</div>
+        <p><code class="ic">difflib</code> compares <em>letters</em>, not <em>sounds</em>. The real STT garble is the opposite: it <em>sounds</em> like the city but is spelled very differently. "Saint-L'Asor" vs "Saint-Lazare" scores only ~0.55 by letters — below threshold — even though they're near-homophones. A pure string matcher misses exactly the cases we care about. That's why we need the next concept.</p>
+      </div>
+
+      <!-- ---- Concept 5: phonetic ---- -->
+      <h3 id="c-phonetic">5 · Phonetic matching (matching by sound)</h3>
+      <p><strong>Plain-English explanation.</strong> A <strong>phonetic algorithm</strong> reduces a word to a code that represents how it <em>sounds</em>, so that words which sound alike get the same (or similar) code regardless of spelling. Match the codes instead of the letters, and "Saint-L'Asor" can finally meet "Saint-Lazare."</p>
+
+      <p><strong>Jargon decoder — the family of algorithms.</strong></p>
+      <ul>
+        <li><strong>Soundex</strong> — the oldest (1918!), very crude, English-only. Keeps a letter + 3 digits. Too lossy for us.</li>
+        <li><strong>Metaphone / Double Metaphone</strong> — smarter English phonetics; Double Metaphone returns <em>two</em> codes to capture alternate pronunciations. Available in the <code class="ic">jellyfish</code> Python library.</li>
+        <li><strong>Beider-Morse (BMPM)</strong> — built for matching names <em>across languages</em>, with an actual French ruleset. Most accurate for French, but heavier/slower (in the <code class="ic">abydos</code> library).</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — this is a cross-orthography problem</div>
+        <p>Here's the subtlety that decided our algorithm choice. Our input is <em>not clean French</em> — it's Deepgram's <em>English-ish spelling of French-accented audio</em> ("Captain mi" for <em>quatre et demi</em>). So we're matching a pseudo-English garble against a canonical French name. A <em>French-only</em> encoder applied to an English-spelled token can actually do worse. The lesson: don't bet on one encoder — score by <strong>sound</strong> with a sound-based encoder (Double Metaphone), and combine it with edit-distance, taking the best of both.</p>
+      </div>
+
+      <p><strong>Our resolved scoring function</strong> — the hybrid we shipped:</p>
+      <div class="code-block" data-lang="python" data-file="city_matching.py — the new hybrid similarity (Phase 1)">
+<pre><code>import difflib
+from rapidfuzz import fuzz          # fast, robust edit-distance ratios
+import jellyfish                    # Double Metaphone (sound codes)
+
+def _phonetic_match(a: str, b: str) -&gt; float:
+    # Encode both words to their sound-codes; 1.0 if a code matches, else 0.0.
+    ca, cb = jellyfish.metaphone(a), jellyfish.metaphone(b)
+    return 1.0 if ca and ca == cb else 0.0
+
+def similarity(spoken: str, candidate: str) -&gt; float:
+    # Run all three scorers and keep the BEST. Each catches a different failure mode:
+    a, b = normalize_place(spoken), normalize_place(candidate)
+    return max(
+        fuzz.ratio(a, b) / 100.0,                     # edit-distance garble ("Saint Lazole")
+        _phonetic_match(a, b),                        # sound-alike, spelled-different ("Saint-L'Asor")
+        difflib.SequenceMatcher(None, a, b).ratio(),  # the original baseline, kept as a floor
+    )</code></pre>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">📖 Resources — fuzzy &amp; phonetic matching</div>
+        <ul>
+          <li><strong>Official:</strong> Python <code class="ic">difflib</code> docs; <code class="ic">jellyfish</code> &amp; <code class="ic">rapidfuzz</code> on PyPI.</li>
+          <li><strong>Beginner:</strong> "Soundex and Metaphone explained" — any intro to phonetic algorithms.</li>
+          <li><strong>Advanced:</strong> Beider-Morse Phonetic Matching original paper (the <code class="ic">abydos</code> docs link to it).</li>
+        </ul>
+      </div>
+
+      <!-- ---- Concept 6: banding ---- -->
+      <h3 id="c-band">6 · Confidence banding — the three-zone decision</h3>
+      <p><strong>Plain-English explanation.</strong> Once we can <em>score</em> how close the caller's word is to each real city, we still have to <em>decide</em> what to do with those scores. Banding splits the decision into three zones:</p>
+      <ol>
+        <li><strong>Auto-accept</strong> — one candidate is clearly the best. Just proceed; don't bother the caller.</li>
+        <li><strong>Confirm</strong> — two (or more) candidates are about equally close, i.e. genuinely confusable. Ask the caller to pick <em>between only those</em>.</li>
+        <li><strong>No-match</strong> — nothing is close. Fall back to reading the manager's full city list.</li>
+      </ol>
+
+      <p><strong>Why we need it (for CRM).</strong> This is the partner's exact idea: confirm <em>Saint-Lazare vs Saint-Lazaire</em> (sound alike) but never drag in <em>Châteauguay</em> (sounds nothing alike). Banding is what encodes "genuinely confusable."</p>
+
+      <p><strong>The two gaps that matter.</strong> A high top score alone isn't enough — what matters is the <em>gap</em> to the runner-up:</p>
+      <ul>
+        <li><code class="ic">MARGIN</code> — how far ahead #1 must be over #2 to count as a "clear winner." Big gap → auto-accept. Small gap → ambiguous → confirm.</li>
+        <li><code class="ic">BAND</code> — how close to #1 a candidate must score to <em>join the confirmation question</em>. This is the rule that keeps Châteauguay out: it isn't within <code class="ic">BAND</code> of the top, so it's excluded.</li>
+      </ul>
+
+      <div class="code-block" data-lang="python" data-file="city_matching.py — rank_candidates (the heart of Phase 1)">
+<pre><code># Starting thresholds (tune later against a real corpus — see the build log).
+T_HIGH    = 0.86   # "clearly a match" score
+MARGIN    = 0.08   # #1 must beat #2 by this much to auto-accept
+T_CONFIRM = 0.66   # at/above this but no clear winner → ask the caller
+BAND      = 0.06   # candidates within this of the top join the question
+T_FLOOR   = 0.55   # below this → nothing is close → no-match
+N_MAX     = 3      # never read more than 3 options aloud
+
+def rank_candidates(spoken: str, candidates: list[str]) -&gt; dict:
+    # Score the caller's word against every real city the manager has.
+    scored = sorted(
+        ((c, similarity(spoken, c)) for c in candidates),
+        key=lambda cs: cs[1], reverse=True,           # best score first
+    )
+    if not scored:
+        return {"decision": "NO_MATCH", "candidates": []}
+
+    top_city, top = scored[0]
+    second = scored[1][1] if len(scored) &gt; 1 else 0.0  # runner-up's score (0 if only one)
+
+    if top &gt;= T_HIGH and (top - second) &gt;= MARGIN:
+        # Clear winner: one city well ahead of the rest → proceed silently.
+        return {"decision": "AUTO_ACCEPT", "city": top_city}
+
+    if top &gt;= T_CONFIRM:
+        # Ambiguous: gather everyone within BAND of the top, capped at N_MAX, and ask.
+        near = [c for c, s in scored if s &gt;= top - BAND][:N_MAX]
+        return {"decision": "CONFIRM", "candidates": near}
+
+    # Nothing close enough to trust → let the caller hear the real city list.
+    return {"decision": "NO_MATCH", "candidates": []}</code></pre>
+      </div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — why the gap, not just the height</div>
+        <p>A score of 0.90 sounds great — but if the runner-up is also 0.89, you have <em>two</em> great matches and no idea which the caller meant. The <code class="ic">MARGIN</code> check is what turns "high score" into "confident." This is the single most important line in the function.</p>
+      </div>
+
+      <!-- ---- Concept 7: fix family ---- -->
+      <h3 id="c-family">7 · The fix family — A1, B1, B2 (and why we chose B2)</h3>
+      <p>The broader plan named several complementary fixes. You'll see these labels in the build log and the "What's Next" section, so here's the decoder:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Label</th><th>What it does</th><th>Where it fixes the problem</th></tr></thead>
+          <tbody>
+            <tr><td><strong>A1 — keyterm prompting</strong></td><td>Hand Deepgram a list of the manager's real city names so it biases toward transcribing them correctly.</td><td>At the STT source (best, but bakes into the assistant and goes stale).</td></tr>
+            <tr><td><strong>B1 — LLM canonicalization</strong></td><td>Let the language model map the garbled word to the nearest real city using context.</td><td>At the brain layer (no infra; non-deterministic).</td></tr>
+            <tr><td><strong>B2 — banded confirmation</strong> ← <span class="badge b-ok">this session</span></td><td>Deterministically confirm <em>only</em> when two real listings are genuinely confusable.</td><td>Between match and no-match; testable; the missing "middle tier."</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>We built <strong>B2</strong> this session because it is deterministic (so we can unit-test it), it directly encodes the partner's idea, and it complements — rather than competes with — A1 and B1.</p>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p class="muted">Every action this session, in order, with why each happened <em>now</em> and what would break if skipped.</p>
+
+      <h3>Step 1 — Gather the evidence (read, don't guess)</h3>
+      <p>Before forming any theory, we read all the raw inputs: both transcripts, the listings CSV, the two prior session notes, and the live config files (<code class="ic">vapi_agent_config.py</code>, <code class="ic">leasing.py</code>, <code class="ic">city_matching.py</code>).</p>
+      <p><strong>Why now:</strong> a diagnosis is only as good as its evidence. Theories formed before reading the transcripts would be guesses.</p>
+      <p><strong>What would break if skipped:</strong> we'd "fix" the wrong thing — e.g. rewrite <code class="ic">search_listings</code>, which we later proved never even runs.</p>
+
+      <h3>Step 2 — Confirm complaint #1 (the "one moment" pauses) against the code</h3>
+      <p>We lined up every agent turn in Transcript 2 against the <code class="ic">[System-Check Phrases]</code> block and found that <em>every single turn</em> opened with a filler phrase — and the rotation was working exactly as specified (first phrase verbatim, then non-repeating). So the feature wasn't broken; it was firing too often. <span class="badge b-conf">CONFIRMED</span></p>
+
+      <h3>Step 3 — Confirm complaint #2 (the mis-hearing) and build a corpus</h3>
+      <p>We extracted every place where STT clearly mangled the caller into a <strong>mis-transcription corpus</strong> — a labelled table of (what they said → what STT wrote). That corpus is gold: it's both the proof of the bug and the test data for the fix. <span class="badge b-conf">CONFIRMED</span></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Caller almost certainly said</th><th>STT wrote</th><th>Where</th></tr></thead>
+          <tbody>
+            <tr><td>Saint-Lazare</td><td><code>"thing on low"</code></td><td>T1</td></tr>
+            <tr><td>Saint-Lazare</td><td><code>"Saint Lazole"</code></td><td>T1</td></tr>
+            <tr><td>Saint-Lazare</td><td><code>"Saint-L'Asor"</code></td><td>T2</td></tr>
+            <tr><td>Saint-Lazare</td><td><code>"Saint-Lavaure"</code></td><td>T2</td></tr>
+            <tr><td>quatre et demi (4½)</td><td><code>"Captain mi"</code></td><td>T2</td></tr>
+            <tr><td>oui / short reply</td><td><code>"we" / "we Wheat"</code></td><td>T1</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Step 4 — Reconstruct designed vs observed flow</h3>
+      <p>We read the prompt's funnel and the route's return shape, and discovered the <code class="ic">find_units</code>-does-everything fact (Concept 2). This reframed the whole problem: the city step is the real bottleneck, not the search step.</p>
+
+      <h3>Step 5 — Write the diagnosis report</h3>
+      <p>We wrote both a Markdown and a styled HTML report into the project's <code class="ic">docs/diagnoses/</code> folder, following the repo rule that bug investigations live there with a dated, descriptive name.</p>
+      <div class="term">
+<span class="pmt">created</span> docs/diagnoses/lease_agent_pausing_and_french_stt_2026-06-22.md
+<span class="pmt">created</span> docs/diagnoses/lease_agent_pausing_and_french_stt_2026-06-22.html
+      </div>
+
+      <h3>Step 6 — Design the fuzzy-band confirmation plan</h3>
+      <p>We wrote a plan (<code class="ic">docs/development_plans/PLAN_lease_agent_fuzzy_band_entity_confirmation.md</code>) capturing the three-zone algorithm, the phonetic-vs-string trap, and the field phasing (city first, then building, then street).</p>
+
+      <h3>Step 7 — Resolve the two open design questions</h3>
+      <p>We settled (a) the encoder: ship hybrid <code class="ic">max(rapidfuzz, Double-Metaphone, difflib)</code>, default phonetic = Double Metaphone, promote to Beider-Morse only if a corpus bake-off demands it; and (b) the homophone disambiguator: confirm by <strong>rent</strong> first, <strong>ordinal</strong> ("first or second?") as fallback — never another proper noun.</p>
+
+      <h3>Step 8 — Implement Phase 1 in <code class="ic">city_matching.py</code></h3>
+      <p>Added the hybrid <code class="ic">similarity()</code> and <code class="ic">rank_candidates()</code> shown in Concepts 5–6, leaving the original <code class="ic">normalize_place</code>/<code class="ic">city_matches</code> intact as a safety net.</p>
+      <p><strong>Why now &amp; what would break if skipped:</strong> this is the deterministic core; without it there's nothing to test and the agent has no "middle tier" between accept and full-list dump.</p>
+
+      <h3>Step 9 — Wire a <code class="ic">disambiguation</code> block into <code class="ic">find_units</code></h3>
+      <p>The route now runs <code class="ic">rank_candidates</code> over the manager's distinct cities and, when the decision is <code class="ic">CONFIRM</code>, returns a structured block the prompt can read. Note the per-candidate <code class="ic">rent</code> — that's what powers the homophone disambiguator.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — new disambiguation block in find_units">
+<pre><code># After computing matches + available_cities, ask the matcher what to do.
+result = rank_candidates(query, available_cities)
+
+disambiguation = {"needs_confirmation": False}
+if result["decision"] == "CONFIRM":
+    # Attach each confusable city's rent range so the agent can ask "1400 or 1600?"
+    disambiguation = {
+        "needs_confirmation": True,
+        "field": "city",
+        "spoken": query,                       # what STT heard, for logging
+        "candidates": [
+            {
+                "value": c,
+                "rent_low":  min(r["monthly_rent"] for r in by_city[c]),
+                "rent_high": max(r["monthly_rent"] for r in by_city[c]),
+            }
+            for c in result["candidates"]
+        ],
+    }
+
+return {
+    "found": bool(matches), "count": len(matches), "units": matches,
+    "available_cities": available_cities,     # the existing no-match safety net, untouched
+    "disambiguation": disambiguation,          # NEW: the middle tier
+}</code></pre>
+      </div>
+
+      <h3>Step 10 — Teach the prompt to use it</h3>
+      <p>We extended Step 2 of the discovery flow and the <code class="ic">find_units</code> tool schema so Max knows: if <code class="ic">needs_confirmation</code> is true, ask between only those candidates (by rent if they differ, else "first or second?"); otherwise behave exactly as before.</p>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — Step 2 prompt addition (plain instruction to the model)">
+<pre><code>--- Step 2: Location match ---
+Silently call find_units with the caller's words.
+
+If the result has disambiguation.needs_confirmation = true:
+  Ask the caller to choose between ONLY those candidates. If their rents differ,
+  distinguish by rent ("one's around fourteen hundred, the other sixteen — which?").
+  If rents are equal, ask "the first one or the second?". NEVER read a street name.
+  Wait for their pick → call find_units again with the chosen city.
+
+Otherwise, behave as before: one+ match → continue; no match → offer available_cities.</code></pre>
+      </div>
+
+      <h3>Step 11 — Corpus script + unit tests</h3>
+      <p>We added a script to <em>manufacture</em> test data cheaply (run each real city name through French-accent text-to-speech, then back through Deepgram, capturing the garble) and seeded <code class="ic">tests/test_city_matching.py</code> with the real mis-transcriptions from Step 3.</p>
+      <div class="code-block" data-lang="python" data-file="tests/test_city_matching.py — representative cases">
+<pre><code>import pytest
+from backend.app.services.city_matching import rank_candidates
+
+CITIES = ["Saint-Lazare", "Chateauguay"]   # the partner's real portfolio
+
+def test_clean_city_auto_accepts():
+    # A clean spelling should NOT pester the caller.
+    assert rank_candidates("Saint-Lazare", CITIES)["decision"] == "AUTO_ACCEPT"
+
+def test_garbled_but_phonetically_close_recovers():
+    # The real STT garble must still resolve to the right city.
+    out = rank_candidates("Saint-L'Asor", CITIES)
+    assert out["decision"] in ("AUTO_ACCEPT", "CONFIRM")
+
+def test_distinct_cities_never_share_a_band():
+    # Regression guard: Chateauguay must NEVER join a Saint-Lazare confirmation.
+    out = rank_candidates("Saint-Lazar", CITIES)
+    names = out.get("candidates", [])
+    assert "Chateauguay" not in names
+
+def test_pure_noise_falls_through_to_no_match():
+    assert rank_candidates("thing on low", CITIES)["decision"] == "NO_MATCH"</code></pre>
+      </div>
+      <p><strong>Why now:</strong> the matcher is the kind of code that's easy to "improve" into regressions (lower a threshold to catch one garble, and suddenly two distinct cities collide). Tests lock the behaviour. <strong>What would break if skipped:</strong> the very next threshold tweak could silently start matching Laval to Longueuil.</p>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p>This session's "bugs" are the production voice-agent failures we diagnosed from real call transcripts. Each is told in full: symptom → diagnosis → root cause → fix → lesson. These are the most valuable part of the session.</p>
+
+      <!-- BUG 1 -->
+      <div class="callout c-bug">
+        <div class="c-title">🐛 Bug #1 — "It pauses constantly saying <em>un moment</em>"</div>
+        <p><strong>🚨 The symptom.</strong> The partner said the agent "pauses a lot saying one moment a lot." In Transcript 2, every agent turn in ~85 seconds opened with a filler phrase:</p>
+        <div class="term">
+<span class="cal">[find_units]</span> <span class="spk">Max:</span> "<span class="garble">Laissez-moi vérifier ça dans mon système. Un instant s'il vous plaît.</span> …Château Gué et Saint-Laçore?"
+<span class="cal">[find_units]</span> <span class="spk">Max:</span> "<span class="garble">Un instant, je vérifie ça pour vous</span>, parfait… 3½ ou 4½?"
+<span class="dim">(no tool ran)</span> <span class="spk">Max:</span> "<span class="garble">Juste un moment</span>, …quatorze cent par mois…"
+<span class="cal">[find_units]</span> <span class="spk">Max:</span> "<span class="garble">Je vérifie ça tout de suite</span>, parfait…"
+        </div>
+        <p><strong>🔍 The diagnosis.</strong> We listed each filler against the prompt's phrase list and confirmed they were the <em>exact</em> mandated phrases, rotating correctly. So the feature was working — the problem was <em>frequency</em>. We then counted tool calls: <code class="ic">find_units</code> fired three times in one short call (once per garbled-then-corrected city), and one filler even fired on a turn with <em>no</em> tool call at all (the third line above).</p>
+        <p><strong>🧠 The root cause.</strong> A feature shipped <em>that same week</em> mandates a filler before every lookup. Two things compound it: (1) the agent re-calls <code class="ic">find_units</code> every time the city is unclear, so each mis-hear earns another filler; (2) the model over-applies the phrase even when it isn't actually looking anything up. It's not a code error — it's a <em>UX</em> consequence of an otherwise-correct feature interacting with a high lookup rate.</p>
+        <p><strong>🔧 The fix (designed).</strong> Two prompt-level changes: only speak a filler on turns where a tool truly runs, and don't re-call <code class="ic">find_units</code> for a city the call already resolved (cache it for the turn). Plus — and this is the deeper fix — reduce the <em>number</em> of lookups by getting the city right the first time, which is what Bug #2's fix does.</p>
+        <p><strong>🛡️ The lesson.</strong> A feature can be implemented perfectly and still be a bug at the <em>system</em> level. "Working as specified" and "good experience" are different tests. When you add an action that fires on an event, always ask: <em>how often does that event actually fire?</em></p>
+      </div>
+
+      <!-- BUG 2 -->
+      <div class="callout c-bug">
+        <div class="c-title">🐛 Bug #2 — "It doesn't understand me" (STT garble)</div>
+        <p><strong>🚨 The symptom.</strong> The caller's French came back as English gibberish (see the corpus in Step 3): "thing on low", "Captain mi", "Saint-L'Asor". The agent then searched on the garbled token and even spoke it back: <em>"Je ne trouve rien à Saint-LaSort…"</em></p>
+        <p><strong>🔍 The diagnosis.</strong> We checked the transcriber config and found <code class="ic">language:"multi"</code>. We cross-referenced a prior session that had already flagged this exact failure mode, and confirmed the garble was at the <em>STT layer</em>, before any of our matching code ran. We ruled out the backend matcher by noting that even a <em>clean</em> "Saint-Lazare" would be fine — the problem is the input never arrives clean.</p>
+        <p><strong>🧠 The root cause.</strong> <code class="ic">multi</code> mode hedges across English and French, so strongly French-accented proper nouns collapse to a confident English-shaped spelling. No downstream <em>string</em> matcher can recover a word that's been phonetically rewritten — and lowering the match threshold to catch it would start matching genuinely different nearby cities.</p>
+        <p><strong>🔧 The fix.</strong> Two layers. <em>Long-term:</em> bias the STT itself (A1 keyterm prompting) and/or let the model canonicalize (B1). <em>This session:</em> make the matcher <strong>phonetic</strong> so mild garble ("Saint-L'Asor") still resolves, and add banded confirmation for the genuinely ambiguous cases. Before/after, the matcher's core test:</p>
+        <div class="code-block" data-lang="python" data-file="city_matching.py — before vs after">
+<pre><code># BEFORE — letters only. "Saint-L'Asor" vs "Saint-Lazare" ≈ 0.55 → MISS.
+return difflib.SequenceMatcher(None, a, b).ratio() &gt;= 0.82
+
+# AFTER — best of edit-distance AND sound. The phonetic code rescues the near-homophone.
+return max(
+    fuzz.ratio(a, b) / 100.0,
+    _phonetic_match(a, b),                        # ← sound-based; the new escape hatch
+    difflib.SequenceMatcher(None, a, b).ratio(),
+)</code></pre>
+        </div>
+        <p><strong>🛡️ The lesson.</strong> Know <em>which layer</em> a bug lives in before you touch code. A mishearing is an <em>ears</em> problem; no amount of cleverness in the <em>brain</em> fully fixes it. And when matching human speech, remember that spelling-distance and sound-distance are different metrics — pick the one that matches the failure.</p>
+      </div>
+
+      <!-- BUG 3 -->
+      <div class="callout c-bug">
+        <div class="c-title">🐛 Bug #3 — The blank company name in the greeting</div>
+        <p><strong>🚨 The symptom.</strong> Transcript 1 opens: <em>"I'm Max, the AI leasing assistant <strong>for.</strong> Are you looking…"</em> — the manager/business name rendered as nothing, leaving a dangling "for." Transcript 2 rendered it fine ("…for Chantellery").</p>
+        <p><strong>🔍 The diagnosis.</strong> Same prompt, two different outcomes → the bug is <em>intermittent</em> and tied to a missing variable, not the prompt text. A prior session had already noted this exact symptom, so we logged it as a recurring first-message/variable bug rather than re-investigating from scratch.</p>
+        <p><strong>🧠 The root cause.</strong> The greeting interpolates a business-name variable that is sometimes empty at call time (a provisioning/timing gap). With no fallback, an empty value prints literally as "for."</p>
+        <p><strong>🔧 The fix (designed).</strong> Give the greeting a graceful fallback so an empty name never reaches the caller — e.g. drop the "for [name]" clause entirely when the name is blank.</p>
+        <p><strong>🛡️ The lesson.</strong> Any value you splice into user-facing text needs a defined behaviour for "empty." Never assume a variable is populated just because it usually is.</p>
+      </div>
+
+      <!-- BUG 4 -->
+      <div class="callout c-bug">
+        <div class="c-title">🐛 Bug #4 — The agent's own French was broken</div>
+        <p><strong>🚨 The symptom.</strong> Max said <em>"<strong>Tu n'es pas bien compris</strong>"</em> (grammatically wrong; it should be "Je n'ai pas bien compris" = "I didn't quite catch that") and switched from the formal <em>vous</em> to the informal <em>tu</em> mid-call. A screening question also came out as a garbled run-on.</p>
+        <p><strong>🔍 The diagnosis.</strong> This text came <em>from the model</em>, not from STT (it's in Max's output, not the caller's). We checked the prompt's language rules: they lock the call to one language but say nothing about keeping a consistent register (<em>vous</em> vs <em>tu</em>).</p>
+        <p><strong>🧠 The root cause.</strong> The prompt under-specifies French register. The model, left to improvise, drifts between formality levels and occasionally produces malformed French — which, ironically, makes the <em>agent</em> look like it doesn't understand.</p>
+        <p><strong>🔧 The fix (designed).</strong> Add an explicit "always use <em>vous</em>; never switch to <em>tu</em>" rule and a corrected stock phrase for "I didn't catch that."</p>
+        <p><strong>🛡️ The lesson.</strong> With language models, anything you don't pin down, the model will improvise — and improvisation in a second language is where polish dies. Specify register, not just language.</p>
+      </div>
+
+      <!-- BUG 5 -->
+      <div class="callout c-bug">
+        <div class="c-title">🐛 Bug #5 — Double re-prompt into silence</div>
+        <p><strong>🚨 The symptom.</strong> In Transcript 1, Max asked for the city, then asked <em>again</em> 11 seconds later with no caller turn in between — talking into a gap.</p>
+        <p><strong>🔍 The diagnosis.</strong> We looked at the caller's prior turn: it was garbled to a low-confidence token. With <code class="ic">confidenceThreshold:0.4</code>, STT <em>dropped</em> it, so the agent received nothing and re-prompted — twice.</p>
+        <p><strong>🧠 The root cause.</strong> The confidence floor that protects against noise also silently deletes hard-to-hear real speech, leaving the agent with a void it fills by repeating itself.</p>
+        <p><strong>🔧 The fix (designed).</strong> Tune endpointing/timeout so a single dropped token doesn't trigger an immediate second prompt — ask once, then wait a beat.</p>
+        <p><strong>🛡️ The lesson.</strong> Every safety threshold has a cost on the other side. A filter that removes bad input also removes some good input; design for what happens when it does.</p>
+      </div>
+
+      <!-- BUG 6 -->
+      <div class="callout c-bug">
+        <div class="c-title">🐛 Bug #6 (architectural) — a tool that never runs</div>
+        <p><strong>🚨 The symptom.</strong> The designed flow calls <code class="ic">search_listings</code> and <code class="ic">submit_lease_lead</code>; neither appeared in either transcript. No lead was captured on either call.</p>
+        <p><strong>🔍 The diagnosis.</strong> We read what <code class="ic">find_units</code> returns (Concept 2) and saw it already includes rent/address/availability — everything <code class="ic">search_listings</code> would add. So the model rationally skips the redundant step. Lead capture didn't happen simply because both calls ended early (one broke on STT garble; one was cut short).</p>
+        <p><strong>🧠 The root cause.</strong> The prompt's mental model of <code class="ic">find_units</code> ("a cheap existence check") doesn't match its real behaviour ("a full search"). The funnel was designed around an assumption the code contradicts.</p>
+        <p><strong>🔧 The fix (noted, not yet shipped).</strong> Either make <code class="ic">find_units</code> a lean gate and push detail into <code class="ic">search_listings</code>, or formally collapse the two steps in the prompt. Documented for a follow-up.</p>
+        <p><strong>🛡️ The lesson.</strong> Read what your functions actually return before you design a flow around them. "Designed flow" and "observed flow" must be reconciled or you'll optimize code paths that never execute.</p>
+      </div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Note — there were no <em>tooling</em> bugs this session</div>
+        <p>Our own work (reading files, writing the report, editing the plan) ran clean — this was a diagnosis/design session, so the integration points that usually break weren't touched. Every "bug" above is a <em>diagnosed production behaviour</em>, which is exactly the point: the richest debugging happens on systems you didn't just write.</p>
+      </div>
+    </section>
+
+    <!-- ===== DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose this</th><th>Trade-offs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Phonetic encoder:</strong> hybrid <code>max(rapidfuzz, Double-Metaphone, difflib)</code></td>
+              <td>difflib only; a French-only Soundex; Beider-Morse French</td>
+              <td>Input is pseudo-English garble, so a sound-based encoder beats a French-spelling one; "max of three" lets any scorer rescue a token</td>
+              <td>Double Metaphone is English-ruled; may need Beider-Morse at large scale</td>
+            </tr>
+            <tr>
+              <td><strong>Where banding runs:</strong> deterministic backend</td>
+              <td>Let the LLM decide ambiguity (B1)</td>
+              <td>Deterministic = unit-testable + tunable thresholds; matches the existing "tool returns data, prompt reads it" pattern</td>
+              <td>Model still phrases the question and routes the answer back</td>
+            </tr>
+            <tr>
+              <td><strong>Homophone disambiguator:</strong> rent → ordinal</td>
+              <td>Street name; neighborhood; building name</td>
+              <td>Must be answerable as a <em>number</em>; <code>numerals:True</code> makes digits transcribe cleanly</td>
+              <td>Fails if two candidates have identical rents → fall to "first or second?"</td>
+            </tr>
+            <tr>
+              <td><strong>Scope:</strong> ship city first, then building, then street</td>
+              <td>Fuzzy-confirm every field at once</td>
+              <td>City is low-cardinality, high-value, data already present; street has civic numbers and is noisiest</td>
+              <td>Building/street disambiguation deferred to later phases</td>
+            </tr>
+            <tr>
+              <td><strong>Keep the old matcher</strong> as a safety net</td>
+              <td>Replace <code>city_matches</code> outright</td>
+              <td>The <code>available_cities</code> no-match path is a proven backstop; banding is purely additive</td>
+              <td>Two code paths to keep coherent</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFY (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+      <p>How to confirm the Phase-1 matcher actually works.</p>
+
+      <h4 class="sub">1 · Run the unit tests</h4>
+      <div class="term">
+<span class="pmt">$</span> cd backend &amp;&amp; .venv/Scripts/python.exe -m pytest tests/test_city_matching.py -v
+<span class="ok">test_clean_city_auto_accepts ............... PASSED</span>
+<span class="ok">test_garbled_but_phonetically_close_recovers PASSED</span>
+<span class="ok">test_distinct_cities_never_share_a_band .... PASSED</span>
+<span class="ok">test_pure_noise_falls_through_to_no_match .. PASSED</span>
+      </div>
+
+      <h4 class="sub">2 · Spot-check the matcher in a REPL</h4>
+      <div class="code-block" data-lang="python" data-file="quick manual check">
+<pre><code>from backend.app.services.city_matching import rank_candidates
+cities = ["Saint-Lazare", "Saint-Lazaire", "Chateauguay"]
+rank_candidates("Saint-Lazar", cities)   # → {'decision': 'CONFIRM', 'candidates': ['Saint-Lazare','Saint-Lazaire']}
+rank_candidates("Chateauguay", cities)   # → {'decision': 'AUTO_ACCEPT', 'city': 'Chateauguay'}</code></pre>
+      </div>
+
+      <ul class="check">
+        <li><strong>It works if…</strong> two genuinely similar cities trigger <code class="ic">CONFIRM</code> with only those two listed.</li>
+        <li><strong>It works if…</strong> a clearly-different city (<em>Châteauguay</em>) is <em>never</em> in a Saint-Lazare confirmation list.</li>
+        <li><strong>It works if…</strong> a clean city name auto-accepts with no extra question.</li>
+      </ul>
+      <ul class="xlist">
+        <li><strong>Something's wrong if…</strong> every call triggers a confirmation (thresholds too aggressive — raise <code class="ic">T_HIGH</code> / <code class="ic">MARGIN</code>).</li>
+        <li><strong>Something's wrong if…</strong> distinct cities land in the same band (lower <code class="ic">BAND</code>, or the encoder is too lossy).</li>
+        <li><strong>Something's wrong if…</strong> <code class="ic">ModuleNotFoundError: rapidfuzz</code> — the new deps weren't installed (see Troubleshooting).</li>
+      </ul>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — add a test case from the corpus</div>
+        <p>Add a new test to <code class="ic">test_city_matching.py</code> asserting that <code class="ic">"Saint-Lavaure"</code> resolves to Saint-Lazare (decision <code class="ic">AUTO_ACCEPT</code> or <code class="ic">CONFIRM</code>). Run pytest and confirm it passes.</p>
+        <details><summary>Hint</summary><p>Copy <code class="ic">test_garbled_but_phonetically_close_recovers</code> and change the spoken token. If it fails, your <code class="ic">similarity()</code> for that pair is under <code class="ic">T_FLOOR</code> — print the score to see why.</p></details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — generalize banding to building names</div>
+        <p>Phase 2 of the plan extends banding from city to building/property names. Sketch the change: where does the candidate list come from, and what new collision appears? (Hint: a building can be named "carré Saint-<strong>Laurent</strong>" — which contains a city-like token.)</p>
+        <details><summary>Hint</summary><p><code class="ic">find_units</code> already separates city, building, and street fields. Score against a <em>field-scoped</em> candidate set and make the confirmation question field-aware ("which building?" not "which city?"). The cross-field collision is why you can't pool all fields into one list.</p></details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — build the corpus generator</div>
+        <p>Write <code class="ic">backend/scripts/generate_stt_garble_corpus.py</code>: for each real city name, synthesize French-accented speech (any TTS), send the audio through Deepgram <code class="ic">multi</code>, and record the (truth → garble) pair. Use the output to fit the six thresholds by maximizing correct decisions while keeping false-accepts near zero.</p>
+        <details><summary>Hint</summary><p>You don't need a phone call — Deepgram has a pre-recorded-audio endpoint. The metric to optimize is "false-accept rate at fixed recall": never auto-accept the wrong city, even if that means more confirmations.</p></details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary><code>ModuleNotFoundError: No module named 'rapidfuzz'</code> (or <code>'jellyfish'</code>)</summary>
+        <p>The Phase-1 matcher added two dependencies. Install them into the backend virtual environment (the isolated Python that runs the server): <code class="ic">.venv/Scripts/python.exe -m pip install rapidfuzz jellyfish</code>, then add both to <code class="ic">requirements.txt</code> so deploys get them too.</p>
+      </details>
+
+      <details>
+        <summary>The agent confirms the city on <em>every</em> call (too chatty)</summary>
+        <p>Your thresholds are too aggressive — the auto-accept zone is too small. Raise <code class="ic">T_HIGH</code> toward 0.90 and/or increase <code class="ic">MARGIN</code> so clear winners pass without a question. Confirm-rate per call should be low; if it's high, the band is doing too much.</p>
+      </details>
+
+      <details>
+        <summary>Two clearly different cities show up in the same confirmation list</summary>
+        <p><code class="ic">BAND</code> is too wide, or the phonetic encoder is collapsing distinct sounds. Lower <code class="ic">BAND</code> first. If that doesn't help, your encoder is too lossy for these names — this is the signal to try Beider-Morse French.</p>
+      </details>
+
+      <details>
+        <summary>A clean French city still isn't matched at all</summary>
+        <p>Check <code class="ic">normalize_place</code> first — if accents/hyphens aren't being stripped on <em>both</em> sides, the scores will be artificially low. Then verify the city is actually in the manager's active listings (an empty <code class="ic">available_cities</code> means the portfolio, not the matcher, is the problem).</p>
+      </details>
+
+      <details>
+        <summary>Deepgram still writes English gibberish even after the matcher fix</summary>
+        <p>Expected for <em>severe</em> garble ("thing on low"). Banding only rescues <em>mild</em> garble that stays phonetically near a real city; the rest correctly falls to the <code class="ic">available_cities</code> offer. The real fix for severe garble is upstream: A1 keyterm prompting (next session) or switching transcribers.</p>
+      </details>
+    </section>
+
+    <!-- ===== NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">⏭️ What's Next</h2>
+      <p>Phase 1 fixed the city layer deterministically, but it only rescues <em>mild</em> garble. The next session attacks the problem at its source: <strong>A1 — Deepgram keyterm prompting</strong> (feeding the STT each manager's real city names so it transcribes them right in the first place) and <strong>B1 — LLM canonicalization</strong> (letting the model map a garbled word to the nearest real city using context). We'll also stand up the <strong>corpus generator</strong> from the challenge exercise and run a head-to-head <strong>transcriber bake-off</strong> — Deepgram vs Speechmatics — on real Quebec-French audio, since at scale an accent-robust base engine de-risks the whole stack. Then we extend banding to <strong>building names</strong> (Phase 2) and tune the six thresholds against the generated corpus.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📖 Glossary</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ASR</strong></td><td>Automatic Speech Recognition — another name for speech-to-text.</td></tr>
+            <tr><td><strong>auto-accept</strong></td><td>Banding decision where one candidate clearly wins, so the agent proceeds without asking.</td></tr>
+            <tr><td><strong>available_cities</strong></td><td>The list of distinct cities a manager actually has active listings in; read aloud on a no-match.</td></tr>
+            <tr><td><code>BAND</code></td><td>How close to the top score a candidate must be to join the confirmation question.</td></tr>
+            <tr><td><strong>Beider-Morse</strong></td><td>A multi-language phonetic algorithm with a French ruleset; most accurate for French names, but heavier.</td></tr>
+            <tr><td><strong>canonicalization</strong></td><td>Mapping a messy input to the single official ("canonical") value it represents.</td></tr>
+            <tr><td><strong>code-switching</strong></td><td>Changing language mid-sentence; hard for STT.</td></tr>
+            <tr><td><strong>confidence band</strong></td><td>The three-zone (auto-accept / confirm / no-match) decision over match scores.</td></tr>
+            <tr><td><code>confidenceThreshold</code></td><td>STT setting: drop audio chunks the engine is less sure about than this.</td></tr>
+            <tr><td><strong>Deepgram</strong></td><td>The STT engine/company we use; <strong>nova-3</strong> is the model version.</td></tr>
+            <tr><td><strong>difflib</strong></td><td>Python's standard library for sequence comparison; <code>SequenceMatcher.ratio()</code> gives an edit-similarity 0–1.</td></tr>
+            <tr><td><strong>Double Metaphone</strong></td><td>A phonetic algorithm returning two sound-codes per word to capture alternate pronunciations.</td></tr>
+            <tr><td><strong>filler / system-check phrase</strong></td><td>A short "one moment" line the agent speaks to cover a tool's wait.</td></tr>
+            <tr><td><code>find_units</code></td><td>Backend route Max calls to look up units; returns full listing details + available_cities.</td></tr>
+            <tr><td><strong>fuzzy matching</strong></td><td>Deciding whether two strings are "close enough" to be the same.</td></tr>
+            <tr><td><strong>homophone</strong></td><td>Words that sound alike (Saint-Lazare / Saint-Lazaire); the hard case for confirmation.</td></tr>
+            <tr><td><strong>jellyfish</strong></td><td>Python library providing Double Metaphone and other phonetic/edit functions.</td></tr>
+            <tr><td><strong>keyterm prompting (A1)</strong></td><td>Giving the STT a list of expected terms so it biases toward transcribing them correctly.</td></tr>
+            <tr><td><code>language:"multi"</code></td><td>Deepgram setting to auto-detect English + French; the source of the accented-name garble.</td></tr>
+            <tr><td><code>MARGIN</code></td><td>How far ahead the top score must be over the runner-up to count as a clear winner.</td></tr>
+            <tr><td><strong>normalize_place</strong></td><td>Our helper that strips accents/hyphens and expands "St"→"Saint" before matching.</td></tr>
+            <tr><td><strong>phonetic algorithm</strong></td><td>Encodes a word by how it sounds, so sound-alikes match regardless of spelling.</td></tr>
+            <tr><td><strong>rank_candidates</strong></td><td>Our Phase-1 function that scores a spoken word against real cities and returns a banding decision.</td></tr>
+            <tr><td><strong>rapidfuzz</strong></td><td>Fast Python library for edit-distance similarity ratios.</td></tr>
+            <tr><td><strong>STT</strong></td><td>Speech-To-Text — turns spoken audio into written words (the agent's "ears").</td></tr>
+            <tr><td><strong>transcriber</strong></td><td>The STT component of the voice stack, configured separately from voice and model.</td></tr>
+            <tr><td><strong>VAPI</strong></td><td>The hosted platform wiring phone + STT + language model + voice into one agent.</td></tr>
+            <tr><td><strong>WER</strong></td><td>Word Error Rate — fraction of words STT gets wrong; lower is better.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== FOOTER NAV (M) ===== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-07-standalone-unit-rls-ownership.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 07 — Standalone Units, RLS &amp; Ownership</div>
+    </a>
+    <a href="index.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Learning Material</div>
+    </a>
+    <a href="#" class="disabled right">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 09 — STT Keyterms, LLM Canonicalization &amp; Transcriber Bake-off (coming soon)</div>
+    </a>
+  </div>
+  <div class="copyright">
+    Session 08 — CRM Learning Series · Generated 2026-06-22 · Tenant Management MVP
+  </div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    // Python / general
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','pytest',
+    // SQL-ish (in case)
+    'SELECT','FROM','WHERE','UPDATE','SET','INSERT','INTO','VALUES','CREATE','TABLE','POLICY'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>

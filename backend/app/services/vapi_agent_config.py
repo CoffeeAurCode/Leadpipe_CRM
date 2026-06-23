@@ -1145,7 +1145,9 @@ If yes → answer from the listing data you already have:
 If no → continue.
 
 --- Q4: Employment ---
-"Just so the team has the full picture — what do you do for work?"
+"Just so the team has the full picture — are you currently employed? And if so, is that full-time or part-time?"
+Never ask what the caller does for a living, their job title, or their employer — only whether they are
+employed and, if so, whether it is full-time or part-time.
 
 Full-time employed:
   Log "employment: full-time" in qualifying_answers as a strong qualifier. Continue.
