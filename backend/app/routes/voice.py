@@ -247,19 +247,19 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
         # Done here (before call_log INSERT) so manager_id is stored on every log,
         # not just logs that resulted in a complaint. Without this, RLS filters out
         # all rows because manager_id is NULL.
+        # Resolve the owner directly from the flat (flats.manager_id is set on every flat,
+        # incl. building-less standalone units — migration 029). The old building →
+        # properties_list chain returned NULL for standalone units (and even for normal
+        # flats when properties_list.manager_id was NULL), losing the complaint to RLS.
         manager_id = None
         caller_phone = (phone_number or "").strip()
         if caller_phone:
             t_resp = db.table("tenants").select("flat_uuid").eq("phone", caller_phone).limit(1).execute()
             if t_resp.data and t_resp.data[0].get("flat_uuid"):
                 caller_flat_uuid = t_resp.data[0]["flat_uuid"]
-                flt_resp = db.table("flats").select("building_id").eq("uuid", caller_flat_uuid).limit(1).execute()
-                if flt_resp.data and flt_resp.data[0].get("building_id"):
-                    bldg_resp = db.table("buildings").select("property_id").eq("id", flt_resp.data[0]["building_id"]).limit(1).execute()
-                    if bldg_resp.data and bldg_resp.data[0].get("property_id"):
-                        pg_resp = db.table("properties_list").select("manager_id").eq("id", str(bldg_resp.data[0]["property_id"])).limit(1).execute()
-                        if pg_resp.data:
-                            manager_id = pg_resp.data[0].get("manager_id")
+                flt_resp = db.table("flats").select("manager_id").eq("uuid", caller_flat_uuid).limit(1).execute()
+                if flt_resp.data:
+                    manager_id = flt_resp.data[0].get("manager_id")
         print(f"[MANAGER] phone={caller_phone} → manager_id={manager_id}")
 
         # ========== STEP 9: PERSIST CALLLOG (ALWAYS) ==========
@@ -317,7 +317,7 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                 
                 # Fetch flat_uuid FIRST to check feature flags
                 flat_no = complaint_data.get("flat_number")
-                flat_response = db.table("flats").select("uuid, id").eq("flat_number", flat_no.strip().upper()).execute()
+                flat_response = db.table("flats").select("uuid, id, manager_id").eq("flat_number", flat_no.strip().upper()).execute()
 
                 if not flat_response.data:
                     raise Exception(f"Flat {flat_no} not found")
@@ -325,8 +325,10 @@ async def voice_webhook(request: Request, background_tasks: BackgroundTasks, db:
                 flat_uuid = flat_response.data[0]['uuid']
                 flat_id = flat_response.data[0]['id']
 
-                # manager_id already resolved in Step 8b above
-                print(f"  [MANAGER] phone={caller_phone} manager_id={manager_id}")
+                # The confirmed flat is the authoritative owner source (works for standalone
+                # units); fall back to the phone-resolved manager_id from Step 8b only if absent.
+                manager_id = flat_response.data[0].get('manager_id') or manager_id
+                print(f"  [MANAGER] flat={flat_no} manager_id={manager_id}")
                 
                 # Check voice_calls feature flag for this unit
                 from app.services.feature_service import FeatureService

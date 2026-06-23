@@ -95,3 +95,33 @@ Verify each PATCH echoes the expected `serverMessages` and the new `tools` names
 - `backend/app/services/vapi_agent_config.py` (helper + 3 wraps + 2 `messages` + prompt edits)
 - `CODEBASE_CONTEXT.md` (VAPI tool-config note)
 - This plan.
+
+---
+
+## 8. Follow-up (2026-06-23) — complaint agent didn't file the complaint
+
+After the lease fix shipped and was verified working, a complaint test call failed to file: the
+agent said "your complaint has been logged" but **`submit_complaint` never fired** (no `POST /voice/webhook`).
+
+**Diagnosis (from the live VAPI call `019ef5a4`):** the model emitted `Verify_phone_number` and
+`check_availability` (both succeeded — verify returned a real `property_group_id=17232efd…`, slot was
+`available`), then produced a pure-text turn claiming success with **no `submit_complaint` tool call**.
+So it wasn't a config/schema/data problem — the model had everything and chose to narrate instead of call.
+
+**Root cause:** prompt strength. The lease prompt hammers tool-calling 3× and *excludes*
+`submit_lease_lead` from the "say a checking phrase first" list; the complaint prompt mentioned
+`submit_complaint` once (buried in a numbered list) *and* listed it among tools to "say a phrase
+before" — so the model spoke the checking phrase + the success line as one fluent narration and
+skipped the call.
+
+**Fix (prompt only — no tool/webhook/schema change):** in `COMPLAINT_SYSTEM_PROMPT` —
+1. Removed `submit_complaint` from `[System-Check Phrases — Bilingual & Rotating]` (do not pre-narrate it).
+2. `[CALLBACK SCHEDULING FLOW]` step 4/5: "you MUST emit the submit_complaint call; never say
+   'logged' without calling it."
+3. Added `[Complaint Submission — NO EXCEPTIONS]` ("the ONLY way to file; a call without it has FAILED";
+   retry once on error).
+
+Pushed live via `update_shared_agents.py`; confirmed the new prompt is on assistant `9e507761`.
+
+**Validate:** complaint test call → `POST /voice/webhook` with the `submit_complaint` tool call →
+complaint + callback appointment created.
