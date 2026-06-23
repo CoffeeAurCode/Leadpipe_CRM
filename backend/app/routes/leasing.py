@@ -195,7 +195,7 @@ async def find_units(
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, quebec_size, "
                 "street_address, city, state, country, "
-                "flats!inner(bedrooms, bathrooms, floor_number, building_id)"
+                "flats!inner(bedrooms, bathrooms, floor_number, buildings(name, properties_list(name)))"
             )
             .eq("is_active", True)
         )
@@ -212,22 +212,6 @@ async def find_units(
         if not listings:
             return {"found": False, "count": 0, "units": [], "available_cities": [], "disambiguation": _empty_disambiguation(query)}
 
-        building_ids = list({
-            r["flats"]["building_id"]
-            for r in listings
-            if r.get("flats") and r["flats"].get("building_id")
-        })
-        building_rows, property_rows = {}, {}
-        if building_ids:
-            b_res = db.table("buildings").select("id, name, property_id").in_("id", building_ids).execute()
-            for b in (b_res.data or []):
-                building_rows[b["id"]] = b
-            property_ids = list({b["property_id"] for b in building_rows.values() if b.get("property_id")})
-            if property_ids:
-                p_res = db.table("properties_list").select("id, name").in_("id", property_ids).execute()
-                for p in (p_res.data or []):
-                    property_rows[p["id"]] = p
-
         query_lower = query.lower()
         tokens = [t for t in query_lower.split() if len(t) > 2]
         query_norm = normalize_place(query)
@@ -235,9 +219,10 @@ async def find_units(
         matches = []
         for r in listings:
             flat = r.get("flats") or {}
-            bid = flat.get("building_id")
-            building = building_rows.get(bid, {})
-            prop_group = property_rows.get(building.get("property_id"), {})
+            building = flat.get("buildings") or {}
+            prop_group = building.get("properties_list") or {}
+            if not isinstance(prop_group, dict):
+                prop_group = {}
 
             haystack = " ".join(filter(None, [
                 r.get("flat_number") or "",

@@ -323,6 +323,13 @@ VOICE_CONFIG = {
     "optimizeStreamingLatency": 1,
 }
 
+# Lease agent uses the lower-latency Flash model to cut TTS first-byte on every turn.
+# Same voice library / voiceId, so timbre is unchanged; verify FR pronunciation on a test call.
+LEASE_VOICE_CONFIG = {
+    **VOICE_CONFIG,
+    "model": "eleven_flash_v2_5",
+}
+
 
 # ---------------------------------------------------------------------------
 # Tools — 5 apiRequest tools + 1 function tool (submit_complaint)
@@ -1145,7 +1152,9 @@ If yes → answer from the listing data you already have:
 If no → continue.
 
 --- Q4: Employment ---
-"Just so the team has the full picture — what do you do for work?"
+"Just so the team has the full picture — are you currently employed? And if so, is that full-time or part-time?"
+Never ask what the caller does for a living, their job title, or their employer — only whether they are
+employed and, if so, whether it is full-time or part-time.
 
 Full-time employed:
   Log "employment: full-time" in qualifying_answers as a strong qualifier. Continue.
@@ -1514,10 +1523,10 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
         "end_call_phrases": ["goodbye", "au revoir", "talk to you soon"],
         "background_sound": "office",
         "transcriber": TRANSCRIBER_CONFIG,
-        "voice": VOICE_CONFIG,
+        "voice": LEASE_VOICE_CONFIG,
         "model": {
             "provider": "openai",
-            "model": "gpt-5.2-chat-latest",
+            "model": "gpt-4o",
             "messages": [{"role": "system", "content": system_prompt}],
             "maxTokens": 300,
             "temperature": 0.7,
