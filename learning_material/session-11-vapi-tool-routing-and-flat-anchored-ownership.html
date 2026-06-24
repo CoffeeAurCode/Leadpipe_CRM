@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 11 — Why Max Looped &amp; Alex Lied: VAPI Tool Routing and Flat-Anchored Ownership</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 11</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-toolcall" style="padding-left:1.4rem">— How LLM tool-calling works</a>
+    <a href="#c-uniqueness" style="padding-left:1.4rem">— The function-name uniqueness rule</a>
+    <a href="#c-apirequest" style="padding-left:1.4rem">— apiRequest vs function tools</a>
+    <a href="#c-filler" style="padding-left:1.4rem">— Static filler vs language lock</a>
+    <a href="#c-sdkvshttp" style="padding-left:1.4rem">— SDK vs raw HTTP PATCH</a>
+    <a href="#c-promptcall" style="padding-left:1.4rem">— Prompt strength = tool reliability</a>
+    <a href="#c-forensics" style="padding-left:1.4rem">— Forensics: logs + live call object</a>
+    <a href="#c-anchor" style="padding-left:1.4rem">— Anchor on the stable entity</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#bug1" style="padding-left:1.4rem">— Bug 1: Max's tool loop</a>
+    <a href="#bug2" style="padding-left:1.4rem">— Bug 2: Alex lied</a>
+    <a href="#bug3" style="padding-left:1.4rem">— Bug 3: the NULL owner</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 11 · Voice AI · Tool Calling · Data Modelling · Debugging</div>
+      <h1>Why Max Looped &amp; Alex Lied: VAPI Tool Routing and Flat-Anchored Ownership</h1>
+      <p class="lead muted">Two voice agents broke in two completely different ways, and both were invisible until we read the right logs. <strong>Max</strong> (the leasing agent) got stuck in a loop, kept saying a bilingual "one moment" line, and never saved a lead — every lead came out as <em>"Unknown."</em> <strong>Alex</strong> (the complaint agent) cheerfully told a caller <em>"your complaint has been logged"</em> and then logged nothing. We trace both to their roots — one is a <strong>tool-name collision</strong>, the other is a <strong>prompt that lets the model narrate instead of act</strong> — fix them, push to the live phone agents, and finish with a clean data-model refactor that makes complaints work for building-less <em>standalone units</em>.</p>
+      <div class="meta">
+        <span class="chip diff">🟡 Intermediate</span>
+        <span class="chip time">⏱️ ~85 min read / build</span>
+        <span class="chip pre">📋 Requires: Sessions 09–10 (the VAPI deploy pipeline, lease-agent internals)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was a pure <strong>diagnose-and-repair</strong> session — three distinct failures, three root causes, three fixes, all shipped to the live phone agents. No new feature; just making the two agents we already have actually do their one job: <em>record the thing the caller called about.</em></p>
+
+      <p>It opened with a single observation from a real test call:</p>
+      <div class="term"><span class="spk">You:</span> i did a test call in english ... the agent kept searching unit and kept saying
+       that polite message in both the language, it didn't log the lead and on the
+       front end i see unknown leads ... first diagnose the issue and suggest the fix
+<span class="dim">         ...after the lease fix shipped...</span>
+<span class="spk">You:</span> the lease agent works but the complaint agent is not working, it didn't file
+       the complaint
+<span class="dim">         ...then a design idea...</span>
+<span class="spk">You:</span> rather than connect a number, tenant or a complaint to a property group id,
+       make it connect to the flat id ... won't that be better for standalone units?</div>
+
+      <p>By the end of the session we had:</p>
+      <ul>
+        <li>Found that all three of Max's tools shared <strong>one internal name</strong> (<code class="ic">api_request_tool</code>), so the model could only ever reach the <em>first</em> one — and fixed it with a tiny helper that gives each tool a unique name.</li>
+        <li>Removed a <strong>static bilingual "one moment" string</strong> that couldn't respect the call's language lock, letting the model speak the filler itself in the caller's language.</li>
+        <li><strong>Rewrote the deploy script</strong> for the shared agents from the VAPI SDK to a raw HTTP <code class="ic">PATCH</code>, because the SDK silently dropped fields.</li>
+        <li>Caught Alex <strong>narrating success without calling the tool</strong> — proven from the live VAPI call object — and hardened the prompt so the model must actually emit <code class="ic">submit_complaint</code>.</li>
+        <li>Refactored owner resolution to anchor on the <strong>flat</strong> (<code class="ic">flats.manager_id</code>) instead of walking up to the property group — fixing complaints for standalone units and deleting a <strong>vestigial required field</strong> in the process.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Explain how an LLM <em>chooses and calls a tool</em>, and why two tools sharing a name collapse into one.</li>
+          <li>Tell apart VAPI's <strong>apiRequest</strong> and <strong>function</strong> tool types and know how each is routed to your backend.</li>
+          <li>Diagnose a voice bug from <strong>server logs</strong> and from the provider's <strong>live call object</strong> — not guesswork.</li>
+          <li>Recognise when a bug is <em>config</em> vs <em>prompt</em>, and harden a prompt so the model <em>acts</em> instead of <em>narrates</em>.</li>
+          <li>Choose the right <strong>data anchor</strong> for a lookup so building-less edge cases don't silently break.</li>
+          <li>Push assistant config to production with a <strong>dry-run + verify</strong> loop, and know which changes need a backend redeploy too.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our product is a <strong>CRM</strong> (Customer Relationship Management — the app a property manager uses to track buildings, units, tenants, complaints, and rental leads). Two of its features are <strong>voice agents</strong>: AI personalities that answer the phone. <strong>Max</strong> handles <em>leasing</em> calls (a prospective tenant asks about available units; Max qualifies them and saves a <em>lead</em>). <strong>Alex</strong> handles <em>existing-tenant</em> calls (someone reports a broken AC; Alex files a <em>complaint</em> and books a manager callback).</p>
+
+      <p>Both run on <strong>VAPI</strong> (a hosted "Voice API" that connects the phone line to a speech-to-text engine, a language model, and a text-to-speech voice). When an agent needs data — "what units are in Laval?", "file this complaint" — it calls a <strong>tool</strong>, which is just an HTTP request to our <strong>FastAPI</strong> backend. That backend runs on <strong>Render</strong> (a cloud host) and stores everything in <strong>Supabase</strong> (hosted PostgreSQL). A recurring theme from Sessions 09–10: a voice-agent change has <strong>two deploy surfaces</strong> — the backend code (deployed by a git push to Render) and the assistant configuration (pushed to VAPI by a Python script). A change isn't live until <em>both</em> are updated.</p>
+
+      <p>In <strong>Session 10</strong> we made Max faster and changed the question he asks about employment. That work was fine. But this session a fresh English test call exposed something older and deeper: Max would find a unit, ask his qualifying questions, then — at the very end — get <em>stuck</em>, repeating a "let me check my system" line and never saving the lead. And when we later tested Alex, he confidently announced a complaint was filed that was never written to the database. Same symptom shape ("the agent <em>says</em> it worked but nothing is saved"), two unrelated causes. That is what we untangle here.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need Sessions 09 or 10 open. Every term is re-explained on first use. Those sessions cover the deploy pipeline and the lease agent's design; <em>this</em> session is about <strong>why the tool calls failed</strong> and how we made them reliable.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Eight ideas carry the session. The first five are about <em>how tools are defined, named, routed, and triggered</em>; the sixth is the debugging method; the last two are the data-model and prompt principles that made the fixes durable.</p>
+
+      <!-- ---- Concept 1: how LLM tool-calling works ---- -->
+      <h3 id="c-toolcall">1 · How an LLM actually calls a tool</h3>
+      <p><strong>Plain-English explanation.</strong> A language model can't "do" anything on its own — it only produces text. To let it take actions (look up units, file a complaint), we give it a list of <strong>tools</strong>. Each tool has a <em>name</em>, a <em>description</em> ("use this to file a complaint"), and a <em>parameter schema</em> (what arguments it takes). When the model decides it needs a tool, it doesn't run code — it emits a special message that says <em>"call the tool named X with these arguments."</em> Something <em>outside</em> the model (here, VAPI) reads that message, actually performs the action, and hands the result back.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Every useful thing Max and Alex do is a tool call: <code class="ic">find_units</code>, <code class="ic">search_listings</code>, <code class="ic">submit_lease_lead</code>, <code class="ic">Verify_phone_number</code>, <code class="ic">check_availability</code>, <code class="ic">submit_complaint</code>. If the model picks the wrong tool, or can't reach the right one, or never emits the call, the caller gets a smooth-sounding conversation that accomplishes <em>nothing</em>. Both of this session's headline bugs live exactly here.</p>
+
+      <p><strong>How it works (analogy).</strong> Think of the model as a manager who can't leave their desk. In front of them is a panel of <strong>labelled buttons</strong> (the tools). To get something done, the manager calls out a button's label and the values to use — <em>"press FILE-COMPLAINT with flat 1804, category electricity."</em> An assistant standing outside the room (VAPI) hears the label, presses the real button, and reports back what happened. The manager never touches the machinery; they only name buttons.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>LLM</strong> (Large Language Model) — the AI that generates text; here OpenAI's <code class="ic">gpt-5.2-chat-latest</code> drives both agents.</li>
+        <li><strong>tool / function call</strong> — the structured "please run X with these args" message the model emits instead of plain speech.</li>
+        <li><strong>tool schema</strong> — the JSON description of a tool: its name, what it's for, and its parameters. This is <em>all</em> the model knows about a tool.</li>
+        <li><strong>arguments</strong> — the values the model fills in for the tool's parameters (e.g. <code class="ic">flat_number: "1804"</code>).</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — the name is the address</div>
+        <p>When the model wants a tool, it refers to it <em>by name</em>. The name is how the model points at one button and not another. Hold onto this: if two buttons share a label, calling that label is ambiguous — and that ambiguity is Bug&nbsp;1.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://platform.openai.com/docs/guides/function-calling">OpenAI: function calling</a> ·
+        <a class="inline" href="https://docs.vapi.ai/tools">VAPI: introduction to tools</a> ·
+        <a class="inline" href="https://www.anthropic.com/news/tool-use-ga">Tool use, explained (beginner-friendly)</a>
+      </p>
+
+      <!-- ---- Concept 2: function-name uniqueness ---- -->
+      <h3 id="c-uniqueness">2 · The function-name uniqueness rule</h3>
+      <p><strong>Plain-English explanation.</strong> Every tool you give a model must have a <strong>unique name</strong>. If two tools share a name, the platform (VAPI, and underneath it OpenAI) can't tell them apart — they collapse into one. In practice only the <em>first</em> tool with that name survives; the others become unreachable. The model literally cannot call a tool it can't see by a distinct name.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Max has three tools, and through a copy-paste habit all three carried the <em>same</em> internal function name, <code class="ic">api_request_tool</code>. So when Max wanted to <em>save the lead</em> (<code class="ic">submit_lease_lead</code>), the call resolved to the first tool with that name — <code class="ic">find_units</code> — which just searches and returns nothing useful for saving. Max, never seeing it work, tried again and again: the loop, the repeated "one moment," and zero leads saved.</p>
+
+      <p><strong>How it works (analogy).</strong> Imagine a TV remote where the VOLUME, CHANNEL, and POWER buttons are all engraved <em>"BUTTON."</em> You press "BUTTON" meaning POWER, but the remote can only act on the first thing called BUTTON — volume. No matter what you intend, you keep changing the volume. The buttons exist; the labels are useless because they're not unique.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>top-level <code class="ic">name</code></strong> — VAPI's human-facing tool name (e.g. <code class="ic">find_units</code>). These <em>were</em> unique.</li>
+        <li><strong><code class="ic">function.name</code></strong> — the nested name passed down to the LLM as the callable identifier. These were <em>all</em> <code class="ic">api_request_tool</code> — the bug.</li>
+        <li><strong>dedupe / collapse</strong> — when a system encounters duplicate keys and keeps only one.</li>
+      </ul>
+
+      <p><strong>Annotated code — the one-helper fix.</strong> Instead of editing 13 duplicated strings by hand, we wrote a helper that copies each tool's already-unique top-level <code class="ic">name</code> down into its <code class="ic">function.name</code>:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py"><pre><code># VAPI/OpenAI dedupe tools by function name. apiRequest tools historically all
+# used "api_request_tool", so every tool after the first was unreachable. Alias
+# each apiRequest tool's function.name to its (already unique) top-level name.
+def _alias_apirequest_tool_names(tools: list) -> list:
+    for t in tools:                       # walk every tool in this agent's list
+        top_name = t.get("name")          # the unique label, e.g. "submit_lease_lead"
+        fn = t.get("function")            # the nested {"name": ..., "description": ...}
+        if top_name and isinstance(fn, dict):  # function tools have NO top-level name -> skipped
+            fn["name"] = top_name         # copy the unique name down so the model sees it
+    return tools                          # same list, mutated in place, returned for chaining</code></pre></div>
+
+      <p>Then we wrapped each builder's output once, so the fix is automatic for every agent:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py"><pre><code># build_lease_config(...):
+tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=manager_id))
+# build_complaint_config(...):
+tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url))</code></pre></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — fix the cause, not the 13 symptoms</div>
+        <p>We <em>could</em> have hand-edited every <code class="ic">"name": "api_request_tool"</code> to a unique string. But there were 13 of them across three agents — easy to miss one, and the bug would silently return whenever someone copy-pasted a new tool. A single helper applied at one choke-point makes the property <em>structural</em>: every tool list that passes through it is guaranteed unique. Prefer one durable guarantee over many fragile edits.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://platform.openai.com/docs/guides/function-calling">OpenAI function-calling (names must be unique)</a> ·
+        <a class="inline" href="https://docs.vapi.ai/tools/custom-tools">VAPI custom tools</a>
+      </p>
+
+      <!-- ---- Concept 3: apiRequest vs function tools ---- -->
+      <h3 id="c-apirequest">3 · Two kinds of VAPI tool: apiRequest vs function</h3>
+      <p><strong>Plain-English explanation.</strong> VAPI lets you define a tool in two styles. An <strong>apiRequest</strong> tool bakes the HTTP call right into the tool definition: VAPI itself makes the request to a URL you specify and reads the response. A <strong>function</strong> tool instead forwards the call to a <em>server URL</em> you own as a webhook, and your code decides what to do. The key difference for debugging: an apiRequest tool is routed by its <strong>URL</strong>, while a function tool is identified by its <strong>name</strong> in the webhook payload.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Max's tools (<code class="ic">find_units</code>, <code class="ic">search_listings</code>, <code class="ic">submit_lease_lead</code>) are all <strong>apiRequest</strong> — each has its own URL on our backend, so renaming their <code class="ic">function.name</code> in Bug&nbsp;1 was perfectly safe: the backend never matches on that name, it just receives an HTTP call at a URL. Alex's <code class="ic">submit_complaint</code>, by contrast, is a <strong>function</strong> tool that posts to <code class="ic">/voice/webhook</code>, where our handler matches on the literal name <code class="ic">"submit_complaint"</code>. Knowing which style each tool uses told us exactly what we could change without breaking the wiring.</p>
+
+      <p><strong>How it works (analogy).</strong> An apiRequest tool is like <strong>direct dial</strong>: the phone number is printed on the button, so pressing it always reaches the right desk regardless of what the button is labelled. A function tool is like calling the <strong>front desk and asking for a person by name</strong> — the receptionist (your webhook) routes by the name you say, so the name has to match.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>webhook</strong> — a URL on your server that an external system calls when an event happens (here, "the model invoked this tool").</li>
+        <li><strong>apiRequest tool</strong> — VAPI makes the HTTP call for you; routed by the URL embedded in the tool.</li>
+        <li><strong>function tool</strong> — VAPI forwards the call to <em>your</em> server URL; your code matches by the tool's name.</li>
+        <li><strong><code class="ic">{{customer.number}}</code></strong> — a VAPI template variable; VAPI substitutes the caller's real phone number into the URL at call time.</li>
+      </ul>
+
+      <p><strong>Annotated code — the two shapes side by side.</strong></p>
+      <div class="code-block" data-lang="python" data-file="apiRequest tool (Max) — routed by URL"><pre><code>{
+  "type": "apiRequest",                 # VAPI makes this HTTP call itself
+  "name": "submit_lease_lead",          # unique top-level label
+  "function": {"name": "submit_lease_lead",   # (after our fix) the identifier the LLM sees
+               "description": "Capture the prospective tenant as a lead."},
+  "url": f"{backend_url}/voice/lease-lead-direct?call_id={{{{call.id}}}}&amp;phone={{{{customer.number}}}}",
+  "method": "POST",                     # the backend reads the JSON body; it never checks the tool name
+}</code></pre></div>
+      <div class="code-block" data-lang="python" data-file="function tool (Alex) — routed by name to a webhook"><pre><code>{
+  "type": "function",                   # VAPI forwards this to OUR server URL
+  "async": True,                        # fire-and-continue; the model doesn't wait for the result
+  "function": {"name": "submit_complaint",    # our /voice/webhook matches on THIS literal string
+               "strict": True,
+               "parameters": { ... }},
+  "server": {"url": f"{backend_url}/voice/webhook", "timeoutSeconds": 20},
+}</code></pre></div>
+
+      <div class="callout c-deep">
+        <div class="c-title">📖 Deep Dive — the request-start "filler" message</div>
+        <p>Each apiRequest tool can carry a <code class="ic">messages</code> list with a <code class="ic">request-start</code> entry — a line VAPI speaks the instant the tool fires, so the caller doesn't hear dead air while the lookup runs. Max's <code class="ic">find_units</code> had a <em>hard-coded bilingual string</em> here. That's Concept&nbsp;4, and it's why callers heard the same "one moment" in two languages on a loop: every retry of the mis-routed tool replayed that fixed string.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/tools/custom-tools">VAPI custom (function) tools</a> ·
+        <a class="inline" href="https://docs.vapi.ai/server-url">VAPI server URL &amp; webhooks</a>
+      </p>
+
+      <!-- ---- Concept 4: static filler vs language lock ---- -->
+      <h3 id="c-filler">4 · A static string can't respect a per-call language lock</h3>
+      <p><strong>Plain-English explanation.</strong> Max is bilingual: he detects whether the caller speaks English or French on their first words and then <strong>locks</strong> to that language for the whole call. A <em>static</em> filler string — text fixed at config time — can't know which language this particular call is in. So a string like <code class="ic">"Let me check that in my system. Un instant, je vérifie ça."</code> speaks <em>both</em> languages on <em>every</em> call, violating the lock.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The caller reported Max "kept saying that polite message in both the language." Two things were stacked: the tool loop (Bug&nbsp;1) made the line repeat many times, and the line itself was bilingual by construction. Fixing the loop stops the repetition; removing the static string stops the bilingual bleed. The right pattern — already used by Alex — is to let the <em>model</em> speak the filler, because the model knows the locked language.</p>
+
+      <p><strong>How it works (analogy).</strong> A pre-printed "Back in 5 minutes" sign always says the same thing regardless of who walks up. If half your visitors speak French, you don't print a bilingual sign that everyone has to read twice — you have a <em>person</em> say "one moment" in the visitor's own language. The model is that person.</p>
+
+      <p><strong>Annotated change — hand the filler back to the model.</strong></p>
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — find_units / search_listings (BEFORE)"><pre><code># VAPI speaks this verbatim the instant the tool fires — but it's bilingual AND static,
+# so it ignores the per-call language lock and repeats on every (looping) retry.
+"messages": [{
+    "type": "request-start",
+    "content": "Let me check that in my system, one moment. Un instant, je vérifie ça.",
+    "blocking": False,
+}],</code></pre></div>
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — find_units / search_listings (AFTER)"><pre><code># No static content — a static string can't respect the per-call language lock.
+# The model speaks a short checking phrase in the locked language (see [System-Check Phrases]).
+"messages": [],</code></pre></div>
+
+      <p>And the lease prompt was switched from "the system speaks it automatically" to instructing the model to say a short, <em>single-language</em> phrase itself:</p>
+      <div class="code-block" data-lang="text" data-file="_LEASE_SYSTEM_PROMPT_BASE — new section"><pre><code>[System-Check Phrases - Locked Language Only]
+The instant you trigger a lookup (find_units or search_listings), say a SHORT, natural
+"one moment" phrase OUT LOUD so there is never dead air. Speak it ONLY in the caller's
+locked language - never the other language, never both, never an appended translation.
+Do NOT say a checking phrase for submit_lease_lead - that is the lead capture, not a lookup.</code></pre></div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — config can't know runtime state</div>
+        <p>Anything you bake into a config file is decided <em>before</em> the call exists. If a behaviour depends on something only known <em>during</em> the call (which language, which caller, which unit), it belongs to the runtime actor — the model — not to a static field. Hard-coding runtime-dependent text is a recurring trap.</p>
+      </div>
+
+      <!-- ---- Concept 5: SDK vs HTTP ---- -->
+      <h3 id="c-sdkvshttp">5 · SDK convenience vs raw HTTP control (and PATCH merge semantics)</h3>
+      <p><strong>Plain-English explanation.</strong> To update a VAPI assistant you can either use VAPI's <strong>Python SDK</strong> (a convenience library with typed methods) or send a raw <strong>HTTP <code class="ic">PATCH</code></strong> request yourself. The SDK is friendlier but it only knows about the fields its types model — anything it doesn't recognise it <em>silently drops</em>. A raw PATCH sends exactly the JSON you give it. Because <code class="ic">PATCH</code> means "update only these fields," it's a <strong>partial merge</strong>: fields you omit are left untouched on the server.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The script that updates our shared agents (<code class="ic">update_shared_agents.py</code>) used the SDK, and our own notes warned it "silently drops <code class="ic">firstMessageMode</code> and apiRequest tool subfields." We were about to push critical tool changes to Alex — if the SDK mangled the tool definitions or the first-message behaviour, we could <em>break</em> a working complaint flow while trying to fix it. So we rewrote the script to use a raw HTTP PATCH, exactly like the lease-agent script already did, and verified the response echoed back the fields we expected.</p>
+
+      <p><strong>How it works (analogy).</strong> The SDK is a helpful courier who only accepts parcels that fit their standard boxes — hand them an odd-shaped item and they quietly leave it behind without telling you. Raw HTTP is addressing the envelope yourself: more work, but everything you put in actually ships.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>SDK</strong> (Software Development Kit) — a library that wraps an API in your language's idioms.</li>
+        <li><strong>HTTP verbs</strong> — <code class="ic">PATCH</code> = partial update (merge); <code class="ic">PUT</code> = full replace; <code class="ic">POST</code> = create. We want PATCH so untouched fields survive.</li>
+        <li><strong>snake_case vs camelCase</strong> — our config uses <code class="ic">first_message_mode</code>; VAPI's REST API wants <code class="ic">firstMessageMode</code>. The script maps between them.</li>
+        <li><strong>idempotent</strong> — running the push repeatedly yields the same end state; safe to re-run.</li>
+      </ul>
+
+      <p><strong>Annotated code — the key-mapping PATCH.</strong></p>
+      <div class="code-block" data-lang="python" data-file="backend/scripts/update_shared_agents.py"><pre><code># snake_case (our config) -> camelCase (VAPI REST). Only keys present are sent;
+# PATCH merge leaves everything else on the assistant intact.
+_KEY_MAP = {
+    "name": "name", "first_message": "firstMessage", "first_message_mode": "firstMessageMode",
+    "model": "model", "server": "server", "server_messages": "serverMessages",
+    "analysis_plan": "analysisPlan", "transcriber": "transcriber", "voice": "voice",
+    # ...plus end-call, background, speaking-plan keys...
+}
+def _to_vapi_payload(cfg: dict) -> dict:
+    payload = {}
+    for snake, camel in _KEY_MAP.items():
+        v = cfg.get(snake)
+        if v is not None:                 # omit missing keys -> PATCH won't blank them
+            payload[camel] = v
+    return payload
+
+resp = httpx.patch(f"{VAPI_API_BASE}/assistant/{assistant_id}",
+                   headers=headers, json=_to_vapi_payload(cfg), timeout=30)</code></pre></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — verify the echo, don't trust the 200</div>
+        <p>A <code class="ic">200 OK</code> only means the request was accepted, not that your field stuck. After the PATCH we re-read the response body and asserted <code class="ic">serverMessages</code>, <code class="ic">firstMessageMode</code>, and the <code class="ic">tools</code> names matched what we sent. With the SDK, those were exactly the fields that vanished — so checking the echo is what catches a silent drop.</p>
+      </div>
+
+      <!-- ---- Concept 6: prompt strength = tool reliability ---- -->
+      <h3 id="c-promptcall">6 · Prompt strength is tool-call reliability (act, don't narrate)</h3>
+      <p><strong>Plain-English explanation.</strong> An LLM is fundamentally a <em>text predictor</em>. If your prompt describes a flow as a story — "say the checking phrase, then call the tool, then say it's done" — the model may produce the <em>whole story as speech</em>, including "it's done," <strong>without ever emitting the actual tool call</strong>. To make a tool call reliable you must make it impossible to skip: pull it out of the narration, and add explicit, repeated, hard rules that calling the tool is the only way to succeed.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Alex said "your complaint has been logged" but never called <code class="ic">submit_complaint</code> — so nothing was saved. Comparing the two agents revealed why: Max's prompt hammers "<code class="ic">submit_lease_lead</code> is the ONLY way to record the lead; a call without it has FAILED," and it <em>excludes</em> that tool from the "say a checking phrase first" list. Alex's prompt mentioned <code class="ic">submit_complaint</code> once, buried in a numbered list, <em>and</em> told him to "say a phrase before" it — so he narrated the phrase and the success line as one smooth turn and skipped the call.</p>
+
+      <p><strong>How it works (analogy).</strong> A new cashier reads a script: "greet, scan items, take payment, say thank you." If they're nervous they might recite the whole script — including "thank you for your payment" — while forgetting to actually run the card. You fix it by separating the <em>action</em> from the <em>patter</em> ("do not say thank-you until the terminal shows APPROVED") and by drilling that the sale isn't real until the card clears.</p>
+
+      <p><strong>Annotated change — three prompt edits, zero code/config change.</strong></p>
+      <div class="code-block" data-lang="text" data-file="COMPLAINT_SYSTEM_PROMPT — edit 1: stop pre-narrating the tool"><pre><code># BEFORE: submit_complaint was in the "say a checking phrase before this tool" list.
+# AFTER:  it is removed from that list, with an explicit note:
+(submit_complaint is NOT a lookup - do not pre-narrate it. You CALL it, then speak the
+confirmation. See [CALLBACK SCHEDULING FLOW] and [Complaint Submission - NO EXCEPTIONS].)</code></pre></div>
+      <div class="code-block" data-lang="text" data-file="COMPLAINT_SYSTEM_PROMPT — edit 2: make the call unmissable"><pre><code>4. NOW actually CALL the submit_complaint tool with flat_number, category, description, and
+   appointment_date. This is a real tool invocation, not something you describe - you MUST
+   emit the submit_complaint call here.
+5. ONLY after you have fired submit_complaint, say: "Your complaint has been logged..."
+   Never say this sentence unless you have actually called submit_complaint in this turn.</code></pre></div>
+      <div class="code-block" data-lang="text" data-file="COMPLAINT_SYSTEM_PROMPT — edit 3: a hard-rule block"><pre><code>[Complaint Submission - NO EXCEPTIONS]
+submit_complaint is the ONLY way to file a complaint - check_availability only checks a slot;
+it does NOT record anything. A call where the caller reported an issue but you never called
+submit_complaint has FAILED, even if you told them it was logged.</code></pre></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — the prompt is the product's behaviour</div>
+        <p>For an AI agent there is no separate "code path" for the conversation — the prompt <em>is</em> the behaviour. A weakly-worded instruction isn't a documentation problem; it's a <em>bug</em>. Treat prompt wording with the same rigour as code: separate side-effects from narration, and assert the invariant ("never claim success without the call") in plain, emphatic language.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://www.promptingguide.ai/">Prompt Engineering Guide</a> ·
+        <a class="inline" href="https://platform.openai.com/docs/guides/function-calling">Forcing/encouraging tool calls</a>
+      </p>
+
+      <!-- ---- Concept 7: forensics ---- -->
+      <h3 id="c-forensics">7 · Forensic debugging: server logs + the provider's live call object</h3>
+      <p><strong>Plain-English explanation.</strong> When a voice agent misbehaves you have two independent sources of truth. First, your <strong>server logs</strong> — every HTTP request the agent made to your backend (which tools fired, with what arguments, what came back). Second, the <strong>provider's call object</strong> — VAPI stores a complete record of each call you can fetch by its API, including the exact list of messages and tool calls the model produced. Cross-checking the two tells you precisely where the chain broke.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Both bugs <em>looked</em> fine in the transcript — the agent spoke as though everything worked. The truth was only in the logs. For Max, the Render logs showed many <code class="ic">GET /leasing/find-units</code> calls, <strong>zero</strong> <code class="ic">/leasing/search-listings</code>, and <strong>zero</strong> <code class="ic">/voice/lease-lead-direct</code> — proof that only one of three tools ever ran. For Alex, we fetched the live VAPI call and saw the model's message list contained <code class="ic">Verify_phone_number</code> and <code class="ic">check_availability</code> but <strong>no <code class="ic">submit_complaint</code></strong> — proof the model never even tried to file it.</p>
+
+      <p><strong>How it works (analogy).</strong> A delivery says "delivered" but the box isn't on your porch. The courier's <em>app log</em> (your server logs) shows which stops they actually made; the building's <em>security camera</em> (the provider's call object) shows what physically happened at your door. One might lie or be incomplete; together they pin the truth.</p>
+
+      <p><strong>The smoking-gun logs for Max</strong> — note the empty <code class="ic">query=</code>, which is a <em>mis-routed</em> lead-save landing on the search tool:</p>
+      <div class="term"><span class="dim">GET /leasing/find-units?manager_id=28c43c77...&amp;query=Montreal%20Avenue%20Libre  200 OK</span>
+<span class="dim">GET /leasing/find-units?manager_id=28c43c77...&amp;query=                          200 OK  <span class="err">&lt;- empty query = a submit attempt mis-routed</span></span>
+<span class="dim">GET /leasing/find-units?manager_id=28c43c77...&amp;query=48%20Avenue%20Libre        200 OK</span>
+<span class="err"># NOTE: zero  GET /leasing/search-listings   and   zero  POST /voice/lease-lead-direct</span>
+<span class="dim">[LEASE EOC] Lead saved (structured=False) ... name=Unknown status=unmatched  <span class="err">&lt;- the "Unknown" lead</span></span></div>
+
+      <p><strong>The smoking gun for Alex</strong> — fetched from VAPI's <code class="ic">GET /call</code> for that call id:</p>
+      <div class="term"><span class="pmt">$</span> python - &lt;&lt;'PY'   <span class="dim"># fetch the live call and list its tool calls</span>
+  role=tool_calls        toolCalls=[<span class="spk">'Verify_phone_number'</span>]
+  role=tool_call_result  result={... "status": "valid", "property_group_id": "17232efd..." }
+  role=tool_calls        toolCalls=[<span class="spk">'check_availability'</span>]
+  role=tool_call_result  result={"status": "available"}
+<span class="err"># NO 'submit_complaint' anywhere - the model had all the data and still never called it</span></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — absence is evidence</div>
+        <p>The most powerful clue in both bugs was something that <em>wasn't</em> there: no <code class="ic">search-listings</code> request, no <code class="ic">submit_complaint</code> tool call. When an agent claims success, don't just read what it <em>said</em> — grep the logs for the request that <em>should</em> have happened. A missing line is a louder signal than an error line.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/api-reference/calls/get">VAPI: get a call (the call object)</a> ·
+        <a class="inline" href="https://render.com/docs/logging">Render logs</a>
+      </p>
+
+      <!-- ---- Concept 8: anchor on stable entity ---- -->
+      <h3 id="c-anchor">8 · Anchor resolution on the most stable entity (flat-centric ownership)</h3>
+      <p><strong>Plain-English explanation.</strong> To save a record (a complaint, a lead) you need to know <em>who owns it</em> — which manager it belongs to — so the right person sees it. You can derive that ownership by walking a chain of relationships, or by reading it directly off the closest stable thing. The principle: <strong>anchor on the entity that always exists and always carries the answer</strong>, rather than a longer chain that can break at any link.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Our data hierarchy is <em>PropertyGroup → Building → Flat → Tenant</em>. The complaint webhook used to find the manager by walking <em>flat → building → property group → manager_id</em>. But some units are <strong>standalone</strong> (a bungalow, a house) with <em>no building</em> — so that chain hits a missing link and returns nothing, and the complaint gets saved with <code class="ic">manager_id = NULL</code>, invisible to the manager. The fix: every flat carries its own <code class="ic">manager_id</code> column (added in an earlier migration), so we read it <em>directly off the flat</em>. The flat is the entity the caller actually identified by its number, it always exists, and it always has an owner.</p>
+
+      <p><strong>How it works (analogy).</strong> To find who's responsible for a hotel room, you <em>could</em> look up the room → the floor → the wing → the wing's manager. But if a cottage has no "floor" or "wing," that lookup fails. Far simpler: every room key already has the manager's name printed on it. Read the key.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>standalone unit</strong> — a flat with <code class="ic">building_id = NULL</code> (a bungalow/house with no parent building).</li>
+        <li><strong>resolution chain</strong> — deriving a value by hopping across related tables.</li>
+        <li><strong>migration</strong> — a versioned change to the database structure (here, the one that added <code class="ic">flats.manager_id</code> and backfilled it).</li>
+        <li><strong>vestigial field</strong> — a parameter that's still required but no longer used by anything; dead weight that adds friction.</li>
+      </ul>
+
+      <p><strong>The discovery that made the fix safe.</strong> Before trusting <code class="ic">flats.manager_id</code>, we checked the live database — was the column actually populated, including for standalone units?</p>
+      <div class="term"><span class="pmt">$</span> python - &lt;&lt;'PY'   <span class="dim"># count flats and NULL owners</span>
+flats total=90
+  flats with NULL manager_id : <span class="ok">0</span>
+  standalone (no building)   : 11
+  standalone w/ NULL manager : <span class="ok">0</span>     <span class="dim"># every standalone unit already has an owner</span></div>
+
+      <p><strong>Annotated code — Step 8b, the resolution swap.</strong></p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/voice.py — BEFORE (4 hops, breaks on standalone)"><pre><code>t_resp = db.table("tenants").select("flat_uuid").eq("phone", caller_phone).limit(1).execute()
+if t_resp.data and t_resp.data[0].get("flat_uuid"):
+    caller_flat_uuid = t_resp.data[0]["flat_uuid"]
+    flt_resp = db.table("flats").select("building_id").eq("uuid", caller_flat_uuid).limit(1).execute()
+    if flt_resp.data and flt_resp.data[0].get("building_id"):   # &lt;- NULL for standalone -> dead end
+        bldg = db.table("buildings").select("property_id").eq("id", flt_resp.data[0]["building_id"])...
+        pg = db.table("properties_list").select("manager_id").eq("id", ...)   # manager_id can ALSO be NULL here
+        manager_id = pg.data[0].get("manager_id")</code></pre></div>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/voice.py — AFTER (2 hops, works for everything)"><pre><code>t_resp = db.table("tenants").select("flat_uuid").eq("phone", caller_phone).limit(1).execute()
+if t_resp.data and t_resp.data[0].get("flat_uuid"):
+    caller_flat_uuid = t_resp.data[0]["flat_uuid"]
+    # Read the owner straight off the flat. flats.manager_id is set on EVERY flat,
+    # incl. building-less standalone units -> no dead end, and one fewer fragile NULL.
+    flt_resp = db.table("flats").select("manager_id").eq("uuid", caller_flat_uuid).limit(1).execute()
+    if flt_resp.data:
+        manager_id = flt_resp.data[0].get("manager_id")</code></pre></div>
+
+      <p>And on complaint creation we read the owner from the <em>confirmed</em> flat as the authoritative source, then deleted the now-pointless <code class="ic">property_group_id</code> parameter from the tool entirely (the webhook never read it; complaints aren't even stored with a property group):</p>
+      <div class="code-block" data-lang="python" data-file="voice.py Step 10 — authoritative owner from the confirmed flat"><pre><code>flat_response = db.table("flats").select("uuid, id, manager_id").eq("flat_number", flat_no.strip().upper()).execute()
+# the confirmed flat is the authoritative owner; fall back to the phone-resolved id only if absent
+manager_id = flat_response.data[0].get("manager_id") or manager_id</code></pre></div>
+
+      <div class="callout c-deep">
+        <div class="c-title">📖 Deep Dive — why the vestigial field was worth deleting</div>
+        <p><code class="ic">submit_complaint</code> <em>required</em> <code class="ic">property_group_id</code>, the prompt had a whole section about fetching and passing it, and… the webhook never read it. Keeping a required field that does nothing isn't harmless: it's one more value the model must produce to make a valid call, which (per Concept&nbsp;6) is exactly the kind of friction that makes a flaky tool flakier. Removing it both simplified the model's job and deleted a misleading section of the prompt. Dead parameters are technical debt with a behavioural cost.</p>
+      </div>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p class="muted">Every action this session, in order, with why each happens <em>now</em> and what would break if skipped.</p>
+
+      <h3>Step 1 — Read the evidence before touching code</h3>
+      <p>We read the call transcript and the Render logs the user provided. The transcript showed Max finding a unit, qualifying the caller, then looping on "let me check my system"; the logs showed repeated <code class="ic">find-units</code> and no lead-save endpoint hit.</p>
+      <p><strong>Why now:</strong> the symptom ("kept searching, didn't log the lead") only makes sense once you see <em>which</em> HTTP calls fired. <strong>Skip it and</strong> you'd guess at the model's behaviour instead of reading it.</p>
+
+      <h3>Step 2 — Inspect the tool definitions</h3>
+      <p>We opened <code class="ic">vapi_agent_config.py</code> and found all three lease tools (and all five complaint apiRequest tools) shared <code class="ic">function.name = "api_request_tool"</code>. We confirmed against VAPI docs/community that duplicate function names collapse to the first.</p>
+      <p><strong>Why now:</strong> this is the root cause; everything downstream depends on confirming it. <strong>Skip it and</strong> you fix symptoms (the loop) without fixing the cause (unreachable tools).</p>
+
+      <h3>Step 3 — Verify the webhooks don't depend on the old names</h3>
+      <p>Before renaming, we grepped <code class="ic">voice.py</code> to be sure no handler matched on <code class="ic">"api_request_tool"</code>. They route apiRequest tools by URL and match only the unique names <code class="ic">submit_complaint</code> / <code class="ic">submit_lease_lead</code>. Safe to rename.</p>
+      <p><strong>Why now:</strong> renaming is only safe if nothing downstream relies on the old name. <strong>Skip it and</strong> you might fix the model and break the backend simultaneously.</p>
+
+      <h3>Step 4 — Add the uniqueness helper and remove the static filler</h3>
+      <p>We added <code class="ic">_alias_apirequest_tool_names()</code>, wrapped the three tool-builders with it, and set <code class="ic">find_units</code>/<code class="ic">search_listings</code> <code class="ic">messages</code> to <code class="ic">[]</code>, updating the lease prompt to speak a locked-language filler.</p>
+      <p><strong>Why now:</strong> one structural fix covers all agents and prevents regressions. <strong>Skip it and</strong> the bug returns on the next copy-pasted tool.</p>
+
+      <h3>Step 5 — Rewrite the shared-agent deploy script (SDK → HTTP PATCH)</h3>
+      <p>To safely push Alex's config later, we rebuilt <code class="ic">update_shared_agents.py</code> on a raw HTTP PATCH with a snake→camel key map and a <code class="ic">--dry-run</code> flag, mirroring the working lease script.</p>
+      <p><strong>Why now:</strong> we needed a trustworthy way to push the complaint agent without the SDK silently dropping its tools or first-message mode. <strong>Skip it and</strong> the complaint deploy could mangle a working config.</p>
+
+      <h3>Step 6 — Build-verify, then push the lease agents</h3>
+      <p>We ran a small assertion script (unique function names per agent; fillers empty), then deployed the four per-manager lease agents plus the shared one via <code class="ic">update_lease_agents.py</code> (dry-run first), and fetched the live assistants to confirm <code class="ic">tools=['find_units','search_listings','submit_lease_lead']</code>.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py
+  [28c43c77]  <span class="ok">[OK]</span>  tools=['find_units', 'search_listings', 'submit_lease_lead']
+  ...
+<span class="ok">Done. 5 updated, 0 failed.</span></div>
+      <p><strong>Why now:</strong> never push unverified config to live phone lines. <strong>Skip the verify and</strong> you learn about a bad push from a real caller.</p>
+
+      <h3>Step 7 — Confirm the lease fix on a real call, then turn to Alex</h3>
+      <p>The user's next call worked: the logs showed a real <code class="ic">POST /voice/lease-lead-direct</code> saving a <em>qualified</em> lead with the caller's real name. Then they reported the complaint agent failing.</p>
+
+      <h3>Step 8 — Diagnose Alex from the live call object</h3>
+      <p>We confirmed the live <code class="ic">submit_complaint</code> tool was wired correctly (right URL, right required fields), then fetched the VAPI call and saw the model never emitted <code class="ic">submit_complaint</code> despite having a valid <code class="ic">property_group_id</code> and an available slot. Root cause: prompt strength (Concept 6).</p>
+      <p><strong>Why now:</strong> the config looked perfect, so the cause had to be the model's behaviour — only the call object proves that. <strong>Skip it and</strong> you'd chase a config bug that doesn't exist.</p>
+
+      <h3>Step 9 — Harden the complaint prompt and push</h3>
+      <p>Three prompt edits (remove from checking-phrase list; explicit "you MUST emit the call"; a NO-EXCEPTIONS block). Pushed via the rewritten <code class="ic">update_shared_agents.py</code>; verified the new section is live on assistant <code class="ic">9e507761</code>.</p>
+
+      <h3>Step 10 — Flat-anchored ownership refactor</h3>
+      <p>Acting on the user's design idea, we checked the DB (all flats have <code class="ic">manager_id</code>; 11 standalone units, 0 NULL owners), swapped Step 8b and Step 10 to read <code class="ic">flats.manager_id</code> directly, and removed the vestigial <code class="ic">property_group_id</code> from <code class="ic">submit_complaint</code> and the prompt. Pushed the agent change; flagged that the <code class="ic">voice.py</code> change needs a Render deploy.</p>
+      <p><strong>Why now:</strong> it's the durable fix for standalone units and removes friction from the tool we just hardened. <strong>Skip it and</strong> standalone-unit complaints keep vanishing.</p>
+
+      <h3>Step 11 — Update the living docs</h3>
+      <p>We updated <code class="ic">CODEBASE_CONTEXT.md</code> (tool-naming rule, deploy-script change, flat-anchored resolution) and wrote a plan doc capturing the diagnosis and fixes.</p>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p class="muted">Three bugs, three completely different root causes. This is the heart of the session — read each as a detective story.</p>
+
+      <!-- BUG 1 -->
+      <h3 id="bug1">🐛 Bug 1 — Max loops on <code class="ic">find_units</code>, never saves a lead</h3>
+
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>On an English test call, Max found a unit and qualified the caller, then near the end repeated <em>"Let me check that in my system, one moment. Un instant, je vérifie ça."</em> several times, never confirmed the lead, and the dashboard showed the lead as <strong>"Unknown."</strong> The caller even asked "have you noted my lead?" and Max claimed yes — but nothing useful was saved.</p>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We read the Render logs line by line and found a telling pattern:</p>
+        <ul>
+          <li>Many <code class="ic">GET /leasing/find-units</code> requests — including one with an <strong>empty <code class="ic">query=</code></strong>.</li>
+          <li><strong>Zero</strong> <code class="ic">GET /leasing/search-listings</code>.</li>
+          <li><strong>Zero</strong> <code class="ic">POST /voice/lease-lead-direct</code> (the lead-save endpoint).</li>
+          <li>A final <code class="ic">[LEASE EOC] Lead saved (structured=False) ... name=Unknown</code>.</li>
+        </ul>
+        <p>So out of three tools, only <code class="ic">find_units</code> ever ran. The empty-<code class="ic">query=</code> call was the clue: that's a <em>lead-save</em> attempt (which has no <code class="ic">query</code> field) landing on <code class="ic">find_units</code> (whose only param is <code class="ic">query</code>, defaulting to empty). We then opened the tool definitions and saw all three carried <code class="ic">function.name = "api_request_tool"</code>, and a VAPI community note confirmed: duplicate function names mean only the first tool is callable. The "Unknown" lead was a separate safety-net (an end-of-call extractor) firing <em>because</em> the real save never happened.</p>
+      </div>
+
+      <div class="callout c-key">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>A <strong>tool-name collision</strong>. The model addresses tools by <code class="ic">function.name</code>; all three lease tools shared one name, so VAPI/OpenAI deduped them and only the first (<code class="ic">find_units</code>) was reachable. When Max wanted <code class="ic">submit_lease_lead</code>, the call resolved to <code class="ic">find_units</code>, returned search results instead of a save confirmation, and Max — never seeing success — retried, producing the loop and the repeated bilingual filler (that filler being <code class="ic">find_units</code>' static request-start message).</p>
+      </div>
+
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Give every tool a unique <code class="ic">function.name</code> via the helper from Concept&nbsp;2, and remove the static bilingual filler (Concept&nbsp;4). Before/after, distilled:</p>
+      </div>
+      <div class="code-block" data-lang="python" data-file="BEFORE — all three identical"><pre><code>"function": {"name": "api_request_tool", "description": "Find available units..."}    # find_units
+"function": {"name": "api_request_tool", "description": "Preference-based search..."}   # search_listings
+"function": {"name": "api_request_tool", "description": "Capture the lead..."}          # submit_lease_lead</code></pre></div>
+      <div class="code-block" data-lang="python" data-file="AFTER — aliased to the unique top-level name"><pre><code># _alias_apirequest_tool_names() copies each tool's top-level name into function.name:
+"function": {"name": "find_units", ...}
+"function": {"name": "search_listings", ...}
+"function": {"name": "submit_lease_lead", ...}   # now reachable -> leads actually save</code></pre></div>
+      <p>Verified on the live assistant: <code class="ic">tools=['find_units', 'search_listings', 'submit_lease_lead']</code>, each with a matching unique <code class="ic">function.name</code>. The next real call saved a qualified lead with the caller's real name.</p>
+
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>When an agent <em>repeats itself</em> or only ever hits one endpoint, suspect that the other tools are <strong>unreachable</strong>, not that the model is "confused." The fastest tell is in the logs: which tools fired, and which never did. And whenever you template multiple tools from one prototype, make uniqueness a <em>structural</em> guarantee (a helper, a test), because copy-paste will reintroduce duplicates.</p>
+      </div>
+
+      <!-- BUG 2 -->
+      <h3 id="bug2">🐛 Bug 2 — Alex says "complaint logged" but files nothing</h3>
+
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>A complaint test call (broken AC, flat 1804). Alex verified the caller, checked availability, confirmed a callback time, and said: <em>"Your complaint has been logged, and a callback is scheduled."</em> But no complaint and no appointment appeared on the dashboard, and the Render logs had <strong>no <code class="ic">POST /voice/webhook</code> at all.</strong></p>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We first suspected config: maybe <code class="ic">submit_complaint</code> was mis-wired, or required a field the model couldn't supply. So we fetched the live tool config — it was correct (type <code class="ic">function</code>, server URL <code class="ic">/voice/webhook</code>, required fields present). We checked whether <code class="ic">verify-phone</code> returned the <code class="ic">property_group_id</code> the tool then required — it did (<code class="ic">17232efd...</code>) — and whether flat 1804 was a standalone unit — it wasn't. With config and data ruled out, we fetched the <strong>live VAPI call object</strong> and read the model's message list: it contained <code class="ic">Verify_phone_number</code> and <code class="ic">check_availability</code> tool calls and their results, but <strong>no <code class="ic">submit_complaint</code> tool call whatsoever.</strong> The "errors" we grepped turned out to be the literal text "[Error Handling]" in the prompt — a red herring.</p>
+      </div>
+
+      <div class="callout c-key">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p><strong>Prompt weakness let the model narrate instead of act.</strong> The model had everything it needed and still chose to <em>speak</em> "complaint logged" without emitting the tool call. Comparing prompts revealed why: Max's lead-save is hammered as mandatory and excluded from the "say a phrase first" list, while Alex's <code class="ic">submit_complaint</code> was mentioned once in a numbered list <em>and</em> included among tools to pre-narrate. So Alex produced the checking phrase and the success line as one fluent turn — and skipped the call. It was never a config or data bug.</p>
+      </div>
+
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Three prompt edits (full text in Concept&nbsp;6): (1) remove <code class="ic">submit_complaint</code> from the checking-phrase list, (2) make step 4/5 an explicit "you MUST emit the call; never say 'logged' without calling it," and (3) add a <code class="ic">[Complaint Submission - NO EXCEPTIONS]</code> block. Zero code or tool-config change. Pushed via the rewritten HTTP-PATCH script and verified the new section was live on the assistant.</p>
+      </div>
+
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>When an agent <em>claims</em> success but nothing persists and there's <em>no request at all</em> on your server, the model never called the tool — so look at the prompt, not the plumbing. The provider's call object is the ground truth for "did the model emit the call." And design prompts so side-effects are <em>separated from narration</em>: never let the success sentence live in the same breath as the action it's supposed to follow.</p>
+      </div>
+
+      <!-- BUG 3 -->
+      <h3 id="bug3">🐛 Bug 3 — The latent NULL owner for standalone units</h3>
+
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>This one was <em>latent</em> — surfaced by the user's question, not a crash: "won't anchoring on the flat be better for standalone units?" The hidden failure: a complaint from a building-less unit would resolve <code class="ic">manager_id = NULL</code> through the old chain, so it would save but be <strong>invisible</strong> to the manager (filtered out by row-level security).</p>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We traced the webhook's owner resolution: <em>phone → tenant → flat → building → property group → manager_id</em>. For a standalone unit, <code class="ic">flat.building_id</code> is <code class="ic">NULL</code>, so the chain dead-ends and <code class="ic">manager_id</code> stays <code class="ic">None</code>. We confirmed against the live DB that 11 of 90 flats are standalone — and crucially that <strong>every</strong> flat (standalone included) already has a populated <code class="ic">flats.manager_id</code> column. We also noticed the <code class="ic">property_group_id</code> the tool required was never actually read by the webhook.</p>
+      </div>
+
+      <div class="callout c-key">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>The resolution was <strong>anchored on the wrong entity</strong> — a multi-hop chain through <code class="ic">buildings</code>, which doesn't exist for standalone units (and whose <code class="ic">properties_list.manager_id</code> could itself be NULL). The robust anchor is the flat itself, which always exists and carries its owner directly.</p>
+      </div>
+
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Read <code class="ic">flats.manager_id</code> directly (Concept&nbsp;8): 2 hops instead of 4, works for every unit type, and no fragile NULLs. We also deleted the vestigial <code class="ic">property_group_id</code> from <code class="ic">submit_complaint</code> and its prompt section. (The backend half ships on the next Render deploy; the tool-config half is already live.)</p>
+      </div>
+
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Every relationship hop is a place a query can return nothing. When several records all need the same fact (here, the owner), put that fact on the closest stable entity and read it directly. And listen to "won't X be simpler?" questions — they often surface a latent edge-case bug before a real user hits it.</p>
+      </div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose this</th><th>Trade-offs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>One helper to alias <code>function.name</code></td>
+            <td>Hand-edit 13 duplicated strings; rename each tool manually</td>
+            <td>Structural guarantee at one choke-point; survives future copy-paste</td>
+            <td>Slightly less explicit than literal names in each tool def</td>
+          </tr>
+          <tr>
+            <td>Remove static bilingual filler; let model speak it</td>
+            <td>Keep two language-specific static strings; keep the bilingual one</td>
+            <td>Only the model knows the locked language at runtime; matches Alex's pattern</td>
+            <td>Filler timing now depends on the model, not VAPI's instant playback</td>
+          </tr>
+          <tr>
+            <td>Rewrite shared-agent script to HTTP PATCH</td>
+            <td>Keep the VAPI SDK; install a newer SDK version</td>
+            <td>SDK silently dropped fields; raw PATCH sends exactly what we specify</td>
+            <td>We own the snake→camel mapping; must keep it in sync with VAPI's API</td>
+          </tr>
+          <tr>
+            <td>Fix Alex with prompt edits only</td>
+            <td>Make <code>submit_complaint</code> synchronous; convert it to apiRequest</td>
+            <td>Root cause was prompt weakness; zero risk to the working webhook</td>
+            <td>Relies on the model honouring stronger wording (validated by re-test)</td>
+          </tr>
+          <tr>
+            <td>Anchor owner on <code>flats.manager_id</code></td>
+            <td>Keep the building→property-group chain; backfill property groups</td>
+            <td>Always present (incl. standalone); fewer hops; no fragile NULLs</td>
+            <td>Assumes the column stays populated (enforced NOT NULL by migration)</td>
+          </tr>
+          <tr>
+            <td>Delete the <code>property_group_id</code> tool param</td>
+            <td>Leave it required; make it optional</td>
+            <td>Webhook never read it; fewer required fields = more reliable tool calls</td>
+            <td>If a future feature needs it, it must be re-added deliberately</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+      <p>Run these after deploying to confirm each fix landed.</p>
+
+      <h4 class="sub">1 · Tool names are unique on the live assistants</h4>
+      <div class="term"><span class="pmt">$</span> <span class="dim"># fetch an assistant and print each tool's function.name</span>
+GET https://api.vapi.ai/assistant/&lt;id&gt;  -&gt;  model.tools[].function.name
+<span class="ok">find_units, search_listings, submit_lease_lead</span>   <span class="dim"># all distinct</span></div>
+      <ul class="check">
+        <li>Lease assistants show three <strong>distinct</strong> tool names.</li>
+        <li>Complaint assistant shows six distinct names incl. <code class="ic">submit_complaint</code>.</li>
+      </ul>
+
+      <h4 class="sub">2 · A lease test call saves a real lead</h4>
+      <ul class="check">
+        <li>Render logs show a <code class="ic">GET /leasing/search-listings</code> <em>and</em> a <code class="ic">POST /voice/lease-lead-direct</code>.</li>
+        <li>The dashboard lead has the caller's <strong>real name</strong>, not "Unknown."</li>
+      </ul>
+      <ul class="xlist">
+        <li>Repeated <code class="ic">find-units</code> with empty <code class="ic">query=</code> and no <code class="ic">lease-lead-direct</code> → the alias fix didn't deploy.</li>
+      </ul>
+
+      <h4 class="sub">3 · A complaint test call actually files</h4>
+      <ul class="check">
+        <li>Render logs show a <code class="ic">POST /voice/webhook</code> with the <code class="ic">submit_complaint</code> tool call.</li>
+        <li>Log line <code class="ic">[MANAGER] flat=... manager_id=28c43c77...</code> shows a <strong>non-NULL</strong> owner.</li>
+        <li>Complaint + callback appointment appear on the dashboard.</li>
+      </ul>
+      <ul class="xlist">
+        <li>Alex says "logged" but there's no <code class="ic">/voice/webhook</code> request → prompt change didn't deploy.</li>
+        <li><code class="ic">manager_id=None</code> on a standalone unit → the <code class="ic">voice.py</code> change isn't on Render yet.</li>
+      </ul>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — two deploy surfaces</div>
+        <p>The agent-config changes (tool names, prompt, removed param) go live via the <em>VAPI push script</em>. The <code class="ic">voice.py</code> owner-resolution change goes live only when the backend is <em>redeployed on Render</em> (a git push). A green VAPI push does <strong>not</strong> mean the backend changed. Check both.</p>
+      </div>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — spot the collision</div>
+        <p>Here are three tool stubs. Without running anything, predict which one(s) the model can actually call, and why.</p>
+        <div class="code-block" data-lang="python" data-file="exercise"><pre><code>tools = [
+  {"type": "apiRequest", "name": "get_weather",  "function": {"name": "do_thing"}},
+  {"type": "apiRequest", "name": "get_traffic",  "function": {"name": "do_thing"}},
+  {"type": "function",   "function": {"name": "send_sms"}},
+]</code></pre></div>
+        <details>
+          <summary>Show the answer</summary>
+          <p>Only the <strong>first</strong> <code class="ic">do_thing</code> (<code class="ic">get_weather</code>) and <code class="ic">send_sms</code> are reliably callable. <code class="ic">get_traffic</code> shares <code class="ic">do_thing</code> and is shadowed. Running <code class="ic">_alias_apirequest_tool_names(tools)</code> would rename the first two to <code class="ic">get_weather</code> and <code class="ic">get_traffic</code> (the function tool has no top-level <code class="ic">name</code>, so it's left alone), making all three reachable.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — make the helper loud</div>
+        <p>Extend <code class="ic">_alias_apirequest_tool_names</code> so that, after aliasing, it <em>raises</em> if any duplicate <code class="ic">function.name</code> still remains (e.g. two tools accidentally given the same top-level <code class="ic">name</code>). Why is "fail at build time" better than "fail on a live call"?</p>
+        <details>
+          <summary>Hint</summary>
+          <p>Collect the names into a list, compare <code class="ic">len(names)</code> to <code class="ic">len(set(names))</code>, and <code class="ic">raise ValueError(...)</code> listing the dupes. Build-time failure is caught by you in seconds; a live-call failure is caught by a paying caller, minutes of debugging later. Move errors as early in the pipeline as possible.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — design a guard against "narrated success"</div>
+        <p>Bug 2 was the model claiming success without the tool call. Beyond prompt wording, design a <em>defensive</em> mechanism so a complaint is never silently lost. Sketch how an end-of-call safety net (like the lease agent's "EOC" extractor) could file a complaint from the transcript if <code class="ic">submit_complaint</code> never fired — including how you'd avoid creating a <em>duplicate</em> when it <em>did</em> fire.</p>
+        <details>
+          <summary>Hint</summary>
+          <p>Use the call's unique <code class="ic">call_id</code> as a dedupe key: on the end-of-call report, check whether a complaint already exists for this <code class="ic">call_id</code>; if not, extract the fields from the transcript (structured-data extraction) and insert one. The lease agent already does exactly this for leads — study <code class="ic">/voice/lease-eoc-webhook</code> and mirror it for complaints. Trade-off: a transcript-extracted record is lower-fidelity than a real tool call, so prefer the tool and treat the net as a backstop.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary>The agent repeats the same "one moment" line and never finishes</summary>
+        <p><strong>Cause:</strong> a tool the model wants is unreachable (often a name collision), so it retries the only tool it <em>can</em> reach, replaying that tool's request-start message. <strong>Fix:</strong> confirm every tool's <code class="ic">function.name</code> is unique (run the alias helper); check the logs for which endpoints actually fired.</p>
+      </details>
+
+      <details>
+        <summary>The agent says it saved something, but nothing is in the database</summary>
+        <p><strong>Cause A (no request at all):</strong> the model never emitted the tool call — a prompt-strength problem. Fetch the VAPI call object and confirm the tool is absent from the message list; then harden the prompt. <strong>Cause B (request failed):</strong> the call fired but the handler errored — look for the <code class="ic">POST</code> and its non-200 / error log.</p>
+      </details>
+
+      <details>
+        <summary>A record saves but the manager can't see it</summary>
+        <p><strong>Cause:</strong> <code class="ic">manager_id</code> resolved to <code class="ic">NULL</code>, so row-level security hides it. <strong>Fix:</strong> resolve the owner from <code class="ic">flats.manager_id</code> directly rather than a chain that can dead-end on standalone units.</p>
+      </details>
+
+      <details>
+        <summary>VAPI push returns 200 but the field didn't change</summary>
+        <p><strong>Cause:</strong> the SDK dropped an unrecognised field, or you sent the wrong case (<code class="ic">first_message_mode</code> instead of <code class="ic">firstMessageMode</code>). <strong>Fix:</strong> use the raw HTTP PATCH with the snake→camel map and re-read the response body to confirm the field stuck.</p>
+      </details>
+
+      <details>
+        <summary>A backend code change "didn't work" after deploying the agent</summary>
+        <p><strong>Cause:</strong> you pushed the VAPI config but not the backend. The <code class="ic">voice.py</code>/route changes live on Render and need a git push to redeploy. <strong>Fix:</strong> remember the two deploy surfaces — push config <em>and</em> redeploy the backend.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🔭 What's Next</h2>
+      <p>With both agents reliably recording what callers ask for, the natural next step is <strong>defence in depth</strong>: give the complaint agent the same end-of-call safety net the lease agent has, so a complaint can be reconstructed from the transcript even if a future prompt regression makes the model skip the tool. After that, we'll want a small <strong>automated test</strong> that asserts tool-name uniqueness and required-field shape for every agent at build time — turning today's manual verification into a guarantee. And once the standalone-unit owner fix is live on Render, a quick <strong>standalone-unit test call</strong> (pointing a test tenant's phone at a building-less flat) closes the loop on Bug&nbsp;3.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📖 Glossary</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>apiRequest tool</strong></td><td>A VAPI tool where VAPI itself makes the HTTP call to a URL baked into the tool. Routed by URL, so its name is LLM-facing only.</td></tr>
+          <tr><td><strong>blast radius</strong></td><td>The set of things a change can affect; smaller is safer.</td></tr>
+          <tr><td><strong>call object</strong></td><td>The provider's full record of a call (messages, tool calls, results, transcript), fetchable from VAPI's API — ground truth for what the model did.</td></tr>
+          <tr><td><strong>dedupe / collapse</strong></td><td>When a system encounters duplicate keys (e.g. tool names) and keeps only one.</td></tr>
+          <tr><td><strong>function tool</strong></td><td>A VAPI tool VAPI forwards to <em>your</em> server URL (webhook); your code routes it by the tool's name.</td></tr>
+          <tr><td><strong><code>function.name</code></strong></td><td>The nested identifier the LLM uses to call a tool. Must be unique per assistant.</td></tr>
+          <tr><td><strong>idempotent</strong></td><td>An operation safe to repeat; re-running yields the same end state.</td></tr>
+          <tr><td><strong>language lock</strong></td><td>The agent detecting the caller's language on their first words and staying in it for the whole call.</td></tr>
+          <tr><td><strong>LLM</strong></td><td>Large Language Model — the text-generating AI driving each agent.</td></tr>
+          <tr><td><strong>manager_id</strong></td><td>The owner column used by row-level security to decide which manager sees a record.</td></tr>
+          <tr><td><strong>migration</strong></td><td>A versioned change to the database schema (e.g. the one adding <code>flats.manager_id</code>).</td></tr>
+          <tr><td><strong>PATCH (merge)</strong></td><td>An HTTP update of only the fields you send; omitted fields are left untouched on the server.</td></tr>
+          <tr><td><strong>request-start message</strong></td><td>A line a VAPI tool can speak the instant it fires, to fill the lookup silence.</td></tr>
+          <tr><td><strong>RLS</strong></td><td>Row-Level Security — database rules that hide rows whose owner doesn't match the current user.</td></tr>
+          <tr><td><strong>SDK</strong></td><td>Software Development Kit — a library wrapping an API; convenient but may drop unmodelled fields.</td></tr>
+          <tr><td><strong>standalone unit</strong></td><td>A flat with <code>building_id = NULL</code> (a bungalow/house with no parent building).</td></tr>
+          <tr><td><strong>tool / function call</strong></td><td>The structured "run X with these args" message a model emits to take an action.</td></tr>
+          <tr><td><strong>two deploy surfaces</strong></td><td>VAPI assistant config (pushed by a script) vs backend code (redeployed on Render). Both must update for a change to be fully live.</td></tr>
+          <tr><td><strong>vestigial field</strong></td><td>A still-required parameter that nothing uses; dead weight that adds friction.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-10-voice-agent-latency-and-prompt-tuning.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 10 — Cutting Voice-Agent Latency &amp; Tuning the Employment Prompt</div>
+    </a>
+    <a href="sessions.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a class="right disabled">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 12 — coming soon</div>
+    </a>
+  </div>
+  <div class="copyright">Session 11 — CRM Learning Series · generated 2026-06-24</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>

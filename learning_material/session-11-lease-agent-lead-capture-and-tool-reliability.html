@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 11 — Lead Capture That Can't Fail: Tool Routing, Dead Air &amp; Defense-in-Depth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 11</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-surfaces" style="padding-left:1.4rem">— Two deploy surfaces</a>
+    <a href="#c-tools" style="padding-left:1.4rem">— How VAPI tools reach the model</a>
+    <a href="#c-forensics" style="padding-left:1.4rem">— Call-object forensics</a>
+    <a href="#c-falsify" style="padding-left:1.4rem">— Falsifying a hypothesis</a>
+    <a href="#c-blocking" style="padding-left:1.4rem">— Blocking vs async &amp; dead air</a>
+    <a href="#c-reqstart" style="padding-left:1.4rem">— request-start messages</a>
+    <a href="#c-structured" style="padding-left:1.4rem">— Structured extraction</a>
+    <a href="#c-defense" style="padding-left:1.4rem">— Defense in depth</a>
+    <a href="#c-artifact" style="padding-left:1.4rem">— Measurement artifacts</a>
+    <a href="#c-tolerant" style="padding-left:1.4rem">— Tolerant matching</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#bug1" style="padding-left:1.4rem">— Bug 1: "No Montreal listing"</a>
+    <a href="#bug2" style="padding-left:1.4rem">— Bug 2: the fake mojibake</a>
+    <a href="#bug3" style="padding-left:1.4rem">— Bug 3: lead never logged</a>
+    <a href="#bug4" style="padding-left:1.4rem">— Bug 4: 17 seconds of silence</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 11 · Voice AI · Debugging · Reliability · Defense-in-Depth</div>
+      <h1>Lead Capture That Can't Fail — Tool Routing, Dead Air &amp; Defense-in-Depth</h1>
+      <p class="lead muted">A test caller told Max <em>"you have no listing in Montreal"</em> — but there <strong>was</strong> one. Pulling that thread unravelled three live problems at once: a model downgrade that broke the agent's tool routing, a week of leads silently saved as <code class="ic">Unknown</code> because the agent stopped firing its lead tool, and seventeen seconds of dead air on a phone call. This is a <strong>forensics-heavy</strong> session: we hit the live database, replay real phone calls from the VAPI API, kill a wrong hypothesis with evidence, and then rebuild lead capture so it works <em>even when the AI misbehaves</em>. Plus a bonus: a "data corruption" bug that turned out to be our own terminal lying to us.</p>
+      <div class="meta">
+        <span class="chip diff">🔴 Advanced</span>
+        <span class="chip time">⏱️ ~90 min read / build</span>
+        <span class="chip pre">📋 Requires: Sessions 08–10 (French STT, deploy pipeline, latency tuning)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was a pure <strong>diagnose-and-repair</strong> session. No new feature was requested — instead, real test calls surfaced misbehaviour, and each symptom turned out to have a different root cause. The exact words that kicked it off:</p>
+
+      <div class="term">
+<span class="spk">You:</span> i did a test call in english and the agent said I had no listing in
+       montreal but I know I had listing in montreal..... this is the log [...]
+       what is the issue
+<span class="dim">         ...later...</span>
+<span class="spk">You:</span> i changed the model and cut the system prompt to reduce latency,
+       could that be the issue?
+<span class="spk">You:</span> flip the model back to gpt-5.2-chat-latest for all agents and fix issue 2
+<span class="dim">         ...later, after re-deploying and a fresh test call...</span>
+<span class="spk">You:</span> it took my details but didn't log the lead... why is that, and the
+       agents went silent suddenly a couple of times for a few seconds
+      </div>
+
+      <p>By the end of the session we had:</p>
+      <ul>
+        <li><strong>Proven the backend was innocent</strong> for the "no Montreal listing" complaint — by calling the live endpoint ourselves and watching it return the listing correctly — and traced the real cause to a <strong>model downgrade</strong> (last session's <code class="ic">gpt-4o</code>) that broke the agent's multi-step tool routing.</li>
+        <li><strong>Reverted all five lease agents</strong> back to <code class="ic">gpt-5.2-chat-latest</code> and re-deployed them.</li>
+        <li><strong>Retracted a wrong diagnosis</strong>: a "corrupted" <code class="ic">11½</code> → <code class="ic">11Â½</code> in the database turned out to be our own Windows terminal mis-decoding correct UTF-8. No data was ever broken.</li>
+        <li>Discovered that <strong>every lead for a full week</strong> had been saved as a useless <code class="ic">Unknown</code> placeholder, because the agent had stopped calling its <code class="ic">submit_lease_lead</code> tool — and proved it by replaying real calls from the VAPI API.</li>
+        <li>Rebuilt lead capture with <strong>defense in depth</strong>: a prompt rule (primary), a VAPI <strong>structured-data extraction</strong> plan that mines the lead from the transcript at end-of-call (safety net), and the existing <code class="ic">Unknown</code> row as a last-resort floor.</li>
+        <li>Eliminated <strong>dead air</strong> by giving the lookup tools a deterministic <code class="ic">request-start</code> filler that VAPI speaks the instant a tool fires — instead of hoping the model remembers to.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Diagnose a voice-agent complaint by <strong>isolating each layer</strong> (database → backend → VAPI config → model behaviour) and testing them independently.</li>
+          <li>Replay a real phone call from the <strong>VAPI call API</strong> and read exactly which tools the model invoked.</li>
+          <li><strong>Form and falsify</strong> a debugging hypothesis with evidence rather than guesses — and recognise when your "obvious" cause is wrong.</li>
+          <li>Explain why a <strong>blocking</strong> tool plus an empty filler list produces dead air, and fix it with a <code class="ic">request-start</code> message.</li>
+          <li>Build <strong>defense-in-depth</strong> data capture so a flaky AI can't lose a lead, using VAPI's <code class="ic">analysisPlan.structuredDataPlan</code>.</li>
+          <li>Spot a <strong>measurement artifact</strong> — when your tooling, not the system, is what's broken.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our CRM (<strong>Customer Relationship Management</strong> — the app property managers use to track buildings, units, tenants and leads) has a <strong>voice agent</strong> named <strong>Max</strong>: an AI that answers the phone, talks to a prospective tenant, figures out which unit they want, asks a few qualifying questions, and saves the manager a <strong>lead</strong> (a record of an interested caller). Max runs on <strong>VAPI</strong> (a hosted "Voice API" that wires a phone line to a speech-to-text engine, a language model, and a text-to-speech voice). His tools call our <strong>FastAPI</strong> backend on <strong>Render</strong> (a cloud host), which reads/writes <strong>Supabase</strong> (hosted PostgreSQL).</p>
+
+      <p>In <strong>Session 10</strong> we chased latency: the partner felt Max "pauses 2–3 seconds." We shipped three speed-ups — a faster text-to-speech model, a one-query database rewrite, and (the risky one) swapping the lease agent's language model from <code class="ic">gpt-5.2-chat-latest</code> down to the lighter, faster <code class="ic">gpt-4o</code>. We explicitly flagged that the model swap was an <strong>asymmetric trade-off</strong>: faster, but a lighter model might write worse or behave worse, so we recommended A/B testing it. We also learned the <strong>two-surface deploy</strong>: a voice change isn't live until <em>both</em> the backend (Render) and the VAPI assistant config (pushed by <code class="ic">update_lease_agents.py</code>) are updated.</p>
+
+      <p>This session is what happened <em>next</em>: a real test call exposed that the faster model came at exactly the cost we feared. The "asymmetric downside" stopped being hypothetical — Max started mis-routing his tools. That single thread, pulled, revealed two more independent failures hiding underneath. We start, as always, by refusing to trust any layer until we've tested it ourselves.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need Sessions 08–10 open. Every term is re-explained on first use here. The one fact worth carrying in: last session we made Max's brain (the LLM) faster but possibly dumber, and we said we'd watch for fallout. This is the fallout — and three other surprises.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Ten ideas carry this session. Concepts 1–4 are about <em>finding</em> the bugs (isolation, tool dispatch, call forensics, falsification). Concepts 5–8 are the <em>fixes</em> (dead air, request-start, structured extraction, defense in depth). Concepts 9–10 are the two smaller-but-sharp lessons (measurement artifacts, tolerant matching).</p>
+
+      <!-- ---- Concept 1: deploy surfaces / layer isolation ---- -->
+      <h3 id="c-surfaces">1 · Layer isolation: test each layer before you blame it</h3>
+      <p><strong>Plain-English explanation.</strong> A voice agent is a stack of independent layers: the <strong>database</strong> (does the data exist and is it correct?), the <strong>backend API</strong> (does the endpoint return the right answer?), the <strong>VAPI config</strong> (is the right model/prompt/tools live?), and the <strong>model's behaviour</strong> (did the AI choose to do the right thing?). When something goes wrong, the amateur move is to guess which layer is broken. The professional move is to <em>test each layer in isolation</em>, cheapest and most-certain first, until exactly one of them fails.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The caller said "no listing in Montreal." That sentence could be caused by <em>any</em> layer: maybe the row is missing (database), maybe the search endpoint has a bug (backend), maybe the wrong agent answered (config), or maybe the AI just said the wrong thing (behaviour). If you "fix" the search endpoint when the real problem is the model, you've wasted hours and changed nothing the caller experiences.</p>
+
+      <p><strong>How it works (analogy).</strong> An electrician tracing a dead outlet doesn't rewire the whole house. They test the bulb, then the outlet, then the breaker, then the panel — one component at a time, with a meter, until the meter reads wrong at exactly one spot. Each test <em>rules out</em> a layer. We do the same with <code class="ic">curl</code> against the live API and SQL against the live DB.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>layer / tier</strong> — one independently-testable stage of the system (DB, API, config, model).</li>
+        <li><strong>isolation test</strong> — a check that exercises exactly one layer so a pass/fail points at that layer alone.</li>
+        <li><code class="ic">curl</code> — a command-line tool that sends an HTTP request and prints the raw response; perfect for testing an API layer without the UI or the phone in the way.</li>
+      </ul>
+
+      <p><strong>Annotated command — testing the backend layer directly.</strong> Instead of guessing whether <code class="ic">find_units</code> works, we called it ourselves with the exact query from the logs:</p>
+      <div class="term"><span class="pmt">$</span> curl -s "https://tenant-management-mvp.onrender.com/leasing/find-units?manager_id=28c43c77...&amp;query=Montreal"
+{
+  <span class="ok">"found": true,</span>            <span class="dim"># the backend DID find it</span>
+  "count": 1,
+  "units": [{ "flat_number": "STDTEST02", "address": "48 Avenue Libre, Montreal, Quebec", ... }],
+  "available_cities": ["Dehradun","Laval","Montreal","Ranchi"]
+}</div>
+      <p><code class="ic">found: true</code> at the backend layer is a verdict: the database has the row, and the API returns it. Whatever told the caller "no Montreal listing" lives <em>above</em> this layer — in the model. One command eliminated two whole layers.</p>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — a green test is half the answer</div>
+        <p>Proving a layer <em>works</em> is just as valuable as proving one is broken. The Montreal <code class="ic">found: true</code> didn't fix anything — but it slammed the door on "the data is missing" and "the endpoint is buggy," leaving only the model. Most debugging time is wasted suspecting innocent layers; isolation tests acquit them fast.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://curl.se/docs/manpage.html">curl manual</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Multitier_architecture">Multitier architecture</a>
+      </p>
+
+      <!-- ---- Concept 2: how VAPI tools reach the model ---- -->
+      <h3 id="c-tools">2 · How a VAPI "tool" reaches the model (name vs function.name)</h3>
+      <p><strong>Plain-English explanation.</strong> Max can do things in the world — look up units, search inventory, save a lead — through <strong>tools</strong>. A tool is a little contract: a <em>name</em>, a <em>description</em> (so the model knows when to use it), a set of <em>parameters</em>, and a <em>URL</em> to call. VAPI hands these tool definitions to the language model on every turn. When the model decides to use one, it emits the tool's <em>name</em>; VAPI matches that name to a tool and makes the HTTP call.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Max has three lease tools — <code class="ic">find_units</code> (look up by place), <code class="ic">search_listings</code> (filter by size/budget), and <code class="ic">submit_lease_lead</code> (save the lead). Whether a lead gets saved depends entirely on the model choosing the <em>right</em> tool at the right moment. Understanding how the model "sees" these tools is the difference between guessing and knowing why it picked one over another.</p>
+
+      <p><strong>How it works (analogy).</strong> Think of tools as labelled buttons on a vending machine. The model reads the labels (the <em>name</em> + <em>description</em>) and presses one. VAPI is the machine wiring that connects each button to a specific product (the URL). If two buttons had the <em>same label</em>, the model couldn't tell them apart — a fact that becomes a key red herring in <a class="inline" href="#bug3">Bug 3</a>.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>tool / function call</strong> — a structured action the model can request instead of just talking.</li>
+        <li><strong>apiRequest tool</strong> — VAPI's newer tool type that calls an HTTP URL directly (vs the older "function" type routed through a webhook).</li>
+        <li><strong>top-level <code class="ic">name</code></strong> — the identifier the model actually emits and VAPI dispatches on (e.g. <code class="ic">find_units</code>).</li>
+        <li><strong>nested <code class="ic">function.name</code></strong> — a legacy sub-field; in our config it is the same literal string <code class="ic">"api_request_tool"</code> on <em>every</em> tool (this looks alarming but is harmless — see Bug 3).</li>
+        <li><strong>blocking vs async</strong> — whether the model waits for the tool's result before continuing (see Concept 5).</li>
+      </ul>
+
+      <p><strong>Annotated code — the shape of a lease tool.</strong></p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — one tool, trimmed"><pre><code>{
+    "type": "apiRequest",          # newer VAPI tool type: calls a URL directly
+    "name": "submit_lease_lead",   # THE identifier the model emits + VAPI dispatches on
+    "async": True,                 # don't make the model wait for the response
+    "function": {
+        "name": "api_request_tool",   # legacy sub-field; identical on ALL tools (harmless)
+        "description": "Capture the prospective tenant as a lead before ending the call.",
+    },
+    "url": f"{backend_url}/voice/lease-lead-direct?call_id={{{{call.id}}}}&amp;phone={{{{customer.number}}}}",
+    "method": "POST",
+    "body": { "type": "object", "required": ["caller_name", "qualification_status"], "properties": { ... } },
+}</code></pre></div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — a returned tool name is the model's choice, not VAPI's</div>
+        <p>When you read a call log and see <code class="ic">find_units</code> was called, that means the <em>model chose</em> to emit <code class="ic">find_units</code>. The tools are just options on a menu; the model orders. So "the wrong tool ran" is almost always "the model picked the wrong tool" — a behaviour problem — not a wiring problem. Keep that distinction sharp; it saves you from rewiring things that work.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/tools/custom-tools">VAPI custom tools</a> ·
+        <a class="inline" href="https://platform.openai.com/docs/guides/function-calling">OpenAI function calling</a>
+      </p>
+
+      <!-- ---- Concept 3: call-object forensics ---- -->
+      <h3 id="c-forensics">3 · Call-object forensics: replaying a phone call from the API</h3>
+      <p><strong>Plain-English explanation.</strong> Every call VAPI handles is stored as a structured object you can fetch back over the API. It contains the full message timeline — what the caller said, what Max said, and crucially <em>every tool call the model made, with its arguments</em>. Instead of trusting a human's memory of a call, you replay the machine's own record.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> "It took my details but didn't log the lead" is a feeling. The call object turns it into a fact: it showed the model called <code class="ic">find_units(query="Laval")</code> <strong>five times</strong> and never once called <code class="ic">submit_lease_lead</code>. That single observation collapsed a fuzzy complaint into a precise behaviour bug.</p>
+
+      <p><strong>How it works (analogy).</strong> A plane's black box doesn't argue about what the pilot "probably" did — it has the actual control inputs. The VAPI call object is Max's black box: pull it after an incident and read the real inputs.</p>
+
+      <p><strong>Annotated commands — the forensic sweep.</strong> We fetched the specific call, then swept the last 25 to build a timeline:</p>
+      <div class="term"><span class="pmt">$</span> <span class="dim"># 1) pull ONE call and list the tool calls the model emitted</span>
+<span class="pmt">$</span> curl -s "https://api.vapi.ai/call/019ef540-...">  -H "Authorization: Bearer $KEY"
+    <span class="dim"># messages[].toolCalls[].function.name  ==&gt;</span>
+    [tool_call] name=<span class="garble">'find_units'</span> args={"query": "Laval"}     <span class="dim"># x5, never submit_lease_lead</span>
+
+<span class="pmt">$</span> <span class="dim"># 2) sweep the last 25 calls: which DISTINCT tools did each one use?</span>
+2026-06-23  asst=c76a69ea  distinct=<span class="bad">['find_units']</span>                                  <span class="dim"># broken</span>
+2026-06-18  asst=dc53d48d  distinct=<span class="bad">['find_units']</span>                                  <span class="dim"># broken</span>
+2026-06-16  asst=c76a69ea  distinct=<span class="good">['find_units','search_listings','submit_lease_lead']</span>  <span class="dim"># healthy!</span>
+2026-06-11  asst=c76a69ea  distinct=<span class="good">['find_units','search_listings','submit_lease_lead']</span>  <span class="dim"># healthy!</span></div>
+
+      <p>That sweep is the whole case in four lines: the agent used <em>all three</em> tools through <strong>2026-06-16</strong>, then <em>only</em> <code class="ic">find_units</code> from 06-18 onward. A regression with a date. Now you know <em>when</em> it broke, which tells you <em>what change</em> to look at.</p>
+
+      <div class="callout c-deep">
+        <div class="c-title">📖 Deep Dive — turn anecdotes into time series</div>
+        <p>One broken call is an anecdote; twenty calls plotted by date is <em>data</em>. The moment we saw the clean split at 06-16/06-18, the search space collapsed from "anything about the agent" to "whatever was deployed between those two dates." Bisecting by time is one of the most powerful debugging moves there is — it's the same idea as <code class="ic">git bisect</code>, applied to production behaviour instead of source code.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/api-reference/calls/get">VAPI: get call</a> ·
+        <a class="inline" href="https://git-scm.com/docs/git-bisect">git bisect (the same idea, for code)</a>
+      </p>
+
+      <!-- ---- Concept 4: falsification ---- -->
+      <h3 id="c-falsify">4 · Forming and <em>falsifying</em> a hypothesis</h3>
+      <p><strong>Plain-English explanation.</strong> A hypothesis is a guess about the cause. The discipline that separates debugging from flailing is this: don't go looking for evidence that your guess is <em>right</em> — go looking for evidence that would prove it <em>wrong</em>. If you can't kill the hypothesis, it survives. If one fact kills it, you drop it instantly, no matter how attractive it was.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Investigating the missing leads, we found a juicy suspect: all three tools share the same nested <code class="ic">function.name = "api_request_tool"</code>. "Aha — name collision! The model can't tell them apart!" It's a clean story. It's also <em>wrong</em>, and believing it would have sent us rewriting tool configs for hours while the real cause sat untouched.</p>
+
+      <p><strong>How it works (analogy).</strong> A detective who only collects evidence confirming their favourite suspect convicts innocent people. A good one actively asks "what would prove this person <em>didn't</em> do it?" — an alibi. We hunted for the collision hypothesis's alibi, and found three.</p>
+
+      <p><strong>The three alibis that killed the "name collision" theory:</strong></p>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Alibi</th><th>What it proves</th></tr></thead>
+        <tbody>
+          <tr><td>The shared <code>function.name</code> has existed since <strong>May</strong> (git history), including on 06-16 when all three tools worked.</td><td>A constant can't cause a change. If it were the cause, the agent would <em>never</em> have worked.</td></tr>
+          <tr><td>The model emitted the literal name <code>find_units</code> in the call object — not <code>api_request_tool</code>.</td><td>VAPI dispatches on the unique <em>top-level</em> <code>name</code>, not the shared nested one. The collision field is ignored.</td></tr>
+          <tr><td>OpenAI rejects duplicate function names with a 400 error; yet <code>find_units</code> worked fine.</td><td>If the shared name reached the model, nothing would work at all. Something works ⇒ names aren't colliding.</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — "it worked before" is a scalpel</div>
+        <p>The single most useful question in a regression is: <em>"what is different now versus when it worked?"</em> Anything that was <strong>the same</strong> in the working state cannot be the cause — by definition. The shared <code class="ic">function.name</code> was identical on 06-16 (working) and 06-23 (broken), so it was instantly exonerated. Hold every suspect up against the last known-good state; constants are innocent.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://en.wikipedia.org/wiki/Falsifiability">Falsifiability (Popper)</a> ·
+        <a class="inline" href="https://blog.regehr.org/archives/199">How to debug (John Regehr)</a>
+      </p>
+
+      <!-- ---- Concept 5: blocking vs async & dead air ---- -->
+      <h3 id="c-blocking">5 · Blocking vs async tools, and where dead air comes from</h3>
+      <p><strong>Plain-English explanation.</strong> A tool can be <strong>blocking</strong> (the model stops and waits for the result before it says or does anything else) or <strong>async</strong> (the model fires the tool and keeps talking while it runs in the background). A blocking tool is the right choice when the model <em>needs</em> the answer to continue — but it has a cost: while it waits, if nothing has been said, the caller hears <strong>silence</strong>. On a phone call, silence reads as "the line dropped."</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> <code class="ic">find_units</code> is blocking (<code class="ic">async: False</code>) because Max needs the lookup result to know what to say next. The plan <em>was</em> for the model to speak a "one moment" phrase <em>before</em> firing the tool. But the model isn't reliable about that — on the failing call it fired <code class="ic">find_units</code> first and said nothing, producing <strong>17 seconds</strong> of dead air. The caller said "Hello?" twice.</p>
+
+      <p><strong>How it works (analogy).</strong> A receptionist who needs to check a file can either say "one moment, let me look" and <em>then</em> walk to the cabinet (you know they're working), or silently walk off mid-sentence (you think they hung up). Same wait, opposite experience. The words before the pause are the whole difference.</p>
+
+      <p><strong>The failure, from the real transcript:</strong></p>
+      <div class="term"><span class="spk">Caller (+11.9s):</span> I just saw your listing in Laval. So what do you have there? <span class="garble">Hello?</span>
+              <span class="dim">[ find_units fires — blocking — and Max says NOTHING ]</span>
+<span class="spk">Caller (+28.4s):</span> <span class="garble">Hello?</span>                         <span class="dim"># ~17s of silence; caller thinks the line died</span>
+<span class="cal">Max   (+29.1s):</span> Let me check that in my system. One moment please. Got it...</div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — "the model will say the filler" is not a guarantee</div>
+        <p>Relying on a language model to reliably perform a <em>timing-sensitive</em> action ("speak before you call the tool") is fragile. Models are probabilistic; on some turns they'll fire the tool first. If the cost of the rare miss is high (a caller hanging up), don't rely on the model — make the platform do it deterministically (next concept).</p>
+      </div>
+
+      <!-- ---- Concept 6: request-start ---- -->
+      <h3 id="c-reqstart">6 · request-start messages: deterministic filler</h3>
+      <p><strong>Plain-English explanation.</strong> VAPI lets each tool carry a <code class="ic">messages</code> list. A message of type <code class="ic">request-start</code> is spoken <em>automatically by VAPI the instant the tool fires</em> — no model involvement at all. Put a "one moment" phrase there and a blocking tool can never again produce dead air, because the platform always says something the moment the wait begins.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> It moves the filler from "the model hopefully remembers" to "the platform guarantees." Per VAPI's own docs, a configured <code class="ic">request-start</code> message is <em>more reliable</em> than asking the LLM to generate the phrase. We added one to <code class="ic">find_units</code> and <code class="ic">search_listings</code> — the two lookup tools the caller waits on.</p>
+
+      <p><strong>How it works (analogy).</strong> It's the automatic "Your call is important to us" that plays the instant you're put on hold — the human agent doesn't have to remember to say it; the phone system does. Reliable because it's not a person's job.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong><code class="ic">messages</code> (on a tool)</strong> — phrases VAPI can speak at tool lifecycle moments (start, delayed, failed).</li>
+        <li><strong><code class="ic">request-start</code></strong> — the message spoken the moment the tool call begins.</li>
+        <li><strong><code class="ic">content</code></strong> — the literal text spoken; it is read in the language it is written, so we make it bilingual to cover both English and French callers.</li>
+        <li><strong><code class="ic">blocking: false</code></strong> — on the message, means "speak this, but don't make the tool wait for the speech to finish."</li>
+      </ul>
+
+      <p><strong>Annotated code — the deterministic filler.</strong></p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — find_units tool"><pre><code># VAPI speaks this the INSTANT the (blocking) tool fires — no model involvement, no dead air.
+"messages": [{
+    "type": "request-start",                  # lifecycle moment: tool just started
+    # one short bilingual string (EN then FR) so either caller hears a wait phrase immediately.
+    # content is read in the language it's written, so we include both — matches Max's "Hi. Bonjour." style.
+    "content": "Let me check that in my system, one moment. Un instant, je vérifie ça.",
+    "blocking": False,                         # don't hold the tool waiting for the speech to finish
+}],</code></pre></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — pair the platform filler with a prompt that stops double-speak</div>
+        <p>If VAPI now always says "let me check," but the prompt <em>also</em> tells the model to say it, the caller hears it twice. So we changed the prompt's "say a checking phrase" instruction to "the system says it automatically — don't announce the lookup, just keep the conversation flowing." Deterministic mechanism + a prompt that defers to it = clean, single, reliable filler.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/tools/custom-tools">VAPI tool messages</a> ·
+        <a class="inline" href="https://docs.vapi.ai/customization/speech-configuration">VAPI speech &amp; timing</a>
+      </p>
+
+      <!-- ---- Concept 7: structured extraction ---- -->
+      <h3 id="c-structured">7 · Structured data extraction at end-of-call</h3>
+      <p><strong>Plain-English explanation.</strong> VAPI can run an <em>analysis</em> pass after a call ends: you give it a <strong>schema</strong> (the fields you want — name, budget, move-in date, …) and it reads the whole transcript and fills those fields in, returning them in the end-of-call report. This means you can recover the structured lead from <em>what was said</em>, even if the model never called the save-the-lead tool during the conversation.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The whole crisis was that the model stopped calling <code class="ic">submit_lease_lead</code>, so the structured lead was never built mid-call. Structured extraction is a second, independent path to the same data: it doesn't care whether the model behaved — it just mines the finished transcript. That's the difference between "leads if the AI cooperates" and "leads, period."</p>
+
+      <p><strong>How it works (analogy).</strong> Imagine an interviewer who's supposed to fill in a form during the meeting but keeps forgetting. So you also record the meeting and have an assistant fill the form from the recording afterwards. Two independent chances to get the form filled; you only need one to succeed.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong><code class="ic">analysisPlan</code></strong> — VAPI's post-call analysis config block on the assistant.</li>
+        <li><strong><code class="ic">structuredDataPlan</code></strong> — the sub-block that extracts typed fields from the transcript per a JSON schema.</li>
+        <li><strong>end-of-call report</strong> — the webhook VAPI sends after a call; the extracted data arrives at <code class="ic">message.analysis.structuredData</code>.</li>
+        <li><strong>schema</strong> — a typed description of the fields to extract (string, number, enum, …) plus a per-field description that guides the extractor.</li>
+      </ul>
+
+      <p><strong>Annotated code — the extraction plan (trimmed).</strong></p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — _LEASE_STRUCTURED_DATA_PLAN"><pre><code>_LEASE_STRUCTURED_DATA_PLAN = {
+    "enabled": True,                       # turn the post-call extraction on
+    "schema": {                            # the lead fields we want pulled from the transcript
+        "type": "object",
+        "properties": {
+            "caller_name": {"type": "string", "description": "Caller's full name. Empty if never given."},
+            "qualification_status": {      # an enum constrains the model to valid values
+                "type": "string", "enum": ["qualified", "not_qualified", "unmatched"],
+                "description": "qualified if a unit was discussed and no hard disqualifier; else ...",
+            },
+            "budget_max": {"type": "number", "description": "Max monthly rent stated, in dollars. 0 if not stated."},
+            "move_in_timeline": {"type": "string", "description": "Preferred move-in date/timeframe. Empty if none."},
+            "occupants": {"type": "integer", "description": "People who will live in the unit. 0 if not stated."},
+            "unit_of_interest": {"type": "string", "description": "Unit/street/city chosen, exactly as spoken."},
+            # ... employment, landlord_aware, pets, disqualifying_reason, notes ...
+        },
+    },
+    "messages": [{                         # a system prompt that steers the extractor
+        "role": "system",
+        "content": "Fill every field from what the caller actually said. Use empty string for "
+                   "unknown text and 0 for unknown numbers — never guess. budget_max/occupants are numbers.",
+    }],
+}</code></pre></div>
+
+      <div class="callout c-deep">
+        <div class="c-title">📖 Deep Dive — the transcript has no UUIDs</div>
+        <p>One honest limitation: the transcript contains <em>spoken words</em>, never internal IDs. The caller says "the place on Chemin du Lac," not the listing's UUID. So <code class="ic">unit_of_interest</code> captures the spoken text, and the backend resolves it to a real <code class="ic">listing_uuid</code> best-effort (a unique substring match against the manager's active listings). When the text matches exactly one listing, we link it; otherwise we keep the words and leave the link null. Structured extraction recovers <em>human</em> facts perfectly and <em>machine</em> identifiers approximately — design around that.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/assistants/call-analysis">VAPI call analysis &amp; structured data</a> ·
+        <a class="inline" href="https://json-schema.org/learn/getting-started-step-by-step">JSON Schema basics</a>
+      </p>
+
+      <!-- ---- Concept 8: defense in depth ---- -->
+      <h3 id="c-defense">8 · Defense in depth: don't trust one mechanism with critical data</h3>
+      <p><strong>Plain-English explanation.</strong> <strong>Defense in depth</strong> means protecting something important with <em>multiple independent layers</em>, so that if one fails, another still catches it. For data you cannot afford to lose, you never rely on a single mechanism — especially not one as probabilistic as "the AI will remember to call the tool."</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> A lost lead is lost revenue — the worst possible failure for this product. So lead capture now has <strong>three</strong> layers, in priority order: (1) the model calls <code class="ic">submit_lease_lead</code> mid-call; (2) if it doesn't, VAPI's structured extraction builds the lead from the transcript at end-of-call; (3) if even that yields nothing, we still write a bare <code class="ic">Unknown</code> row so the manager at least sees a call happened. A <code class="ic">call_id</code> de-duplication check ensures whichever layer fires <em>first</em> wins, so we never double-save.</p>
+
+      <p><strong>How it works (analogy).</strong> A bank vault doesn't rely only on the door lock. There's the lock, plus a time delay, plus motion sensors, plus a guard. Each is independent; a thief has to beat all of them. Our lead has the tool, the extractor, and the floor row — three locks on the same vault.</p>
+
+      <div class="diagram"><span class="lbl">LEAD CAPTURE — three independent layers (first one to fire wins, deduped by call_id)</span>
+
+  during the call ─────────────▶  <span class="good">① submit_lease_lead tool</span>      → POST /voice/lease-lead-direct   <span class="good">[richest: model-built]</span>
+                                          │ (model didn't fire it?)
+  at end of call ──────────────▶  <span class="warn">② structuredDataPlan</span>          → /voice/lease-eoc-webhook reads
+                                          │                              message.analysis.structuredData  <span class="warn">[complete: transcript-mined]</span>
+                                          │ (no structured data?)
+  last resort ─────────────────▶  <span class="bad">③ "Unknown" placeholder row</span>   → so a call is never invisible  <span class="bad">[floor: proof-of-call]</span></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — the floor can only go up</div>
+        <p>Before this session, layer ③ was the <em>only</em> layer that ever fired — every lead was "Unknown." After it, ③ is the <em>last resort</em>. Critically, adding layers ① and ② <strong>cannot make things worse</strong>: in the absolute worst case (both new layers fail) we still write the same "Unknown" row we wrote before. Defense in depth is safe to add precisely because each layer only ever <em>improves</em> on the floor beneath it.</p>
+      </div>
+
+      <!-- ---- Concept 9: measurement artifacts ---- -->
+      <h3 id="c-artifact">9 · Measurement artifacts: when your <em>tool</em> is the bug</h3>
+      <p><strong>Plain-English explanation.</strong> Sometimes the thing you're measuring is fine and your <em>measuring instrument</em> is what's wrong. A "broken" reading that only appears through one tool — and vanishes when you check another way — is a <strong>measurement artifact</strong>, not a real defect.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Mid-investigation we "found" data corruption: a Quebec apartment size stored as <code class="ic">11½</code> was coming back as <code class="ic">11Â½</code> — the classic look of double-encoded UTF-8 (a real, common bug). We almost wrote a database migration to "fix" it. Then we checked the <em>raw bytes</em> and they were perfect. The <code class="ic">Â</code> was being injected by our own Windows terminal, which decoded the API's correct UTF-8 as a different character set. The data was never broken; our viewer was.</p>
+
+      <p><strong>How it works (analogy).</strong> A thermometer reading 200°C in a room that feels normal isn't a fire — it's a broken thermometer. Before you evacuate (write a migration), check the temperature a second, independent way (raw bytes).</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>UTF-8</strong> — the standard way to encode text (including <code class="ic">½</code>) as bytes; <code class="ic">½</code> is the two bytes <code class="ic">C2 BD</code>.</li>
+        <li><strong>cp1252 / Latin-1</strong> — an older single-byte Windows encoding; it reads the byte <code class="ic">C2</code> as the visible character <code class="ic">Â</code>.</li>
+        <li><strong>mojibake</strong> — garbled text from decoding bytes with the wrong encoding (<code class="ic">½</code> → <code class="ic">Â½</code>).</li>
+        <li><strong><code class="ic">xxd</code> / hex dump</strong> — shows the literal bytes, bypassing any character-set interpretation.</li>
+      </ul>
+
+      <p><strong>Annotated command — the byte check that exonerated the data.</strong></p>
+      <div class="term"><span class="pmt">$</span> curl -s ".../find-units?...&amp;query=Montreal" | grep -o '"quebec_size":"[^"]*"' | xxd
+00000010: <span class="ok">31 31 c2 bd</span> 22 0a         <span class="dim"># 31 31 = "11", c2 bd = ½ in correct UTF-8. NOT corrupt.</span></div>
+      <p>The bytes <code class="ic">c2 bd</code> are textbook-correct UTF-8 for <code class="ic">½</code>. The database, the API, and VAPI were all fine; only <code class="ic">python -m json.tool</code> piped through the Windows console had mis-rendered them. We retracted the "corruption" diagnosis on the spot.</p>
+
+      <div class="callout c-bug">
+        <div class="c-title">🐛 Bug Story preview</div>
+        <p>This one gets the full treatment in <a class="inline" href="#bug2">Bug 2</a> — it's the most important "bug" in the session precisely because the correct fix was to <em>do nothing to the data</em>. Knowing when <em>not</em> to act is a senior skill.</p>
+      </div>
+
+      <!-- ---- Concept 10: tolerant matching ---- -->
+      <h3 id="c-tolerant">10 · Tolerant matching: normalize before you compare</h3>
+      <p><strong>Plain-English explanation.</strong> Humans say the same thing many ways: "four and a half," "4½," "4 1/2," "4.5." If your code compares with exact string equality, all those near-identical inputs miss each other. <strong>Tolerant matching</strong> means: run both sides through a <em>normalizer</em> that collapses the variations into one canonical form, then compare the canonical forms.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The lease search filtered Quebec apartment size with exact equality (<code class="ic">quebec_size == "4½"</code>). If the agent ever passed <code class="ic">"4 1/2"</code> or <code class="ic">"4.5"</code>, the listing would silently drop out of results. We replaced the exact match with a normalized one so all spellings of the same size match.</p>
+
+      <p><strong>How it works (analogy).</strong> A good librarian searching for "McDonald" also finds "MacDonald" and "Mc Donald" — they mentally normalize spelling variants before matching. The normalizer is that librarian, in code.</p>
+
+      <p><strong>Annotated code — the normalizer.</strong></p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — _normalize_quebec_size"><pre><code>def _normalize_quebec_size(s: str) -> str:
+    # Canonicalize a Quebec size so "4½", "4 1/2", "4.5" all compare equal.
+    if not s:
+        return ""
+    s = s.strip().lower().replace("Â", "")      # strip a stray Â defensively (see Bug 2)
+    s = s.replace("1/2", "½").replace(".5", "½")  # collapse the half-room spellings to one glyph
+    return s.replace(" ", "")                     # drop spaces: "4 ½" == "4½"</code></pre></div>
+      <p>Then the search filter compares <code class="ic">_normalize_quebec_size(stored) == _normalize_quebec_size(query)</code> instead of raw equality — fragile exact match becomes forgiving.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — normalize on <em>both</em> sides, always</div>
+        <p>A classic half-fix is normalizing only the user's input but comparing against raw stored values (or vice-versa). If <em>either</em> side can contain a variant, normalize <em>both</em>. The symmetry is what guarantees "4 1/2" typed today matches "4½" stored last month.</p>
+      </div>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p class="muted">Every action this session, in order, with why each happens <em>now</em> and what would break if skipped. The session had two waves: first the "no Montreal" + model revert, then the "no lead + dead air" rebuild.</p>
+
+      <h3>Step 1 — Reproduce the "no Montreal" complaint at the backend layer</h3>
+      <p>Before touching anything, we called the live <code class="ic">find_units</code> endpoint with the exact <code class="ic">query=Montreal</code> from the logs (Concept 1). It returned <code class="ic">found: true</code> with the STDTEST02 listing.</p>
+      <p><strong>Why now:</strong> it acquits the database and backend in one command, so we don't waste time there. <strong>Skip it and</strong> you might "fix" a search endpoint that was never broken.</p>
+
+      <h3>Step 2 — Pin the cause to the model swap; confirm the prompt cut was <em>not</em> live</h3>
+      <p>The logs showed the agent had searched <code class="ic">find_units</code> with <code class="ic">query=11 1/2</code> (a <em>size</em>, which <code class="ic">find_units</code> can't match) and an empty query — never reaching <code class="ic">search_listings</code>. That's tool mis-routing, the predicted downside of last session's <code class="ic">gpt-4o</code> downgrade. We also fetched the live assistant and measured the prompt at <strong>15,308 chars</strong> — the full prompt — proving the user's "prompt cut" was never actually deployed and was <em>not</em> a factor.</p>
+      <p><strong>Why now:</strong> the fix (revert the model) depends on correctly attributing the cause. <strong>Skip it and</strong> you might cut the prompt further, chasing a non-cause.</p>
+
+      <h3>Step 3 — Revert the model to gpt-5.2 in code, push to all 5 agents</h3>
+      <p>One-field change in <code class="ic">_lease_assistant_shell</code> (<code class="ic">gpt-4o</code> → <code class="ic">gpt-5.2-chat-latest</code>), then the idempotent push.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py
+  [28c43c77]  <span class="ok">[OK]</span>  tools=['find_units', 'search_listings', 'submit_lease_lead']
+  ... <span class="ok">Done. 5 updated, 0 failed.</span></div>
+      <p><strong>Why now:</strong> the model lives on VAPI; the code change isn't live until pushed. <strong>Skip the push and</strong> the live agents keep running the broken model.</p>
+
+      <h3>Step 4 — Investigate the "11Â½ corruption" — and retract it</h3>
+      <p>We read <code class="ic">quebec_size</code> straight from the database via the Supabase SDK (clean: <code class="ic">['0x31','0x31','0xbd']</code>) and from the live API as raw bytes via <code class="ic">xxd</code> (clean: <code class="ic">c2 bd</code>). Both correct. The <code class="ic">Â</code> existed only through <code class="ic">python -m json.tool</code> on the Windows console (Concept 9). We retracted the corruption claim and ran <em>no</em> migration.</p>
+      <p><strong>Why now:</strong> verifying before "fixing" prevents a destructive migration against healthy data. <strong>Skip it and</strong> you rewrite correct rows based on a terminal illusion.</p>
+
+      <h3>Step 5 — Harden the legitimately-fragile part: tolerant quebec_size matching</h3>
+      <p>Even though the data was fine, the search's exact-equality size filter <em>was</em> fragile. We added <code class="ic">_normalize_quebec_size</code> (Concept 10) and switched the filter to a normalized Python post-filter.</p>
+      <p><strong>Why now:</strong> we were already in <code class="ic">leasing.py</code> and the fragility is real. <strong>Skip it and</strong> a caller saying "4 1/2" silently gets zero results.</p>
+
+      <h3>Step 6 — Second wave: forensic sweep of the missing leads</h3>
+      <p>After a fresh test call where "details were taken but no lead logged," we queried <code class="ic">lease_leads</code> (every recent row was <code class="ic">Unknown</code>/<code class="ic">unmatched</code>) and swept 25 VAPI call objects (Concept 3). The timeline showed all three tools healthy through 06-16, only <code class="ic">find_units</code> after 06-18.</p>
+      <p><strong>Why now:</strong> the rebuild's shape depends on knowing whether this is wiring or behaviour, and when it started. <strong>Skip it and</strong> you guess at a fix.</p>
+
+      <h3>Step 7 — Form, then kill, the function.name-collision hypothesis</h3>
+      <p>We chased the shared <code class="ic">function.name</code> theory and falsified it with three alibis (Concept 4): shared since May, model emits the unique top-level name, OpenAI would 400 on real duplicates. Root cause re-attributed to a <strong>prompt regression</strong>: the enriched <code class="ic">find_units</code> now returns full unit data, so the model treats it as a do-everything tool and never escalates to <code class="ic">submit_lease_lead</code>.</p>
+      <p><strong>Why now:</strong> a wrong root cause produces a wrong fix. <strong>Skip the falsification and</strong> you rewrite tool configs that were never broken.</p>
+
+      <h3>Step 8 — Get the user's call on the fix strategy</h3>
+      <p>Two genuine forks (prompt-only vs structured safety net; static filler vs async). We asked, and the user chose the robust options: <strong>structured extraction + prompt fix</strong> for leads, <strong>deterministic request-start filler</strong> for silence.</p>
+      <p><strong>Why now:</strong> these are live, outward-facing changes with trade-offs the user should weigh. <strong>Skip the ask and</strong> you might ship a heavier solution than wanted (or a flimsier one).</p>
+
+      <h3>Step 9 — Implement the three lead layers + the fillers + prompt edits</h3>
+      <p>Added <code class="ic">_LEASE_STRUCTURED_DATA_PLAN</code> and wired it as <code class="ic">analysis_plan</code> on the shell; mapped <code class="ic">analysis_plan → analysisPlan</code> in the deploy payload; rewrote <code class="ic">/voice/lease-eoc-webhook</code> to build a complete lead from <code class="ic">structuredData</code> (Concept 8); added <code class="ic">request-start</code> fillers to the two lookup tools (Concept 6); strengthened the prompt's lead-capture rule and removed the now-redundant model-spoken filler instruction.</p>
+      <p><strong>Why now:</strong> all three layers + the silence fix are one coherent change set. <strong>Skip any layer and</strong> you lose the redundancy that makes capture reliable.</p>
+
+      <h3>Step 10 — Validate locally, deploy, verify on the server</h3>
+      <p>Byte-compiled, built the config in the venv to confirm the plan + fillers serialize, pushed all 5 agents, then re-fetched the live assistant to confirm <code class="ic">analysisPlan.structuredDataPlan.enabled = true</code> and the fillers persisted (a PATCH can silently drop unknown fields, so server-side verification is mandatory).</p>
+      <p><strong>Why now:</strong> "the script said OK" is not "the field is live." <strong>Skip the re-fetch and</strong> a dropped field fails silently in production.</p>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — the backend half still needs a Render deploy</div>
+        <p>The VAPI config (model, fillers, the extraction plan) went live via the push. But the code that <em>reads</em> the extracted data — the rewritten <code class="ic">/voice/lease-eoc-webhook</code> in <code class="ic">voice.py</code> — and the <code class="ic">quebec_size</code> normalizer in <code class="ic">leasing.py</code> are <strong>backend</strong> changes that only go live on a Render deploy (a git push). Until then: the prompt fix alone can already restore leads (the model calling <code class="ic">submit_lease_lead</code> hits the already-deployed <code class="ic">/voice/lease-lead-direct</code>), and the structured safety net sits dormant with no regression. <strong>Two surfaces, two deploys — always.</strong></p>
+      </div>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p class="muted">Four bugs, four different root causes — a model regression, a fake corruption, a behavioural regression, and a timing failure. This is the heart of the session.</p>
+
+      <!-- ===== BUG 1 ===== -->
+      <h3 id="bug1">🐛 Bug 1 — "You have no listing in Montreal" (but we did)</h3>
+
+      <h4 class="sub">🚨 The Symptom</h4>
+      <p>A test caller asked about Montreal in English. Max replied that there were no Montreal listings — yet a real, active Montreal listing (STDTEST02, 48 Avenue Libre) existed. The backend log showed the agent firing <code class="ic">find_units</code> with odd queries:</p>
+      <div class="term"><span class="dim">GET /leasing/find-units?...&amp;query=Montreal</span>     <span class="ok">200 OK</span>
+<span class="dim">GET /leasing/find-units?...&amp;query=11%201/2</span>    <span class="garble"># a SIZE, not a place</span>
+<span class="dim">GET /leasing/find-units?...&amp;query=</span>            <span class="garble"># empty query</span></div>
+
+      <h4 class="sub">🔍 The Diagnosis</h4>
+      <p>We isolated the backend layer (Concept 1) by calling <code class="ic">find_units?query=Montreal</code> ourselves: it returned <code class="ic">found: true</code> with the listing. So data and API were innocent. The log's smoking gun was the <em>second</em> query: <code class="ic">query=11 1/2</code> is a Quebec <em>size</em>. <code class="ic">find_units</code> only matches <em>places</em> (city/street/building); it deliberately does not match sizes. Searching a size through it always returns nothing — which the model then voiced as "no listings." The model was using the <em>wrong tool for the job</em> and never advancing to <code class="ic">search_listings</code> (which does filter by size). When the user mentioned they'd downgraded the model last session, the cause clicked into place.</p>
+
+      <h4 class="sub">🧠 The Root Cause</h4>
+      <p>Last session's latency fix swapped the lease LLM from <code class="ic">gpt-5.2-chat-latest</code> to the lighter <code class="ic">gpt-4o</code>. The lease flow is a long, multi-step tool-routing spec (look up place → ask size → <em>then</em> filter with <code class="ic">search_listings</code>). The lighter model was materially worse at following that spec: it conflated the tools and stalled in the lookup step. This was the exact <strong>asymmetric downside</strong> we flagged in Session 10 — speed bought at the cost of behavioural quality. (We also confirmed the user's "prompt cut" was never deployed — the live prompt was the full 15,308 chars — so the prompt was <em>not</em> a contributor.)</p>
+
+      <h4 class="sub">🔧 The Fix</h4>
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — _lease_assistant_shell (BEFORE → AFTER)"><pre><code>"model": {
+    "provider": "openai",
+    "model": "gpt-4o",                 # BEFORE: lighter/faster but mis-routes the multi-step tool flow
+    "model": "gpt-5.2-chat-latest",    # AFTER:  restores reliable tool routing (the behaviour we need)
+    ...
+}</code></pre></div>
+      <p>Then the idempotent push redeployed all five lease agents, and we verified the live model field server-side.</p>
+
+      <h4 class="sub">🛡️ The Lesson</h4>
+      <p>An <strong>asymmetric trade-off</strong> isn't theoretical until it bites — and then it bites in production, on a real caller. A cheaper/faster model is only "free" if it preserves the behaviour you depend on; for a long tool-routing flow, model capability <em>is</em> the feature. When you take a speed-for-quality bet, instrument it (replay calls, watch tool usage) so you catch the regression before a customer does. And always isolate layers first: one <code class="ic">curl</code> saved us from "fixing" an innocent endpoint.</p>
+
+      <!-- ===== BUG 2 ===== -->
+      <h3 id="bug2">🐛 Bug 2 — The data corruption that wasn't (11Â½)</h3>
+
+      <h4 class="sub">🚨 The Symptom</h4>
+      <p>While inspecting the Montreal listing's JSON, the Quebec size came back looking double-encoded:</p>
+      <div class="term"><span class="pmt">$</span> curl -s ".../find-units?...&amp;query=Montreal" | python -m json.tool
+    "quebec_size": <span class="garble">"11Â½"</span>      <span class="dim"># expected "11½" — looks like classic UTF-8 mojibake</span></div>
+      <p>This is the exact signature of a real, common bug (UTF-8 text accidentally decoded as Latin-1 and re-encoded), so it was completely believable. The initial diagnosis flagged it as data corruption introduced by a listing-edit path, and proposed a backfill migration.</p>
+
+      <h4 class="sub">🔍 The Diagnosis</h4>
+      <p>Before writing a migration against production data, we verified two independent ways (Concept 9):</p>
+      <ol>
+        <li><strong>Read the database directly</strong> via the Supabase SDK and printed codepoints: <code class="ic">['0x31','0x31','0xbd']</code> = <code class="ic">1</code>,<code class="ic">1</code>,<code class="ic">½</code>. Clean. No <code class="ic">Â</code> (which would be <code class="ic">0xC2</code> as a separate codepoint).</li>
+        <li><strong>Read the live API as raw bytes</strong> with <code class="ic">xxd</code>: <code class="ic">31 31 c2 bd</code>. The <code class="ic">c2 bd</code> is correct UTF-8 for <code class="ic">½</code>.</li>
+      </ol>
+      <p>Both the stored data and the wire bytes were perfect. The only place the <code class="ic">Â</code> appeared was through <code class="ic">python -m json.tool</code> rendered in the Windows terminal.</p>
+
+      <h4 class="sub">🧠 The Root Cause</h4>
+      <p>The Windows console's default code page (cp1252) decoded the API's correct UTF-8 bytes with the wrong character set. UTF-8 encodes <code class="ic">½</code> as the two bytes <code class="ic">C2 BD</code>; cp1252 reads byte <code class="ic">C2</code> as the visible glyph <code class="ic">Â</code> and <code class="ic">BD</code> as <code class="ic">½</code> — producing the phantom <code class="ic">Â½</code>. The corruption was generated <em>by the act of viewing</em>. The database, the FastAPI response, and VAPI all handled the bytes correctly end-to-end. <strong>The instrument was the bug.</strong></p>
+
+      <h4 class="sub">🔧 The Fix</h4>
+      <p>The fix was to <strong>not</strong> change the data at all — and to retract the corruption claim. The only code we wrote was defensive: the new <code class="ic">_normalize_quebec_size</code> strips a stray <code class="ic">Â</code> just in case a real one ever sneaks in, and we recorded the gotcha as a persistent memory so it never re-derails an investigation:</p>
+      <div class="code-block" data-lang="text" data-file="memory: windows-curl-json-tool-false-mojibake"><pre><code>Verify raw bytes before declaring UTF-8 corruption. On Windows, piping an API
+response through `python -m json.tool` (or print) decodes it as cp1252, turning
+correct UTF-8 (C2 BD = ½) into a phantom "Â½". Confirm with `curl | xxd` and by
+printing codepoints from the DB before writing any migration. Only 0xC2 actually
+present in storage is real mojibake.</code></pre></div>
+
+      <h4 class="sub">🛡️ The Lesson</h4>
+      <p>When a defect appears only through <em>one</em> viewing path, suspect the path before the data. The cost of being wrong here was asymmetric and nasty: a "corruption fix" migration would have <em>rewritten correct rows</em> based on an illusion — turning a non-bug into a real one. The senior move is to confirm with an independent instrument (raw bytes) and, when the data is fine, to have the discipline to do nothing. Knowing when <em>not</em> to act is as valuable as any fix.</p>
+
+      <!-- ===== BUG 3 ===== -->
+      <h3 id="bug3">🐛 Bug 3 — A full week of leads logged as "Unknown"</h3>
+
+      <h4 class="sub">🚨 The Symptom</h4>
+      <p>After a successful-feeling test call — Max collected the caller's name (Pranav Raj), budget, move-in date, employment, occupants, pets — the manager saw <em>no usable lead</em>. The <code class="ic">lease_leads</code> table held only a placeholder:</p>
+      <div class="term"><span class="dim">most recent lease_leads rows:</span>
+2026-06-23  name=<span class="garble">'Unknown'</span>  status=unmatched  notes="[end-of-call fallback] Transcript: ..."
+2026-06-23  name=<span class="garble">'Unknown'</span>  status=unmatched
+2026-06-18  name=<span class="garble">'Unknown'</span>  status=unmatched
+<span class="dim">... every recent call was an "Unknown" fallback — no real names, budgets, or qualification ...</span></div>
+
+      <h4 class="sub">🔍 The Diagnosis</h4>
+      <p>We replayed the actual call from the VAPI API (Concept 3). The message timeline showed the model calling <code class="ic">find_units(query="Laval")</code> <strong>five times</strong> — at the budget step (where <code class="ic">search_listings</code> was due) and twice at the handoff (where <code class="ic">submit_lease_lead</code> was due) — and <strong>never</strong> calling <code class="ic">submit_lease_lead</code>. So the structured lead was never built mid-call; only the end-of-call <code class="ic">Unknown</code> fallback ever fired. Sweeping 25 calls placed the regression precisely: all three tools healthy through <strong>06-16</strong>, only <code class="ic">find_units</code> from <strong>06-18</strong>.</p>
+      <p><strong>The red herring (and how we killed it).</strong> The obvious suspect was the shared <code class="ic">function.name = "api_request_tool"</code> across all three tools. We <em>almost</em> committed to it — then falsified it (Concept 4): it had been shared since May (including 06-16 when tools worked), the model emitted the unique top-level <code class="ic">find_units</code> (so dispatch uses that, not the shared field), and OpenAI would 400 on genuinely-duplicate names yet <code class="ic">find_units</code> worked. Three alibis, hypothesis dead.</p>
+
+      <h4 class="sub">🧠 The Root Cause</h4>
+      <p>A <strong>prompt regression</strong> deployed around 06-17 (the Quebec-sizing / banded-confirmation work). That change (a) <em>enriched</em> <code class="ic">find_units</code> so it now returns full unit data — rent, size, beds, address — making it look like a do-everything tool, and (b) grew the prompt large enough to bury the <code class="ic">submit_lease_lead</code> instruction. The model learned to lean on <code class="ic">find_units</code> for everything and to <em>narrate</em> the closing line ("I'll get that to the team") instead of actually firing the lead tool. Both <code class="ic">gpt-4o</code> and the reverted <code class="ic">gpt-5.2</code> exhibited it, confirming it was the prompt/tool framing, not the model.</p>
+
+      <h4 class="sub">🔧 The Fix — defense in depth (three layers)</h4>
+      <p><strong>(1) Prompt</strong> — make lead capture a hard rule and stop the model treating <code class="ic">find_units</code> as the finish line:</p>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — [Critical Rules] (added)"><pre><code>- ALWAYS call submit_lease_lead exactly once before the call ends — it is the ONLY tool
+  that records the lead; find_units and search_listings only look things up and never capture a lead
+- A call that ends without submit_lease_lead has FAILED. Do NOT call find_units/search_listings to wrap up.</code></pre></div>
+      <p><strong>(2) Safety net</strong> — VAPI's <code class="ic">structuredDataPlan</code> extracts the lead from the transcript at end-of-call (Concept 7), and the rewritten webhook builds a complete lead from it:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/voice.py — /voice/lease-eoc-webhook (the new path)"><pre><code>analysis = message.get("analysis") or {}
+structured = analysis.get("structuredData") or {}          # fields VAPI mined from the transcript
+if structured:                                             # SAFETY NET: build a COMPLETE lead
+    lead_payload = {
+        "caller_name": structured.get("caller_name") or "Unknown",
+        "budget_max": _pos_num(structured.get("budget_max")),       # numbers parsed defensively
+        "move_in_timeline": (structured.get("move_in_timeline") or "").strip() or None,
+        "occupants": _pos_int(structured.get("occupants")),
+        "qualification_status": structured.get("qualification_status") or "unmatched",
+        "qualifying_answers": {...},                                # employment / landlord / pets / unit text
+        # listing_uuid resolved best-effort from spoken unit_of_interest (transcripts carry no UUIDs)
+        ...
+    }
+else:                                                      # FLOOR: only if nothing was extracted
+    lead_payload = {"caller_name": "Unknown", "qualification_status": "unmatched", ...}
+# dedup by call_id means if submit_lease_lead already saved during the call, this skips entirely
+db.table("lease_leads").insert(lead_payload).execute()</code></pre></div>
+      <p><strong>(3) Floor</strong> — the original <code class="ic">Unknown</code> row remains as the last resort, so a call is never invisible. A <code class="ic">call_id</code> dedup ensures whichever layer fires first wins.</p>
+
+      <h4 class="sub">🛡️ The Lesson</h4>
+      <p>Two lessons braided together. First, <strong>don't fall in love with your first hypothesis</strong> — the <code class="ic">function.name</code> theory was elegant and wrong; only actively trying to falsify it saved hours of misdirected work. Second, <strong>don't trust a probabilistic component with non-negotiable data</strong>. "The model will call the tool" is a hope, not a guarantee; for revenue-critical data like leads, add an independent, deterministic capture path so the system succeeds even when the AI doesn't. The prompt fix raises the odds; the structured-extraction net makes the outcome certain.</p>
+
+      <!-- ===== BUG 4 ===== -->
+      <h3 id="bug4">🐛 Bug 4 — Seventeen seconds of silence</h3>
+
+      <h4 class="sub">🚨 The Symptom</h4>
+      <p>On the same test call, Max went dead silent right after the caller's first question, for long enough that the caller repeated "Hello?" twice, thinking the line had dropped:</p>
+      <div class="term"><span class="spk">Caller (+11.9s):</span> ...what do you have there? <span class="garble">Hello?</span>
+<span class="spk">Caller (+28.4s):</span> <span class="garble">Hello?</span>                  <span class="dim"># ~17 seconds of nothing</span>
+<span class="cal">Max   (+29.1s):</span> Let me check that in my system. One moment please...</div>
+
+      <h4 class="sub">🔍 The Diagnosis</h4>
+      <p>The gap lined up exactly with the first <code class="ic">find_units</code> call. That tool is <strong>blocking</strong> (<code class="ic">async: False</code>) because Max needs the result to continue (Concept 5). Its <code class="ic">messages</code> list was <em>empty</em> — by an earlier design choice to let the model speak the "one moment" phrase itself for bilingual flexibility. But on this call the model fired the tool <em>first</em> and spoke <em>after</em> the result returned. With a blocking tool and no platform-level filler, that ordering produces raw silence for the whole lookup.</p>
+
+      <h4 class="sub">🧠 The Root Cause</h4>
+      <p>The filler was the model's responsibility, and the model is probabilistic about <em>when</em> it speaks relative to a tool call. The design relied on the LLM to perform a timing-sensitive action reliably; it doesn't. The empty <code class="ic">messages</code> list meant there was no deterministic backstop, so the one time the model got the ordering "wrong," the caller got 17 seconds of nothing.</p>
+
+      <h4 class="sub">🔧 The Fix</h4>
+      <p>Move the filler from the model to the platform — a deterministic <code class="ic">request-start</code> message on the lookup tools (Concept 6), plus a prompt edit so the model no longer also announces the lookup (avoiding double-speak):</p>
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — find_units (BEFORE → AFTER)"><pre><code># BEFORE: empty — relied on the model to speak a filler before the blocking call
+"messages": [],
+
+# AFTER: VAPI speaks this the instant the tool fires — deterministic, bilingual, no dead air
+"messages": [{
+    "type": "request-start",
+    "content": "Let me check that in my system, one moment. Un instant, je vérifie ça.",
+    "blocking": False,
+}],</code></pre></div>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — [System-Check Phrases] (rewritten)"><pre><code>The system AUTOMATICALLY speaks a short bilingual "one moment" phrase the instant any lookup
+starts. You do NOT need to announce the lookup or say "let me check" yourself — saying it too
+would double up. Instead, keep the conversation flowing and use the result the moment it arrives.</code></pre></div>
+
+      <h4 class="sub">🛡️ The Lesson</h4>
+      <p>If a behaviour is <strong>timing-critical</strong> and its failure is <strong>expensive</strong> (a caller hanging up), don't delegate it to a probabilistic agent — make the deterministic platform own it. The model is great at <em>deciding what to say</em>; it's unreliable at <em>guaranteeing when</em>. Match each responsibility to the component that can actually guarantee it. And when you move a job to the platform, update the prompt so the two don't collide (the double-speak guard).</p>
+
+      <div class="callout c-bug">
+        <div class="c-title">🐛 Why so many bugs this session?</div>
+        <p>Unlike a green-field feature session, this one was almost entirely <em>modifying existing, deployed behaviour</em> — the surface with the most integration points to fail. Three of the four bugs were <strong>regressions</strong> (something that used to work), which is exactly where time-bisecting ("what changed since it worked?") and layer isolation pay off most. The fourth wasn't even a real bug — a reminder that "found a bug" should itself be a falsifiable claim.</p>
+      </div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose this</th><th>Trade-offs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Revert lease model to <code>gpt-5.2-chat-latest</code></td>
+            <td>Keep <code>gpt-4o</code> + heavily re-engineer the prompt to suit it; try a mid-tier model</td>
+            <td>Tool-routing reliability is the product; the proven model restores it immediately with one field</td>
+            <td>Gives back the latency win from Session 10 — latency must be solved another way</td>
+          </tr>
+          <tr>
+            <td>Lead capture = prompt rule <strong>+</strong> structured extraction <strong>+</strong> floor row</td>
+            <td>Prompt-only (cheaper); or parse the transcript ourselves with our own LLM call</td>
+            <td>Defense in depth makes capture independent of model behaviour; VAPI does the extraction for us</td>
+            <td>More moving parts; structured data lacks UUIDs (best-effort unit resolution)</td>
+          </tr>
+          <tr>
+            <td>Deterministic <code>request-start</code> filler</td>
+            <td>Keep model-spoken rotating phrases; make <code>find_units</code> async</td>
+            <td>Platform-guaranteed = no dead air ever; async risks using a result that isn't back yet</td>
+            <td>One static bilingual string instead of varied, language-locked phrasing</td>
+          </tr>
+          <tr>
+            <td>Do <strong>nothing</strong> to the "11Â½" data</td>
+            <td>Write a backfill migration to "repair" it</td>
+            <td>Raw bytes proved the data was correct UTF-8; the migration would corrupt healthy rows</td>
+            <td>None — but required the discipline to verify before acting</td>
+          </tr>
+          <tr>
+            <td>Ask the user to pick the fix strategy</td>
+            <td>Just implement the most robust option silently</td>
+            <td>Live, outward-facing changes with real effort/robustness trade-offs the user should own</td>
+            <td>One extra round-trip before coding</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+
+      <h4 class="sub">1 · The model is reverted, live on all agents</h4>
+      <div class="term"><span class="pmt">$</span> curl -s "https://api.vapi.ai/assistant/$ID" -H "Authorization: Bearer $KEY" \
+    | python -c "import sys,json; d=json.load(sys.stdin); print(d['model']['model'])"
+<span class="ok">gpt-5.2-chat-latest</span></div>
+      <ul class="check">
+        <li>It works if every lease assistant prints <code>gpt-5.2-chat-latest</code>.</li>
+      </ul>
+      <ul class="xlist">
+        <li>Something's wrong if any still says <code>gpt-4o</code> — re-run the push; a PATCH may have failed.</li>
+      </ul>
+
+      <h4 class="sub">2 · The extraction plan + fillers persisted server-side</h4>
+      <div class="term"><span class="pmt">$</span> <span class="dim"># re-fetch and check the fields actually saved (a PATCH can silently drop unknown fields)</span>
+LIVE analysisPlan.structuredDataPlan.enabled: <span class="ok">True</span>
+LIVE schema fields: ['caller_name','qualification_status','budget_max', ... ]
+LIVE tool=find_units       request-start content set: <span class="ok">True</span>
+LIVE tool=search_listings  request-start content set: <span class="ok">True</span></div>
+      <ul class="check">
+        <li>It works if <code>enabled</code> is <code>True</code> and both lookup tools report a filler.</li>
+      </ul>
+
+      <h4 class="sub">3 · The data was never corrupt</h4>
+      <div class="term"><span class="pmt">$</span> curl -s ".../find-units?...&amp;query=Montreal" | grep -o '"quebec_size":"[^"]*"' | xxd
+00000010: 31 31 <span class="ok">c2 bd</span> 22 0a    <span class="dim"># c2 bd = ½ in correct UTF-8 ✔</span></div>
+
+      <h4 class="sub">4 · A live test call saves a real lead (after the backend deploy)</h4>
+      <p>Place a test call, give a name and details, then watch the Render log:</p>
+      <ul class="check">
+        <li><code>[LEASE LEAD DIRECT] ... [SAVED]</code> — the model fired <code>submit_lease_lead</code> (primary path). ✔</li>
+        <li><code>[LEASE EOC] Lead saved (structured=True) ... name=&lt;your name&gt;</code> — the safety net caught it. ✔</li>
+      </ul>
+      <ul class="xlist">
+        <li>Only a bare <code>Unknown</code> row and <code>structured=False</code> — the backend deploy hasn't happened yet, <em>or</em> the analysis plan didn't run. Check both surfaces.</li>
+      </ul>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — replay your own call</div>
+        <p>Using the VAPI call API, fetch your most recent lease call and list the distinct tool names the model invoked (like the sweep in Concept 3). Confirm whether <code class="ic">submit_lease_lead</code> appears.</p>
+        <details><summary>Hint</summary>
+          <p>Fetch <code class="ic">GET https://api.vapi.ai/call?limit=5</code>, take the newest <code class="ic">id</code>, then <code class="ic">GET /call/{id}</code>. Walk <code class="ic">messages[]</code>, and for each with <code class="ic">toolCalls</code>, collect <code class="ic">tc.function.name</code>. Print the <code class="ic">sorted(set(...))</code>. If you see all three tool names, the lead path is healthy.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — add a field to the structured plan</div>
+        <p>Property managers also want to know if the caller has a co-signer. Add a <code class="ic">co_signer</code> field to <code class="ic">_LEASE_STRUCTURED_DATA_PLAN.schema</code>, store it in <code class="ic">qualifying_answers</code> in the EOC webhook, push the agents, and verify it persisted server-side.</p>
+        <details><summary>Hint</summary>
+          <p>Add <code class="ic">"co_signer": {"type": "string", "description": "Whether the caller mentioned a co-signer; empty if not."}</code> to the schema. In the webhook's <code class="ic">qualifying_answers</code> loop, include <code class="ic">"co_signer"</code> in the list of keys pulled from <code class="ic">structured</code>. Re-run <code class="ic">update_lease_agents.py</code>, then re-fetch the assistant and confirm the field is in <code class="ic">schema.properties</code>. Don't forget: the webhook change needs a <em>backend</em> deploy to take effect.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — make the dedup race-proof</div>
+        <p>Today, if <code class="ic">submit_lease_lead</code> (mid-call) and the EOC webhook (end-of-call) fire close together, both check "does a lead exist for this <code class="ic">call_id</code>?" and could both insert. Design a fix that guarantees exactly one lead per <code class="ic">call_id</code> even under a race. Describe the DB change and the code change.</p>
+        <details><summary>Hint</summary>
+          <p>A "check then insert" is a classic time-of-check/time-of-use race. The durable fix is a <strong>unique constraint</strong> on <code class="ic">lease_leads.call_id</code> in PostgreSQL, plus an <strong>upsert</strong> (<code class="ic">insert ... on conflict (call_id) do nothing/update</code>) so the database — not application code — enforces uniqueness atomically. Then decide the conflict policy: should the richer mid-call lead win over the EOC one (update on conflict) or first-write-wins (do nothing)? Justify your choice.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary>The push said "5 updated" but the new field isn't live</summary>
+        <p>A VAPI PATCH can accept a payload and silently drop a field it doesn't recognise (e.g. if <code class="ic">analysisPlan</code> wasn't mapped in <code class="ic">_to_vapi_payload</code>). Always <em>re-fetch</em> the assistant and assert the field is present. If it's missing, check that the snake_case config key (<code class="ic">analysis_plan</code>) is mapped to the camelCase payload key (<code class="ic">analysisPlan</code>) in the deploy script.</p>
+      </details>
+
+      <details>
+        <summary>Leads still save as "Unknown" after deploying</summary>
+        <p>Three things to check, in order: (1) Did the <strong>backend</strong> deploy to Render? The EOC webhook code that reads <code class="ic">structuredData</code> is backend, not VAPI config. (2) Is <code class="ic">analysisPlan.structuredDataPlan.enabled</code> actually <code class="ic">true</code> on the live assistant? (3) Did the call even produce a transcript? An immediate hang-up yields nothing to extract — that's a legitimate <code class="ic">Unknown</code>.</p>
+      </details>
+
+      <details>
+        <summary>The caller hears the "one moment" phrase twice</summary>
+        <p>That's the double-speak case: VAPI's <code class="ic">request-start</code> filler <em>and</em> the model both said it. Make sure the prompt's system-check section tells the model the filler is automatic and it should <em>not</em> announce lookups. Both halves of the fix must ship together.</p>
+      </details>
+
+      <details>
+        <summary>"Â½" or other accented junk in a terminal</summary>
+        <p>Almost always a console encoding mismatch (Concept 9), not real data. Verify with <code class="ic">curl | xxd</code> (look for <code class="ic">c2 bd</code> = correct <code class="ic">½</code>) or by writing the output to a UTF-8 file and opening it in an editor, before you believe the data is broken.</p>
+      </details>
+
+      <details>
+        <summary>"It worked yesterday" — where do I even start?</summary>
+        <p>Bisect by time. Find the last known-good moment and the first known-bad one, list every deploy/change between them, and suspect those <em>only</em>. Anything unchanged across that boundary is innocent. For voice agents, the VAPI call API gives you a timestamped behaviour history to pin the boundary precisely.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🔭 What's Next</h2>
+      <p>We restored lead reliability and killed the dead air — but we did it by giving back Session 10's latency win (the model revert). The unresolved tension is now explicit: <strong>we still owe a latency fix that doesn't sacrifice model quality.</strong> The next session tackles speed the <em>right</em> way — trimming and restructuring the prompt so the strong model has less to read on every turn (cutting time-to-first-token without dumbing down behaviour), and exploring streaming/parallel tool patterns. We'll also close the race-condition door from the 🔴 challenge by putting a real uniqueness guarantee on <code class="ic">call_id</code> at the database level. Same goal as always: make Max <em>fast and reliable</em>, not one at the cost of the other.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📖 Glossary</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>analysisPlan</strong></td><td>VAPI's post-call analysis config on an assistant; holds the structuredDataPlan.</td></tr>
+          <tr><td><strong>apiRequest tool</strong></td><td>VAPI's newer tool type that calls an HTTP URL directly; identified to the model by its top-level <code>name</code>.</td></tr>
+          <tr><td><strong>asynchronous (async) tool</strong></td><td>A tool the model fires without waiting for the result, so it can keep talking.</td></tr>
+          <tr><td><strong>blocking tool</strong></td><td>A tool the model waits on before continuing; the source of dead air if nothing is said.</td></tr>
+          <tr><td><strong>cp1252 / Latin-1</strong></td><td>Older single-byte encodings; cp1252 mis-renders the UTF-8 byte <code>C2</code> as the glyph <code>Â</code>.</td></tr>
+          <tr><td><strong>dead air</strong></td><td>Silence on a call long enough that the caller thinks the line dropped.</td></tr>
+          <tr><td><strong>defense in depth</strong></td><td>Protecting critical data with multiple independent layers so one failure isn't fatal.</td></tr>
+          <tr><td><strong>dedup (by call_id)</strong></td><td>Ensuring only one lead is saved per call by checking the call_id before inserting.</td></tr>
+          <tr><td><strong>end-of-call report</strong></td><td>The webhook VAPI sends when a call ends; carries the transcript and extracted structured data.</td></tr>
+          <tr><td><strong>falsification</strong></td><td>Trying to <em>disprove</em> a hypothesis; a hypothesis you can't kill survives, one fact can kill one you love.</td></tr>
+          <tr><td><strong>function.name (nested)</strong></td><td>A legacy tool sub-field; identical (<code>"api_request_tool"</code>) across our tools and not used for dispatch.</td></tr>
+          <tr><td><strong>idempotent push</strong></td><td>Re-running the deploy script makes the live assistants match the code; running it twice changes nothing extra.</td></tr>
+          <tr><td><strong>layer isolation</strong></td><td>Testing each tier (DB, API, config, model) independently to locate a fault precisely.</td></tr>
+          <tr><td><strong>measurement artifact</strong></td><td>A "defect" caused by the observing tool, not the system being observed.</td></tr>
+          <tr><td><strong>mojibake</strong></td><td>Garbled text from decoding bytes with the wrong character encoding.</td></tr>
+          <tr><td><strong>regression</strong></td><td>Something that used to work and now doesn't; best attacked by bisecting on time.</td></tr>
+          <tr><td><strong>request-start message</strong></td><td>A phrase VAPI speaks automatically the instant a tool fires; deterministic dead-air prevention.</td></tr>
+          <tr><td><strong>structuredDataPlan</strong></td><td>VAPI sub-plan that extracts typed fields from the transcript per a JSON schema at end-of-call.</td></tr>
+          <tr><td><strong>tolerant matching</strong></td><td>Normalizing both sides before comparing, so "4 1/2" and "4½" match.</td></tr>
+          <tr><td><strong>top-level name (tool)</strong></td><td>The unique identifier the model emits and VAPI dispatches on (e.g. <code>find_units</code>).</td></tr>
+          <tr><td><strong>UTF-8</strong></td><td>The standard text-as-bytes encoding; <code>½</code> is the two bytes <code>C2 BD</code>.</td></tr>
+          <tr><td><strong>xxd</strong></td><td>A hex-dump tool that shows literal bytes, bypassing character-set interpretation.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-10-voice-agent-latency-and-prompt-tuning.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 10 — Cutting Voice-Agent Latency &amp; Tuning the Employment Prompt</div>
+    </a>
+    <a href="sessions.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a class="right disabled">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 12 — coming soon</div>
+    </a>
+  </div>
+  <div class="copyright">Session 11 — CRM Learning Series · generated 2026-06-24</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>
