@@ -1076,6 +1076,18 @@ Quebec unit sizes arrive from the tools as a digit followed by a half symbol: "1
 This applies to SPEECH ONLY. When you submit a size to any tool (the quebec_size field),
 always use the original digit-and-symbol form ("3½") regardless of the call language.
 
+[Current Date — Reference]
+The find_units and search_listings results include a `now` field: the current date and time in
+Montréal (Eastern Time) as YYYY-MM-DDTHH:MM:SS. Treat `now` as TODAY for every date judgment in the
+call — NEVER guess the current date. When the caller gives a move-in time ("next week", "August",
+"the first"), resolve it relative to `now`, then compare it to the unit's available_from:
+  - available_from is on or before the caller's move-in window → the unit fits their timeline; say so
+    positively, do not tell them it is unavailable.
+  - available_from is after their move-in window → mention it gently and flag it, but still capture
+    the lead.
+Only say a unit is not available for the caller's timeline when its available_from is genuinely later
+than when they want to move in, measured against `now`.
+
 [① GREETING]
 Open with a warm, natural bilingual greeting. Mention you're Max and the property manager's name
 (from context block). End with an open, inviting question. Generate a fresh variation each call —
@@ -1161,7 +1173,8 @@ After each answer, briefly acknowledge and ask the next question.
 --- Q1: Move-in date ---
 "When are you hoping to move in?"
 
-Compare caller's date to the selected unit's available_from from listing data:
+Resolve the caller's date against `now` (see [Current Date — Reference]), then compare to the
+selected unit's available_from from listing data:
   Aligns (caller's date ≥ available_from): Continue naturally. No comment needed.
   Doesn't align: Note the mismatch in qualifying_answers, inform the caller gently, continue.
     "That unit won't be ready until [available_from date] — I'll flag that for the team."
@@ -1376,7 +1389,9 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "— ask the caller to choose between ONLY those before going further (see [② UNIT DISCOVERY]). "
                     "After receiving results, read back only the unit/building names to the caller — "
                     "do NOT describe rent, floors, or any other details until the caller confirms a unit "
-                    "AND explicitly asks about those details."
+                    "AND explicitly asks about those details. "
+                    "Results also include `now` — the current date/time in Montréal — use it as today "
+                    "for any move-in date reasoning; never guess the current date."
                 ),
             },
             "url": find_units_url,
@@ -1401,6 +1416,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "properties": {
                         "found": {"type": "boolean"},
                         "count": {"type": "integer"},
+                        "now": {"type": "string"},
                         "units": {
                             "type": "array",
                             "items": {
@@ -1483,6 +1499,7 @@ def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
                     "type": "object",
                     "properties": {
                         "count": {"type": "integer"},
+                        "now": {"type": "string"},
                         "listings": {
                             "type": "array",
                             "items": listing_item_schema,

@@ -2,6 +2,7 @@ import json
 import csv
 import io
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -18,6 +19,19 @@ router = APIRouter(prefix="/leasing", tags=["Leasing"])
 
 IST = timezone(timedelta(hours=5, minutes=30))
 LISTING_THRESHOLD = 10
+
+# Lease agents serve Québec — anchor all "today"/move-in reasoning to Montréal local
+# time (Canada/US Eastern, DST-aware) instead of the model's guessed date. tzdata is in
+# requirements and Linux ships the tz DB, but fall back to a fixed offset rather than let
+# a missing tz DB break module import (these endpoints must never hard-fail).
+try:
+    MONTREAL_TZ = ZoneInfo("America/Toronto")
+except Exception:
+    MONTREAL_TZ = timezone(timedelta(hours=-4))
+
+
+def _montreal_now() -> str:
+    return datetime.now(MONTREAL_TZ).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def _format_listings(rows: list) -> list:
@@ -166,17 +180,18 @@ def _empty_disambiguation(query: str) -> dict:
     return {"needs_confirmation": False, "field": "city", "spoken": query, "candidates": []}
 
 
-def _build_city_disambiguation(query: str, listings: list, available_cities: list) -> dict:
+def _build_city_disambiguation(rank, listings: list) -> dict:
     """Banded 'did you mean X or Y?' over the manager's real cities.
 
-    Returns needs_confirmation=true ONLY when the spoken city is genuinely confusable
-    (CONFIRM band): a clear winner auto-accepts (no extra turn) and junk falls through
-    to available_cities. Each candidate carries its rent range so the prompt can
-    disambiguate homophones by rent (numeric, STT-safe) instead of by proper noun.
+    Takes the already-computed rank (shared with the find_units match gate so the gate
+    and this question never disagree). Returns needs_confirmation=true ONLY when the
+    spoken city is genuinely confusable (CONFIRM band): a clear winner auto-accepts (no
+    extra turn) and junk falls through to available_cities. Each candidate carries its
+    rent range so the prompt can disambiguate homophones by rent (numeric, STT-safe)
+    instead of by proper noun.
     """
-    rank = rank_candidates(query, available_cities, field_name="city")
     if rank.decision != "CONFIRM" or not rank.candidates:
-        return _empty_disambiguation(query)
+        return _empty_disambiguation(rank.spoken)
 
     rent_by_city: dict = {}
     for r in listings:
@@ -193,7 +208,7 @@ def _build_city_disambiguation(query: str, listings: list, available_cities: lis
             "rent_low": int(min(rents)) if rents else None,
             "rent_high": int(max(rents)) if rents else None,
         })
-    return {"needs_confirmation": True, "field": "city", "spoken": query, "candidates": candidates}
+    return {"needs_confirmation": True, "field": "city", "spoken": rank.spoken, "candidates": candidates}
 
 
 @router.get("/find-units")
@@ -223,12 +238,24 @@ async def find_units(
             if (r.get("city") or "").strip()
         })
         if not listings:
-            return {"found": False, "count": 0, "units": [], "available_cities": [], "disambiguation": _empty_disambiguation(query)}
+            return {"found": False, "count": 0, "units": [], "available_cities": [], "disambiguation": _empty_disambiguation(query), "now": _montreal_now()}
 
         query_lower = query.lower()
         tokens = [t for t in query_lower.split() if len(t) > 2]
         query_norm = normalize_place(query)
         norm_tokens = [nt for t in tokens if (nt := normalize_place(t))]
+
+        # Unify the match gate with the disambiguation ranker. city_matches (difflib only)
+        # is weaker than rank_candidates (adds phonetic + rapidfuzz) at French-accent garble,
+        # so a city the ranker is confident about could be silently dropped from matches
+        # (e.g. "Saint-L'Ador" → Saint-Lazare). When the ranker AUTO_ACCEPTs a city, treat
+        # it as a match here too; CONFIRM still drives the disambiguation question below.
+        rank = rank_candidates(query, available_cities, field_name="city")
+        accepted_city_norm = (
+            normalize_place(rank.top.value)
+            if rank.decision == "AUTO_ACCEPT" and rank.top
+            else ""
+        )
         matches = []
         for r in listings:
             flat = r.get("flats") or {}
@@ -253,6 +280,7 @@ async def find_units(
             city_hit = bool(city_norm) and (
                 city_matches(query_norm, city_norm)
                 or any(city_matches(t, city_norm) for t in norm_tokens)
+                or (bool(accepted_city_norm) and city_norm == accepted_city_norm)
             )
             if substring_hit or city_hit:
                 matches.append({
@@ -274,18 +302,19 @@ async def find_units(
                 })
 
         matches = matches[:5]
-        disambiguation = _build_city_disambiguation(query, listings, available_cities)
+        disambiguation = _build_city_disambiguation(rank, listings)
         return {
             "found": bool(matches),
             "count": len(matches),
             "units": matches,
             "available_cities": available_cities,
             "disambiguation": disambiguation,
+            "now": _montreal_now(),
         }
 
     except Exception as e:
         print(f"[ERROR] find_units: {e}")
-        return {"found": False, "count": 0, "units": [], "available_cities": [], "disambiguation": _empty_disambiguation(query)}
+        return {"found": False, "count": 0, "units": [], "available_cities": [], "disambiguation": _empty_disambiguation(query), "now": _montreal_now()}
 
 
 @router.get("/search")
@@ -501,11 +530,11 @@ async def search_listings(
             rows = [r for r in rows if _normalize_quebec_size(r.get("quebec_size") or "") == qs_norm]
 
         listings = _format_listings(rows[:5])
-        return {"count": len(listings), "listings": listings}
+        return {"count": len(listings), "listings": listings, "now": _montreal_now()}
 
     except Exception as e:
         print(f"[ERROR] search_listings: {e}")
-        return {"count": 0, "listings": []}
+        return {"count": 0, "listings": [], "now": _montreal_now()}
 
 
 # ===========================================================================

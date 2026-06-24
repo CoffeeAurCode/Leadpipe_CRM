@@ -1,53 +1,77 @@
 Assistant
-Hi there. Bonjour. I'm Max the AI leasing assistant for Chantellery. Are you looking for a new place, or did you have a specific unit in mind?
-2:10:52 AM(+00:01.92)
+Hi there, bonjour. I am Max, the AI leasing assistant for Chante Serre. Are you looking for a new place, or is there specific unit you had in mind?
+7:51:36 AM(+00:02.32)
 User
-Oui, salut. Je suis suis à Saint-L'Asor présentement. J'ai vu que vous avez des unités à louer, je serais intéressé.
+Hey. I'm in Saint Lazar. Right now, and I see that you guys have units to lease
 
-2:11:01 AM(+00:10.90)
+7:51:46 AM(+00:11.94)
 
 Find Units
 Completed successfully
-02:11
+07:51
 
-2:11:10 AM(+00:19.24)
+7:51:52 AM(+00:18.54)
 
 Assistant
-Laissez-moi vérifier ça dans mon système. Un instant s'il vous plaît. Je ne trouve rien à Saint-LaSort en ce moment, mais nous avons des logements à Château Gué et à Saint-Laçore, Est-ce qu'un de ces secteurs pourrait vous convenir
-2:11:14 AM(+00:23.16)
+1 moment. Got it. We do have units in Saint Lazar. What size are you looking for? A 3 and a half or 4 and a half?
+7:51:57 AM(+00:22.57)
 User
-Oui, Saint-Lavaure.
+I'm looking for the 4 and a half today.
 
-2:11:27 AM(+00:36.62)
+7:52:03 AM(+00:29.42)
 
-Find Units
+Search Listings
 Completed successfully
-02:11
-
-2:11:30 AM(+00:39.18)
-
-Assistant
-Un instant, je vérifie ça pour vous, parfait. Nous avons un logement à Saint-Lazare, Quel format recherchez-vous, par exemple un trois et demi ou un quatre et demi
-2:11:33 AM(+00:42.49)
-User
-Captain mi s'il vous plaît. J'ai vu que, c'est c'est quoi le montant par mois pour les quatre et demi
-
-2:11:44 AM(+00:53.14)
+07:52
+7:52:06 AM(+00:32.39)
 
 Assistant
-Juste un moment, nous avons un quatre et demi à Saint-Lazare à quatorze cent par mois, Est-ce que ce budget vous convient
-2:11:52 AM(+01:01.26)
+Let me take a quick look. When are you hoping to move in?
+7:52:09 AM(+00:34.86)
 User
-Oui,
+Uh, next week.
 
-2:12:09 AM(+01:18.87)
+7:52:13 AM(+00:38.74)
 
-Find Units
+Assistant
+Next week, perfect I'm not finding anything available that quickly right now. The 4 and Iqa, we have in Saint Lazar isn't ready until late June. Would it be okay if I passed your info to the team in case something sooner opens up?
+7:52:15 AM(+00:41.31)
+User
+Yeah. I mean, when would the so when would they open up?
+
+7:52:30 AM(+00:55.62)
+
+Assistant
+The current 4 and a half in Saint La is scheduled for late June, and that's the only 1 available right now. Yeah. Can I grab your name so I can have the team reach out if anything opens up sooner?
+7:52:35 AM(+01:01.36)
+User
+Uh, Yeah. Sure. My name is Sean.
+
+7:52:47 AM(+01:12.70)
+
+Submit Lease Lead
 Completed successfully
-02:12
-
-2:12:12 AM(+01:21.82)
+07:52
+7:52:51 AM(+01:16.77)
 
 Assistant
-Je vérifie ça tout de suite, parfait. Le quatre et demi, au carré Saint-Laurent à quatorze cent par mois.
-2:12:16 AM(+01:25.42)
+Perfect. I'll get that over to the Sean Sari team right now, and they'll reach out if anything opens up sooner. Take care.
+7:52:55 AM(+01:20.60)
+User
+Alright. Well, you. Have a great day, I guess.
+
+7:53:08 AM(+01:33.85)
+
+Assistant
+You too, Sean. Thanks for reaching out. Have a great day.
+7:53:12 AM(+01:38.55)
+User
+Bye bye.
+
+7:53:16 AM(+01:42.48)
+
+Assistant
+My
+7:53:18 AM(+01:44.38)
+Customer ended the call
+07:53
