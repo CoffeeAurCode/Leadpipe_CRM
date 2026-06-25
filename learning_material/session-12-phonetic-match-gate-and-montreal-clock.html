@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 12 — When the Map Forgets a City &amp; the Agent Forgets the Date</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; white-space: pre-wrap; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 12</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-triage" style="padding-left:1.4rem">— Transcript triage</a>
+    <a href="#c-fuzzy" style="padding-left:1.4rem">— Fuzzy matching, three ways</a>
+    <a href="#c-bands" style="padding-left:1.4rem">— Bands &amp; gate ≠ ranker</a>
+    <a href="#c-clock" style="padding-left:1.4rem">— LLMs have no clock</a>
+    <a href="#c-tz" style="padding-left:1.4rem">— Time zones &amp; the tz database</a>
+    <a href="#c-extract" style="padding-left:1.4rem">— variableExtractionPlan</a>
+    <a href="#c-parity" style="padding-left:1.4rem">— Environment parity</a>
+    <a href="#c-failopen" style="padding-left:1.4rem">— Fail-open init</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#bug1" style="padding-left:1.4rem">— Bug 1: the silent-drop</a>
+    <a href="#bug2" style="padding-left:1.4rem">— Bug 2: "late June isn't soon"</a>
+    <a href="#bug3" style="padding-left:1.4rem">— Bug 3: phonetic 0.00</a>
+    <a href="#bug4" style="padding-left:1.4rem">— Bug 4: ZoneInfoNotFound</a>
+    <a href="#bug5" style="padding-left:1.4rem">— Bug 5: KeyError 'city'</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 12 · Voice AI · Fuzzy Matching · Time Zones · Debugging</div>
+      <h1>When the Map Forgets a City &amp; the Agent Forgets the Date</h1>
+      <p class="lead muted">Three real phone transcripts landed on the desk. Two callers — both in <strong>Saint-Lazare, Québec</strong> — hung up after Max told them, in mangled French, that there was <em>nothing</em> in their town. A third was told a unit "isn't available that quickly" for a move-in that the unit actually <em>could</em> meet. This session is two surgical fixes wearing one theme — <strong>give the machine the truth it was missing</strong>. Fix&nbsp;#1: stop the unit-search from silently dropping a city it was secretly confident about. Fix&nbsp;#2: hand the agent a real clock set to Montréal time, because a language model has no idea what day it is. Along the way: a phantom "phonetic score of zero," a crash over a missing time-zone database, and a self-inflicted test bug — all documented.</p>
+      <div class="meta">
+        <span class="chip diff">🔴 Advanced</span>
+        <span class="chip time">⏱️ ~85 min read / build</span>
+        <span class="chip pre">📋 Requires: Sessions 08–11 (French STT, fuzzy city matching, banded confirmation, deploy pipeline)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was a <strong>diagnose-from-transcripts</strong> session. No new feature — instead, three recorded calls exposed two independent defects in the lease agent (<strong>Max</strong>), and we fixed the two highest-leverage ones. The thread that started it:</p>
+
+      <div class="term"><span class="spk">You:</span> analyse the transcripts in Transcript1.md Transcript2.md Transcript3.md
+       and see if you can find any issue
+<span class="dim">         ...after the analysis...</span>
+<span class="spk">You:</span> do #1 and #2 (send time and date according to montreal, canada).
+       keep rest of the issue context and if it arises again then we will see.
+<span class="dim">         ...after the code + verification...</span>
+<span class="spk">You:</span> run update_lease_agents.py to deploy.</div>
+
+      <p>By the end we had:</p>
+      <ul>
+        <li><strong>Read three call transcripts as evidence</strong> and turned a vague "the agent is bad in French" into a ranked list of five discrete defects, each tied to a file and line.</li>
+        <li><strong>Fixed #1 — the silent-drop.</strong> The unit lookup (<code class="ic">find_units</code>) judged a caller's city with a <em>weaker</em> string comparison than the one it used to ask "did you mean…?". So a city the system was internally <em>confident</em> about could be dropped from the results <em>and</em> never offered for confirmation — the caller heard "nothing found" for a town the manager actually serves. We unified the two so the gate can never be weaker than the ranker again.</li>
+        <li><strong>Fixed #2 — the missing clock.</strong> Max never learns today's date (he never calls the tenant-verification tool that hands one out), so "next week" vs "late June" was pure guesswork. We stamped the current <strong>Montréal</strong> date/time onto every tool result and taught the prompt to treat it as <em>today</em>.</li>
+        <li><strong>Proved both fixes against the real code</strong> — ran the actual matching library, found a genuine silent-drop case (<code class="ic">"San Lazaro"</code>), and exercised <code class="ic">find_units</code> end-to-end with a fake database.</li>
+        <li><strong>Deployed</strong> the config half to all 5 live lease assistants with <code class="ic">update_lease_agents.py</code> — and were honest that the backend half still needs a separate deploy before the fixes are fully live.</li>
+        <li>Hit and documented <strong>three dev-time surprises</strong>: a phonetic matcher silently returning <code class="ic">0.00</code> (wrong interpreter), a <code class="ic">ZoneInfoNotFoundError</code> crash (missing <code class="ic">tzdata</code>), and a <code class="ic">KeyError</code> from a test asserting a field the API doesn't expose.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Read a noisy, bilingual call transcript and extract a precise, ranked defect list from it.</li>
+          <li>Explain the difference between <strong>three</strong> kinds of fuzzy string matching — edit-distance (difflib / rapidfuzz) versus <strong>phonetic</strong> (Metaphone) — and when each rescues a garbled word the others miss.</li>
+          <li>Recognise the <strong>"two scorers disagree"</strong> anti-pattern, where a decision and its safety-question use different yardsticks, and fix it with a single shared score.</li>
+          <li>Understand why a language model <strong>cannot be trusted with the current date</strong>, and inject a real "now" as ground truth through a tool response.</li>
+          <li>Handle time correctly: <strong>UTC</strong>, <strong>offsets</strong>, <strong>DST</strong>, and the <strong>IANA tz database</strong> via Python's <code class="ic">zoneinfo</code> + <code class="ic">tzdata</code>.</li>
+          <li>Catch a <strong>measurement artifact</strong> (your <em>test</em> environment lying) and write <strong>fail-open</strong> initialization that can't take a route down.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our product is a <strong>CRM</strong> (Customer Relationship Management — the web app a property manager uses to track buildings, units, tenants, and leads). One of its features is a <strong>voice agent</strong> named <strong>Max</strong>: an AI that answers a phone line, talks to a prospective renter, figures out which unit they want, asks a few qualifying questions, and saves the manager a <strong>lead</strong> (a record of an interested caller). Max runs on <strong>VAPI</strong> (a hosted "Voice API" that glues a phone number to a speech-to-text engine, a language model, and a text-to-speech voice). His tools call our <strong>FastAPI</strong> backend on <strong>Render</strong> (a cloud host), which reads our <strong>Supabase</strong> database (hosted PostgreSQL).</p>
+
+      <p>Across Sessions 08–11 we taught Max to understand <strong>Québec French</strong>. Session 08 diagnosed why French city names arrive garbled from the transcriber and built <code class="ic">city_matching.py</code> — a fuzzy matcher that strips accents and tolerates spelling drift. Session 09 added a <strong>banded confirmation</strong> layer: when a spoken city is genuinely ambiguous, Max asks "did you mean the one around fifteen hundred a month?" using <em>rent</em> (a number the caller can confirm) instead of re-saying a proper noun (which the same accent would garble again). Session 11 hardened lead capture and fixed tool-routing after a model downgrade.</p>
+
+      <p>This session is what happened when we finally <em>listened to real calls</em>. The clever French matching from Session 08–09 was only half-wired: the part that decides "does this caller's city match a unit?" used the <em>old, weaker</em> comparison, while the smarter phonetic comparison was only used to phrase the follow-up question. The two had quietly drifted apart. And a second, totally separate gap surfaced: Max gives renters <em>date</em> advice ("that won't be ready until late June") without ever being told what today is. Two missing truths, two fixes.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need Sessions 08–11 open. Every term is re-explained here on first use. The one fact worth carrying in: Max already has a fuzzy French city matcher (<code class="ic">city_matching.py</code>) and a banded "did you mean…?" flow. This session repairs how that matcher is <em>used</em>, and adds a clock.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Eight ideas. C1 is how we <em>found</em> the bugs (transcript triage). C2–C3 are the heart of Fix&nbsp;#1 (three flavours of fuzzy matching, and the bug pattern where a decision and its safety-net use different scores). C4–C6 are Fix&nbsp;#2 (LLMs have no clock; time zones done right; how a response field reaches the model). C7–C8 are the two sharp dev-time lessons (environment parity; fail-open initialization).</p>
+
+      <!-- ---- Concept 1: transcript triage ---- -->
+      <h3 id="c-triage">1 · Transcript triage: turning a messy call into a defect list</h3>
+      <p><strong>Plain-English explanation.</strong> A call transcript is a timestamped script of who said what, plus markers for when the agent ran a tool. It's noisy: the speech-to-text mishears words, French comes out half-English, and the agent's own sentences can be garbled by the voice. <strong>Triage</strong> means reading that mess and sorting it into distinct, named problems — separating "the agent <em>said</em> something wrong" (behaviour) from "the agent <em>couldn't find</em> something" (data/logic) from "the voice sounded broken" (text-to-speech).</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> A partner's bug report is usually one sentence: "the French calls are bad." That's not actionable. Two of our three calls ended in a hang-up; if you treat "bad French" as one problem you'll fix the wrong thing. Triage converts one complaint into five separate, independently-fixable defects, each rankable by impact — so you fix the two that lose customers first.</p>
+
+      <p><strong>How it works (analogy).</strong> It's an emergency-room triage nurse. Five patients arrive; the nurse doesn't treat them in arrival order — they sort by severity, so the heart attack is seen before the sprained ankle. We read the transcripts and tagged each symptom with a layer (data, logic, TTS, turn-taking) and a severity (did the caller hang up?).</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>transcript</strong> — the machine's written record of a call: each line is a speaker + timestamp; tool runs appear as their own lines (e.g. <code class="ic">Find Units — Completed successfully</code>).</li>
+        <li><strong>STT (Speech-To-Text)</strong> — the engine that converts the caller's audio into text. It is the source of "garble" — e.g. it heard "Saint-Lazare" as <code class="ic">Saint-L'Ador</code>.</li>
+        <li><strong>TTS (Text-To-Speech)</strong> — the reverse engine that voices the agent's words. Bad TTS makes Max <em>sound</em> broken even when his text is fine.</li>
+        <li><strong>defect / symptom / root cause</strong> — the symptom is what you observe; the defect is the wrong behaviour; the root cause is the underlying reason in the code/config.</li>
+      </ul>
+
+      <p><strong>The raw evidence.</strong> Here is the end of Transcript 3 (a French call). The caller is in Saint-Lazare; the STT wrote it <code class="ic">Saint-L'Ador</code>. Watch the contradiction in Max's reply:</p>
+      <div class="term"><span class="spk">User:</span> Oui, allô, je à <span class="garble">Saint-L'Ador</span> présentement. Et j'ai vu que vous avez des unités.
+<span class="cal">[ Find Units — Completed successfully ]</span>
+<span class="spk">Max:</span> Un instant, <span class="garble">je ne trouve rien à Saint-Lador</span> pour le moment. Nous avons des
+      logements à Château-Güey <span class="garble">et à Saint-Lazar</span>. Est-ce qu'un de ces secteurs vous convient?
+<span class="spk">User:</span> Uh, oui, bien, <span class="garble">ça que je viens de dire</span>, oui.   <span class="dim"># "that's what I just said"</span>
+<span class="dim">[ caller hangs up ]</span></div>
+      <p>In one breath Max says he found <em>nothing</em> in "Saint-Lador" and then offers "Saint-Lazar" as an option — the same town. That contradiction <em>is</em> the bug fingerprint: the system clearly knows about Saint-Lazare (it's in the offer list) but the matcher refused to connect the caller's word to it. From three transcripts we extracted:</p>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Symptom (from transcript)</th><th>Layer</th><th>Severity</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>"Nothing found" for a city the manager serves (T1, T3)</td><td>Logic — match gate</td><td><span class="badge b-conf">caused hang-up</span></td></tr>
+          <tr><td>2</td><td>Unit "not available that quickly" when its date actually fits (T2)</td><td>Logic — no date reference</td><td><span class="badge b-mid">lost conversion</span></td></tr>
+          <tr><td>3</td><td>Garbled French speech ("l'endroit de l'heure")</td><td>TTS model (Flash)</td><td><span class="badge b-conf">caused hang-up</span></td></tr>
+          <tr><td>4</td><td>Agent cut off mid-sentence, repeated itself (T1)</td><td>Turn-taking / endpointing</td><td><span class="badge b-mid">friction</span></td></tr>
+          <tr><td>5</td><td>Company name mangled 3 ways ("Chante Serre"/"Sean Sari")</td><td>TTS pronunciation</td><td><span class="badge b-mid">credibility</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>The partner asked us to fix <strong>#1</strong> and <strong>#2</strong> — the two highest-leverage, code-level defects — and to leave #3–#5 (which are voice-model/config tuning) until they recur. That scoping discipline matters: ship the fixes that pay, don't gold-plate.</p>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — a contradiction in the output is a gift</div>
+        <p>When a system both <em>denies</em> something and <em>reveals</em> it in the same breath ("I found nothing in Saint-Lador… we have Saint-Lazar"), you've been handed the exact shape of the bug. It means the data exists and one specific code path failed to connect to it. Don't skim past contradictions — they collapse the search space faster than any log.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/calls/call-analysis">VAPI transcripts &amp; logs</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Triage">Triage (the general idea)</a> ·
+        <a class="inline" href="https://www.deepgram.com/learn/what-is-speech-to-text">What is speech-to-text</a>
+      </p>
+
+      <!-- ---- Concept 2: fuzzy matching three ways ---- -->
+      <h3 id="c-fuzzy">2 · Fuzzy string matching, three different ways</h3>
+      <p><strong>Plain-English explanation.</strong> "Fuzzy matching" answers: <em>how similar are two pieces of text?</em> as a number from 0 (nothing alike) to 1 (identical). But there is more than one way to be "alike," and they disagree:</p>
+      <ul>
+        <li><strong>Edit-distance similarity</strong> — how many single-character insert/delete/swap edits turn one string into the other. <code class="ic">difflib</code> (Python's built-in) and <code class="ic">rapidfuzz</code> (a fast C library) both measure this <em>by spelling</em>. "Saint-Lazare" vs "Saint-Lazaire" scores high (one extra letter); "Saint-Lazare" vs "San Lazaro" scores low (many letters differ).</li>
+        <li><strong>Phonetic similarity</strong> — how alike two words <em>sound</em>, ignoring spelling. An algorithm like <strong>Metaphone</strong> converts a word to a rough "sound code" (vowels dropped, similar consonants merged), then compares the codes. "San Lazaro" and "Saint-Lazare" can sound nearly identical even though their letters differ a lot.</li>
+      </ul>
+      <p>Our matcher takes the <strong>maximum</strong> of all three (rapidfuzz, Metaphone-phonetic, difflib). The intuition: a pair is "similar" if it's similar by <em>any</em> reasonable measure. The phonetic leg is the one that rescues French-accent garble that the spelling-based legs miss.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The STT renders French-accented audio as <em>pseudo-English spellings</em> — it writes down what it thought it heard, letter by letter. So "Saint-Lazare" comes back as <code class="ic">Saint-L'Ador</code>, <code class="ic">Saint-Lador</code>, even <code class="ic">San Lazaro</code>. By spelling these look wrong; by <em>sound</em> they're obviously the same town. Without the phonetic leg, every accented caller risks being told their own city doesn't exist.</p>
+
+      <p><strong>How it works (analogy).</strong> Edit-distance is a proofreader comparing two printed words letter by letter. Phonetic matching is a friend on a noisy phone line who can't hear the spelling but recognises the <em>sound</em> of the name. For garbled speech, you want both in the room — and you believe whichever one is <em>most</em> confident.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>difflib</strong> — Python's standard-library text-comparison module; <code class="ic">SequenceMatcher(...).ratio()</code> gives an edit-similarity in [0,1]. Always available, no install.</li>
+        <li><strong>rapidfuzz</strong> — a third-party library doing the same idea much faster (and a bit smarter); returns 0–100, which we divide by 100.</li>
+        <li><strong>Metaphone</strong> — a <em>phonetic algorithm</em>: it maps a word to a string of sounds (e.g. drops most vowels, folds "z"/"s"). Provided here by the <code class="ic">jellyfish</code> library.</li>
+        <li><strong>normalize</strong> — clean a string before comparing: lowercase it, strip accents (é→e), turn hyphens into spaces, expand "St"→"Saint". Done by <code class="ic">normalize_place()</code> so both sides are compared on equal footing.</li>
+      </ul>
+
+      <p><strong>Annotated code — the normaliser and the hybrid score.</strong> Both already existed (from Session 08); read them now because Fix #1 turns on which of these the matcher actually trusts.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/city_matching.py — normalize + similarity (existing)"><pre><code>def normalize_place(s: str) -&gt; str:
+    # Put both strings on equal footing BEFORE comparing them.
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", s)                 # split accented chars into base + accent mark
+    s = "".join(c for c in s if not unicodedata.combining(c))  # drop the accent marks: "é" -&gt; "e"
+    s = s.lower().replace("-", " ")                      # lowercase; treat hyphen as a space
+    out = []
+    for tok in s.split():
+        tok = tok.strip(".,'")                           # shave stray punctuation off each word
+        if tok in ("st", "st."):
+            out.append("saint")                          # expand abbreviations so "St" == "Saint"
+        elif tok in ("ste", "ste."):
+            out.append("sainte")
+        elif tok:
+            out.append(tok)
+    return " ".join(out)
+
+def similarity(spoken: str, candidate: str) -&gt; float:
+    # Hybrid sound+spelling score in [0,1]. We trust whichever leg is MOST confident.
+    a, b = normalize_place(spoken), normalize_place(candidate)
+    if not a or not b:
+        return 0.0
+    return max(
+        _rapidfuzz_score(a, b),     # fast edit-distance (0 if rapidfuzz not installed)
+        _phonetic_ratio(a, b),      # Metaphone sound-code similarity (0 if jellyfish not installed)
+        difflib.SequenceMatcher(None, a, b).ratio(),  # always-available edit-distance fallback
+    )</code></pre></div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — <code class="ic">similarity()</code> and <code class="ic">city_matches()</code> are NOT the same function</div>
+        <p>The codebase has <em>two</em> comparators. <code class="ic">similarity()</code> (above) is the strong hybrid. But there is also an older <code class="ic">city_matches()</code> that uses <strong>only</strong> <code class="ic">difflib</code> at a 0.82 threshold — no phonetic leg. They look interchangeable. They are not. Fix #1 is entirely about the fact that the <em>match gate</em> called the weak one while the <em>"did you mean…?"</em> ranker called the strong one. Two scorers, one decision, silent disagreement. (Full story in <a class="inline" href="#bug1">Bug 1</a>.)</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.python.org/3/library/difflib.html">Python difflib</a> ·
+        <a class="inline" href="https://rapidfuzz.github.io/RapidFuzz/">rapidfuzz docs</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Metaphone">Metaphone (phonetic algorithm)</a> ·
+        <a class="inline" href="https://jamesturk.github.io/jellyfish/">jellyfish (phonetics in Python)</a>
+      </p>
+
+      <!-- ---- Concept 3: bands & gate vs ranker ---- -->
+      <h3 id="c-bands">3 · Decision bands, and why a "gate" must never be weaker than its "ranker"</h3>
+      <p><strong>Plain-English explanation.</strong> Given a spoken city and the real cities a manager has, Session 09's <code class="ic">rank_candidates()</code> scores each candidate and returns one of three <strong>decisions</strong>:</p>
+      <ul>
+        <li><strong>AUTO_ACCEPT</strong> — one clear winner (top score ≥ 0.86 <em>and</em> it beats #2 by ≥ 0.08). Confident enough to use silently, no extra question.</li>
+        <li><strong>CONFIRM</strong> — plausible but ambiguous (top ≥ 0.55 but not a clear winner). Ask the caller "did you mean X?" before proceeding. In the gray zone we lean to confirming, because a false accept costs the <em>whole call</em> while a false confirm costs one <em>turn</em>.</li>
+        <li><strong>NO_MATCH</strong> — nothing close (top &lt; 0.55). Fall back to listing the cities the manager actually has.</li>
+      </ul>
+      <p>Now the trap. Two separate pieces of code were making decisions about the same city: the <strong>match gate</strong> (does this listing's city match the caller? → uses weak <code class="ic">city_matches</code>) and the <strong>disambiguation ranker</strong> (should I ask "did you mean…?" → uses strong <code class="ic">rank_candidates</code>/<code class="ic">similarity</code>). When the strong ranker said "AUTO_ACCEPT Saint-Lazare!" but the weak gate said "no match," the unit was dropped from the results <em>and</em> the ranker's confidence never turned into a returned unit. The result: "nothing found," for a city the system had just confidently identified.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The whole point of the phonetic matcher (Session 08) was to recognise garbled French cities. But that intelligence only ever ran in the "ask a question" path — never in the "actually return the units" path. Fix #1 makes the gate <em>at least as strong</em> as the ranker by reusing the ranker's verdict.</p>
+
+      <p><strong>How it works (analogy).</strong> Imagine a bouncer (the gate) and a manager (the ranker) at a club door. The manager recognises a VIP by face. But the bouncer is only allowed to check IDs by spelling — and the VIP's ID is smudged. The manager shouts "that's definitely her, let her in!" and the bouncer, ignoring the manager, says "name doesn't match, no entry." Absurd — yet that's exactly what our two-comparator setup did. The fix: when the manager is <em>certain</em> (AUTO_ACCEPT), the bouncer defers to the manager.</p>
+
+      <p><strong>Annotated code — the banded ranker (existing) and the thresholds.</strong></p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/city_matching.py — bands (existing)"><pre><code>T_HIGH   = 0.86   # a top score at/above this can be a "clear winner"
+MARGIN   = 0.08   # ...but only if it beats #2 by at least this gap
+T_CONFIRM= 0.66   # lowest top score still worth a "did you mean?" question
+T_FLOOR  = 0.55   # below this: give up, list available cities instead
+
+def rank_candidates(spoken, candidate_values, field_name="city", ...):
+    # Score the spoken word against each real candidate, keep the best per candidate.
+    scored = sorted(best.values(), key=lambda c: c.score, reverse=True)
+    top    = scored[0]
+    second = scored[1] if len(scored) > 1 else None
+    gap    = top.score - (second.score if second else 0.0)
+
+    if top.score &lt; t_floor:
+        return RankResult("NO_MATCH", ...)                 # nothing close enough
+    if top.score &gt;= t_high and (second is None or gap &gt;= margin):
+        return RankResult("AUTO_ACCEPT", ..., top, [top])  # one clear winner — trust it
+    band_members = [c for c in scored if (top.score - c.score) &lt;= band][:n_max]
+    return RankResult("CONFIRM", ..., top, band_members)   # gray zone — ask the caller</code></pre></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — one decision, one source of truth</div>
+        <p>If two code paths must agree on the same judgement, they must compute it with the <em>same function</em> — or one will eventually drift weaker than the other and produce contradictions. The cleanest fix isn't "make the weak one stronger"; it's "compute the verdict once and share it." Fix #1 lifts the <code class="ic">rank_candidates()</code> call to the top of <code class="ic">find_units</code> and feeds its result to <em>both</em> the gate and the "did you mean…?" question. They can never disagree again because there's only one of them.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://en.wikipedia.org/wiki/Precision_and_recall">Precision vs recall (the false-accept / false-reject trade-off)</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Single_source_of_truth">Single source of truth</a>
+      </p>
+
+      <!-- ---- Concept 4: LLMs have no clock ---- -->
+      <h3 id="c-clock">4 · Language models have no clock</h3>
+      <p><strong>Plain-English explanation.</strong> A language model (the "brain" behind Max) is a text predictor. It does <em>not</em> have a clock, a calendar, or any sense of the current moment. When you ask it about "today" or "next week," it <em>guesses</em> from patterns in its training data — and that guess can be months or years off. The only way it knows the real date is if you <strong>tell it</strong>, every call, as part of the input.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> In Transcript 2, today was <strong>June 24</strong>. The caller wanted to move in "next week" (≈ June 29–July 5). The only unit was ready "late June" — which is <em>within</em> next week. The correct answer was "great, that lines up!" Instead Max said "I'm not finding anything available that quickly." He had no anchor for "now," so he couldn't reason that late June ⊆ next week. Note the deeper trap: the <em>complaint</em> agent (a different assistant) <em>does</em> get a date, because it calls <code class="ic">Verify_phone_number</code>, which returns one. But Max is <strong>forbidden</strong> from calling that tool (renters aren't existing tenants), so he had <em>no</em> source of "today" at all.</p>
+
+      <p><strong>How it works (analogy).</strong> Imagine a brilliant assistant with total amnesia about what day it is — every morning they wake with no idea of the date. If you want them to schedule anything, you must staple today's date to the top of every memo. Our "memo" is the JSON each tool returns; we staple a <code class="ic">now</code> field to it.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>LLM (Large Language Model)</strong> — the text-prediction model that generates Max's words and decides which tools to call.</li>
+        <li><strong>grounding</strong> — feeding a model real, current facts (here: the date) so it doesn't rely on its frozen training knowledge.</li>
+        <li><strong>tool response</strong> — the JSON our backend returns when Max calls a tool; the model reads it before its next turn. The natural place to staple "now."</li>
+        <li><strong>ISO 8601</strong> — the unambiguous date/time text format <code class="ic">YYYY-MM-DDTHH:MM:SS</code> (e.g. <code class="ic">2026-06-24T07:11:04</code>); sorts correctly and parses everywhere.</li>
+      </ul>
+
+      <p><strong>Where we put the clock.</strong> We picked the <em>tool response</em> over two tempting alternatives, for a concrete reason each: the agent's static "context block" is baked once when the assistant is created, so a date there would be frozen forever (stale within a day); and a VAPI template variable would only cover one spot, not flow into the reasoning. The tool response is fetched fresh on every call and is read right before Max reasons about dates — perfect.</p>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://platform.openai.com/docs/guides/function-calling">OpenAI function calling (tool results)</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
+      </p>
+
+      <!-- ---- Concept 5: time zones ---- -->
+      <h3 id="c-tz">5 · Time zones, UTC, DST, and the IANA tz database</h3>
+      <p><strong>Plain-English explanation.</strong> "What time is it?" has no single answer — it depends on where you are. To do dates correctly you need four ideas:</p>
+      <ul>
+        <li><strong>UTC (Coordinated Universal Time)</strong> — the world's single reference clock; everything else is an offset from it.</li>
+        <li><strong>offset</strong> — how far a place is from UTC, e.g. Montréal is UTC−5 in winter.</li>
+        <li><strong>DST (Daylight Saving Time)</strong> — the twice-a-year clock shift; Montréal becomes UTC−4 in summer. This is why you can't hard-code a single offset.</li>
+        <li><strong>IANA tz database</strong> — the canonical dataset of every region's rules and DST history, keyed by names like <code class="ic">America/Toronto</code>. Software reads it so it never has to know the rules itself.</li>
+      </ul>
+      <p>Montréal shares its rules with Toronto (both Canada/US Eastern), and the canonical IANA key is <code class="ic">America/Toronto</code> (the <code class="ic">America/Montreal</code> key is a deprecated alias). Python's <code class="ic">zoneinfo</code> reads the tz database; <code class="ic">ZoneInfo("America/Toronto")</code> gives a DST-aware zone that automatically returns −5 in winter and −4 in summer.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Our managers and renters are in Québec. If we stamped UTC onto the response, "now" would read 4–5 hours ahead of the caller's wall clock — enough to flip "today" to "tomorrow" late in the evening, breaking the very move-in reasoning we're adding. The date must be Montréal-local to match what the caller means by "today."</p>
+
+      <p><strong>How it works (analogy).</strong> Hard-coding "Montréal is UTC−5" is like printing a train timetable that ignores the summer schedule — correct half the year, wrong the other half, and nobody remembers to fix it. The IANA database is the railway's official rulebook; <code class="ic">ZoneInfo</code> just looks up the right page for today's date.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong><code class="ic">zoneinfo</code></strong> — Python's built-in (3.9+) module that turns an IANA key into a usable time zone.</li>
+        <li><strong><code class="ic">tzdata</code></strong> — a pip package that <em>ships</em> the IANA database. Linux usually has it system-wide; <strong>Windows does not</strong>, so <code class="ic">zoneinfo</code> needs this package there (this caused <a class="inline" href="#bug4">Bug 4</a>).</li>
+        <li><strong>aware vs naive datetime</strong> — an "aware" datetime carries its zone; a "naive" one doesn't (and is a frequent source of off-by-hours bugs).</li>
+      </ul>
+
+      <p><strong>Annotated code — the Montréal clock helper (new).</strong></p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — new helper"><pre><code>from zoneinfo import ZoneInfo   # stdlib: turns an IANA key into a tz object
+
+# Lease agents serve Quebec — anchor "today" to Montreal local time (Eastern, DST-aware)
+# instead of the model's guessed date. tzdata is in requirements and Linux ships the tz DB,
+# but fall back to a fixed offset rather than let a missing DB break module import.
+try:
+    MONTREAL_TZ = ZoneInfo("America/Toronto")    # Montreal == Canada/US Eastern (handles DST)
+except Exception:
+    MONTREAL_TZ = timezone(timedelta(hours=-4))  # fail-open: EDT-ish fallback, never crash
+
+def _montreal_now() -&gt; str:
+    # ISO 8601 in Montreal local time, e.g. "2026-06-24T07:11:04" — the agent's "today".
+    return datetime.now(MONTREAL_TZ).strftime("%Y-%m-%dT%H:%M:%S")</code></pre></div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.python.org/3/library/zoneinfo.html">Python zoneinfo</a> ·
+        <a class="inline" href="https://pypi.org/project/tzdata/">tzdata package</a> ·
+        <a class="inline" href="https://www.iana.org/time-zones">IANA time zone database</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Daylight_saving_time">Daylight Saving Time</a>
+      </p>
+
+      <!-- ---- Concept 6: variableExtractionPlan ---- -->
+      <h3 id="c-extract">6 · variableExtractionPlan: how a response field reaches the model</h3>
+      <p><strong>Plain-English explanation.</strong> When Max calls a tool, our backend returns JSON. But the model doesn't automatically "see" every field — VAPI uses a <strong>variableExtractionPlan</strong> (a small schema attached to each tool) that declares which fields to pull out of the response and make available to the model's reasoning. If a field isn't in that plan, it's effectively invisible. So adding <code class="ic">now</code> to the JSON is only half the job; we must also declare <code class="ic">now</code> in the extraction plan.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> This is the wiring that makes Fix #2 actually reach the brain. Backend returns <code class="ic">now</code> → extraction plan lists <code class="ic">now</code> → the model can read it → the prompt tells it to treat <code class="ic">now</code> as today. Miss any link and the date silently never arrives.</p>
+
+      <p><strong>How it works (analogy).</strong> The backend mails a parcel with several items. The extraction plan is the customs form listing what's allowed through. Anything not on the form gets held at the border — present in the box, but never delivered to the recipient.</p>
+
+      <p><strong>Annotated code — declaring <code class="ic">now</code> so the model can use it.</strong></p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — find_units extraction plan"><pre><code>"variableExtractionPlan": {
+    "schema": {
+        "type": "object",
+        "properties": {
+            "found": {"type": "boolean"},     # was a unit matched?
+            "count": {"type": "integer"},     # how many
+            "now":   {"type": "string"},      # NEW: current Montreal date/time the model may read
+            "units": { "type": "array", "items": { ... } },
+            "available_cities": {"type": "array", "items": {"type": "string"}},
+            "disambiguation": { ... },        # the "did you mean?" block
+        },
+    }
+},</code></pre></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — three links, all required</div>
+        <p>For a tool field to influence behaviour you need: (1) the backend <em>returns</em> it, (2) the <code class="ic">variableExtractionPlan</code> <em>declares</em> it, and (3) the prompt <em>instructs</em> the model to use it. We did all three for <code class="ic">now</code> on both <code class="ic">find_units</code> and <code class="ic">search_listings</code>. Skipping (2) is the classic "I added the field but the agent ignores it" bug.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/tools/custom-tools">VAPI custom tools &amp; variable extraction</a> ·
+        <a class="inline" href="https://json-schema.org/learn/getting-started-step-by-step">JSON Schema basics</a>
+      </p>
+
+      <!-- ---- Concept 7: environment parity ---- -->
+      <h3 id="c-parity">7 · Environment parity: when your <em>test</em> lies to you</h3>
+      <p><strong>Plain-English explanation.</strong> Code behaves differently depending on which Python interpreter and which installed packages it runs under. If you test in an environment that's missing a library production has, your test can show <em>fake</em> behaviour — and you'll "verify" the wrong thing. <strong>Environment parity</strong> means making sure your test environment matches production's installed dependencies before you trust a result.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Recall <code class="ic">similarity()</code> takes <code class="ic">max(rapidfuzz, phonetic, difflib)</code>, and the two stronger legs return <code class="ic">0.0</code> when their library isn't installed. The first interpreter we tested in had <em>neither</em> rapidfuzz nor jellyfish — so <code class="ic">similarity()</code> silently collapsed to difflib-only, exactly the weak behaviour we were trying to study. Our "evidence" was an artifact of the test box, not of production. We only saw the real phonetic-powered behaviour after switching to the project's virtualenv (which has both). (Full story in <a class="inline" href="#bug3">Bug 3</a>.)</p>
+
+      <p><strong>How it works (analogy).</strong> It's tasting a recipe with the salt left out and concluding "this dish is bland by design." The recipe's fine; your test kitchen was missing an ingredient. Always cook with the production pantry.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>virtualenv (venv)</strong> — an isolated Python with its own installed packages, so each project has exactly the libraries it declares.</li>
+        <li><strong>graceful degradation</strong> — code that still runs when an optional dependency is absent (here, returning 0.0). Convenient, but it can <em>mask</em> a missing library instead of shouting about it.</li>
+        <li><strong>parity</strong> — sameness between environments (dev vs prod) in the things that affect behaviour.</li>
+      </ul>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.python.org/3/library/venv.html">Python venv</a> ·
+        <a class="inline" href="https://12factor.net/dev-prod-parity">The Twelve-Factor App: dev/prod parity</a>
+      </p>
+
+      <!-- ---- Concept 8: fail-open init ---- -->
+      <h3 id="c-failopen">8 · Fail-open initialization: don't let one missing thing crash a whole route</h3>
+      <p><strong>Plain-English explanation.</strong> Code that runs at <strong>import time</strong> (the moment Python loads a file, before any request) is dangerous: if it throws, the <em>entire module</em> fails to load and every endpoint in it goes dark. <strong>Fail-open</strong> means: for non-critical setup, wrap it so a failure degrades gracefully instead of taking everything down.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> <code class="ic">MONTREAL_TZ = ZoneInfo("America/Toronto")</code> runs at import. If the tz database is missing (as on a bare Windows box), that line throws <code class="ic">ZoneInfoNotFoundError</code> — and because it's at module top level, the whole <code class="ic">leasing.py</code> route file refuses to import, killing <em>every</em> leasing endpoint, not just the date feature. Our VAPI endpoints are required to "always return 200," so a hard crash here is unacceptable. The <code class="ic">try/except</code> falls back to a fixed offset: the date might be an hour off in the rare failure, but the API stays up.</p>
+
+      <p><strong>How it works (analogy).</strong> A single burnt-out bulb shouldn't trip the whole building's power. Fail-open is the fuse that isolates the fault: the bad bulb goes dark, the rest of the floor keeps its lights.</p>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — fail-open is a judgement call, not a default</div>
+        <p>Fail-open is right for <em>non-critical</em> setup (a clock that can tolerate being an hour off). It is <em>wrong</em> for security or correctness-critical setup — you don't want auth to "fail open" and let everyone in. Ask: "if this silently degrades, is the degraded state safe?" For the Montréal clock, yes. For a payment check, never.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.python.org/3/tutorial/errors.html">Python exceptions</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Fail-safe">Fail-safe vs fail-open</a>
+      </p>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p>Every action, in order. The shape was: <em>read the evidence → locate the code → prove the bug with the real library → write both fixes → verify → deploy</em>.</p>
+
+      <h3>Step 1 — Read the three transcripts; produce a defect list</h3>
+      <p><strong>What &amp; why now.</strong> Before touching code, we read <code class="ic">Transcript1.md</code>, <code class="ic">Transcript2.md</code>, and <code class="ic">Transcript3.md</code> and triaged them (Concept 1) into the five-row table above. This happens first because <em>the transcripts decide what to fix</em> — guessing would waste effort on #3–#5 when #1 and #2 are what lose customers.</p>
+      <p><strong>If skipped:</strong> you'd "fix the French" by swapping a voice model and never touch the actual logic bugs that hung up two calls.</p>
+
+      <h3>Step 2 — Locate the code behind defects #1 and #2</h3>
+      <p><strong>What &amp; why now.</strong> Per the project's rule we read <code class="ic">CODEBASE_CONTEXT.md</code> first, then grepped for the lease tools and opened the three files that own the behaviour: the agent config/prompt, the matcher, and the search route.</p>
+      <div class="term"><span class="pmt">$</span> <span class="dim"># the three files that own Fix #1 and #2</span>
+backend/app/services/vapi_agent_config.py   <span class="dim"># Max's prompt + tool definitions (extraction plans)</span>
+backend/app/services/city_matching.py        <span class="dim"># normalize_place / city_matches / similarity / rank_candidates</span>
+backend/app/routes/leasing.py                <span class="dim"># find_units + search_listings endpoints (the match gate)</span></div>
+      <p><strong>What we found:</strong> <code class="ic">find_units</code> built its match gate from <code class="ic">city_matches</code> (difflib-only) at line ~252, but built the "did you mean…?" block from <code class="ic">rank_candidates</code> (phonetic) at line ~277. The two-comparator split, in black and white.</p>
+
+      <h3>Step 3 — Prove the silent-drop with the <em>real</em> matcher</h3>
+      <p><strong>What &amp; why now.</strong> Never fix on a hunch. We ran the actual library against the exact STT garble from the transcripts, comparing what the <em>gate</em> (<code class="ic">city_matches</code>) decides vs what the <em>ranker</em> (<code class="ic">rank_candidates</code>) decides. This is the moment the bug stops being a theory.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe -c "...run city_matching against the garble..."
+input             simil  decision    before -&gt; after
+<span class="garble">Saint-L'Ador       0.86  CONFIRM     [] -&gt; []</span>            <span class="dim"># gate dropped it; ranker would ask</span>
+Saint-Lazor        1.00  AUTO_ACCEPT ['Saint-Lazare'] -&gt; ['Saint-Lazare']
+<span class="garble">San Lazaro         0.92  AUTO_ACCEPT [] -&gt; ['Saint-Lazare']</span>  <span class="ok">&lt;== silent-drop the fix recovers</span>
+Lazor              0.60  CONFIRM     [] -&gt; []
+Chateau-Guey       0.36  AUTO_ACCEPT ['Chateauguay'] -&gt; ['Chateauguay']</div>
+      <p>The <code class="ic">San Lazaro</code> row is the smoking gun: the ranker is <em>92% confident</em> it's Saint-Lazare (AUTO_ACCEPT), yet the old gate returned <code class="ic">[]</code> — nothing. That unit was being silently dropped. (Getting this output also flushed out <a class="inline" href="#bug3">Bug 3</a> — the first interpreter showed all phonetic scores as 0.00.)</p>
+
+      <h3>Step 4 — Fix #1: unify the gate with the ranker (leasing.py)</h3>
+      <p><strong>What &amp; why now.</strong> With the bug proven, we made three edits to <code class="ic">find_units</code>: (a) compute <code class="ic">rank_candidates</code> <em>once</em> near the top, (b) when it says AUTO_ACCEPT, fold that city into the match gate, (c) feed the same rank object to the "did you mean…?" builder so they share one verdict.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — find_units (the fix)"><pre><code># Compute the strong, phonetic verdict ONCE — shared by the gate AND the disambiguation question.
+rank = rank_candidates(query, available_cities, field_name="city")
+accepted_city_norm = (
+    normalize_place(rank.top.value)          # the winning city, normalized for comparison
+    if rank.decision == "AUTO_ACCEPT" and rank.top   # only fold in when we're confident
+    else ""
+)
+
+for r in listings:
+    city_norm = normalize_place(r.get("city") or "")
+    substring_hit = any(tok in haystack for tok in tokens)   # plain text contains the query word?
+    city_hit = bool(city_norm) and (
+        city_matches(query_norm, city_norm)                       # old weak gate (kept as one leg)
+        or any(city_matches(t, city_norm) for t in norm_tokens)   # per-token weak gate
+        or (bool(accepted_city_norm) and city_norm == accepted_city_norm)  # NEW: trust the strong ranker
+    )
+    if substring_hit or city_hit:
+        matches.append({ ... })              # this listing now survives for "San Lazaro"-style garble
+
+# Disambiguation reuses the SAME rank — gate and question can never disagree again.
+disambiguation = _build_city_disambiguation(rank, listings)
+return { "found": bool(matches), "count": len(matches), "units": matches,
+         "available_cities": available_cities, "disambiguation": disambiguation,
+         "now": _montreal_now() }            # Fix #2 rides along on every return</code></pre></div>
+      <p>We also refactored <code class="ic">_build_city_disambiguation</code> to <em>accept</em> the pre-computed <code class="ic">rank</code> instead of recomputing it — enforcing the single-source-of-truth (Concept 3) at the function-signature level.</p>
+      <p><strong>If skipped:</strong> the phonetic intelligence stays locked in the "ask a question" path and accented callers keep hearing "nothing found."</p>
+
+      <h3>Step 5 — Fix #2: stamp Montréal "now" on every response (leasing.py + requirements)</h3>
+      <p><strong>What &amp; why now.</strong> Added the <code class="ic">_montreal_now()</code> helper (Concept 5), appended <code class="ic">"now": _montreal_now()</code> to <em>every</em> return of both <code class="ic">find_units</code> and <code class="ic">search_listings</code> (including the empty/early/except returns — the agent needs a clock even on a no-match), and added the time-zone data package to dependencies.</p>
+      <div class="code-block" data-lang="python" data-file="backend/requirements.txt — one line added"><pre><code>tzdata&gt;=2024.1   # ships the IANA tz DB so ZoneInfo("America/Toronto") works everywhere (incl. Windows)</code></pre></div>
+      <p><strong>If skipped:</strong> Max keeps guessing the date and keeps telling renters a perfectly-timed unit is "not available that quickly."</p>
+
+      <h3>Step 6 — Wire #2 into the agent: extraction plan + prompt (vapi_agent_config.py)</h3>
+      <p><strong>What &amp; why now.</strong> Returning <code class="ic">now</code> is invisible until it's declared and explained (Concept 6). We added <code class="ic">"now"</code> to the <code class="ic">variableExtractionPlan</code> of both tools, mentioned it in the <code class="ic">find_units</code> description, and added a prompt section plus a tweak to the move-in question.</p>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — new prompt section"><pre><code>[Current Date - Reference]
+The find_units and search_listings results include a `now` field: the current date and time in
+Montreal (Eastern Time) as YYYY-MM-DDTHH:MM:SS. Treat `now` as TODAY for every date judgment in the
+call - NEVER guess the current date. When the caller gives a move-in time ("next week", "August"),
+resolve it relative to `now`, then compare it to the unit's available_from:
+  - available_from is on or before the caller's move-in window -&gt; the unit fits; say so positively.
+  - available_from is after their move-in window -&gt; mention it gently and flag it, but still capture the lead.
+Only say a unit is unavailable for the caller's timeline when its available_from is genuinely later
+than when they want to move in, measured against `now`.</code></pre></div>
+      <p><strong>If skipped:</strong> the backend returns <code class="ic">now</code> but the model never reads it (no extraction-plan entry) or never uses it (no prompt rule) — Fix #2 silently does nothing.</p>
+
+      <h3>Step 7 — Verify locally (compile, install tzdata, functional test)</h3>
+      <p><strong>What &amp; why now.</strong> Before deploying we proved the edits work: a syntax compile, a tzdata install + clock check, and an end-to-end run of <code class="ic">find_units</code> against a <em>fake</em> database so we didn't need live Supabase.</p>
+      <div class="term"><span class="pmt">$</span> python -m py_compile app/routes/leasing.py app/services/vapi_agent_config.py
+<span class="ok">COMPILE OK</span>
+<span class="pmt">$</span> <span class="dim"># exercise find_units with a stub DB (two listings: Saint-Lazare + Chateauguay)</span>
+San Lazaro (was silent-drop)  <span class="ok">found=True</span>  units=['10 Rue Principale, Saint-Lazare, QC'] now=2026-06-24
+Saint-L'Ador (CONFIRM)        found=False needs_conf=True  candidates=[('Saint-Lazare',1400,1400)] now=2026-06-24
+Chateauguay (substring)       <span class="ok">found=True</span>  units=['5 Ave Cartier, Chateauguay, QC']
+gibberish (NO_MATCH)          found=False available_cities=['Chateauguay','Saint-Lazare']</div>
+      <p>Every path returns <code class="ic">now</code>; <code class="ic">San Lazaro</code> now recovers; ambiguous still asks; gibberish still offers the real cities. (This step is where <a class="inline" href="#bug4">Bug 4</a> and <a class="inline" href="#bug5">Bug 5</a> surfaced and were fixed.)</p>
+
+      <h3>Step 8 — Deploy the config half to all 5 lease assistants</h3>
+      <p><strong>What &amp; why now.</strong> A voice change isn't live until <em>both</em> surfaces ship (Session 10's lesson): the <strong>backend</strong> (Render) and the <strong>VAPI assistant config</strong>. The partner asked us to push the config now. We dry-ran first (no changes), then deployed for real.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py --dry-run
+Lease agents to update: 4 per-manager + 1 shared
+<span class="dim">DRY RUN - no changes will be made</span>
+<span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py
+  [28c43c77] <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+  [7fb0c018] <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+  [eb4b27dc] <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+  [d2a63e94] <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+  [shared]   <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+<span class="ok">Done. 5 updated, 0 failed.</span></div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — the backend half is still pending</div>
+        <p>The config push is live, but <code class="ic">leasing.py</code> hasn't been deployed to Render yet. Until it is: the agents <em>expect</em> <code class="ic">now</code> and the unified gate, but the live backend still returns the <em>old</em> response (no <code class="ic">now</code>, old gate). The model simply falls back to its current behaviour — no regression, but <strong>neither fix is fully live</strong> until the backend ships. Always finish a two-surface deploy.</p>
+      </div>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p>Two production defects (diagnosed from transcripts) and three dev-time surprises (hit while coding/verifying). Each gets the full Symptom → Diagnosis → Root Cause → Fix → Lesson treatment.</p>
+
+      <!-- BUG 1 -->
+      <h3 id="bug1">🐛 Bug 1 — "Nothing found in Saint-Lazare," for a city the manager serves</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>In two French calls, a caller in Saint-Lazare was told there was nothing there. The tell-tale contradiction from Transcript 3: <em>"je ne trouve rien à Saint-Lador… Nous avons des logements à Château-Güey et à Saint-Lazar."</em> — "I found nothing in Saint-Lador… we have units in Châteauguay and Saint-Lazare." Both callers hung up.</p>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>The contradiction localised it instantly: the city is in the manager's inventory (it's in the offer list), so the data and the backend are innocent — something in <code class="ic">find_units</code> failed to <em>match</em> the caller's word to the listing. Reading <code class="ic">find_units</code>, we saw it computes two things from the same city: a <strong>match gate</strong> (<code class="ic">city_matches</code>, difflib-only, threshold 0.82) and a <strong>disambiguation block</strong> (<code class="ic">rank_candidates</code> → <code class="ic">similarity</code>, which adds rapidfuzz + Metaphone phonetic). We then ran the real library on the STT garble (Step 3) and watched <code class="ic">San Lazaro</code> score <strong>0.92 / AUTO_ACCEPT</strong> in the ranker but return <code class="ic">[]</code> from the gate. Proven.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>Two scorers, one decision (Concept 3). The intelligent phonetic matcher built in Session 08 was only ever wired into the <em>"ask a question"</em> path, never the <em>"return the units"</em> path. So when the ranker was confident enough to AUTO_ACCEPT a phonetically-garbled city, that confidence produced <strong>neither</strong> a returned unit (gate said no) <strong>nor</strong> a "did you mean?" question (AUTO_ACCEPT means "no question needed"). The unit fell into the gap between the two comparators and vanished. It was a class of bug, not a single typo: any city the strong scorer accepted but the weak one rejected would silently disappear.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Compute the ranker once; when it AUTO_ACCEPTs, fold that city into the gate; share the one rank object with the question builder.</p>
+      </div>
+      <div class="code-block" data-lang="python" data-file="leasing.py — before vs after (the city gate)"><pre><code># BEFORE — gate uses ONLY the weak difflib comparator; ranker's confidence is ignored here
+city_hit = bool(city_norm) and (
+    city_matches(query_norm, city_norm)
+    or any(city_matches(t, city_norm) for t in norm_tokens)
+)
+
+# AFTER — same weak legs PLUS: if the strong phonetic ranker auto-accepted this city, trust it
+rank = rank_candidates(query, available_cities, field_name="city")   # computed ONCE, above the loop
+accepted_city_norm = normalize_place(rank.top.value) if rank.decision == "AUTO_ACCEPT" and rank.top else ""
+city_hit = bool(city_norm) and (
+    city_matches(query_norm, city_norm)
+    or any(city_matches(t, city_norm) for t in norm_tokens)
+    or (bool(accepted_city_norm) and city_norm == accepted_city_norm)  # &lt;-- the rescue
+)</code></pre></div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>If two code paths must agree on the same judgement, make them share one computation — or one will drift weaker and produce contradictions. When you build a smart matcher, audit <em>every</em> place a match decision is made and confirm they all call it. A "did you mean?" that's smarter than the actual lookup is worse than useless: it knows the answer and refuses to act on it.</p>
+      </div>
+
+      <!-- BUG 2 -->
+      <h3 id="bug2">🐛 Bug 2 — "Not available that quickly," when it actually was</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>Transcript 2 (English). Today is June 24. Caller wants to move in "next week." Max: <em>"Next week, perfect — I'm not finding anything available that quickly right now. The 4½ we have in Saint-Lazar isn't ready until late June."</em> But "late June" is <em>inside</em> next week — the unit fit, and Max said it didn't, then downgraded the lead.</p>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We read Max's full system prompt and tool definitions. The move-in step asks the model to "compare the caller's date to the unit's <code class="ic">available_from</code>" — but nowhere is the model ever <em>given</em> the current date. We checked the complaint agent (which reasons about dates fine) and saw it gets a <code class="ic">datetime</code> back from <code class="ic">Verify_phone_number</code>. Then the key realisation: Max is explicitly <strong>forbidden</strong> from calling <code class="ic">Verify_phone_number</code> (renters aren't tenants). So Max literally has no source of "today" anywhere in his world.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>A language model has no clock (Concept 4). Asked to compare "next week" to "late June" with no anchor for <em>now</em>, it guessed — and guessed wrong. This isn't a prompt-wording bug; it's a <em>missing input</em>. No amount of "please reason carefully about dates" fixes a model that doesn't know the date.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Give it the input. Stamp Montréal-local <code class="ic">now</code> onto every tool response, declare it in the extraction plan, and instruct the prompt to treat <code class="ic">now</code> as today (Steps 5–6). Montréal time specifically, because UTC would drift "today" by 4–5 hours.</p>
+      </div>
+      <div class="code-block" data-lang="python" data-file="leasing.py — before vs after (the return)"><pre><code># BEFORE — the response carried no notion of "now"
+return {"count": len(listings), "listings": listings}
+
+# AFTER — every return (incl. empty/except) carries the Montreal clock
+return {"count": len(listings), "listings": listings, "now": _montreal_now()}</code></pre></div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>When an LLM reasons wrongly about facts (dates, prices, inventory), first ask "does it even <em>have</em> that fact?" before rewriting the prompt. Models are amnesiac about the present moment; <strong>ground</strong> them with real data fetched per-call. And when the fact is time, get the zone right — local, DST-aware — or you'll trade one wrong date for another.</p>
+      </div>
+
+      <!-- BUG 3 -->
+      <h3 id="bug3">🐛 Bug 3 — The phantom phonetic score of 0.00 (a measurement artifact)</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>While proving Bug 1, our first probe printed every phonetic and rapidfuzz score as <code class="ic">0.00</code> — making <code class="ic">similarity()</code> look identical to plain difflib. By that reading there was no phonetic leg at all, and the "two scorers" story seemed to fall apart.</p>
+        <div class="term">input            difflib  rapidf   phon  simil  decision
+Saint Lezzare       0.88    <span class="garble">0.00</span>   <span class="garble">0.00</span>   0.88  AUTO_ACCEPT
+San Lazaro          0.82    <span class="garble">0.00</span>   <span class="garble">0.00</span>   0.82  CONFIRM</div>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>The numbers were too clean — <em>exactly</em> 0.00 for both stronger legs across every input. That's not "low similarity," that's "not running." We recalled the code: <code class="ic">_rapidfuzz_score</code> returns 0.0 if <code class="ic">rapidfuzz</code> isn't importable, and <code class="ic">_phonetic_ratio</code> returns 0.0 if <code class="ic">jellyfish</code> isn't. We were running the probe in the <em>system</em> Python, not the project venv. A quick check confirmed the system interpreter had neither library; the project's <code class="ic">backend/.venv</code> had both.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>Environment parity (Concept 7). <code class="ic">similarity()</code> <em>gracefully degrades</em> when optional libraries are missing — convenient in production, but in a test it silently masks the very behaviour you're measuring. The "bug" was in our test box, not the system. Re-running under <code class="ic">backend/.venv/Scripts/python.exe</code> immediately showed the real phonetic scores (San Lazaro → 0.92), and Bug 1's diagnosis held up.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>No code change — fix the <em>environment</em>. Run verification in the interpreter that matches production:</p>
+        <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe -c "import rapidfuzz, jellyfish; print('both present')"
+<span class="ok">both present</span></div>
+      </div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Suspiciously round results (all exactly 0.00, all exactly equal) usually mean your <em>instrument</em> is off, not the system. Before trusting a local test, confirm it runs in the same environment as production — same interpreter, same installed packages. Graceful-degradation fallbacks are great for uptime and treacherous for debugging.</p>
+      </div>
+
+      <!-- BUG 4 -->
+      <h3 id="bug4">🐛 Bug 4 — ZoneInfoNotFoundError: 'America/Toronto'</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>Importing the route to test it crashed at module load:</p>
+        <div class="term"><span class="pmt">$</span> .venv/Scripts/python.exe -c "import app.routes.leasing"
+  File ".../app/routes/leasing.py", line 25, in &lt;module&gt;
+    MONTREAL_TZ = ZoneInfo("America/Toronto")
+<span class="err">zoneinfo._common.ZoneInfoNotFoundError: 'No time zone found with key America/Toronto'</span></div>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>The error is explicit: <code class="ic">zoneinfo</code> couldn't find the zone <em>data</em>. <code class="ic">zoneinfo</code> is the stdlib reader, but it needs the IANA database to read <em>from</em>. On Linux that's a system package; on Windows there isn't one — you must install the <code class="ic">tzdata</code> pip package, and this venv didn't have it. (We'd added <code class="ic">tzdata</code> to <code class="ic">requirements.txt</code> in Step 5, but the venv hadn't been re-installed yet.)</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>Two compounding facts: (1) Windows has no system tz database, so <code class="ic">zoneinfo</code> depends on the <code class="ic">tzdata</code> package (Concept 5); and (2) the call ran at <strong>import time</strong> at module top level, so the failure didn't just disable the date feature — it made the <em>entire</em> <code class="ic">leasing.py</code> route refuse to load. A missing optional package was positioned to take down every leasing endpoint.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Two parts. Install the data (and keep it in requirements so prod gets it too); and wrap the construction so it can <em>never</em> crash import — fail-open to a fixed offset (Concept 8).</p>
+        <div class="code-block" data-lang="python" data-file="leasing.py — fail-open tz init"><pre><code># BEFORE — one bad import-time line takes the whole route file down
+MONTREAL_TZ = ZoneInfo("America/Toronto")
+
+# AFTER — degrade to a fixed offset instead of crashing module import
+try:
+    MONTREAL_TZ = ZoneInfo("America/Toronto")    # correct, DST-aware (needs tzdata)
+except Exception:
+    MONTREAL_TZ = timezone(timedelta(hours=-4))  # safe fallback: API stays up, date ~1h off at worst</code></pre></div>
+        <div class="term"><span class="pmt">$</span> .venv/Scripts/python.exe -m pip install "tzdata&gt;=2024.1"
+<span class="pmt">$</span> .venv/Scripts/python.exe -c "import app.routes.leasing as L; print(L._montreal_now())"
+<span class="ok">2026-06-24T07:11:04</span>   <span class="dim"># UTC-4 (EDT) in June — DST handled correctly</span></div>
+      </div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Anything that runs at import time is a single point of failure for the whole module — keep it bulletproof or lazy. And remember <code class="ic">zoneinfo</code> ≠ the tz data: the reader is built in, the database isn't (declare <code class="ic">tzdata</code> for cross-platform safety). Match the safety to the stakes: a clock may fail open; auth may not.</p>
+      </div>
+
+      <!-- BUG 5 -->
+      <h3 id="bug5">🐛 Bug 5 — KeyError 'city' in the functional test</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>The end-to-end <code class="ic">find_units</code> test (Step 7) blew up while printing results:</p>
+        <div class="term"><span class="err">KeyError: 'city'</span>
+  print('cities matched:', [u['city'] for u in r['units']])</div>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>Quick — the traceback names the missing key. We re-read what <code class="ic">find_units</code> actually puts in each unit dict and saw it exposes a composed <code class="ic">address</code> string ("10 Rue Principale, Saint-Lazare, QC"), not a standalone <code class="ic">city</code> field. The test asserted a key the API never returns.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>The bug was in the <em>test</em>, not the code under test. We wrote the assertion from memory of the data shape instead of from the actual return contract. The API was correct; our expectation was wrong.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Assert against the real contract — print <code class="ic">address</code> (which exists) instead of <code class="ic">city</code> (which doesn't):</p>
+        <div class="code-block" data-lang="python" data-file="the functional test — corrected assertion"><pre><code># BEFORE — asserts a field find_units never returns in a unit
+units = [u['city'] for u in r['units']]      # KeyError: 'city'
+
+# AFTER — uses the field the unit dict actually exposes
+units = [u['address'] for u in r['units']]   # "10 Rue Principale, Saint-Lazare, QC"</code></pre></div>
+      </div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>A test failing doesn't mean the code is wrong — sometimes the test is. Write assertions from the actual return shape (read it, or print the dict once), not from memory. A trivial bug, but a real reminder: the test is also code, and it can lie.</p>
+      </div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose this</th><th>Trade-offs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Fold AUTO_ACCEPT into the gate; share one <code>rank</code></td>
+            <td>(a) lower difflib threshold; (b) replace <code>city_matches</code> with <code>similarity</code> everywhere</td>
+            <td>Reuses the verdict the system already computes; can't drift; minimal blast radius</td>
+            <td>CONFIRM-band garble still needs the existing "did you mean?" round-trip (by design — it's genuinely ambiguous)</td>
+          </tr>
+          <tr>
+            <td>Inject <code>now</code> via the tool response</td>
+            <td>(a) static context block; (b) VAPI <code>{{now}}</code> template variable</td>
+            <td>Fetched fresh every call; arrives exactly where date reasoning happens; one place to maintain</td>
+            <td>Requires the extraction-plan + prompt wiring (3 links); absent on calls that never hit a tool</td>
+          </tr>
+          <tr>
+            <td><code>ZoneInfo("America/Toronto")</code></td>
+            <td>(a) fixed <code>UTC-5</code>; (b) <code>America/Montreal</code> key</td>
+            <td>DST-aware (auto −5/−4); Toronto is the canonical Eastern key; Montréal is a deprecated alias</td>
+            <td>Needs the tz database present (mitigated by tzdata + fail-open)</td>
+          </tr>
+          <tr>
+            <td>Add <code>tzdata</code> to requirements</td>
+            <td>Rely on the OS tz database</td>
+            <td>Works on Windows dev too; makes the dependency explicit and portable</td>
+            <td>One more package (~tiny); must re-install the venv to pick it up</td>
+          </tr>
+          <tr>
+            <td>Fail-open <code>try/except</code> on tz init</td>
+            <td>Let it raise at import</td>
+            <td>A missing tz DB can't take down every leasing endpoint; matches "always return 200"</td>
+            <td>In the rare fallback the date can be ~1h off (acceptable for move-in reasoning)</td>
+          </tr>
+          <tr>
+            <td>Scope to #1 and #2 only</td>
+            <td>Also fix TTS/endpointing/name pronunciation now</td>
+            <td>Highest-leverage, code-level fixes first; the rest are voice-model tuning to revisit if they recur</td>
+            <td>Two French calls may still sound rough until #3–#5 are addressed</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+
+      <h3>1 · Code compiles</h3>
+      <div class="term"><span class="pmt">$</span> python -m py_compile app/routes/leasing.py app/services/vapi_agent_config.py</div>
+      <ul class="check"><li>Prints nothing (success) — no <code class="ic">SyntaxError</code>.</li></ul>
+
+      <h3>2 · The Montréal clock resolves and handles DST</h3>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe -c "import app.routes.leasing as L; print(L._montreal_now())"
+2026-06-24T07:11:04</div>
+      <ul class="check"><li>A valid ISO datetime prints.</li><li>In summer the offset is −4 (EDT); in winter it would be −5 (EST) — automatically.</li></ul>
+      <ul class="xlist"><li><code class="ic">ZoneInfoNotFoundError</code> → tzdata missing; <code class="ic">pip install "tzdata&gt;=2024.1"</code> (and the fail-open branch should still keep the API up).</li></ul>
+
+      <h3>3 · The silent-drop is recovered</h3>
+      <ul class="check"><li><code class="ic">find_units(query="San Lazaro")</code> against a Saint-Lazare listing returns <code class="ic">found=True</code>.</li><li>Every response path includes a <code class="ic">now</code> field.</li><li>An ambiguous garble (<code class="ic">Saint-L'Ador</code>) returns <code class="ic">found=False</code> + <code class="ic">disambiguation.needs_confirmation=True</code>.</li></ul>
+      <ul class="xlist"><li>Phonetic scores all <code class="ic">0.00</code> → wrong interpreter (use the venv, see Bug 3).</li></ul>
+
+      <h3>4 · The agents took the config</h3>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py
+<span class="ok">Done. 5 updated, 0 failed.</span></div>
+      <ul class="check"><li>All 5 print <code class="ic">[OK]</code> with <code class="ic">tools=['find_units','search_listings','submit_lease_lead']</code>.</li></ul>
+      <ul class="xlist"><li><code class="ic">now</code> still doesn't reach the agent on a live call → the <strong>backend</strong> half isn't deployed to Render yet.</li></ul>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — add a regression test</div>
+        <p>Write a small test that calls <code class="ic">find_units</code> (with a stub DB of two listings: Saint-Lazare and Châteauguay) and asserts: (a) <code class="ic">"San Lazaro"</code> returns <code class="ic">found=True</code>, and (b) the response contains a non-empty <code class="ic">now</code>.</p>
+        <details><summary>Hint</summary>
+          <p>Reuse the fake-DB stub from Step 7: a class whose <code class="ic">.table().select().eq().limit().execute()</code> chain returns an object with a <code class="ic">.data</code> list. <code class="ic">find_units</code> is async — wrap the call in <code class="ic">asyncio.run(...)</code>. Print the unit dict once to confirm the keys before asserting (remember Bug 5 — it exposes <code class="ic">address</code>, not <code class="ic">city</code>).</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — make the move-in comparison visible</div>
+        <p>Have <code class="ic">find_units</code> add, per unit, a boolean <code class="ic">available_now</code> = (the unit's <code class="ic">available_from</code> ≤ today, using <code class="ic">_montreal_now()</code>). Declare it in the extraction plan so Max can say "this one's ready now" without doing date math himself.</p>
+        <details><summary>Hint</summary>
+          <p>Compare date strings carefully: both must be the same format. Parse <code class="ic">available_from</code> (a date) and the date part of <code class="ic">_montreal_now()</code> (slice the first 10 chars) and compare as <code class="ic">date</code> objects. Add <code class="ic">"available_now": {"type": "boolean"}</code> to the unit's schema in the extraction plan, and a one-line prompt note.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — close the CONFIRM round-trip</div>
+        <p>Today, a CONFIRM-band garble (e.g. <code class="ic">Saint-L'Ador</code>) needs an extra turn: Max asks "did you mean…?", the caller confirms, then a <em>second</em> <code class="ic">find_units</code> runs. Design (and prototype) a safe way to also return the candidate's units <em>alongside</em> the confirmation question, so a "yes" needs no second lookup — without ever showing the wrong city's units if the caller says "no."</p>
+        <details><summary>Hint</summary>
+          <p>One approach: when decision is CONFIRM <em>and</em> there's a single banded candidate, include that candidate's units in a separate <code class="ic">pending_units</code> field (not <code class="ic">units</code>), plus the confirmation question. The prompt only "promotes" <code class="ic">pending_units</code> to spoken results after a "yes." Think hard about the false-accept cost (Concept 3) — why a single-candidate CONFIRM is safer to pre-fetch than a multi-candidate one.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary>ZoneInfoNotFoundError: 'No time zone found with key America/Toronto'</summary>
+        <p><strong>Cause:</strong> <code class="ic">zoneinfo</code> can't find the IANA database — typically on Windows, which has no system tz DB. <strong>Fix:</strong> <code class="ic">pip install "tzdata&gt;=2024.1"</code> (it's in <code class="ic">requirements.txt</code>; re-install the venv). The fail-open <code class="ic">try/except</code> means the API stays up regardless, just with a fixed-offset clock.</p>
+      </details>
+
+      <details>
+        <summary>All phonetic / rapidfuzz scores come back as 0.00</summary>
+        <p><strong>Cause:</strong> you're running in an interpreter that doesn't have <code class="ic">rapidfuzz</code> and/or <code class="ic">jellyfish</code>; <code class="ic">similarity()</code> degrades to difflib-only. <strong>Fix:</strong> run under <code class="ic">backend/.venv/Scripts/python.exe</code>, or install the libraries. Verify: <code class="ic">python -c "import rapidfuzz, jellyfish"</code>.</p>
+      </details>
+
+      <details>
+        <summary>ModuleNotFoundError: No module named 'fastapi' (when importing the route)</summary>
+        <p><strong>Cause:</strong> the venv you're using is partial. <strong>Fix:</strong> install the backend requirements into that venv (<code class="ic">pip install -r backend/requirements.txt</code>) or use the interpreter that has the full stack.</p>
+      </details>
+
+      <details>
+        <summary>I added <code>now</code> to the response but the agent still ignores the date</summary>
+        <p><strong>Cause:</strong> one of the three links is missing (Concept 6). <strong>Fix:</strong> confirm (1) the backend returns <code class="ic">now</code>, (2) <code class="ic">now</code> is in the tool's <code class="ic">variableExtractionPlan</code>, and (3) the prompt's <code class="ic">[Current Date - Reference]</code> section is present. Also re-deploy the config with <code class="ic">update_lease_agents.py</code> <em>and</em> deploy the backend.</p>
+      </details>
+
+      <details>
+        <summary>The fixes work locally but not on a real call</summary>
+        <p><strong>Cause:</strong> only the config surface was deployed; the <strong>backend</strong> (Render) still runs the old <code class="ic">leasing.py</code>. <strong>Fix:</strong> commit and push <code class="ic">leasing.py</code> + <code class="ic">requirements.txt</code> to the Render-tracked branch. A voice change needs <em>both</em> surfaces (Session 10).</p>
+      </details>
+
+      <details>
+        <summary>The session HTML code blocks render garbled</summary>
+        <p><strong>Cause:</strong> a raw <code class="ic">&lt;</code>, <code class="ic">&gt;</code>, or <code class="ic">&amp;</code> inside a <code class="ic">&lt;pre&gt;&lt;code&gt;</code> block confuses the in-page tokenizer. <strong>Fix:</strong> HTML-escape them (<code class="ic">&amp;lt;</code>, <code class="ic">&amp;gt;</code>, <code class="ic">&amp;amp;</code>) in the source — e.g. write <code class="ic">&amp;gt;=</code> for <code class="ic">&gt;=</code>.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🔭 What's Next</h2>
+      <p>Two truths restored, one deploy left half-done. The immediate next move is to ship the <strong>backend</strong> half — push <code class="ic">leasing.py</code> + <code class="ic">requirements.txt</code> to Render so the unified gate and the Montréal clock actually run on live calls — then place a French test call to Saint-Lazare and confirm Max finds the unit and reasons about "next week" correctly. After that, the deferred transcript defects come back into view: the garbled French <strong>TTS</strong> (likely the Flash voice model — a candidate for rollback to Turbo), the over-eager <strong>endpointing</strong> that cut Max off mid-sentence, and the mispronounced company name (a pronunciation hint or phonetic spelling). Each is a small, isolated config change — exactly the kind of "tune one knob, test one call" loop the next session will likely walk through.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📖 Glossary</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>AUTO_ACCEPT / CONFIRM / NO_MATCH</strong></td><td>The three decisions of <code>rank_candidates</code>: clear winner (use it), ambiguous (ask "did you mean?"), or nothing close (list available cities).</td></tr>
+          <tr><td><strong>aware datetime</strong></td><td>A datetime that carries its time zone; the opposite is "naive" (no zone), a common bug source.</td></tr>
+          <tr><td><strong>difflib</strong></td><td>Python's built-in text-comparison module; gives an edit-distance similarity in [0,1]. No install needed.</td></tr>
+          <tr><td><strong>DST (Daylight Saving Time)</strong></td><td>The twice-yearly clock shift; why Montréal is UTC−5 in winter and UTC−4 in summer.</td></tr>
+          <tr><td><strong>environment parity</strong></td><td>Keeping dev and prod the same in things that affect behaviour (e.g. installed libraries), so tests don't lie.</td></tr>
+          <tr><td><strong>fail-open</strong></td><td>Designing setup so a failure degrades gracefully instead of crashing — appropriate only for non-critical, safe-to-degrade pieces.</td></tr>
+          <tr><td><strong>gate</strong></td><td>The code path that decides whether a listing's city matches the caller (here it returns the units).</td></tr>
+          <tr><td><strong>grounding</strong></td><td>Feeding a model real, current facts (like today's date) so it doesn't rely on stale training knowledge.</td></tr>
+          <tr><td><strong>IANA tz database</strong></td><td>The canonical dataset of every region's time-zone and DST rules, keyed by names like <code>America/Toronto</code>.</td></tr>
+          <tr><td><strong>ISO 8601</strong></td><td>The text date/time format <code>YYYY-MM-DDTHH:MM:SS</code>; unambiguous and sortable.</td></tr>
+          <tr><td><strong>jellyfish</strong></td><td>Python library providing phonetic algorithms (incl. Metaphone) used by <code>similarity()</code>.</td></tr>
+          <tr><td><strong>LLM</strong></td><td>Large Language Model — the text-prediction model that powers Max's words and tool choices; has no built-in clock.</td></tr>
+          <tr><td><strong>measurement artifact</strong></td><td>A "defect" caused by your measuring tool/environment, not by the system under test.</td></tr>
+          <tr><td><strong>Metaphone</strong></td><td>A phonetic algorithm: maps a word to a rough "sound code" so sound-alikes compare as similar regardless of spelling.</td></tr>
+          <tr><td><strong>normalize_place</strong></td><td>Helper that lowercases, strips accents, de-hyphenates, and expands "St"→"Saint" so two place names compare fairly.</td></tr>
+          <tr><td><strong>phonetic matching</strong></td><td>Comparing words by how they <em>sound</em> rather than how they're spelled.</td></tr>
+          <tr><td><strong>ranker</strong></td><td>The code path (<code>rank_candidates</code> → <code>similarity</code>) that scores cities and decides whether to confirm.</td></tr>
+          <tr><td><strong>rapidfuzz</strong></td><td>A fast third-party edit-distance library; returns 0–100 (divided by 100 here).</td></tr>
+          <tr><td><strong>silent drop</strong></td><td>When a valid result is discarded with no error and no fallback — here, a confidently-matched city returning "nothing found".</td></tr>
+          <tr><td><strong>STT / TTS</strong></td><td>Speech-To-Text (caller audio → words; source of garble) / Text-To-Speech (agent words → audio).</td></tr>
+          <tr><td><strong>tzdata</strong></td><td>A pip package shipping the IANA tz database; required for <code>zoneinfo</code> on systems without a system tz DB (e.g. Windows).</td></tr>
+          <tr><td><strong>UTC</strong></td><td>Coordinated Universal Time — the single world reference clock; all zones are offsets from it.</td></tr>
+          <tr><td><strong>variableExtractionPlan</strong></td><td>The VAPI schema on a tool declaring which response fields the model is allowed to read.</td></tr>
+          <tr><td><strong>zoneinfo</strong></td><td>Python's stdlib module (3.9+) that turns an IANA key into a usable, DST-aware time zone.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-11-lease-agent-lead-capture-and-tool-reliability.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 11 — Lead Capture That Can't Fail</div>
+    </a>
+    <a href="sessions.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a class="right disabled">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 13 — coming soon</div>
+    </a>
+  </div>
+  <div class="copyright">Session 12 — CRM Learning Series · generated 2026-06-24</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>
