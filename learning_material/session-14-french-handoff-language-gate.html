@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 14 — One Line, Two Brains: Routing French Callers to Their Own Ear</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; white-space: pre-wrap; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 14</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-lock" style="padding-left:1.4rem">— STT language is locked at call start</a>
+    <a href="#c-stt" style="padding-left:1.4rem">— Multilingual vs dedicated STT</a>
+    <a href="#c-handoff" style="padding-left:1.4rem">— Squads vs handoffs (no squad!)</a>
+    <a href="#c-gated" style="padding-left:1.4rem">— The gated, additive branch</a>
+    <a href="#c-gate" style="padding-left:1.4rem">— Passive detection vs language gate</a>
+    <a href="#c-http" style="padding-left:1.4rem">— Provisioning over raw HTTP</a>
+    <a href="#c-ddl" style="padding-left:1.4rem">— DDL vs DML (the migration)</a>
+    <a href="#c-rollback" style="padding-left:1.4rem">— Reversibility as a feature</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#bug1" style="padding-left:1.4rem">— Bug 1: the over-built first design</a>
+    <a href="#bug2" style="padding-left:1.4rem">— Bug 2: the API that moved</a>
+    <a href="#bug3" style="padding-left:1.4rem">— Bug 3: No module named 'supabase'</a>
+    <a href="#bug4" style="padding-left:1.4rem">— Bug 4: can't ALTER from Python</a>
+    <a href="#bug5" style="padding-left:1.4rem">— Bug 5: the fake mojibake</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 14 · Voice AI · Multi-Agent Routing · Speech-to-Text · Live Fleet Deploy</div>
+      <h1>One Line, Two Brains — Routing French Callers to Their Own Ear</h1>
+      <p class="lead muted">Every previous French session improved the <em>one</em> bilingual agent that answers each manager's phone. It listened with Deepgram's <strong>multi</strong>lingual speech engine — a generalist that hears English and French on the same line but is a master of neither. This session gives French callers a <strong>dedicated French speech engine</strong>. Because a phone's transcriber can't switch language mid-call, we couldn't just "flip to French" — we had to <strong>route</strong>: the existing agent now opens with a short English <strong>language gate</strong> ("English or French?"), and on a French choice it <strong>hands the call off</strong> to a second, French-only assistant (Deepgram <code>nova-3 fr</code>) that searches that manager's real listings. We did it without a squad, without touching the phone numbers, and without changing the English path — then rolled it live to all four per-manager agents with a one-command rollback standing by.</p>
+      <div class="meta">
+        <span class="chip diff">🔴 Advanced</span>
+        <span class="chip time">⏱️ ~80 min read / build</span>
+        <span class="chip pre">📋 Requires: Sessions 08–13 (French STT, fuzzy matching, the register lock, the per-manager deploy pipeline)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was a <strong>routing-and-infrastructure</strong> session. Sessions 8–13 all sharpened the <em>single</em> bilingual lease agent. Session 14 splits the French conversation onto its own assistant with its own ear, and builds the plumbing to send French callers there. The work flowed from one question you asked while looking at an exported agent config:</p>
+
+      <div class="term"><span class="spk">You:</span> i have put voice agent config @French_cere.md — how good is it, and what can I
+       learn to make the french of my lease agent better?
+<span class="dim">         ...which surfaced that a dedicated French ear was the real upgrade...</span>
+<span class="spk">You:</span> what about we use a French-only Deepgram model if the caller speaks french
+       and keep the english scenario the same
+<span class="spk">You:</span> apply it to the agent of each manager so we can test against real listings...
+       if this doesn't work, then we will roll back
+<span class="spk">You:</span> for routing, start with a plain English intro, then ask English or French,
+       then route to the respective agent</div>
+
+      <p>By the end we had, live on all four manager lines:</p>
+      <ul>
+        <li><strong>A dedicated French-only assistant per manager</strong> — same leasing brain, but listening with Deepgram <code class="ic">nova-3</code> set to <code class="ic">language:"fr"</code> (a monolingual French model) instead of the shared <code class="ic">multi</code> engine.</li>
+        <li><strong>An explicit language gate on the entry assistant</strong> — it opens in English, asks "English or French? / Anglais ou français?", does no leasing until the caller picks, then <strong>hands off</strong> to the French assistant only on a French choice. English callers never leave the entry assistant.</li>
+        <li><strong>A handoff with NO squad and NO phone-number change</strong> — we discovered (from the Vapi docs) that a handoff tool can target a saved assistant by id directly, which removed the two riskiest parts of the original plan.</li>
+        <li><strong>A provisioning script with a built-in rollback</strong> — <code class="ic">provision_lease_french_handoff.py</code>, with <code class="ic">--dry-run</code>, a fleet guard, and a <code class="ic">--rollback</code> that undoes everything.</li>
+        <li><strong>One new DB column + a paper trail</strong> — migration 031, plus updates to <code class="ic">CODEBASE_CONTEXT.md</code> and a plan doc, so the next session inherits the full picture.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Explain why a phone agent's <strong>speech-to-text language can't be switched mid-call</strong>, and why that forces <em>routing</em> instead of <em>flipping</em>.</li>
+          <li>Compare a <strong>multilingual</strong> STT model to a <strong>dedicated single-language</strong> one, and say when each wins.</li>
+          <li>Describe Vapi <strong>squads</strong> vs <strong>handoff tools</strong>, and why a direct <code>assistantId</code> handoff needs neither a squad nor a phone-number change.</li>
+          <li>Design a <strong>gated, additive</strong> change that adds a French branch while proving the English path is byte-for-byte unchanged.</li>
+          <li>Choose between <strong>passive language detection</strong> and an explicit <strong>language gate</strong> (an IVR-style menu).</li>
+          <li>Understand <strong>DDL vs DML</strong> and why a Supabase client library can't add a column — and how the migration actually gets applied.</li>
+          <li>Treat <strong>rollback as a first-class feature</strong> and verify a live multi-agent deploy end-to-end.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our product is a <strong>CRM</strong> (Customer Relationship Management — the web app a property manager uses to track buildings, units, tenants, and leads). It has a <strong>voice agent</strong> named <strong>Max</strong>: an AI that answers a phone line, talks to a prospective renter, finds the unit they want, and saves the manager a <strong>lead</strong>. Max runs on <strong>Vapi</strong> (a hosted "Voice API" that wires a phone number to three swappable pieces — a <strong>transcriber</strong> that turns speech into text, a <strong>model</strong> / LLM that decides what to say, and a <strong>voice</strong> that speaks the reply). Max's behaviour lives in a long <strong>system prompt</strong> — the variable <code class="ic">_LEASE_SYSTEM_PROMPT_BASE</code> in <code class="ic">backend/app/services/vapi_agent_config.py</code> — plus a set of tools that call our backend.</p>
+
+      <p>Across Sessions 08–13 we worked the French problem from both ends. On the <em>input</em> side (what Max can <em>hear</em>): Session 08 built fuzzy city matching for garbled French place-names, Session 09 added the banded "did you mean…?" confirmation, Session 12 unified the match gate and gave Max a Montréal clock. On the <em>output</em> side (what Max <em>says</em>): Session 13 locked his French register to the formal <em>vous</em>. Every one of those changes lived on a <strong>single bilingual assistant</strong> per manager, transcribing with Deepgram <code class="ic">nova-3</code> in <code class="ic">language:"multi"</code> mode — one engine listening for both English and French at once.</p>
+
+      <p>That shared <code class="ic">multi</code> engine is exactly where Session 12's Québec-city garble came from: a generalist model splitting its attention across languages mishears French place-names more than a French specialist would. Session 14 attacks that at the source — give French calls a French-only ear. The catch, which shapes the entire session, is that <strong>you can't change a call's transcriber once the call is live</strong>. So this session is really about <em>routing</em>: detecting the language and sending the caller to a second assistant built for it.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need Sessions 08–13 open. Every term is re-explained here on first use. The one fact worth carrying in: each manager has one Vapi "lease assistant" attached to one phone number, and they're deployed by a Python script that talks to Vapi over plain HTTP. This session adds a <em>second</em> assistant beside each one.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Eight ideas. C1 is the physical constraint that dictates the whole design (you can't switch the ear mid-call). C2 is why a dedicated French ear is worth the trouble. C3–C5 are the routing mechanics (squad vs handoff; the gated branch; the language gate). C6–C7 are the deployment realities (raw-HTTP provisioning; why a schema change needs a different tool than data changes). C8 is the discipline that made a live fleet deploy safe (reversibility).</p>
+
+      <!-- ---- Concept 1 ---- -->
+      <h3 id="c-lock">1 · The transcriber's language is locked when the call starts</h3>
+      <p><strong>Plain-English explanation.</strong> When a phone call connects, Vapi has to start converting the caller's audio into text immediately — so it loads <em>one</em> speech-to-text configuration, including <em>which language</em> to listen for, before the caller has said a single word. You cannot change that language partway through the call, because to know they're speaking French you'd first have to transcribe them… which requires already having picked a transcriber. It's a chicken-and-egg loop.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Our dream was "use the French model <em>if</em> the caller speaks French." That exact sentence is impossible inside one assistant: the "if" can only be evaluated <em>after</em> transcription, and transcription has already committed to a language. This single fact is why we can't just add an instruction to Max's prompt — the fix has to happen at a level <em>above</em> the conversation: which assistant the call is sent to.</p>
+
+      <p><strong>How it works (analogy).</strong> It's like hiring an interpreter before a guest arrives. You must pick "French interpreter" or "Spanish interpreter" at the door — you can't wait until the guest starts talking, because the interpreter is the very person who'd tell you what language it is. If you guess wrong, you don't re-train that interpreter mid-conversation; you tap a different interpreter on the shoulder and hand the conversation over. That hand-over is the whole idea of this session.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>STT (Speech-To-Text)</strong> — software that converts spoken audio into written words. Also called a "transcriber." Deepgram is the STT provider we use.</li>
+        <li><strong>transcriber config</strong> — the JSON block on an assistant that says which STT provider/model/language to use. Fixed at call start.</li>
+        <li><strong>multi mode</strong> — Deepgram's setting (<code class="ic">language:"multi"</code>) that listens for several languages at once, including switching between them in one sentence.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — some choices must be made before you have the information to make them</div>
+        <p>When a decision depends on data that only exists <em>after</em> the decision is committed, you can't solve it in place — you solve it by <strong>routing</strong>: make a cheap first guess (or ask), then transfer to a specialist. Recognising "this is a chicken-and-egg constraint" early stops you from designing an impossible in-call switch.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/customization/multilingual">Vapi — multilingual support</a> ·
+        <a class="inline" href="https://developers.deepgram.com/docs/multilingual-code-switching">Deepgram — multilingual code-switching</a>
+      </p>
+
+      <!-- ---- Concept 2 ---- -->
+      <h3 id="c-stt">2 · Multilingual vs dedicated speech models</h3>
+      <p><strong>Plain-English explanation.</strong> A multilingual STT model is a generalist: it can handle several languages, even mixed in one sentence, but it spreads its "attention" across all of them. A dedicated single-language model is a specialist: told in advance it will only hear French, it can lean entirely on French sounds, spellings, and place-names — so it gets more of them right. The cost of accuracy is flexibility: a French-only model mangles English.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Session 12's bug was Max mishearing Québec city names like "Trois-Rivières" off the <code class="ic">multi</code> engine. Deepgram's own numbers say their <code class="ic">nova-3</code> model in dedicated French gives "double-digit relative WER reductions" versus the multilingual setting on French audio. For a leasing call where the caller's city decides which listings come back, fewer mis-heard place-names is a direct quality win. The whole point of routing is to put French audio in front of that specialist.</p>
+
+      <p><strong>How it works (analogy).</strong> A bilingual receptionist who handles English and French walk-ins is convenient, but a born-and-raised Québécois who <em>only</em> takes the French line will catch a mumbled "Saint-Hyacinthe" the generalist fumbles. Same brain power, narrower focus, better French.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>WER (Word Error Rate)</strong> — the standard accuracy metric for transcription: the percentage of words the engine gets wrong. Lower is better; "double-digit relative reduction" means dropping, say, 12% WER to ~10%.</li>
+        <li><strong>nova-3</strong> — Deepgram's current-generation model family. Supports both <code class="ic">multi</code> and dedicated single languages like <code class="ic">fr</code>.</li>
+        <li><strong>keyterm prompting</strong> — feeding the STT engine a list of expected words (e.g. a manager's real street and city names) so it biases toward transcribing them correctly. Works on dedicated nova-3 languages — a future lever (Exercise 🟢).</li>
+        <li><strong>confidenceThreshold</strong> — how sure the engine must be before it accepts a transcript; we keep it at <code class="ic">0.4</code> (the value Session 12 settled on), not the dangerously-low <code class="ic">0.13</code> we saw in the exported config.</li>
+      </ul>
+
+      <p>Here is the dedicated French transcriber we added, beside the shared one for contrast:</p>
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — the two transcriber configs"><pre><code># The SHARED bilingual ear, used by the ENTRY assistant (unchanged this session):
+TRANSCRIBER_CONFIG = {
+    "provider": "deepgram",
+    "model": "nova-3",
+    "language": "multi",        # listens for English AND French at once
+    "numerals": True,           # write "two" as "2" for easier tool parsing
+    "confidenceThreshold": 0.4, # reject low-confidence guesses
+    # ...OpenAI fallback transcriber omitted...
+}
+
+# NEW — the dedicated French ear, used ONLY by the French handoff assistant:
+FRENCH_TRANSCRIBER_CONFIG = {
+    "provider": "deepgram",
+    "model": "nova-3",
+    "language": "fr",           # monolingual French -&gt; lower WER on French audio
+    "numerals": True,
+    "confidenceThreshold": 0.4, # same gate as the shared engine
+    "fallbackPlan": {           # if Deepgram hiccups, fall back to OpenAI's transcriber
+        "transcribers": [
+            {"provider": "openai", "model": "gpt-4o-transcribe"}
+        ]
+    },
+}</code></pre></div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — we verified <code>nova-3 fr</code> exists before trusting it</div>
+        <p>nova-3 began life English-only and added languages over time, so "does nova-3 even support <code class="ic">fr</code>?" was a real question. Getting it wrong means the assistant fails on its first call. We confirmed against Deepgram's docs that nova-3 added dedicated French (with a WER win over nova-2) <em>before</em> writing the config. Verify model/language support; never assume it from a sibling model.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://developers.deepgram.com/docs/models-languages-overview">Deepgram — models &amp; languages overview</a> ·
+        <a class="inline" href="https://deepgram.com/learn/deepgram-expands-nova-3-with-spanish-french-and-portuguese-support">Nova-3 adds French (WER numbers)</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Word_error_rate">Word Error Rate (Wikipedia)</a>
+      </p>
+
+      <!-- ---- Concept 3 ---- -->
+      <h3 id="c-handoff">3 · Routing between agents: squads vs handoff tools</h3>
+      <p><strong>Plain-English explanation.</strong> Vapi gives you two ways to run more than one assistant on a call. A <strong>squad</strong> is a pre-declared team of assistants bundled together, with the phone number pointed at the <em>squad</em>; members transfer among themselves. A <strong>handoff tool</strong> is lighter: a single assistant carries a "transfer this call to that assistant" action it can fire mid-conversation. The decisive discovery this session was that a handoff can target a saved assistant <strong>by its id with no squad at all</strong> — which means the phone number keeps pointing at the original assistant and nothing about call routing changes for anyone.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The first design used a squad and <em>repointed each phone number</em> at it. That touches the most dangerous surface we have: every inbound call, English included, would now enter through new plumbing. When we read the docs and found handoff-by-<code class="ic">assistantId</code> needs no squad and no repoint, the blast radius collapsed from "all inbound routing" to "one extra tool on the existing assistant." (That realisation is Bug Story #1.)</p>
+
+      <p><strong>How it works (analogy).</strong> A squad is re-routing the building's front-door intercom through a new switchboard — everyone who buzzes now goes through it. A direct handoff is the receptionist keeping their same desk and phone, and simply <em>warm-transferring</em> the occasional French caller to a colleague's extension. The front door is untouched.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>handoff tool</strong> — a Vapi tool of <code class="ic">type:"handoff"</code> placed in an assistant's tool list; calling it transfers the live call to a destination assistant.</li>
+        <li><strong>squad</strong> — a named group of assistants; the phone number is attached to the squad rather than to a single assistant. We did <em>not</em> use one.</li>
+        <li><strong>assistantId vs assistantName</strong> — a handoff destination targets a saved assistant by its UUID (<code class="ic">assistantId</code>, works anywhere) or, only inside a squad, by <code class="ic">assistantName</code>. We used <code class="ic">assistantId</code>.</li>
+        <li><strong>contextEngineeringPlan</strong> — the setting that controls how much of the conversation so far is carried to the destination assistant. <code class="ic">{type:"all"}</code> carries everything, so the French assistant <em>continues</em> the call instead of restarting it.</li>
+      </ul>
+
+      <p>The handoff tool we attach to the entry assistant:</p>
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — _lease_handoff_tool()"><pre><code>def _lease_handoff_tool(french_assistant_id: str) -&gt; dict:
+    # Gated handoff to the dedicated French assistant. No squad: we target a saved
+    # assistantId directly, and carry full context so the French side continues, not restarts.
+    return {
+        "type": "handoff",                 # Vapi's assistant-to-assistant transfer tool
+        "destinations": [
+            {
+                "type": "assistant",
+                "assistantId": french_assistant_id,   # the saved French assistant's UUID
+                "description": (                       # the model reads THIS to decide when to fire
+                    "Transfer the call to the French-speaking leasing assistant. Use this the "
+                    "instant you determine the caller is speaking French. Do NOT use it for "
+                    "English callers."
+                ),
+                "contextEngineeringPlan": {"type": "all"},  # carry the whole conversation across
+            }
+        ],
+    }</code></pre></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — the lightest mechanism that meets the requirement is usually the right one</div>
+        <p>Squads, repoints, and DB schema for squad ids were all real options — and all heavier than the job needed. A direct <code class="ic">assistantId</code> handoff did everything required (transfer + carry context) while leaving the phone numbers and the English path untouched. When two designs both work, prefer the one with the smaller blast radius.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/squads/handoff">Vapi — handoff tool</a> ·
+        <a class="inline" href="https://docs.vapi.ai/squads">Vapi — squads overview</a> ·
+        <a class="inline" href="https://docs.vapi.ai/api-reference/phone-numbers/update">Vapi — phone number (assistantId / squadId)</a>
+      </p>
+
+      <!-- ---- Concept 4 ---- -->
+      <h3 id="c-gated">4 · The gated, additive branch (English untouched by construction)</h3>
+      <p><strong>Plain-English explanation.</strong> Rather than build a brand-new "router" assistant that <em>every</em> call passes through, we kept each manager's existing assistant as the <strong>entry</strong> assistant and added French as a single <em>branch</em> off it. The French logic only switches on when (a) we pass a French assistant id into the builder and (b) the caller actually chooses French. With no French id, the function returns byte-for-byte today's config. So the English experience isn't "probably fine" — it's <em>provably</em> unchanged, because the code path that builds it is literally identical.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Your hard constraint was "keep the English scenario the same." The cleanest way to guarantee that is to make the new behaviour <em>optional and gated</em>: an extra parameter, <code class="ic">french_assistant_id=None</code>, that defaults to off. Every existing caller of <code class="ic">build_lease_config</code> keeps the old behaviour for free, and only the new provisioning path opts in.</p>
+
+      <p><strong>How it works (analogy).</strong> It's a feature flag baked into a function signature. Like adding an optional "gift wrap?" checkbox to a checkout: unchecked, the order flows exactly as before; checked, one extra step runs. You don't fork the whole checkout to add wrapping paper.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>additive change</strong> — a change that only <em>adds</em> a code path; it never alters or removes existing behaviour.</li>
+        <li><strong>blast radius</strong> — the set of things a change can possibly affect. We keep it tiny and provable.</li>
+        <li><strong>gated</strong> — guarded by a condition so the new path is inert unless explicitly switched on.</li>
+      </ul>
+
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — entry builder gains an optional French branch"><pre><code>def build_lease_config(backend_url: str, manager_id: str,
+                       manager_name: str = "our property management team",
+                       french_assistant_id: str | None = None) -&gt; dict:  # NEW optional arg, default off
+    tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=manager_id))
+    context_block = _LEASE_CONTEXT_BLOCK.format(manager_id=manager_id, manager_name=manager_name)
+    system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block
+    if french_assistant_id:                              # the gate: only when a French id is supplied
+        system_prompt += _LEASE_FRENCH_ROUTING_BLOCK     #   add the language-gate instructions
+        tools = tools + [_lease_handoff_tool(french_assistant_id)]  #   add the handoff tool
+    # If french_assistant_id is None, the two lines above never run -&gt; identical to today's config.
+    return _lease_assistant_shell(
+        name=f"Lease Agent [{manager_id[:8]}]",
+        system_prompt=system_prompt, tools=tools, backend_url=backend_url,
+    )
+
+
+def build_lease_config_french(backend_url: str, manager_id: str,
+                              manager_name: str = "our property management team") -&gt; dict:
+    # The HANDOFF TARGET: same leasing brain + tools, but a French-only ear and a "continue" note.
+    tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=manager_id))
+    context_block = _LEASE_CONTEXT_BLOCK.format(manager_id=manager_id, manager_name=manager_name)
+    system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block + _LEASE_FRENCH_CONTINUATION_NOTE
+    return _lease_assistant_shell(
+        name=f"Lease Agent FR [{manager_id[:8]}]",
+        system_prompt=system_prompt, tools=tools, backend_url=backend_url,
+        transcriber=FRENCH_TRANSCRIBER_CONFIG,           # the ONLY structural difference: the French ear
+    )</code></pre></div>
+      <p>To make the French builder possible we also gave the shared assistant "shell" an optional <code class="ic">transcriber</code> parameter that defaults to the bilingual one — a one-line, backward-compatible change so the French builder can swap in its own ear without forking the shell.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — prove "unchanged," don't assert it</div>
+        <p>We later confirmed with a tiny script that <code class="ic">build_lease_config_shared(url)</code> with no French id produces a config with <em>no</em> handoff tool and <em>no</em> routing block, while the same call <em>with</em> an id adds exactly one handoff tool. "The English path is unchanged" became a test assertion, not a hope.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://martinfowler.com/bliki/FeatureToggle.html">Martin Fowler — feature toggles</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Blast_radius#Computing">Blast radius (computing)</a>
+      </p>
+
+      <!-- ---- Concept 5 ---- -->
+      <h3 id="c-gate">5 · Passive detection vs an explicit language gate</h3>
+      <p><strong>Plain-English explanation.</strong> There are two ways to learn the caller's language. <strong>Passive detection</strong>: greet bilingually and infer the language from whatever words come back. <strong>An explicit gate</strong>: open in English, ask "English or French?", and act on the answer. You chose the gate. It's the same idea as a phone menu ("press 1 for English") but spoken — deterministic, hard to misread, and it makes the routing decision a clean yes/no instead of a guess about ambiguous first words.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Passive detection's failure mode is ugly: a French caller who opens with an English place-name ("uh, Montreal?") might be misread as English and never handed off — or worse, an English caller gets wrongly transferred. The explicit gate removes that ambiguity: the caller <em>tells</em> us, and we route on a direct answer. It also gives the French assistant a clean starting point — the caller has only chosen a language, not yet stated their need.</p>
+
+      <p><strong>How it works (analogy).</strong> Passive detection is a host guessing your language from your accent and sometimes getting it wrong. The gate is the host simply asking "English or French?" — one beat slower, far more reliable.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>IVR (Interactive Voice Response)</strong> — the classic "press 1 for…" phone menu. Our gate is the conversational, spoken equivalent.</li>
+        <li><strong>language gate</strong> — the single opening turn whose only job is to establish the call language and route on it.</li>
+      </ul>
+
+      <p>The routing block we append to the <em>entry</em> assistant (the gate lives here):</p>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — _LEASE_FRENCH_ROUTING_BLOCK (entry only)"><pre><code>[French Routing — STRICT, ENTRY ASSISTANT ONLY]
+This line is bilingual, but YOU never conduct the French call — a dedicated French assistant does.
+Run your FIRST turn as an explicit language gate:
+1. Give a short, plain English introduction (you are Max, the AI leasing assistant for the manager),
+   then ask which language they prefer: "Would you like to continue in English, or in French?"
+   Append the French of just that question so a French speaker can answer:
+   "Préférez-vous continuer en anglais ou en français?"
+   (This gate question is the ONE permitted bilingual line — it overrides the bilingual ban in
+   [Language Policy] for this single turn. Do NOT start any leasing topic yet.)
+2. Wait for their choice before anything else — do NOT ask what they are looking for until they pick.
+
+Route on their answer:
+- ENGLISH chosen -&gt; continue the entire call in English, exactly as normal.
+- FRENCH chosen (or they simply answer in French / ask for French) -&gt; call the handoff tool
+  IMMEDIATELY on that turn. Do NOT answer in French yourself, do NOT announce the transfer.
+- Unclear answer -&gt; ask once more "English or French? / Anglais ou français?", then route.</code></pre></div>
+
+      <p>And the note we append to the <em>French</em> assistant so it continues smoothly rather than re-greeting from scratch:</p>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — _LEASE_FRENCH_CONTINUATION_NOTE (French assistant only)"><pre><code>[French Call — Continuation]
+The caller just chose to continue in French at the language gate; they have NOT yet said what they
+are looking for. Greet them warmly in French with the formal vous, introduce yourself briefly, and
+ask what they're looking for — e.g. "Parfait! Je suis Max, votre assistant de location. Qu'est-ce que
+vous cherchez comme logement?" The entire call stays in French; never switch to English.</code></pre></div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — the gate question is the one allowed bilingual line</div>
+        <p>Session 13 banned mixing languages in one utterance. The gate is the deliberate exception: a French-only caller must be able to understand the question, so we ask it in both languages — but <em>only</em> that one turn. We say so explicitly in the prompt so the model doesn't refuse it as a policy violation.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://en.wikipedia.org/wiki/Interactive_voice_response">Interactive Voice Response (Wikipedia)</a> ·
+        <a class="inline" href="https://platform.openai.com/docs/guides/prompt-engineering">OpenAI — prompt engineering guide</a>
+      </p>
+
+      <!-- ---- Concept 6 ---- -->
+      <h3 id="c-http">6 · Provisioning Vapi over raw HTTP (not the SDK)</h3>
+      <p><strong>Plain-English explanation.</strong> Vapi ships a Python SDK (a convenience library), but this project deliberately talks to Vapi with plain HTTP requests instead. The reason, discovered in earlier sessions and documented in the codebase: the SDK's strict data types silently <em>drop</em> fields it doesn't recognise — like <code class="ic">firstMessageMode</code> and some tool sub-fields — so configs come out subtly wrong. Raw HTTP sends exactly the JSON we built. We followed that same pattern for the new create / patch / delete calls.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Our assistant configs use camelCase fields and tool shapes the SDK mangles. Since the existing deploy scripts already use <code class="ic">httpx.patch(...)</code> against <code class="ic">api.vapi.ai</code>, the new provisioning script matches them: <code class="ic">POST /assistant</code> to create the French assistant, <code class="ic">PATCH /assistant/{id}</code> to add the handoff to the entry, <code class="ic">DELETE /assistant/{id}</code> for rollback. Consistency with the working pattern beats fighting the SDK.</p>
+
+      <p><strong>How it works (analogy).</strong> The SDK is a "helpful" form that quietly deletes any answer that doesn't fit its boxes. Raw HTTP is mailing the form you actually wrote. When the helper loses your data, you write the letter yourself.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>SDK (Software Development Kit)</strong> — a library that wraps an API in convenient functions. Useful until its assumptions don't match yours.</li>
+        <li><strong>httpx</strong> — the Python HTTP client this project uses for direct REST calls.</li>
+        <li><strong>REST verbs</strong> — <code class="ic">POST</code> creates, <code class="ic">PATCH</code> updates, <code class="ic">DELETE</code> removes. The Vapi endpoints map cleanly onto these.</li>
+        <li><strong>idempotent</strong> — running the same operation twice leaves the same result. Re-running our provisioning patches the existing French assistant rather than making a duplicate.</li>
+      </ul>
+
+      <div class="code-block" data-lang="python" data-file="provision_lease_french_handoff.py — create + patch over raw HTTP"><pre><code>def _to_vapi_payload(cfg: dict) -&gt; dict:
+    # Our config dict uses snake_case keys; Vapi's REST API wants camelCase. Translate, drop Nones.
+    payload = {
+        "name": cfg.get("name"),
+        "firstMessageMode": cfg.get("first_message_mode"),   # the field the SDK silently dropped
+        "transcriber": cfg.get("transcriber"),
+        "voice": cfg.get("voice"),
+        "model": cfg.get("model"),
+        # ...more 1:1 mappings...
+    }
+    return {k: v for k, v in payload.items() if v is not None}
+
+def _create_french_assistant(cfg: dict, dry_run: bool) -&gt; str:
+    payload = _to_vapi_payload(cfg)
+    if dry_run:                                              # preview mode makes no network call
+        print(f"    DRY RUN POST /assistant name={payload['name']}")
+        return "&lt;dry-run-french-id&gt;"
+    resp = httpx.post(f"{VAPI_API_BASE}/assistant", headers=_headers(), json=payload, timeout=30)
+    if resp.status_code not in (200, 201):                  # surface failures loudly, don't swallow
+        raise SystemExit(f"create failed HTTP {resp.status_code}: {resp.text[:300]}")
+    return resp.json()["id"]                                # the new assistant's UUID, to wire into the entry</code></pre></div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://www.python-httpx.org/">httpx documentation</a> ·
+        <a class="inline" href="https://docs.vapi.ai/api-reference/assistants/create">Vapi — create assistant API</a> ·
+        <a class="inline" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods">MDN — HTTP methods</a>
+      </p>
+
+      <!-- ---- Concept 7 ---- -->
+      <h3 id="c-ddl">7 · DDL vs DML — why a Python client can't add a column</h3>
+      <p><strong>Plain-English explanation.</strong> Database operations split into two families. <strong>DML (Data Manipulation Language)</strong> reads and writes <em>rows</em> — SELECT, INSERT, UPDATE. <strong>DDL (Data Definition Language)</strong> changes the <em>shape</em> of the database itself — CREATE TABLE, ALTER TABLE to add a column. The Supabase Python client we use talks to <strong>PostgREST</strong>, a layer that only does DML (rows). It has no way to run an <code class="ic">ALTER TABLE</code>. So to add our new column we couldn't script it — it had to go through the Supabase SQL Editor (or a direct Postgres connection, which this environment doesn't have).</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> To remember each manager's French assistant id across redeploys, we needed a new column, <code class="ic">vapi_lease_french_assistant_id</code>, on the <code class="ic">manager_vapi_config</code> table. That's DDL. The agent literally could not apply it — no <code class="ic">DATABASE_URL</code>, no Postgres driver installed, and the Supabase client can't do DDL. So the rollout had a human step: you pasted migration 031 into the Supabase SQL Editor. Knowing <em>which</em> changes you can automate and which need the dashboard prevents a confused "why won't my script add the column?" loop.</p>
+
+      <p><strong>How it works (analogy).</strong> DML is moving furniture in and out of rooms; DDL is knocking down a wall to add a room. The mover (PostgREST) is licensed to carry furniture, not to do construction. Construction goes to a different crew (the SQL Editor / a direct DB connection).</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>DDL / DML</strong> — define the schema vs manipulate the rows.</li>
+        <li><strong>PostgREST</strong> — the service that turns a Postgres database into a REST API for rows; what supabase-py speaks. Rows only, no schema changes.</li>
+        <li><strong>migration</strong> — a numbered <code class="ic">.sql</code> file that records a schema change so it's repeatable and reviewable. Ours is <code class="ic">031_lease_french_assistant_id.sql</code>.</li>
+        <li><strong>ADD COLUMN IF NOT EXISTS</strong> — idempotent DDL: safe to run twice, and additive (nullable, default null) so it can't break existing rows.</li>
+      </ul>
+
+      <div class="code-block" data-lang="sql" data-file="backend/migrations/031_lease_french_assistant_id.sql"><pre><code>-- Per-manager dedicated French lease assistant id, for the French-handoff routing.
+-- Additive and nullable -- no effect on managers without a French assistant.
+ALTER TABLE manager_vapi_config
+  ADD COLUMN IF NOT EXISTS vapi_lease_french_assistant_id text;
+
+COMMENT ON COLUMN manager_vapi_config.vapi_lease_french_assistant_id IS
+  'VAPI assistant id of the dedicated French-only lease assistant (handoff target). Null = none.';</code></pre></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — know your data layer's powers and limits</div>
+        <p>A client library exposes a <em>subset</em> of what the database can do. Supabase's client is row-oriented by design. The moment you need to change <em>structure</em>, you've stepped outside its remit and need a different tool — the SQL editor or a direct connection. Recognising that boundary is the difference between "the migration needs a human step" and ten minutes of debugging a 400 error.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://postgrest.org/en/stable/">PostgREST documentation</a> ·
+        <a class="inline" href="https://www.postgresql.org/docs/current/ddl.html">PostgreSQL — Data Definition (DDL)</a> ·
+        <a class="inline" href="https://supabase.com/docs/guides/database/tables">Supabase — managing tables</a>
+      </p>
+
+      <!-- ---- Concept 8 ---- -->
+      <h3 id="c-rollback">8 · Reversibility as a feature (and pilot-gating)</h3>
+      <p><strong>Plain-English explanation.</strong> You said "if this doesn't work, we'll roll back." A rollback that's an afterthought is a scramble; a rollback that's <em>designed in</em> is one command. We built <code class="ic">--rollback</code> into the provisioning script from the start: it removes the handoff from each entry assistant (rebuilding it with no French id), deletes the French assistants, and clears the DB column — returning everything to exactly today. We also <em>gated</em> the risky fleet rollout behind an explicit <code class="ic">--confirm-fleet</code> flag so it can't fire by accident.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> These are four live phone lines real renters call. "Try it and undo it if it's bad" is only a safe plan if the undo is reliable and instant. Because the change is additive (a tool on an assistant; a nullable column; new standalone assistants), the reverse is mechanical and complete — no data migration to unwind, no phone-number to re-point.</p>
+
+      <p><strong>How it works (analogy).</strong> Good change management is climbing with a rope already clipped in. You don't wait until you slip to look for an anchor. The <code class="ic">--rollback</code> path is the rope, clipped before the first live patch.</p>
+
+      <div class="code-block" data-lang="bash" data-file="terminal — the safety controls"><pre><code># Fleet rollout is REFUSED unless you explicitly confirm — no accidental fire:
+$ python provision_lease_french_handoff.py --all --fleet-only
+  Refusing --all without --confirm-fleet. ...apply migration 031 first...
+
+# One command undoes the entire session, live:
+$ backend/.venv/Scripts/python.exe \
+    backend/scripts/provision_lease_french_handoff.py --rollback --all --fleet-only
+  # -&gt; removes the handoff from 4 entry assistants, deletes 4 French assistants, clears the column</code></pre></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — build the undo before the do</div>
+        <p>Writing <code class="ic">--rollback</code> <em>before</em> the live push forced us to think through every artifact the rollout creates (an assistant, a tool, a column value) — which is exactly the checklist you need to be confident the forward push is complete. The undo is also the best documentation of what the change actually touched.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://martinfowler.com/bliki/BlueGreenDeployment.html">Martin Fowler — safe deployment patterns</a> ·
+        <a class="inline" href="https://docs.vapi.ai/api-reference/assistants/delete">Vapi — delete assistant API</a>
+      </p>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p>The shape was: <em>understand the problem → design (and re-design) the routing → verify the API against live docs → write the plan → write the code → verify locally → build the provisioning + rollback → discover the venv → preview the blast radius → (you) apply the migration → go live → refine the routing to a language gate → verify the deployed prompts → update the paper trail.</em></p>
+
+      <h3>Step 1 — Read the exported config and find the real gap</h3>
+      <p><strong>What &amp; why now.</strong> You shared <code class="ic">French_cere.md</code>, an exported Vapi agent. Reading it against our live lease agent showed it was actually <em>behind</em> ours on French (no register lock, English-only examples, a transcriber hard-locked to <code class="ic">fr</code> with a reckless <code class="ic">0.13</code> threshold). The useful takeaway wasn't to copy it — it was the idea hiding inside its <code class="ic">language:"fr"</code>: a <em>dedicated</em> French ear genuinely beats <code class="ic">multi</code> on French audio. That reframed the whole task.</p>
+      <p><strong>If skipped:</strong> we'd have "improved French" by tweaking prompts again, missing the bigger lever — the speech engine itself.</p>
+
+      <h3>Step 2 — Design the routing, then simplify it twice</h3>
+      <p><strong>What &amp; why now.</strong> The constraint from Concept 1 (can't switch the ear mid-call) means routing. We considered a dedicated French phone number, a DTMF menu, and a squad; you chose the squad idea. Refining it, we landed on "entry = the existing agent, French is the only branch" so English is untouched (Concept 4). Then, verifying the API, we found handoff-by-<code class="ic">assistantId</code> needs <em>no squad and no phone repoint</em> — the final, lightest design (Concept 3). Two rounds of simplification, each shrinking the blast radius.</p>
+      <p><strong>If skipped:</strong> we'd have shipped the squad-and-repoint version — far more risk for the same outcome (see Bug 1).</p>
+
+      <h3>Step 3 — Verify the Vapi + Deepgram APIs against live docs</h3>
+      <p><strong>What &amp; why now.</strong> Before writing a line, we confirmed four facts from the docs: the handoff tool's exact JSON, that <code class="ic">contextEngineeringPlan:{type:"all"}</code> carries history, that a handoff can target a saved <code class="ic">assistantId</code> with no squad, and that <code class="ic">nova-3</code> supports dedicated <code class="ic">fr</code>. The docs had <em>changed</em> since training memory (the old "transferCall" became the "handoff tool"), which is exactly why we checked (Bug 2).</p>
+      <p><strong>If skipped:</strong> we'd have coded a deprecated API shape from memory and failed on the first deploy.</p>
+
+      <h3>Step 4 — Write the plan doc</h3>
+      <p><strong>What &amp; why now.</strong> The project keeps plans in <code class="ic">docs/development_plans/</code>. We wrote one capturing the design, the honest risk table, and a pilot-then-fleet rollout. When the API discovery simplified the design, we rewrote the plan to match — the doc tracks reality, not the first idea.</p>
+      <div class="term"><span class="pmt">$</span> <span class="dim"># the artifact (note the descriptive, dated, unique filename per repo convention)</span>
+docs/development_plans/PLAN_lease_agent_french_squad_routing_2026-06-26.md</div>
+      <p><strong>If skipped:</strong> the risk trade-offs and the "no-squad" rationale would live only in chat, lost to the next session.</p>
+
+      <h3>Step 5 — Write the code (config layer)</h3>
+      <p><strong>What &amp; why now.</strong> Five edits to <code class="ic">vapi_agent_config.py</code>, all additive: <code class="ic">FRENCH_TRANSCRIBER_CONFIG</code>; the <code class="ic">_lease_handoff_tool()</code> helper; the <code class="ic">[French Routing]</code> and <code class="ic">[French Call — Continuation]</code> prompt blocks; a <code class="ic">transcriber</code> parameter on the shell; and the new <code class="ic">build_lease_config_french[_shared]()</code> builders plus the optional <code class="ic">french_assistant_id</code> on the entry builders. (All shown in Concepts 2–5.)</p>
+      <p><strong>If skipped:</strong> there'd be no French assistant to hand off to, and no gate to trigger it.</p>
+
+      <h3>Step 6 — Verify the build locally before any network call</h3>
+      <p><strong>What &amp; why now.</strong> A small script imported the module and asserted the invariants: French assistant on <code class="ic">fr</code>; entry with no French id is unchanged (no handoff tool); entry with an id gains exactly one; no mojibake in the accented French. Cheap proof before touching Vapi.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scratch/verify_gate.py
+<span class="ok">LOCAL BUILD OK — gate wired, english path unchanged, no mojibake</span></div>
+      <p><strong>If skipped:</strong> we'd debug config-shape mistakes against the live API instead of in milliseconds locally.</p>
+
+      <h3>Step 7 — Build the provisioning script with rollback + a fleet guard</h3>
+      <p><strong>What &amp; why now.</strong> <code class="ic">provision_lease_french_handoff.py</code> creates each French assistant, stores its id, and patches the entry to carry the handoff. It supports <code class="ic">--dry-run</code>, a default-safe shared pilot, <code class="ic">--all --fleet-only --confirm-fleet</code> for the per-manager rollout, and <code class="ic">--rollback</code> (Concept 8). We also wired <code class="ic">update_lease_agents.py</code> to pass the stored French id on future redeploys, so a routine redeploy doesn't strip the handoff.</p>
+      <p><strong>If skipped:</strong> no repeatable way to roll the change out or back; a later redeploy would silently undo the handoff.</p>
+
+      <h3>Step 8 — Write migration 031 (the new column)</h3>
+      <p><strong>What &amp; why now.</strong> To persist each French assistant id we added <code class="ic">vapi_lease_french_assistant_id</code> to <code class="ic">manager_vapi_config</code>. This is DDL (Concept 7), so the script can't apply it — it ships as a numbered SQL file for the Supabase SQL Editor.</p>
+      <p><strong>If skipped:</strong> nowhere to remember the per-manager French id; redeploys couldn't preserve the handoff.</p>
+
+      <h3>Step 9 — Preview the blast radius (read-only)</h3>
+      <p><strong>What &amp; why now.</strong> Before any live change, we listed the active per-manager agents and checked whether the column existed yet. This both confirms scope (exactly 4 lines) and gates the fleet path until the migration is applied.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scratch/preview_fleet.py
+Active per-manager lease agents: 4
+  - manager 28c43c77  entry_assistant=c76a69ea...  line=+14313404212
+  - manager 7fb0c018  entry_assistant=70a03059...  line=+14313415768
+  - manager eb4b27dc  entry_assistant=dc53d48d...  line=+12494028641
+  - manager d2a63e94  entry_assistant=4c2099e9...  line=+15149001126
+<span class="dim">column vapi_lease_french_assistant_id: MISSING  -&gt; apply migration 031 first</span></div>
+      <p><strong>If skipped:</strong> we'd run the fleet command blind and hit a confusing 400 on the missing column.</p>
+
+      <h3>Step 10 — (You) apply migration 031 in the Supabase SQL Editor</h3>
+      <p><strong>What &amp; why now.</strong> The one human step (Concept 7). You ran the <code class="ic">ALTER TABLE</code>; we re-ran the preview and it reported <code class="ic">column ... PRESENT -&gt; ready for --all</code>.</p>
+      <p><strong>If skipped:</strong> the fleet rollout's first query (which selects the new column) fails.</p>
+
+      <h3>Step 11 — Dry-run, then go live to all four managers</h3>
+      <p><strong>What &amp; why now.</strong> We previewed the exact create+patch plan with <code class="ic">--dry-run</code>, then ran it for real. Each manager got a French assistant created, its id stored, and its entry patched with the handoff.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/provision_lease_french_handoff.py --all --fleet-only --confirm-fleet
+  [28c43c77] <span class="ok">[OK]</span> created French assistant id=49ff8fe8...  transcriber=nova-3/fr
+            <span class="ok">[OK]</span> stored vapi_lease_french_assistant_id=49ff8fe8...
+            <span class="ok">[OK]</span> patched entry assistant  handoff_present=True
+  ... (3 more managers) ...
+<span class="ok">Done.</span></div>
+      <p><strong>If skipped:</strong> nothing would be live to test.</p>
+
+      <h3>Step 12 — Verify the live wiring on Vapi</h3>
+      <p><strong>What &amp; why now.</strong> We fetched each assistant back from Vapi and asserted: entry still on <code class="ic">multi</code>, its handoff destination equals the stored French id, the French assistant on <code class="ic">fr</code>. Proof the deploy landed correctly, not just "the script printed OK."</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scratch/verify_live.py
+[28c43c77] entry_lang=multi  handoff-&gt;49ff8fe8...  fr_lang=fr   <span class="ok">OK</span>
+... (3 more) ...
+<span class="ok">ALL WIRING OK</span></div>
+
+      <h3>Step 13 — Refine routing to an explicit language gate; redeploy</h3>
+      <p><strong>What &amp; why now.</strong> You asked to switch from passive detection to an explicit "English or French?" gate (Concept 5). That's a prompt-only change to the two blocks — we edited them, re-verified the build, and re-ran the same provisioning command. Because the French ids already existed, the script <em>patched</em> the existing assistants in place (no duplicates).</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/provision_lease_french_handoff.py --all --fleet-only --confirm-fleet
+  [28c43c77] <span class="ok">[OK]</span> patched French assistant  handoff_present=False
+            <span class="ok">[OK]</span> patched entry assistant  handoff_present=True
+  ... (3 more) ...</div>
+      <p><strong>If skipped:</strong> routing would stay on the less-reliable passive detection.</p>
+
+      <h3>Step 14 — Verify the deployed <em>prompt content</em>, then update the paper trail</h3>
+      <p><strong>What &amp; why now.</strong> Wiring being correct doesn't prove the new <em>words</em> shipped, so we fetched the live prompts and grepped for the gate question and the French greeting. Then we updated <code class="ic">CODEBASE_CONTEXT.md</code> (schema, env var, scripts, and a "French handoff routing" entry) and marked the plan doc LIVE.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scratch/verify_live.py
+[28c43c77] gate_question_deployed=True  french_greeting_deployed=True  <span class="ok">OK</span>
+... (3 more) ...
+<span class="ok">ALL LIVE OK — language gate + handoff deployed on all managers</span></div>
+      <p><strong>If skipped:</strong> a future session re-discovers the feature from scratch, or "fixes" it again unaware it's already live.</p>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p>No crashes shipped to production, but the path there had five honest stumbles — a design that was too big, an API that had moved, a missing dependency, a wall we couldn't drill through from Python, and a fake corruption scare. Each gets the full Symptom → Diagnosis → Root Cause → Fix → Lesson treatment.</p>
+
+      <!-- BUG 1 -->
+      <h3 id="bug1">🐛 Bug 1 — The first design was twice as risky as the job required</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>The initial routing plan used a Vapi <strong>squad</strong> and <strong>repointed every phone number</strong> at it, plus new DB columns for squad ids. On paper it worked — but it put new plumbing in front of <em>every</em> inbound call, English included, on four live lines. The plan's own risk table flagged "phone-number → squad repoint" and "untested transfer" as real, not-yet-reversible hazards.</p>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>The trigger to re-examine was reading the <em>actual</em> deploy infrastructure: each manager has a single assistant id and a phone number, deployed by a PATCH-only script. The squad design fought that grain. Then we asked the docs a sharper question: "does an assistant-to-assistant handoff <em>require</em> a squad, or can it target a saved assistant by id?" The answer — id works, no squad — dissolved the need for the repoint entirely.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>Designing before fully reading the deployment surface. "Squad" is the textbook multi-agent answer, so we reached for it before checking whether a lighter mechanism met the requirement. The repoint wasn't required by the goal; it was an artifact of the heavier pattern we picked first.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Switch to a direct <code class="ic">assistantId</code> handoff (Concept 3). The phone numbers stay on the entry assistants; no squad object exists; the only live change is one gated tool added to an assistant. The plan doc was rewritten from "squad + repoint" to "handoff, no repoint," and the risk table shrank accordingly.</p>
+      </div>
+      <div class="code-block" data-lang="text" data-file="design — before vs after"><pre><code># BEFORE — heavy: every call re-routed
+phone number  -&gt;  SQUAD  -&gt;  [entry assistant, french assistant]   (repoint all 4 numbers)
+                                                                   (+ DB columns for squad ids)
+
+# AFTER — light: front door untouched, French is a side-door transfer
+phone number  -&gt;  entry assistant  --(handoff on French)--&gt;  french assistant
+                  (numbers unchanged; English path identical; one added tool)</code></pre></div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Read the deployment reality before you promise "non-breaking," and ask whether a <em>lighter</em> primitive meets the requirement before committing to the famous one. The best fix here deleted code and risk rather than adding them.</p>
+      </div>
+
+      <!-- BUG 2 -->
+      <h3 id="bug2">🐛 Bug 2 — The API in our memory no longer matched the API in the docs</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>Looking up assistant-to-assistant transfer, the first doc page described a <strong>"handoff tool"</strong> with a <code class="ic">contextEngineeringPlan</code> — not the <code class="ic">transferCall</code>-with-<code class="ic">assistantName</code> shape we expected. A second page we tried (<code class="ic">/assistants/call-transfers</code>) returned a flat <strong>"Page Not Found."</strong></p>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We searched the current Vapi docs and read the live <code class="ic">/squads/handoff</code> page. It confirmed a newer model: a <code class="ic">type:"handoff"</code> tool, destinations by <code class="ic">assistantId</code> or <code class="ic">assistantName</code>, and a <code class="ic">contextEngineeringPlan</code> with modes like <code class="ic">all</code> and <code class="ic">lastNMessages</code>. We then verified the exact JSON and the no-squad behaviour before coding.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>APIs evolve faster than any model's training cut-off. The transfer mechanism had been redesigned since the knowledge we were carrying. Coding from remembered API shapes is a guess dressed up as a fact.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Treat the live documentation as the source of truth. We fetched the current handoff schema and the phone-number update reference (confirming a number can attach to a <code class="ic">squadId</code>, which we then chose <em>not</em> to use) and built from those exact shapes.</p>
+      </div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>For any third-party API, verify the current shape against today's docs before writing code — especially for fast-moving platforms. A 404 on a remembered URL is a signal the surface moved, not a dead end.</p>
+      </div>
+
+      <!-- BUG 3 -->
+      <h3 id="bug3">🐛 Bug 3 — <code>ModuleNotFoundError: No module named 'supabase'</code></h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>The read-only preview script crashed immediately:</p>
+        <div class="term"><span class="err">ModuleNotFoundError: No module named 'supabase'</span></div>
+        <p>…yet moments earlier the provisioning script's <code class="ic">--dry-run</code> had imported the same project modules fine.</p>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>The clue was the contrast: the dry-run worked because it only imports modules that depend on the standard library; the preview crashed because it imports <code class="ic">supabase</code>. So the difference wasn't the code — it was the <em>interpreter</em>. The base <code class="ic">python</code> on the machine doesn't have the project's third-party packages. We searched for a virtual environment and found one: <code class="ic">backend/.venv</code>.</p>
+        <div class="term"><span class="pmt">$</span> find . -maxdepth 4 -name "pyvenv.cfg"
+./backend/.venv/pyvenv.cfg
+<span class="pmt">$</span> ls backend/.venv/Scripts/python.exe
+backend/.venv/Scripts/python.exe</div>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>A <strong>virtual environment</strong> (venv) is an isolated Python with its own installed packages, separate from the system Python. The project's dependencies — <code class="ic">supabase</code>, <code class="ic">httpx</code>, etc. — live in <code class="ic">backend/.venv</code>, not in the base interpreter we'd been invoking as plain <code class="ic">python</code>. Running a project script with the wrong interpreter means its imports aren't there.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Invoke scripts with the venv's interpreter explicitly:</p>
+        <div class="code-block" data-lang="bash" data-file="terminal — use the project interpreter"><pre><code># Wrong: base python, missing the project's installed packages
+python backend/scripts/provision_lease_french_handoff.py --all ...
+
+# Right: the venv interpreter that actually has supabase/httpx installed
+backend/.venv/Scripts/python.exe backend/scripts/provision_lease_french_handoff.py --all ...</code></pre></div>
+      </div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p><strong>Environment parity:</strong> a script's behaviour depends on <em>which</em> interpreter runs it. When an import fails for code that obviously uses that package, suspect the environment before the code. On Windows the project interpreter is <code class="ic">backend/.venv/Scripts/python.exe</code>; we now use it for every script that touches Supabase.</p>
+      </div>
+
+      <!-- BUG 4 -->
+      <h3 id="bug4">🐛 Bug 4 — We couldn't add the column from Python at all</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>The fleet rollout needs a new column, and the plan was "just have the script add it." But there was no way to run an <code class="ic">ALTER TABLE</code> from our tooling — the Supabase client offered no method for it, and a capability check came back empty-handed:</p>
+        <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scratch/env_caps.py
+DATABASE_URL set: <span class="err">False</span>
+psycopg2: <span class="err">False</span>
+psycopg: <span class="err">False</span>
+SUPABASE_URL set: <span class="ok">True</span>
+SUPABASE_SERVICE_KEY set: <span class="ok">True</span></div>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>Two independent paths to DDL were both closed. (1) The Supabase Python client talks to PostgREST, which does rows, not schema — no <code class="ic">ALTER TABLE</code>. (2) A direct Postgres connection would need a <code class="ic">DATABASE_URL</code> and a driver like <code class="ic">psycopg</code>; the env has neither. The project's own migration README confirmed the intended path: the Supabase <strong>SQL Editor</strong>, run by a human.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>A DDL/DML boundary (Concept 7). The service key authenticates against PostgREST (row API), not raw Postgres. Schema changes are simply outside that key's reach by design — they're an administrative action, not an application one.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Stop trying to automate it. We shipped the change as migration <code class="ic">031_lease_french_assistant_id.sql</code> and handed you the one idempotent statement to paste into the SQL Editor. The script's fleet path also <em>guards</em> on the column: it refuses <code class="ic">--all</code> without <code class="ic">--confirm-fleet</code> and points at the migration.</p>
+      </div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Know which actions your credentials and libraries can actually perform. A row-API key can't reshape the schema; recognising that immediately turns "why won't this work?" into "this needs the SQL Editor." Design the rollout to <em>expect</em> that human step rather than fight it.</p>
+      </div>
+
+      <!-- BUG 5 -->
+      <h3 id="bug5">🐛 Bug 5 — The fake mojibake in the terminal</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>The dry-run output showed a garbled character where an em-dash should be:</p>
+        <div class="term">  DRY RUN <span class="garble">�</span> POST /assistant  name=Lease Agent FR [28c43c77]
+Done.  (dry run <span class="garble">�</span> nothing changed)</div>
+        <p>It looked like the accented/French content had been corrupted on write.</p>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We'd already proven, in the local build check, that the config strings contained <em>no</em> mojibake (we grepped for the tell-tale <code class="ic">Ã©</code>/<code class="ic">Ã </code> sequences and found none). So the bytes on disk were clean. The garble only appeared in the <em>terminal's</em> rendering — meaning it was a display artifact, not data corruption. This was the exact false-alarm pattern Session 13 warned about.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>The Windows console renders text in a legacy <strong>code page</strong> (cp1252) by default, which can't draw a UTF-8 em-dash (<code class="ic">—</code>) and shows <code class="ic">�</code> instead. The string in the file is correct UTF-8; only the terminal's font/codepage can't display it.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>None needed — there was no bug in the data. We confirmed the file bytes were clean and moved on, rather than "fixing" a problem that existed only in the console's rendering.</p>
+      </div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Verify the <em>file's bytes</em>, never trust the terminal's glyphs. A garbled console character is a display issue until a byte-level check proves otherwise. Chasing terminal-only mojibake wastes time fixing nothing.</p>
+      </div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose this</th><th>Trade-offs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Direct <code>assistantId</code> handoff, no squad</td>
+            <td>A Vapi squad with the phone number repointed at it; a DTMF menu; a dedicated French phone number</td>
+            <td>Smallest blast radius — phone numbers and the English path untouched; one added tool; no new routing surface</td>
+            <td>The very first French utterance (the gate answer) is still heard on the entry assistant's <code>multi</code> ear before transfer</td>
+          </tr>
+          <tr>
+            <td>Dedicated <code>nova-3 fr</code> for French</td>
+            <td>Keep everyone on <code>multi</code>; use <code>nova-2 fr</code></td>
+            <td>Double-digit relative WER win on French vs <code>multi</code>; nova-3 also supports keyterm prompting for a later boost</td>
+            <td>A French-only ear can't handle English, so it must sit behind the language gate</td>
+          </tr>
+          <tr>
+            <td>Explicit language gate</td>
+            <td>Passive detection from the first French words</td>
+            <td>Deterministic; removes the "English caller wrongly transferred / French caller stranded" failure modes</td>
+            <td>One extra opening turn before leasing begins</td>
+          </tr>
+          <tr>
+            <td>Entry = existing assistant; French is a branch</td>
+            <td>A standalone "router" assistant every call passes through</td>
+            <td>English path is byte-for-byte unchanged (gated/additive); no extra hop for English callers</td>
+            <td>The entry assistant's prompt grows by one block (only active when a French id is wired)</td>
+          </tr>
+          <tr>
+            <td>New nullable DB column for the French id</td>
+            <td>Store the mapping in a local JSON file to skip the migration</td>
+            <td>Durable across redeploys; <code>update_lease_agents.py</code> can read it to preserve the handoff</td>
+            <td>Needs a human SQL-Editor step (DDL can't be scripted here)</td>
+          </tr>
+          <tr>
+            <td>Build <code>--rollback</code> up front</td>
+            <td>Improvise an undo if testing fails</td>
+            <td>Live phone lines demand a reliable, instant revert; designing it first also audits what the rollout touches</td>
+            <td>A little more script to write before going live</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+
+      <h3>1 · The config builds and the English path is unchanged</h3>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe -m py_compile backend/app/services/vapi_agent_config.py
+<span class="pmt">$</span> backend/.venv/Scripts/python.exe scratch/verify_gate.py
+<span class="ok">LOCAL BUILD OK — gate wired, english path unchanged, no mojibake</span></div>
+      <ul class="check"><li>The entry config with <em>no</em> French id has no handoff tool and no <code class="ic">[French Routing]</code> block; with an id it gains exactly one handoff tool.</li><li>The French assistant's transcriber is <code class="ic">nova-3</code> / <code class="ic">fr</code>.</li></ul>
+      <ul class="xlist"><li>A handoff tool appears even with no French id → the gate isn't actually gated; check the <code class="ic">if french_assistant_id:</code> guard.</li></ul>
+
+      <h3>2 · The live wiring is correct on Vapi</h3>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe scratch/verify_live.py
+[28c43c77] entry_lang=multi  handoff-&gt;49ff8fe8...  fr_lang=fr   <span class="ok">OK</span>
+<span class="ok">ALL LIVE OK</span></div>
+      <ul class="check"><li>Each entry stays on <code class="ic">multi</code>; its handoff destination equals the stored French id; each French assistant is on <code class="ic">fr</code>.</li><li>The deployed entry prompt contains the bilingual gate question; the French prompt contains the continuation greeting.</li></ul>
+      <ul class="xlist"><li><code class="ic">handoff-&gt;None</code> on an entry → the patch didn't include the tool; re-run provisioning for that manager.</li></ul>
+
+      <h3>3 · The real test — two calls per line (acceptance)</h3>
+      <ul class="check"><li><strong>English call:</strong> after the gate, saying "English" continues on the entry assistant exactly like today — no transfer, no extra pause.</li><li><strong>French call:</strong> saying "French" (or answering in French) hands off; the French assistant greets in <em>vous</em>, asks what you're looking for, and returns <em>that manager's</em> listings.</li><li>A lead is saved at the end of the French call.</li></ul>
+      <ul class="xlist"><li>English call gets transferred → the handoff <code class="ic">description</code> is firing too eagerly; tighten it (Troubleshooting).</li><li>French assistant re-introduces itself from scratch / re-asks the same thing → the <code class="ic">[French Call — Continuation]</code> note or <code class="ic">contextEngineeringPlan</code> isn't taking effect.</li></ul>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — only a real call closes this ticket</div>
+        <p>Checks 1–2 prove the change <em>shipped and is wired</em>; only check 3 proves it <em>works</em>. The handoff hand-over (timing, no double-greeting, French accuracy) is a behavioural property you can only confirm by calling the line — ideally with a native French speaker, per the Session 13 lesson.</p>
+      </div>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — seed keyterms into the French ear (finish R2)</div>
+        <p>Give the dedicated French model a head start on a manager's real place-names. Add a <code class="ic">keyterm</code> list to <code class="ic">FRENCH_TRANSCRIBER_CONFIG</code> built from that manager's distinct city/street values, so Deepgram biases toward transcribing them correctly.</p>
+        <details><summary>Hint</summary>
+          <p>nova-3 supports keyterm prompting on dedicated languages. In <code class="ic">build_lease_config_french(...)</code>, query the manager's active <code class="ic">lease_listings</code> for distinct cities/streets (as <code class="ic">update_lease_agents.py</code> already fetches the manager name), and inject them as a per-call copy of the transcriber config with a <code class="ic">keyterm</code> array. Keep the shared/base <code class="ic">FRENCH_TRANSCRIBER_CONFIG</code> keyterm-free as the default.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — wire the shared agent's French handoff</div>
+        <p>The four per-manager lines are live, but the scopeless <em>shared</em> lease agent isn't wired yet. Run the shared pilot, then set the env var so redeploys preserve it.</p>
+        <details><summary>Hint</summary>
+          <p>Run <code class="ic">provision_lease_french_handoff.py</code> with no flags (shared is the default). It prints a <code class="ic">VAPI_SHARED_LEASE_FRENCH_ASSISTANT_ID=...</code>; add that to <code class="ic">.env</code> / Render so <code class="ic">update_lease_agents.py</code> keeps the handoff on the shared agent across redeploys. Dry-run first.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — auto-provision French for new managers</div>
+        <p>Right now a brand-new manager gets only the English entry assistant. Extend onboarding so every new manager automatically gets a French assistant + the handoff wired, with the id stored in the column.</p>
+        <details><summary>Hint</summary>
+          <p>In <code class="ic">vapi_provisioning.py</code>'s <code class="ic">provision_vapi_for_manager</code>, after creating the entry assistant, also build and create the French assistant (<code class="ic">build_lease_config_french</code>), store its id in <code class="ic">vapi_lease_french_assistant_id</code>, then rebuild the entry with <code class="ic">french_assistant_id=...</code> so it ships with the handoff from day one. Mind the ordering: the French assistant must exist before the entry can reference its id.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary><code>ModuleNotFoundError: No module named 'supabase'</code></summary>
+        <p><strong>Cause:</strong> you ran the script with the base Python, which lacks the project's packages. <strong>Fix:</strong> use the project venv — <code class="ic">backend/.venv/Scripts/python.exe &lt;script&gt;</code> (Bug 3).</p>
+      </details>
+
+      <details>
+        <summary>The fleet command refuses with "Refusing --all without --confirm-fleet"</summary>
+        <p><strong>Cause:</strong> that's the safety guard, on purpose. <strong>Fix:</strong> confirm you've applied migration 031 and want the live fleet rollout, then re-run with <code class="ic">--all --fleet-only --confirm-fleet</code>.</p>
+      </details>
+
+      <details>
+        <summary>A 400 / "column ... does not exist" on the fleet path</summary>
+        <p><strong>Cause:</strong> migration 031 hasn't been applied, so the select on <code class="ic">vapi_lease_french_assistant_id</code> fails. <strong>Fix:</strong> paste <code class="ic">031_lease_french_assistant_id.sql</code> into the Supabase SQL Editor (DDL can't be scripted here — Bug 4), then re-run the read-only preview to confirm <code class="ic">column ... PRESENT</code>.</p>
+      </details>
+
+      <details>
+        <summary>An English caller gets transferred to the French assistant</summary>
+        <p><strong>Cause:</strong> the model fired the handoff too eagerly. <strong>Fix:</strong> tighten the handoff destination <code class="ic">description</code> and the <code class="ic">[French Routing]</code> block to emphasise "only on an explicit French choice; never for English," then re-run provisioning to patch the entries.</p>
+      </details>
+
+      <details>
+        <summary>The French assistant re-greets from scratch / re-asks what the caller said</summary>
+        <p><strong>Cause:</strong> the handoff isn't carrying context, or the continuation note isn't present. <strong>Fix:</strong> confirm the handoff destination has <code class="ic">contextEngineeringPlan:{type:"all"}</code> and the French prompt includes <code class="ic">[French Call — Continuation]</code>; re-verify with the live-content check.</p>
+      </details>
+
+      <details>
+        <summary>Garbled <code>�</code> or <code>Ã©</code> in the terminal output</summary>
+        <p><strong>Cause:</strong> the Windows console's legacy code page can't render a UTF-8 character; the file itself is usually fine. <strong>Fix:</strong> verify the file's bytes (grep for <code class="ic">Ã©</code>); if clean, it's display-only — ignore it (Bug 5).</p>
+      </details>
+
+      <details>
+        <summary>A routine <code>update_lease_agents.py</code> run stripped the handoff</summary>
+        <p><strong>Cause:</strong> the French id wasn't passed when rebuilding the entry. <strong>Fix:</strong> ensure the per-manager column is populated and the shared <code class="ic">VAPI_SHARED_LEASE_FRENCH_ASSISTANT_ID</code> env var is set — the deploy script reads both to preserve the handoff.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🔭 What's Next</h2>
+      <p>The routing is live; the next moves are accuracy and reach. First, the acceptance test that no code review can perform: place real English <em>and</em> French calls to each line, and — per Session 13 — read the French assistant's <em>own</em> transcript lines to confirm register and grammar hold through the hand-over. Then pick up <strong>keyterm prompting</strong> (Exercise 🟢): now that French audio lands on a dedicated <code class="ic">nova-3 fr</code> ear, we can feed it each manager's real city and street names to crush the last of the Session-12 place-name garble at the source. After that, widen the net: wire the shared agent's handoff and auto-provision French for brand-new managers so the feature ships by default. And if the live calls reveal the hand-over feels slow or clumsy, the lightest knobs to reach for are the gate wording and the handoff timing — not a return to squads.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📖 Glossary</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>additive change</strong></td><td>A change that only adds a code path, never altering or removing existing behaviour.</td></tr>
+          <tr><td><strong>assistantId / assistantName</strong></td><td>Ways a handoff names its destination: by saved UUID (works anywhere) or by name (squad members only).</td></tr>
+          <tr><td><strong>blast radius</strong></td><td>The set of things a change can possibly affect; kept small and provable here.</td></tr>
+          <tr><td><strong>code page</strong></td><td>Windows' legacy "which encoding" setting (e.g. cp1252); its non-UTF-8 default makes the console show <code>�</code> for characters it can't draw.</td></tr>
+          <tr><td><strong>confidenceThreshold</strong></td><td>How sure the STT engine must be before accepting a transcript; we use <code>0.4</code>.</td></tr>
+          <tr><td><strong>contextEngineeringPlan</strong></td><td>The handoff setting controlling how much conversation history is carried to the destination; <code>{type:"all"}</code> carries everything.</td></tr>
+          <tr><td><strong>DDL / DML</strong></td><td>Data Definition Language (change the schema, e.g. ALTER TABLE) vs Data Manipulation Language (change rows, e.g. SELECT/UPDATE).</td></tr>
+          <tr><td><strong>dry-run</strong></td><td>Running a deploy in preview mode (<code>--dry-run</code>) that reports what would change without changing it.</td></tr>
+          <tr><td><strong>DTMF</strong></td><td>The touch-tones a phone keypad sends ("press 1"); an alternative gate mechanism we didn't use.</td></tr>
+          <tr><td><strong>gated / feature gate</strong></td><td>New behaviour guarded by a condition (here, <code>french_assistant_id</code>) so it's inert unless switched on.</td></tr>
+          <tr><td><strong>handoff tool</strong></td><td>A Vapi tool (<code>type:"handoff"</code>) that transfers a live call to a destination assistant.</td></tr>
+          <tr><td><strong>httpx</strong></td><td>The Python HTTP client this project uses to call the Vapi REST API directly.</td></tr>
+          <tr><td><strong>idempotent</strong></td><td>Re-running the same operation yields the same result; re-provisioning patches in place rather than duplicating.</td></tr>
+          <tr><td><strong>IVR</strong></td><td>Interactive Voice Response — a phone menu ("press 1 for English"); our language gate is the spoken equivalent.</td></tr>
+          <tr><td><strong>language gate</strong></td><td>The single opening turn that asks the call language and routes on the answer.</td></tr>
+          <tr><td><strong>migration</strong></td><td>A numbered <code>.sql</code> file recording a schema change (ours: <code>031_lease_french_assistant_id.sql</code>).</td></tr>
+          <tr><td><strong>mojibake</strong></td><td>Garbled text from decoding bytes with the wrong encoding; the tell is <code>Ã©</code> where you expected <code>é</code>.</td></tr>
+          <tr><td><strong>multilingual model (multi)</strong></td><td>An STT model listening for several languages at once; a generalist, less accurate per-language than a specialist.</td></tr>
+          <tr><td><strong>nova-3</strong></td><td>Deepgram's current STT model family; supports both <code>multi</code> and dedicated languages like <code>fr</code>.</td></tr>
+          <tr><td><strong>PostgREST</strong></td><td>The service exposing Postgres as a row-level REST API; what supabase-py speaks. Rows only — no DDL.</td></tr>
+          <tr><td><strong>SDK</strong></td><td>A convenience library wrapping an API; avoided here because Vapi's drops some camelCase fields.</td></tr>
+          <tr><td><strong>squad</strong></td><td>A named group of Vapi assistants with the phone number attached to the group; we deliberately did not use one.</td></tr>
+          <tr><td><strong>STT</strong></td><td>Speech-To-Text; the transcriber that converts caller audio into words (Deepgram here).</td></tr>
+          <tr><td><strong>venv</strong></td><td>A virtual environment — an isolated Python with its own packages; the project's is <code>backend/.venv</code>.</td></tr>
+          <tr><td><strong>WER</strong></td><td>Word Error Rate — the percentage of words an STT engine gets wrong; lower is better.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-13-french-register-and-decision-memo.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 13 — Vous, Not Tu</div>
+    </a>
+    <a href="sessions.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a class="right disabled">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 15 — coming soon</div>
+    </a>
+  </div>
+  <div class="copyright">Session 14 — CRM Learning Series · generated 2026-06-26</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>
