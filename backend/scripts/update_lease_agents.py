@@ -104,12 +104,21 @@ def main():
 
     shared_id = os.environ.get("VAPI_SHARED_LEASE_ASSISTANT_ID", "")
 
-    rows = (
-        db.table("manager_vapi_config")
-        .select("manager_id, vapi_lease_assistant_id")
-        .eq("vapi_provisioning_status", "active")
-        .execute()
-    )
+    try:
+        rows = (
+            db.table("manager_vapi_config")
+            .select("manager_id, vapi_lease_assistant_id, vapi_lease_french_assistant_id")
+            .eq("vapi_provisioning_status", "active")
+            .execute()
+        )
+    except Exception:
+        # Column absent (pre-migration 031) — fall back; French handoff stays off.
+        rows = (
+            db.table("manager_vapi_config")
+            .select("manager_id, vapi_lease_assistant_id")
+            .eq("vapi_provisioning_status", "active")
+            .execute()
+        )
     agents = rows.data or []
 
     print(f"Lease agents to update: {len(agents)} per-manager + {'1 shared' if shared_id else '0 shared'}")
@@ -129,7 +138,8 @@ def main():
             continue
         profile = db.table("manager_profiles").select("name").eq("user_id", manager_id).maybe_single().execute()
         manager_name = (profile.data or {}).get("name") or "our property management team"
-        cfg = build_lease_config(BACKEND_URL, manager_id, manager_name=manager_name)
+        cfg = build_lease_config(BACKEND_URL, manager_id, manager_name=manager_name,
+                                 french_assistant_id=row.get("vapi_lease_french_assistant_id"))
         ok = update_and_verify(assistant_id, cfg, manager_id[:8], args.dry_run, headers)
         if ok:
             success += 1
@@ -137,7 +147,9 @@ def main():
             failed += 1
 
     if shared_id:
-        cfg = build_lease_config_shared(BACKEND_URL)
+        # Preserve the French handoff tool across redeploys once the pilot is wired.
+        shared_french_id = os.environ.get("VAPI_SHARED_LEASE_FRENCH_ASSISTANT_ID") or None
+        cfg = build_lease_config_shared(BACKEND_URL, french_assistant_id=shared_french_id)
         ok = update_and_verify(shared_id, cfg, "shared", args.dry_run, headers)
         if ok:
             success += 1
