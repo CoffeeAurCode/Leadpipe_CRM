@@ -307,6 +307,27 @@ COMPLAINT_TRANSCRIBER_CONFIG = {
     "confidenceThreshold": 0.6,
 }
 
+# Dedicated French STT for the French-only lease assistant (handoff target).
+# nova-3 "fr" is a monolingual French model — double-digit WER reduction vs the shared
+# "multi" model on French audio, and supports per-manager keyterm prompting (R2).
+# keyterm is left empty here; the per-manager rollout seeds it from each manager's
+# real city/street corpus. The shared pilot agent has no manager scope, so no keyterms.
+FRENCH_TRANSCRIBER_CONFIG = {
+    "provider": "deepgram",
+    "model": "nova-3",
+    "language": "fr",
+    "numerals": True,
+    "confidenceThreshold": 0.4,
+    "fallbackPlan": {
+        "transcribers": [
+            {
+                "provider": "openai",
+                "model": "gpt-4o-transcribe",
+            }
+        ]
+    },
+}
+
 
 # ---------------------------------------------------------------------------
 # Voice — ElevenLabs turbo (mirrors dashboard)
@@ -1341,6 +1362,63 @@ All searches are scoped to all properties managed by this account.
 """
 
 
+# Appended to the ENTRY assistant prompt only when a French handoff target exists.
+# A dedicated French assistant runs French calls; the entry assistant just routes to it.
+_LEASE_FRENCH_ROUTING_BLOCK = """
+
+[French Routing — STRICT, ENTRY ASSISTANT ONLY]
+This line is bilingual, but YOU never conduct the French call — a dedicated French assistant does.
+Run your FIRST turn as an explicit language gate:
+1. Give a short, plain English introduction (you are Max, the AI leasing assistant for the manager),
+   then ask which language they prefer: "Would you like to continue in English, or in French?"
+   Append the French of just that question so a French speaker can answer:
+   "Préférez-vous continuer en anglais ou en français?"
+   (This gate question is the ONE permitted bilingual line — it overrides the bilingual ban in
+   [Language Policy] for this single turn. Do NOT start any leasing topic yet.)
+2. Wait for their choice before anything else — do NOT ask what they are looking for until they pick.
+
+Route on their answer:
+- ENGLISH chosen -> continue the entire call in English, exactly as normal.
+- FRENCH chosen (or they simply answer in French / ask for French) -> call the handoff tool
+  IMMEDIATELY on that turn. Do NOT answer in French yourself, do NOT announce the transfer, do NOT
+  ask anything else — just hand off.
+- Unclear answer -> ask once more "English or French? / Anglais ou français?", then route.
+
+This OVERRIDES the "detect from first words / French -> FRENCH ONLY" behaviour in [Language Policy]:
+for YOU the language is chosen explicitly, and French always means hand off.
+"""
+
+
+# Appended to the FRENCH assistant prompt — it receives the call mid-conversation via handoff.
+_LEASE_FRENCH_CONTINUATION_NOTE = """
+
+[French Call — Continuation]
+The caller just chose to continue in French at the language gate; they have NOT yet said what they
+are looking for. Greet them warmly in French with the formal vous, introduce yourself briefly, and
+ask what they're looking for — e.g. "Parfait! Je suis Max, votre assistant de location. Qu'est-ce que
+vous cherchez comme logement?" The entire call stays in French; never switch to English.
+"""
+
+
+def _lease_handoff_tool(french_assistant_id: str) -> dict:
+    """Gated handoff to the dedicated French assistant. No squad required — targets a saved
+    assistantId directly and carries full context so the French assistant continues, not restarts."""
+    return {
+        "type": "handoff",
+        "destinations": [
+            {
+                "type": "assistant",
+                "assistantId": french_assistant_id,
+                "description": (
+                    "Transfer the call to the French-speaking leasing assistant. Use this the instant "
+                    "you determine the caller is speaking French. Do NOT use it for English callers."
+                ),
+                "contextEngineeringPlan": {"type": "all"},
+            }
+        ],
+    }
+
+
 def _build_lease_tools(backend_url: str, manager_id: str | None = None) -> list:
     find_units_url = (
         f"{backend_url}/leasing/find-units?manager_id={manager_id or ''}&query={{{{query}}}}"
@@ -1597,7 +1675,8 @@ _LEASE_STRUCTURED_DATA_PLAN = {
 }
 
 
-def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_url: str = BACKEND_URL) -> dict:
+def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_url: str = BACKEND_URL,
+                           transcriber: dict | None = None) -> dict:
     return {
         "name": name,
         "first_message_mode": "assistant-speaks-first-with-model-generated-message",
@@ -1605,7 +1684,7 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
         "end_call_message": "Thank you for calling. Have a great day. / Merci d'avoir appelé. Bonne journée.",
         "end_call_phrases": ["goodbye", "au revoir", "talk to you soon"],
         "background_sound": "office",
-        "transcriber": TRANSCRIBER_CONFIG,
+        "transcriber": transcriber or TRANSCRIBER_CONFIG,
         "voice": LEASE_VOICE_CONFIG,
         "model": {
             "provider": "openai",
@@ -1635,11 +1714,17 @@ def _lease_assistant_shell(name: str, system_prompt: str, tools: list, backend_u
     }
 
 
-def build_lease_config(backend_url: str, manager_id: str, manager_name: str = "our property management team") -> dict:
-    """Per-manager lease agent — handles all listings across all property groups for this account."""
+def build_lease_config(backend_url: str, manager_id: str, manager_name: str = "our property management team",
+                       french_assistant_id: str | None = None) -> dict:
+    """Per-manager lease agent (ENTRY assistant) — handles all listings across all property groups.
+    When french_assistant_id is set, gains a gated handoff tool + [French Routing] block so French
+    callers are transferred to the dedicated French assistant; English behavior is unchanged."""
     tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=manager_id))
     context_block = _LEASE_CONTEXT_BLOCK.format(manager_id=manager_id, manager_name=manager_name)
     system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block
+    if french_assistant_id:
+        system_prompt += _LEASE_FRENCH_ROUTING_BLOCK
+        tools = tools + [_lease_handoff_tool(french_assistant_id)]
     return _lease_assistant_shell(
         name=f"Lease Agent [{manager_id[:8]}]",
         system_prompt=system_prompt,
@@ -1648,12 +1733,45 @@ def build_lease_config(backend_url: str, manager_id: str, manager_name: str = "o
     )
 
 
-def build_lease_config_shared(backend_url: str) -> dict:
-    """Shared lease agent — no manager scope, searches across all active listings."""
+def build_lease_config_shared(backend_url: str, french_assistant_id: str | None = None) -> dict:
+    """Shared lease agent (ENTRY assistant) — no manager scope, searches across all active listings."""
     tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=None))
+    system_prompt = _LEASE_SYSTEM_PROMPT_BASE
+    if french_assistant_id:
+        system_prompt += _LEASE_FRENCH_ROUTING_BLOCK
+        tools = tools + [_lease_handoff_tool(french_assistant_id)]
     return _lease_assistant_shell(
         name="Shared Lease Agent",
-        system_prompt=_LEASE_SYSTEM_PROMPT_BASE,
+        system_prompt=system_prompt,
         tools=tools,
         backend_url=backend_url,
+    )
+
+
+def build_lease_config_french(backend_url: str, manager_id: str,
+                              manager_name: str = "our property management team") -> dict:
+    """Per-manager FRENCH-ONLY lease assistant (handoff target). Dedicated nova-3 `fr` transcriber;
+    receives French calls mid-conversation from the entry assistant and continues in French."""
+    tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=manager_id))
+    context_block = _LEASE_CONTEXT_BLOCK.format(manager_id=manager_id, manager_name=manager_name)
+    system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block + _LEASE_FRENCH_CONTINUATION_NOTE
+    return _lease_assistant_shell(
+        name=f"Lease Agent FR [{manager_id[:8]}]",
+        system_prompt=system_prompt,
+        tools=tools,
+        backend_url=backend_url,
+        transcriber=FRENCH_TRANSCRIBER_CONFIG,
+    )
+
+
+def build_lease_config_french_shared(backend_url: str) -> dict:
+    """Shared FRENCH-ONLY lease assistant (handoff target for the shared entry agent)."""
+    tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=None))
+    system_prompt = _LEASE_SYSTEM_PROMPT_BASE + _LEASE_FRENCH_CONTINUATION_NOTE
+    return _lease_assistant_shell(
+        name="Shared Lease Agent FR",
+        system_prompt=system_prompt,
+        tools=tools,
+        backend_url=backend_url,
+        transcriber=FRENCH_TRANSCRIBER_CONFIG,
     )

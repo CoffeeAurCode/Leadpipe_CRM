@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 13 — Vous, Not Tu: Fixing the Agent's Own French</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; white-space: pre-wrap; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 13</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-evidence" style="padding-left:1.4rem">— The agent's own broken French</a>
+    <a href="#c-tv" style="padding-left:1.4rem">— The T–V distinction (tu/vous)</a>
+    <a href="#c-register" style="padding-left:1.4rem">— Why LLMs drift register</a>
+    <a href="#c-template" style="padding-left:1.4rem">— Hand it the line, don't translate</a>
+    <a href="#c-memo" style="padding-left:1.4rem">— The decision memo</a>
+    <a href="#c-nonbreaking" style="padding-left:1.4rem">— Non-breaking change design</a>
+    <a href="#c-deploy" style="padding-left:1.4rem">— Prompt-only = one-surface deploy</a>
+    <a href="#c-encoding" style="padding-left:1.4rem">— UTF-8 on Windows</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#bug1" style="padding-left:1.4rem">— Bug 1: "Tu n'es pas bien compris"</a>
+    <a href="#bug2" style="padding-left:1.4rem">— Bug 2: the word-salad question</a>
+    <a href="#bug3" style="padding-left:1.4rem">— Clean implementation + the guard</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 13 · Voice AI · Prompt Engineering · French Register · Decision Memos</div>
+      <h1>Vous, Not Tu — Fixing the Agent's <em>Own</em> French</h1>
+      <p class="lead muted">Sessions 8–12 taught Max to <em>understand</em> garbled Québec-French city names. This session fixes the mirror-image problem: Max's <strong>own</strong> French was breaking. On a real call he told a caller <em>"Tu n'es pas bien compris"</em> — wrong grammar <em>and</em> a sudden slide from the polite <strong>vous</strong> into the chummy <strong>tu</strong>, mid-call — and mangled a screening question into word salad. The whole session is a tightly-scoped, <strong>prompt-only</strong> fix: lock the agent to formal <em>vous</em>, hand it the correct French line instead of making it translate live, and push the change to five live assistants — all without touching the English path, the complaint agent, or a single line of matching logic. Along the way: how we turned a vague request into a written <strong>decision memo</strong> of ranked options, and why we verified the accented characters byte-by-byte before trusting them.</p>
+      <div class="meta">
+        <span class="chip diff">🟡 Intermediate</span>
+        <span class="chip time">⏱️ ~60 min read / build</span>
+        <span class="chip pre">📋 Requires: Sessions 08–12 (French STT, fuzzy matching, banded confirmation, deploy pipeline, the Montréal clock)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was a <strong>polish-the-output</strong> session. Where Session 12 fixed what Max could <em>hear</em>, Session 13 fixes what Max <em>says</em>. The work flowed through three messages from you:</p>
+
+      <div class="term"><span class="spk">You:</span> find ways to refine the french understanding of the lease agent
+       without degrading or breaking the existing agent and its functionality
+<span class="dim">         ...after a ranked analysis of five options...</span>
+<span class="spk">You:</span> put it in an md file then I will decide... put pros and cons of each refinement too
+<span class="dim">         ...after the options doc was written...</span>
+<span class="spk">You:</span> do R3 and update the md file and the codebase context...
+       push config to the live agents too</div>
+
+      <p>By the end we had:</p>
+      <ul>
+        <li><strong>Turned a one-line request into a written decision memo.</strong> Instead of guessing, we surveyed the whole French pipeline, found what was already solved, and wrote a doc — <code class="ic">PLAN_lease_agent_french_refinement_options_2026-06-25.md</code> — listing <strong>five</strong> ranked refinements (R1–R5), each with explicit <strong>pros, cons, risk, effort</strong>, and a "does it break anything?" guarantee. You picked one.</li>
+        <li><strong>Implemented R3 — the register fix.</strong> Two surgical edits to the lease agent's system prompt: a new <code class="ic">[French Register — STRICT]</code> block forcing formal <em>vous</em> and banning <em>tu</em>, and an explicit French template for the landlord-awareness question so the model stops improvising a translation.</li>
+        <li><strong>Verified it was safe.</strong> Confirmed the accented characters wrote as clean UTF-8 (not mojibake), and parsed the file to prove the edits didn't break Python syntax.</li>
+        <li><strong>Updated the paper trail.</strong> Marked R3 done in the plan doc and added a "French register lock" bullet to <code class="ic">CODEBASE_CONTEXT.md</code> — the project's single source of truth.</li>
+        <li><strong>Deployed.</strong> Dry-ran, then pushed the config to all <strong>5 live lease assistants</strong> (4 per-manager + 1 shared) — <code class="ic">5 updated, 0 failed</code>. Because R3 is prompt-only, the config push alone makes it fully live (no separate backend deploy, unlike Session 12).</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Explain the French <strong>T–V distinction</strong> (<em>tu</em> vs <em>vous</em>) and why a professional agent must always use <em>vous</em>.</li>
+          <li>Diagnose why a language model produces <strong>grammatically wrong or register-inconsistent</strong> output even when it "speaks the language."</li>
+          <li>Apply the prompt-engineering rule <strong>"hand the model the exact line, don't make it translate on the fly."</strong></li>
+          <li>Write a <strong>decision memo</strong>: ranked options with pros/cons/risk so a stakeholder can choose, instead of charging ahead.</li>
+          <li>Design a change that is <strong>provably non-breaking</strong> — additive, scoped, and isolated from the paths you must not disturb.</li>
+          <li>Know when a voice change needs <strong>one</strong> deploy surface vs two, and verify <strong>UTF-8</strong> output on Windows before trusting it.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our product is a <strong>CRM</strong> (Customer Relationship Management — the web app a property manager uses to track buildings, units, tenants, and leads). It has a <strong>voice agent</strong> named <strong>Max</strong>: an AI that answers a phone line, talks to a prospective renter, finds the unit they want, asks a few qualifying questions, and saves the manager a <strong>lead</strong> (a record of an interested caller). Max runs on <strong>VAPI</strong> (a hosted "Voice API" that wires a phone number to a speech-to-text engine, a language model, and a text-to-speech voice). His behaviour is defined by a <strong>system prompt</strong> — a long block of instructions — plus a set of tools that call our backend.</p>
+
+      <p>Across Sessions 08–12 we worked almost entirely on the <em>input</em> side: getting Québec-French audio <em>into</em> the system correctly. Session 08 built <code class="ic">city_matching.py</code> to recognise garbled French city names; Session 09 added the banded "did you mean…?" confirmation; Session 12 unified the match gate with the ranker and gave Max a Montréal clock. All of that is about Max <em>understanding</em> the caller.</p>
+
+      <p>This session flips to the <em>output</em> side. When we listened to the French calls (the same transcripts behind Session 12's diagnosis), we noticed something separate from the city-matching bug: <strong>Max's own French sentences were sometimes wrong.</strong> He used the wrong politeness level, flipped between formal and informal address inside one call, and produced a screening question that came out as gibberish. The matcher can be perfect, but if the agent <em>sounds</em> like it's stumbling over its own language, the caller loses trust. R3 is the fix for that.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need Sessions 08–12 open. Every term is re-explained here on first use. The one fact worth carrying in: Max is a VAPI voice agent whose behaviour lives in a big text <strong>system prompt</strong> (the variable <code class="ic">_LEASE_SYSTEM_PROMPT_BASE</code> in <code class="ic">vapi_agent_config.py</code>). This session edits that prompt — nothing else.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Eight ideas. C1 is the evidence (the agent's own broken French). C2–C4 are the linguistics and prompt-engineering behind the fix (the tu/vous distinction; why models drift register; "hand it the line"). C5–C6 are the process discipline (decision memos; non-breaking change design). C7–C8 are the two operational lessons (when one deploy surface is enough; verifying UTF-8 on Windows).</p>
+
+      <!-- ---- Concept 1 ---- -->
+      <h3 id="c-evidence">1 · The evidence: when the agent breaks its own language</h3>
+      <p><strong>Plain-English explanation.</strong> We usually hunt for bugs where the machine <em>mis-hears</em> the caller. But an AI agent can also fail in the other direction: it <em>speaks</em> badly. The model that generates Max's words can produce a sentence that is grammatically wrong, or that switches politeness level partway through a call, or that simply comes out as word salad. These aren't speech-to-text errors (the caller was understood fine) — they're <strong>generation</strong> errors, and they're invisible unless you actually read the agent's <em>own</em> lines in a transcript.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> A leasing agent is the first impression of a property-management business. A renter who hears the "assistant" fumble basic French grammar concludes the company is sloppy — or that they're talking to a broken bot — and hangs up. We already knew the French calls were rough; this session separates "Max couldn't <em>find</em> the city" (Session 12) from "Max <em>said</em> something wrong" (this session). Same calls, two different defect classes.</p>
+
+      <p><strong>How it works (analogy).</strong> Imagine a translator at a business meeting who understands every question perfectly but answers in clumsy, overly-casual phrasing — and halfway through starts addressing the CEO like an old friend. The <em>comprehension</em> is fine; the <em>delivery</em> torpedoes the deal. We're fixing delivery.</p>
+
+      <p><strong>The raw evidence.</strong> Here is the moment from the French transcript that triggered R3. Watch Max's <em>own</em> two lines — not the caller's:</p>
+      <div class="term"><span class="spk">Max:</span> ...est-ce que votre propriétaire actuel sait que vous regardez pour déménager?
+      <span class="dim"># ^ word-salad: a literal, broken calque of English "looking to move"</span>
+<span class="spk">User:</span> <span class="garble">Uh, we</span>    <span class="dim"># STT garble — not the point here</span>
+<span class="spk">Max:</span> <span class="garble">Tu n'es pas bien compris</span>, est-ce que votre propriétaire actuel est au courant...
+      <span class="dim"># ^ TWO faults: wrong grammar AND a flip from "vous" to "tu" mid-call</span></div>
+      <p>Two distinct generation faults in one breath: (1) <em>"Tu n'es pas bien compris"</em> is grammatically wrong — it literally means "<em>you</em> are not well understood" with an informal <em>you</em>, when Max meant "<em>I</em> didn't catch that" (<em>"Je n'ai pas bien compris"</em>); and (2) Max had been using the formal <em>vous</em> all call, then suddenly switched to the intimate <em>tu</em>. Both make a native speaker wince.</p>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — read the agent's lines, not just the caller's</div>
+        <p>When you debug a voice agent, it's natural to focus on what the <em>caller</em> said and whether the system understood it. But half the transcript is the <em>agent</em> talking, and that half can hide its own bugs — bad grammar, wrong tone, leaked internal phrasing. Always read both speakers. The most damaging errors are often the ones the agent confidently <em>says</em>.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/calls/call-analysis">VAPI transcripts &amp; call analysis</a> ·
+        <a class="inline" href="https://platform.openai.com/docs/guides/prompt-engineering">OpenAI prompt-engineering guide</a>
+      </p>
+
+      <!-- ---- Concept 2 ---- -->
+      <h3 id="c-tv">2 · The T–V distinction: tu vs vous</h3>
+      <p><strong>Plain-English explanation.</strong> English has exactly one word for "you." French has two, and choosing the wrong one is a social error:</p>
+      <ul>
+        <li><strong>tu</strong> — informal/intimate "you." Used with family, close friends, children, pets. Using it with a stranger can sound presumptuous or disrespectful. The act of using it is called <em>tutoiement</em>.</li>
+        <li><strong>vous</strong> — formal/polite "you" (and also plural "you"). The default for strangers, customers, and any professional setting. Using it is called <em>vouvoiement</em>.</li>
+      </ul>
+      <p>Linguists call this the <strong>T–V distinction</strong> (from Latin <em>tu</em> and <em>vos</em>) — a feature many languages share (Spanish tú/usted, German du/Sie). Crucially, <em>vous</em> isn't just a different word — it changes the <strong>verb conjugation</strong> too: "you are" is <em>tu es</em> but <em>vous êtes</em>; "did you catch" is <em>tu as compris</em> vs <em>vous avez compris</em>. So picking <em>vous</em> ripples through the whole sentence.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> A leasing agent talking to a prospective customer must use <em>vous</em>, every time, for the whole call — exactly like a hotel concierge or a bank teller would. Slipping into <em>tu</em> (as Max did) reads as either disrespect or a malfunction. And because the caller might use <em>tu</em> themselves (some people are casual), the agent must hold <em>vous</em> regardless — it does not "mirror" the caller's register.</p>
+
+      <p><strong>How it works (analogy).</strong> Think of <em>vous</em> as the spoken equivalent of addressing someone as "Sir/Madam" and "Ms. Tremblay." <em>tu</em> is first-name-and-a-backslap. A customer-service rep doesn't start calling a customer "buddy" halfway through a call just because the customer was relaxed — they stay professional. <em>vous</em> is that professional register, baked into the grammar.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>register</strong> — the level of formality of language (casual ↔ formal). Choosing <em>vous</em> sets a formal register.</li>
+        <li><strong>tutoiement / vouvoiement</strong> — the French nouns for "using <em>tu</em>" / "using <em>vous</em>."</li>
+        <li><strong>conjugation</strong> — how a verb changes form to match its subject (<em>tu es</em> vs <em>vous êtes</em>). <em>vous</em> takes its own verb endings.</li>
+        <li><strong>calque</strong> — a word-for-word translation of an idiom from another language that comes out wrong (e.g. translating "looking to move" literally as <em>"regardez pour déménager"</em>).</li>
+      </ul>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — register is invisible to an English-only reviewer</div>
+        <p>If you don't speak French, both <em>"Je n'ai pas bien compris"</em> and <em>"Tu n'es pas bien compris"</em> look like "some French." You cannot eyeball-review register. This is why the fix has to be <strong>explicit in the prompt</strong> (a rule the model follows) and why a native-speaker test call is the real acceptance test — see <a class="inline" href="#verify">Verification</a>.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://en.wikipedia.org/wiki/T%E2%80%93V_distinction">T–V distinction (Wikipedia)</a> ·
+        <a class="inline" href="https://www.lawlessfrench.com/grammar/tu-vs-vous/">Lawless French — tu vs vous</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Calque">Calque (loan translation)</a>
+      </p>
+
+      <!-- ---- Concept 3 ---- -->
+      <h3 id="c-register">3 · Why a language model drifts register and breaks grammar</h3>
+      <p><strong>Plain-English explanation.</strong> A language model generates text by predicting the next most-likely word given everything so far. It has no fixed "I am being formal now" switch — formality is just another pattern it absorbed from training data, where <em>tu</em> and <em>vous</em> both appear constantly. So unless you <em>pin</em> the register, the model can drift: a casual word from the caller, a long pause, or just probabilistic chance can nudge it from <em>vous</em> toward <em>tu</em>. The same goes for grammar: under pressure to translate an English instruction into French <em>on the spot</em>, it can produce a literal, broken calque.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Max's prompt already had a <code class="ic">[Language Policy]</code> that locks the <em>language</em> (English vs French) for the whole call. But locking the language is not the same as locking the <em>register</em>. The policy said "speak French" — it never said "speak <em>formal</em> French and never switch to <em>tu</em>." That gap is precisely where the model drifted. The fix closes the gap with an explicit rule.</p>
+
+      <p><strong>How it works (analogy).</strong> Picture an improv actor told only "perform this scene in French." They'll stay in French — but their formality wanders with the moment. If instead you tell them "you are a hotel concierge; address every guest as <em>vous</em>, never <em>tu</em>, the entire scene," you've removed the freedom that caused the drift. A system prompt is exactly that kind of standing direction.</p>
+
+      <p><strong>The gap, in the actual prompt.</strong> Here is the relevant slice of the <em>existing</em> language policy — note it constrains language but is silent on register:</p>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — _LEASE_SYSTEM_PROMPT_BASE (BEFORE)"><pre><code>[Language Policy]
+Detect the caller's language from their very first words and lock for the entire call.
+- English -&gt; ENGLISH ONLY for all remaining turns
+- French  -&gt; FRENCH ONLY for all remaining turns
+...
+FORBIDDEN at all times after language is detected:
+- Mixing languages in one sentence
+- Switching language for any reason
+# Notice: it locks LANGUAGE (en/fr) but says NOTHING about formality (tu/vous).
+# That silence is the bug surface — the model is free to drift into "tu".</code></pre></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — "speaks the language" ≠ "controls the register"</div>
+        <p>Constraining <em>which</em> language a model uses does not constrain <em>how formally</em> it uses it. Tone, politeness, and register are separate axes that need their own explicit instructions. Whenever correct output depends on a social convention the model wasn't told to hold, assume it will eventually drift — and pin it.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://www.anthropic.com/news/prompt-engineering-for-business-performance">Prompt engineering for consistent tone</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Register_(sociolinguistics)">Register (sociolinguistics)</a>
+      </p>
+
+      <!-- ---- Concept 4 ---- -->
+      <h3 id="c-template">4 · Prompt engineering: hand the model the line, don't make it translate</h3>
+      <p><strong>Plain-English explanation.</strong> There are two ways to get a French sentence out of a bilingual model. (A) Give it an <em>English</em> instruction ("ask whether their landlord knows they're looking") and trust it to translate live. (B) Give it the <em>exact French sentence</em> to say. Option A is where calques and register slips creep in, because the model is doing creative translation under time pressure on every call. Option B removes the translation step entirely — you've already written the correct line, so there's nothing for the model to get wrong.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The broken word-salad question (<em>"vous regardez pour déménager"</em>) came straight from on-the-fly translation: the prompt only had the <em>English</em> version of the landlord-awareness question, so the model improvised the French each call. By adding a vetted French template right next to the English one, we turn a risky live translation into a safe copy-the-line.</p>
+
+      <p><strong>How it works (analogy).</strong> It's the difference between handing a waiter a script for the daily specials versus asking them to invent the wording every table. The script guarantees the phrasing is right; improvisation guarantees variety <em>and</em> the occasional clunker. For anything customer-facing and repeatable, script it.</p>
+
+      <p><strong>Annotated code — the Q2 question, before and after.</strong></p>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — Q2 landlord-awareness (BEFORE vs AFTER)"><pre><code># BEFORE — only the English line exists; the model must translate it live each French call
+--- Q2: Landlord awareness ---
+"Does your current landlord know you're looking?"
+This is conversational only. Note the answer. Always continue regardless of response.
+
+# AFTER — a vetted French (vous) template sits beside the English; nothing to improvise
+--- Q2: Landlord awareness ---
+English: "Does your current landlord know you're looking?"
+French (vous): "Est-ce que votre propriétaire actuel sait que vous cherchez à déménager?"
+This is conversational only. Note the answer. Always continue regardless of response.</code></pre></div>
+      <p>Note the French template uses <em>vous</em> (<em>"vous cherchez"</em>) and the idiomatic <em>"cherchez à déménager"</em> ("looking to move") instead of the broken literal calque. The model now reads a correct line rather than generating one.</p>
+
+      <p><strong>And the register rule itself</strong> — the new block we added to the prompt, which is what stops the <em>tu</em> drift everywhere, not just in Q2:</p>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — new [French Register — STRICT] block (AFTER)"><pre><code>[French Register — STRICT]
+On French calls, always address the caller with the formal vous. NEVER use tu, t', or tu-conjugated
+verbs — stay in vous for the entire call, even if the caller uses tu.
+Keep your own French grammatical and natural. If you did not catch something, say
+"Je n'ai pas bien compris, pourriez-vous répéter?" — never "Tu n'es pas bien compris" or any tu form.</code></pre></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — name the failure in the rule</div>
+        <p>Notice the rule literally quotes the wrong line (<em>"never 'Tu n'es pas bien compris'"</em>) and supplies the right one. Showing the model the exact mistake to avoid, plus the exact replacement, is far stronger than an abstract "be formal." When you've seen a concrete bad output, paste it into the prompt as a negative example.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://platform.openai.com/docs/guides/prompt-engineering/tactic-provide-examples">Few-shot / example-based prompting</a> ·
+        <a class="inline" href="https://www.promptingguide.ai/techniques/fewshot">Prompting Guide — few-shot</a>
+      </p>
+
+      <!-- ---- Concept 5 ---- -->
+      <h3 id="c-memo">5 · The decision memo: ranked options before action</h3>
+      <p><strong>Plain-English explanation.</strong> Your first request was open-ended: "find <em>ways</em> to refine the French." The wrong response is to grab the first idea and start coding. The right response is a <strong>decision memo</strong> — a short written document that lays out the realistic options, ranks them, and gives each one honest pros, cons, risk, and effort, so the person who owns the trade-off (you) can choose. The agent's job there is analysis, not action.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> "Refine the French" could mean anything from a one-line prompt tweak to swapping the speech-to-text engine. Those differ wildly in risk and effort. Writing them down as <strong>R1–R5</strong> with trade-offs let you see that R3 (the register fix) was the safest, highest-value first step, and defer the riskier transcriber change (R2) behind a test gate. The memo also becomes a durable artifact: the four options you <em>didn't</em> pick are now recorded for later, not lost.</p>
+
+      <p><strong>How it works (analogy).</strong> It's a contractor who, asked "improve my kitchen," comes back with a one-page quote: "Option A: repaint, $500, 1 day, low risk. Option B: new cabinets, $6k, 1 week. Option C: knock down a wall, $20k, permits required." You choose with eyes open. Charging in to knock down a wall because they assumed that's what "improve" meant would be reckless.</p>
+
+      <p><strong>What the memo looked like.</strong> The doc captured five refinements; here's the shape of its summary table (abridged):</p>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Refinement</th><th>Impact</th><th>Effort</th><th>Risk</th><th>Breaks existing?</th></tr></thead>
+        <tbody>
+          <tr><td>R1</td><td>Seed the model with the manager's real cities</td><td>High</td><td>Low</td><td>Very low</td><td>No</td></tr>
+          <tr><td>R2</td><td>Per-manager Deepgram keyterm prompting (STT)</td><td>High</td><td>Medium</td><td>Low–Med</td><td>No</td></tr>
+          <tr><td><strong>R3</strong></td><td><strong>vous/tu register lock + fix malformed French</strong> ✅</td><td>Medium</td><td>Very low</td><td>Very low</td><td>No</td></tr>
+          <tr><td>R4</td><td>Trim stall-phrases + endpointing</td><td>Medium</td><td>Low</td><td>Low</td><td>No</td></tr>
+          <tr><td>R5</td><td>Corpus-driven alias expansion (matcher)</td><td>Low–Med</td><td>Low–Med</td><td>Low</td><td>No</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>You read it, picked <strong>R3</strong>, and R1/R2/R4/R5 stayed on the shelf — documented, ranked, ready when you want them.</p>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — separate "analysis" from "action" turns</div>
+        <p>When a request is exploratory ("find ways…"), the deliverable is a <em>recommendation</em>, not a commit. Produce the options, mark a recommended path, and let the owner decide. It costs one extra round-trip and saves you from building the wrong thing — especially when the explicit constraint is "don't break anything."</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://en.wikipedia.org/wiki/Decision_matrix">Decision matrix</a> ·
+        <a class="inline" href="https://www.industrialempathy.com/posts/design-docs-at-google/">Design docs (Google) — write before you build</a>
+      </p>
+
+      <!-- ---- Concept 6 ---- -->
+      <h3 id="c-nonbreaking">6 · Non-breaking change design: additive &amp; scoped</h3>
+      <p><strong>Plain-English explanation.</strong> Your hard constraint was "without degrading or breaking the existing agent." A change is <strong>non-breaking</strong> when it can only <em>add</em> behaviour in a tightly bounded place, never alter or remove behaviour that something else depends on. The way you guarantee that isn't hope — it's <em>scoping</em>: prove the edit touches only one code path and is invisible to every other path.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The same file, <code class="ic">vapi_agent_config.py</code>, defines <em>three</em> agents: the lease agent (Max), the complaint agent (Alex), and the legacy tenant agent. They share helper functions. A careless edit to a shared piece could change all three. R3 is safe because every edit lands inside <code class="ic">_LEASE_SYSTEM_PROMPT_BASE</code> — a string used <em>only</em> by the lease agent — and only <em>adds</em> French-call instructions. The English path is untouched (the new rules start with "On French calls"), and the complaint agent never reads this variable at all.</p>
+
+      <p><strong>How it works (analogy).</strong> It's adding a new road sign on one street versus re-timing every traffic light in the city. The sign affects only the cars on that street; nothing else in the grid can change behaviour because nothing else can even see it. Good scoping makes the "blast radius" of a change provably tiny.</p>
+
+      <div class="diagram"><span class="lbl">vapi_agent_config.py</span>
+ ├── SYSTEM_PROMPT .............. legacy tenant agent     <span class="good">(untouched)</span>
+ ├── COMPLAINT_SYSTEM_PROMPT .... complaint agent "Alex"  <span class="good">(untouched)</span>
+ └── _LEASE_SYSTEM_PROMPT_BASE .. lease agent "Max"       <span class="warn">&lt;-- R3 edits land ONLY here</span>
+        ├── [Language Policy]          (existing)
+        ├── [French Register — STRICT] <span class="warn">&lt;-- NEW block (French calls only)</span>
+        └── --- Q2: Landlord awareness --- <span class="warn">&lt;-- French template added</span>
+
+ English calls: the new rules say "On French calls..." -&gt; <span class="good">no effect</span>
+ Complaint/tenant agents: never read this variable      -&gt; <span class="good">no effect</span></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — prove the blast radius, don't assert it</div>
+        <p>"This won't break anything" is a claim you should be able to <em>demonstrate</em>: name the exact symbol you edited, show what reads it, and confirm everything else is blind to it. Here the proof is one sentence — the edits are inside a variable only the lease agent uses, and they're gated on "French calls." Scope first, then you can promise safety honestly.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://en.wikipedia.org/wiki/Blast_radius#Computing">Blast radius (in software)</a> ·
+        <a class="inline" href="https://martinfowler.com/bliki/FeatureToggle.html">Scoping changes safely (feature toggles)</a>
+      </p>
+
+      <!-- ---- Concept 7 ---- -->
+      <h3 id="c-deploy">7 · One deploy surface or two? Prompt-only changes</h3>
+      <p><strong>Plain-English explanation.</strong> A voice agent has two places its behaviour can live: the <strong>backend</strong> code (our FastAPI server on Render, which the tools call) and the <strong>VAPI assistant config</strong> (the prompt, voice, and tool definitions, stored at VAPI). A change isn't live until <em>every surface it touches</em> is deployed. The trick is recognising <em>which</em> surfaces a given change touches. Session 12's change touched <strong>both</strong> (it edited <code class="ic">leasing.py</code> <em>and</em> the prompt) — so it needed two deploys. R3 edits <strong>only the prompt</strong>, so it needs only the config push. One surface.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Knowing this prevents two opposite mistakes: under-deploying (Session 12's cliff-hanger — the config went live but the backend half didn't, so neither fix fully worked) and over-deploying (needlessly redeploying the Render backend for a pure-prompt change, risking downtime for no reason). For R3, the correct and <em>complete</em> deploy is a single command: <code class="ic">update_lease_agents.py</code>, which pushes the new prompt to every live assistant.</p>
+
+      <p><strong>How it works (analogy).</strong> If you change the menu (the prompt), you reprint the menu. You don't also re-wire the kitchen (the backend) — the kitchen didn't change. Matching the deploy to what actually changed keeps you fast and safe.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>assistant config</strong> — the JSON bundle at VAPI (prompt + voice + tools) that defines an agent. Changed by re-pushing via the update script.</li>
+        <li><strong>per-manager assistant</strong> — each property manager gets their own VAPI lease assistant; the script loops over all of them (here, 4) plus 1 shared agent.</li>
+        <li><strong>dry-run</strong> — running the deploy in preview mode (<code class="ic">--dry-run</code>) that reports what <em>would</em> change without changing it. Always do this first.</li>
+        <li><strong>idempotent</strong> — re-running the same push produces the same result; safe to run twice.</li>
+      </ul>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — ask "what files did I touch?" to find your deploy surfaces</div>
+        <p>If your diff is only in the prompt strings of <code class="ic">vapi_agent_config.py</code> → config push only. If it's also in a route like <code class="ic">leasing.py</code> or in <code class="ic">requirements.txt</code> → you also need a backend deploy. The files you edited <em>are</em> the checklist of surfaces to ship.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/assistants">VAPI assistants (config model)</a> ·
+        <a class="inline" href="https://render.com/docs/deploys">Render deploys</a>
+      </p>
+
+      <!-- ---- Concept 8 ---- -->
+      <h3 id="c-encoding">8 · UTF-8 on Windows: verify the bytes, don't trust the glyph</h3>
+      <p><strong>Plain-English explanation.</strong> Accented characters like <code class="ic">é</code>, <code class="ic">à</code>, and the em-dash <code class="ic">—</code> aren't single bytes — they're encoded, almost always in <strong>UTF-8</strong> (the universal text encoding). If a tool writes the file in the wrong encoding, an <code class="ic">é</code> can silently turn into garbage like <code class="ic">Ã©</code> — a phenomenon called <strong>mojibake</strong>. On Windows especially (whose default code page isn't UTF-8), this is a real hazard when a program writes French text. So after writing accented content, you <em>verify</em> it came out as clean UTF-8 instead of assuming.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> R3 is <em>made of</em> accented French — <em>"propriétaire," "répéter," "déménager."</em> If those got mojibake'd into the prompt, the agent could read corrupted instructions, or the file could fail to parse, or the agent could even speak the garbage. A previous session was burned by a <em>false</em> mojibake scare (a console display artifact that looked like corruption but wasn't), so the discipline is: check the <em>actual file bytes</em>, not what a terminal happens to render.</p>
+
+      <p><strong>How it works (analogy).</strong> It's spell-checking a letter you dictated to someone else before mailing it. You don't assume they transcribed the accents correctly — you read it back. Here we "read it back" by grepping the file for the exact French words and confirming they appear intact.</p>
+
+      <p><strong>How we verified.</strong> A search for the French strings, plus a Python parse, both confirmed clean output:</p>
+      <div class="term"><span class="pmt">$</span> <span class="dim"># grep the file for the accented words we just wrote</span>
+1035:[French Register — STRICT]
+1039:"Je n'ai pas bien compris, pourriez-vous répéter?" — never "Tu n'es pas bien compris"...
+1190:French (vous): "Est-ce que votre propriétaire actuel sait que vous cherchez à déménager?"
+<span class="dim">   # ^ é, à, — all render correctly -&gt; clean UTF-8, not "Ã©" / "Ã " mojibake</span>
+<span class="pmt">$</span> python -c "import ast; ast.parse(open('vapi_agent_config.py',encoding='utf-8').read()); print('syntax OK')"
+<span class="ok">syntax OK</span></div>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>UTF-8</strong> — the dominant text encoding; represents <code class="ic">é</code> as two bytes, the em-dash as three. Read with the right encoding, it shows the right glyph.</li>
+        <li><strong>mojibake</strong> — garbled text from decoding bytes with the wrong encoding (Japanese for "character transformation"); the classic tell is <code class="ic">Ã©</code> where you expected <code class="ic">é</code>.</li>
+        <li><strong>code page</strong> — Windows' legacy notion of "which encoding"; its non-UTF-8 default is why Windows is a mojibake hotspot.</li>
+      </ul>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — a garbled terminal isn't proof of a garbled file</div>
+        <p>Console windows often can't display UTF-8 and show <code class="ic">�</code> or <code class="ic">Ã©</code> even when the file on disk is perfect (we saw exactly this in the deploy output's em-dashes). Verify the <em>file</em> — grep it, or read it with an explicit <code class="ic">encoding="utf-8"</code> — before declaring corruption. Don't fix a bug that only exists in your terminal's font.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://en.wikipedia.org/wiki/Mojibake">Mojibake</a> ·
+        <a class="inline" href="https://docs.python.org/3/howto/unicode.html">Python Unicode HOWTO</a> ·
+        <a class="inline" href="https://utf8everywhere.org/">UTF-8 Everywhere</a>
+      </p>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p>Every action, in order. The shape was: <em>survey the pipeline → write the options memo → (you choose R3) → make two prompt edits → verify safety → update the paper trail → deploy</em>.</p>
+
+      <h3>Step 1 — Survey the French pipeline; separate solved from unsolved</h3>
+      <p><strong>What &amp; why now.</strong> Per the project's rule we read <code class="ic">CODEBASE_CONTEXT.md</code> first, then the lease config, the matcher, and the existing French diagnoses. This happens first because you can't "refine the French" responsibly without knowing what's <em>already</em> fixed (the city matcher, the banded confirmation, the Montréal clock) versus what's still open (the agent's own register; the transcriber-level garble).</p>
+      <p><strong>If skipped:</strong> you'd risk re-solving the city matcher (done in Sessions 08–12) and miss the actually-open defect: Max's own French.</p>
+
+      <h3>Step 2 — Write the decision memo (five ranked options)</h3>
+      <p><strong>What &amp; why now.</strong> Because your request was exploratory and carried a hard "don't break it" constraint, the deliverable was a document, not a code change. We wrote <code class="ic">docs/development_plans/PLAN_lease_agent_french_refinement_options_2026-06-25.md</code> with R1–R5, each carrying pros, cons, risk, effort, and a non-breaking guarantee (Concept 5).</p>
+      <div class="term"><span class="pmt">$</span> <span class="dim"># the new artifact — note the descriptive, dated, unique filename per repo convention</span>
+docs/development_plans/PLAN_lease_agent_french_refinement_options_2026-06-25.md
+  R1  Seed model with manager's real cities      (prompt + deploy query)
+  R2  Per-manager Deepgram keyterm prompting      (STT transcriber)
+  R3  vous/tu register lock + fix malformed FR    (prompt-only)   &lt;-- you picked this
+  R4  Trim stall-phrases + endpointing            (prompt + config)
+  R5  Corpus-driven alias expansion               (backend matcher)</div>
+      <p><strong>If skipped:</strong> you'd have no way to weigh a one-line prompt tweak against swapping the speech engine, and the four un-chosen ideas would be lost instead of banked.</p>
+
+      <h3>Step 3 — Edit #1: add the <code class="ic">[French Register — STRICT]</code> block</h3>
+      <p><strong>What &amp; why now.</strong> With R3 chosen, the first edit inserts the register rule into <code class="ic">_LEASE_SYSTEM_PROMPT_BASE</code>, right after the existing <code class="ic">[Language Policy]</code> (so register sits logically beside language). It forces <em>vous</em>, bans <em>tu</em>, and replaces the broken recovery line with the correct one (Concept 4).</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — Edit #1 (the inserted block)"><pre><code># Inserted between the FORBIDDEN list and the "Tool data rule" line of [Language Policy]:
+[French Register — STRICT]
+On French calls, always address the caller with the formal vous. NEVER use tu, t', or tu-conjugated
+verbs — stay in vous for the entire call, even if the caller uses tu.
+Keep your own French grammatical and natural. If you did not catch something, say
+"Je n'ai pas bien compris, pourriez-vous répéter?" — never "Tu n'es pas bien compris" or any tu form.</code></pre></div>
+      <p><strong>If skipped:</strong> the model keeps drifting into <em>tu</em> anywhere in the call, because nothing pins the register.</p>
+
+      <h3>Step 4 — Edit #2: add the French template to the Q2 question</h3>
+      <p><strong>What &amp; why now.</strong> The second edit targets the one question that produced word salad. Adding a vetted French line beside the English one removes the live-translation step that caused the calque (Concept 4). This is separate from Step 3 because Step 3 prevents <em>register</em> drift everywhere, while Step 4 fixes <em>this specific sentence</em>.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — Edit #2 (Q2 template)"><pre><code>--- Q2: Landlord awareness ---
+English: "Does your current landlord know you're looking?"
+French (vous): "Est-ce que votre propriétaire actuel sait que vous cherchez à déménager?"
+This is conversational only. Note the answer. Always continue regardless of response.</code></pre></div>
+      <p><strong>If skipped:</strong> Max keeps improvising the landlord question in French and can re-emit the broken <em>"vous regardez pour déménager"</em> calque.</p>
+
+      <h3>Step 5 — Verify safety: UTF-8 + syntax</h3>
+      <p><strong>What &amp; why now.</strong> Before touching docs or deploying, prove the edits didn't corrupt anything. Two checks (Concept 8): grep the file for the accented words to confirm clean UTF-8, and parse the file to confirm valid Python.</p>
+      <div class="term"><span class="pmt">$</span> grep -n "déménager\|pourriez-vous répéter\|French Register" vapi_agent_config.py
+<span class="ok">1035:[French Register — STRICT]
+1039:"Je n'ai pas bien compris, pourriez-vous répéter?" ...
+1190:French (vous): "...vous cherchez à déménager?"</span>
+<span class="pmt">$</span> python -c "import ast; ast.parse(open('vapi_agent_config.py',encoding='utf-8').read()); print('syntax OK')"
+<span class="ok">syntax OK</span></div>
+      <p><strong>If skipped:</strong> you might deploy a mojibake'd prompt or a file with a stray syntax break, and only find out on a live call.</p>
+
+      <h3>Step 6 — Update the paper trail (plan doc + CODEBASE_CONTEXT)</h3>
+      <p><strong>What &amp; why now.</strong> The project mandates keeping <code class="ic">CODEBASE_CONTEXT.md</code> current, and the memo should record what shipped. We marked R3 ✅ in the plan doc (status line, R3 section, summary table) and added a "French register lock" bullet to the lease-agent section of <code class="ic">CODEBASE_CONTEXT.md</code>.</p>
+      <div class="code-block" data-lang="text" data-file="CODEBASE_CONTEXT.md — new bullet (abridged)"><pre><code>- French register lock ([French Register — STRICT] block in _LEASE_SYSTEM_PROMPT_BASE,
+  added 2026-06-25): on French calls the agent must use formal vous for the entire call
+  and never tu/t'/tu-conjugations, even if the caller uses tu. Recovery line fixed to
+  "Je n'ai pas bien compris, pourriez-vous répéter?". Q2 carries an explicit French (vous)
+  template. Prompt-only; lease agent only; English path untouched (R3).</code></pre></div>
+      <p><strong>If skipped:</strong> the next session (human or AI) re-discovers the register rule from scratch, or worse, "fixes" it again, unaware it's already done.</p>
+
+      <h3>Step 7 — Deploy: dry-run, then push to all 5 assistants</h3>
+      <p><strong>What &amp; why now.</strong> R3 is prompt-only, so the single correct deploy surface is the VAPI config (Concept 7). We dry-ran first (preview, no changes), confirmed it resolved 4 per-manager + 1 shared assistant, then pushed for real.</p>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py --dry-run
+Lease agents to update: 4 per-manager + 1 shared
+<span class="dim">DRY RUN mode - no changes will be made</span>
+  [28c43c77] DRY RUN - would update with name=Lease Agent [28c43c77]
+  ... (4 more) ...
+<span class="ok">Done. 5 updated, 0 failed.</span>
+
+<span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py
+  [28c43c77] <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+  [7fb0c018] <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+  [eb4b27dc] <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+  [d2a63e94] <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+  [shared]   <span class="ok">[OK]</span> tools=['find_units', 'search_listings', 'submit_lease_lead']
+<span class="ok">Done. 5 updated, 0 failed.</span></div>
+      <p>The <code class="ic">tools=[...]</code> readout on each line is the safety check: the tool list came back intact, confirming the prompt edit didn't accidentally drop or mangle a tool definition. Unlike Session 12, there is <strong>no pending backend half</strong> — the prompt is the whole change, so R3 is fully live the moment the push completes.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — the dry-run is free insurance</div>
+        <p>Running the deploy with <code class="ic">--dry-run</code> costs seconds and tells you exactly which assistants will change before you touch production. For a script that PATCHes 5 live phone agents, that preview is the difference between a confident push and a hopeful one.</p>
+      </div>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p>Two <strong>production</strong> defects (the agent's own French, found in the transcript) drove this session. The <strong>implementation</strong> itself was clean — no crashes — so the third entry is the honest "why no dev bugs," plus the encoding guard we ran to keep it that way. Each gets the full Symptom → Diagnosis → Root Cause → Fix → Lesson treatment.</p>
+
+      <!-- BUG 1 -->
+      <h3 id="bug1">🐛 Bug 1 — "Tu n'es pas bien compris": wrong grammar + a register flip</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>On a French call, after the caller's words came back garbled, Max replied: <em>"Tu n'es pas bien compris, est-ce que votre propriétaire actuel est au courant…"</em> Two things are wrong: the phrase literally means "<em>you</em> are not well understood" (informal <em>you</em>) when Max meant "<em>I</em> didn't catch that," and it uses <em>tu</em> after Max had spoken <em>vous</em> the entire call.</p>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We read Max's own lines across the transcript and confirmed he'd been on <em>vous</em> until this turn — so this was a mid-call <em>drift</em>, not a consistent style. Then we read the system prompt's <code class="ic">[Language Policy]</code> and found it locks the <em>language</em> (English vs French) but says nothing about <em>register</em> (formal vs informal). The instruction simply wasn't there for the model to follow.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>A language model drifts on any axis you don't pin (Concept 3). "Speak French" was constrained; "speak <em>formal</em> French, always <em>vous</em>" was not. Under the nudge of a garbled turn, the model's next-word prediction wandered into a <em>tu</em> construction — and botched the grammar of the recovery phrase while doing so. It's a <em>missing-instruction</em> bug, not a model defect: the prompt under-specified the social register.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Add the <code class="ic">[French Register — STRICT]</code> block (Step 3): mandate <em>vous</em> for the whole call, ban <em>tu</em>/<em>t'</em>/tu-conjugations even if the caller uses <em>tu</em>, and quote the correct recovery line while naming the wrong one as forbidden.</p>
+      </div>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — before vs after (the recovery line)"><pre><code># BEFORE — no register rule anywhere; the model is free to say (and did say):
+"Tu n'es pas bien compris"        # informal "tu" + wrong subject (means "you", not "I")
+
+# AFTER — the prompt pins the register and supplies the correct line verbatim:
+"Je n'ai pas bien compris, pourriez-vous répéter?"   # formal vous, correct grammar
+# ...plus the standing rule: "always vous, NEVER tu, for the entire call."</code></pre></div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>If correct output depends on a convention (politeness, tone, format) the model wasn't explicitly told to hold, it will eventually break it. Pin every axis that matters. And when you've captured a concrete bad line, put it <em>in the prompt</em> as a named negative example — "never say X, say Y" beats "be formal."</p>
+      </div>
+
+      <!-- BUG 2 -->
+      <h3 id="bug2">🐛 Bug 2 — The word-salad screening question (a live-translation calque)</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>Max's landlord-awareness question came out as <em>"…est-ce que votre propriétaire actuel sait que vous regardez pour déménager?"</em> — a clumsy, broken French sentence. <em>"regardez pour déménager"</em> is a literal word-for-word rendering of English "looking to move" that no native speaker would say.</p>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We located the Q2 step in the prompt and saw it contained <em>only</em> the English version of the question. So on every French call the model had to translate it live — and live translation of an idiom is exactly where a <strong>calque</strong> (Concept 2) sneaks in. The bug wasn't random; it was structural: we were asking the model to improvise a translation each time.</p>
+      </div>
+      <div class="callout c-deep">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>On-the-fly translation under time pressure (Concept 4). Given only an English line, the model produced a literal calque instead of the idiomatic French. The prompt offered no canonical French phrasing to copy, so it generated one — and got the idiom wrong.</p>
+      </div>
+      <div class="callout c-tip">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Add a vetted <em>French (vous)</em> template beside the English (Step 4), using the idiomatic <em>"cherchez à déménager."</em> Now there's nothing to translate — the model reads a correct line.</p>
+      </div>
+      <div class="code-block" data-lang="text" data-file="vapi_agent_config.py — before vs after (Q2)"><pre><code># BEFORE — only English; model improvises the French each call -&gt; calque
+"Does your current landlord know you're looking?"
+# model emitted: "...vous regardez pour déménager?"   (broken)
+
+# AFTER — supply the correct French line; nothing to improvise
+French (vous): "Est-ce que votre propriétaire actuel sait que vous cherchez à déménager?"</code></pre></div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Don't make a model translate customer-facing idioms live if you can pre-write them. For any repeatable line that must be correct, script the exact wording in the target language. Save improvisation for genuinely dynamic content.</p>
+      </div>
+
+      <!-- BUG 3 -->
+      <h3 id="bug3">🐛 Bug Journal — Clean implementation (and the guard that kept it clean)</h3>
+      <div class="callout c-tip">
+        <div class="c-title">✅ No dev-time bugs — and why</div>
+        <p>The implementation hit <strong>zero</strong> crashes: both edits applied first try, the file parsed, the dry-run was clean, and the push reported <code class="ic">5 updated, 0 failed</code>. That's expected for this <em>kind</em> of change — it was <strong>purely additive text inside one string</strong>, with no new code paths, no new dependencies, and no integration points to misfire. Compare Session 12, which added a time-zone import, a new helper, and edits across three files — far more surfaces to fail (and it hit five bugs).</p>
+      </div>
+      <div class="callout c-key">
+        <div class="c-title">🔍 The one thing that <em>could</em> have gone wrong — and the guard</div>
+        <p>The realistic failure mode for an all-French edit on Windows is <strong>mojibake</strong> (Concept 8): an <code class="ic">é</code> silently written as <code class="ic">Ã©</code>. We pre-empted it by grepping the file for the exact accented words and parsing it with an explicit UTF-8 read — both came back clean. A prior session was fooled by a <em>false</em> mojibake (a console-display artifact), so the rule we now follow is "verify the file's bytes, never trust the terminal's rendering."</p>
+      </div>
+      <div class="callout c-warn">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Fewer moving parts means fewer bugs — additive, single-file, no-new-deps changes are the safest kind, and worth preferring when a constraint is "don't break anything." But "safe by shape" still deserves one targeted check: here, the encoding of the very characters the change is made of.</p>
+      </div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose this</th><th>Trade-offs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Do R3 only (this session)</td>
+            <td>Also ship R1 (seed cities) and/or R2 (Deepgram keyterm) now</td>
+            <td>R3 is the smallest, lowest-risk, prompt-only fix; ships and is fully live immediately; honours "don't break anything"</td>
+            <td>The STT-side garble (R1/R2) that <em>causes</em> the input problem is still open — deferred, not solved</td>
+          </tr>
+          <tr>
+            <td>Always <code>vous</code>, regardless of caller</td>
+            <td>Mirror the caller's register (use <code>tu</code> if they do)</td>
+            <td>Professional, consistent, predictable; matches how a concierge/teller speaks; one rule, no ambiguity</td>
+            <td>A very casual caller might find <code>vous</code> slightly stiff (an acceptable trade for professionalism)</td>
+          </tr>
+          <tr>
+            <td>Give a French template for Q2</td>
+            <td>Rely on the model to translate the English line live</td>
+            <td>Removes the live-translation step that produced the calque; the line is correct by construction</td>
+            <td>One more line of prompt per templated question; must hand-write correct French</td>
+          </tr>
+          <tr>
+            <td>New <code>[French Register]</code> block</td>
+            <td>Tuck the rule inside the existing <code>[Language Policy]</code></td>
+            <td>A dedicated, titled block is prominent and easy to find/extend; signals importance to the model</td>
+            <td>Slightly longer prompt (negligible token cost)</td>
+          </tr>
+          <tr>
+            <td>Config push only (no backend deploy)</td>
+            <td>Also redeploy the Render backend</td>
+            <td>R3 touches only the prompt; the backend didn't change, so redeploying it adds risk for zero benefit</td>
+            <td>None — but you must correctly identify that no backend file changed</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+
+      <h3>1 · The accented French wrote as clean UTF-8</h3>
+      <div class="term"><span class="pmt">$</span> grep -n "déménager\|répéter\|propriétaire" backend/app/services/vapi_agent_config.py</div>
+      <ul class="check"><li>The French words print with correct accents (<code class="ic">é</code>, <code class="ic">à</code>) — not <code class="ic">Ã©</code>/<code class="ic">Ã </code>.</li></ul>
+      <ul class="xlist"><li>You see <code class="ic">Ã©</code> or <code class="ic">â€"</code> → genuine mojibake; re-write the file as UTF-8. (But first confirm it's the file, not your terminal — read it with <code class="ic">encoding="utf-8"</code>.)</li></ul>
+
+      <h3>2 · The file still parses as Python</h3>
+      <div class="term"><span class="pmt">$</span> python -c "import ast; ast.parse(open('backend/app/services/vapi_agent_config.py',encoding='utf-8').read()); print('syntax OK')"
+<span class="ok">syntax OK</span></div>
+      <ul class="check"><li>Prints <code class="ic">syntax OK</code> — the prompt edits didn't break the surrounding triple-quoted string or any code.</li></ul>
+
+      <h3>3 · The deploy reached all assistants with tools intact</h3>
+      <div class="term"><span class="pmt">$</span> backend/.venv/Scripts/python.exe backend/scripts/update_lease_agents.py
+<span class="ok">Done. 5 updated, 0 failed.</span></div>
+      <ul class="check"><li>All 5 print <code class="ic">[OK]</code> with <code class="ic">tools=['find_units','search_listings','submit_lease_lead']</code> — the prompt edit didn't drop a tool.</li></ul>
+      <ul class="xlist"><li><code class="ic">0 per-manager</code> resolved → check <code class="ic">manager_vapi_config</code> for <code class="ic">active</code> rows.</li></ul>
+
+      <h3>4 · The real test — a French call (acceptance)</h3>
+      <ul class="check"><li>On a French call, Max uses <em>vous</em> throughout and never slips to <em>tu</em>, even if you address him with <em>tu</em>.</li><li>When he mishears, he says <em>"Je n'ai pas bien compris, pourriez-vous répéter?"</em> — not the <em>tu</em> form.</li><li>The landlord question comes out idiomatic (<em>"…vous cherchez à déménager?"</em>), not the broken calque.</li></ul>
+      <ul class="xlist"><li>Still hearing <em>tu</em> → the config push didn't run, or the model needs the rule reinforced (see Troubleshooting).</li></ul>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — only a native-speaker ear closes this ticket</div>
+        <p>Checks 1–3 prove the change <em>shipped</em>; only check 4 proves it <em>works</em>. Register is a behavioural property — a non-French reviewer cannot confirm it from the code. Treat the French test call as the real acceptance gate.</p>
+      </div>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — template another customer-facing line</div>
+        <p>Pick another spoken line in <code class="ic">_LEASE_SYSTEM_PROMPT_BASE</code> that currently exists only in English (e.g. the move-in-date question or the closing handoff line) and add a vetted <em>French (vous)</em> template beside it, exactly like the Q2 fix. Keep it idiomatic and on <em>vous</em>.</p>
+        <details><summary>Hint</summary>
+          <p>Find the step in the qualification flow (Q1/Q4/handoff). Mirror the Q2 pattern: an <code class="ic">English: "…"</code> line and a <code class="ic">French (vous): "…"</code> line. For "When are you hoping to move in?" a natural template is <em>"Quand souhaitez-vous emménager?"</em> — note <em>souhaitez</em> is the <em>vous</em> form. Then re-grep for clean UTF-8 and re-deploy.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — extend the register lock to the complaint agent</div>
+        <p>The complaint agent ("Alex", <code class="ic">COMPLAINT_SYSTEM_PROMPT</code>) has the same drift exposure but a different prompt variable. Add an equivalent <code class="ic">[French Register — STRICT]</code> block to it — <em>without</em> touching the lease agent — and deploy it with the complaint-agent update path.</p>
+        <details><summary>Hint</summary>
+          <p>Edit <code class="ic">COMPLAINT_SYSTEM_PROMPT</code>, not <code class="ic">_LEASE_SYSTEM_PROMPT_BASE</code> (Concept 6 — keep the blast radius to one agent). The complaint agent deploys via <code class="ic">update_shared_agents.py</code> (it pushes the complaint agent + shared lease agent), not <code class="ic">update_lease_agents.py</code>. Dry-run first.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — implement R1 from the memo</div>
+        <p>Pick up the next-ranked option: seed each manager's <em>real</em> city list into the lease agent's context block so the model can canonicalize a garbled French city <em>before</em> calling <code class="ic">find_units</code>. This spans a prompt change <em>and</em> a small DB query in the deploy loop.</p>
+        <details><summary>Hint</summary>
+          <p>In <code class="ic">update_lease_agents.py</code>, beside the existing <code class="ic">manager_profiles</code> name fetch, query the distinct <code class="ic">city</code> values from that manager's active <code class="ic">lease_listings</code>; pass them into <code class="ic">build_lease_config(...)</code>; and add them to <code class="ic">_LEASE_CONTEXT_BLOCK</code> with an instruction to "resolve the spoken city to the nearest city on this list before searching." Remember the staleness trade-off the memo flagged: the list is baked at deploy time and goes stale when a manager adds a city.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary>The agent still says "tu" on a French call after the change</summary>
+        <p><strong>Cause &amp; fix:</strong> most likely the config push didn't run or didn't reach that manager's assistant — re-run <code class="ic">update_lease_agents.py</code> and confirm <code class="ic">5 updated, 0 failed</code>. If it did run and <em>tu</em> persists, reinforce the rule (move the <code class="ic">[French Register]</code> block earlier, or add a one-line reminder in the qualification section); models weight repeated/earlier instructions more heavily.</p>
+      </details>
+
+      <details>
+        <summary>French text shows as Ã© / â€" in an editor or the terminal</summary>
+        <p><strong>Cause:</strong> something decoded UTF-8 bytes with the wrong encoding (Windows code-page default). <strong>Fix:</strong> first determine whether it's the <em>file</em> or just the <em>display</em> — read the file with <code class="ic">open(path, encoding="utf-8")</code>. If the bytes are fine, it's only your terminal's font/codepage (harmless). If the file itself is corrupted, rewrite it as UTF-8.</p>
+      </details>
+
+      <details>
+        <summary>SyntaxError after editing the prompt string</summary>
+        <p><strong>Cause:</strong> the prompt lives in a triple-quoted Python string; an accidental stray <code class="ic">"""</code> or an unbalanced quote inside it can terminate the string early. <strong>Fix:</strong> run the <code class="ic">ast.parse</code> check from Verification step 2; it points to the line. Keep edits inside the existing triple-quoted block.</p>
+      </details>
+
+      <details>
+        <summary>update_lease_agents.py says "0 per-manager"</summary>
+        <p><strong>Cause:</strong> no rows in <code class="ic">manager_vapi_config</code> have <code class="ic">vapi_provisioning_status='active'</code>. <strong>Fix:</strong> confirm at least one manager has been provisioned (Session 12's context), and that <code class="ic">.env</code> points at the right Supabase project.</p>
+      </details>
+
+      <details>
+        <summary>The session HTML code blocks render garbled</summary>
+        <p><strong>Cause:</strong> a raw <code class="ic">&lt;</code>, <code class="ic">&gt;</code>, or <code class="ic">&amp;</code> inside a <code class="ic">&lt;pre&gt;&lt;code&gt;</code> block confuses the in-page tokenizer. <strong>Fix:</strong> HTML-escape them (<code class="ic">&amp;lt;</code>, <code class="ic">&amp;gt;</code>, <code class="ic">&amp;amp;</code>) — e.g. write <code class="ic">-&amp;gt;</code> for <code class="ic">-&gt;</code>.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🔭 What's Next</h2>
+      <p>R3 fixed what Max <em>says</em>; the input side is still the bigger prize. The memo's top-ranked open items both attack what Max can <em>hear</em>: <strong>R1</strong> (seed each manager's real city list into the prompt so the model canonicalizes a garbled French city before searching) and <strong>R2</strong> (per-manager Deepgram <em>keyterm</em> prompting, which biases the speech-to-text engine toward the manager's actual city names at the source). R1 is the natural next session — it's mostly prompt plus a small deploy-time query, low risk, and pairs perfectly with the register work we just shipped. R2 is the heavier lever and will want a dry-run gate to confirm VAPI accepts the keyterm parameter before it goes to all managers. And before any of that: place a French test call to confirm the <em>vous</em> lock holds on a live line — the one acceptance test code review can't perform.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📖 Glossary</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>blast radius</strong></td><td>The set of things a change can affect. Good scoping makes it small and provable.</td></tr>
+          <tr><td><strong>calque</strong></td><td>A word-for-word translation of an idiom that comes out wrong (e.g. "looking to move" → <em>"regardez pour déménager"</em>).</td></tr>
+          <tr><td><strong>code page</strong></td><td>Windows' legacy "which encoding" setting; its non-UTF-8 default makes Windows a mojibake hotspot.</td></tr>
+          <tr><td><strong>conjugation</strong></td><td>How a verb changes form to match its subject; <em>vous</em> takes its own endings (<em>vous êtes</em>, not <em>tu es</em>).</td></tr>
+          <tr><td><strong>decision memo</strong></td><td>A short written doc listing ranked options with pros/cons/risk so the owner can choose before any code is written.</td></tr>
+          <tr><td><strong>dry-run</strong></td><td>Running a deploy in preview mode (<code>--dry-run</code>) that reports what would change without changing it.</td></tr>
+          <tr><td><strong>idempotent</strong></td><td>Re-running the same operation yields the same result; safe to run twice.</td></tr>
+          <tr><td><strong>mojibake</strong></td><td>Garbled text from decoding bytes with the wrong encoding; classic tell is <code>Ã©</code> where you expected <code>é</code>.</td></tr>
+          <tr><td><strong>non-breaking change</strong></td><td>A change that only adds behaviour in a bounded place, never altering paths others depend on.</td></tr>
+          <tr><td><strong>register</strong></td><td>The formality level of language (casual ↔ formal); <em>vous</em> sets a formal register.</td></tr>
+          <tr><td><strong>system prompt</strong></td><td>The standing instruction block that defines a voice agent's behaviour; for Max it's <code>_LEASE_SYSTEM_PROMPT_BASE</code>.</td></tr>
+          <tr><td><strong>T–V distinction</strong></td><td>Having two "you" forms by formality (French <em>tu</em>/<em>vous</em>, from Latin <em>tu</em>/<em>vos</em>).</td></tr>
+          <tr><td><strong>template (prompt)</strong></td><td>A pre-written exact line given to the model to say, removing live translation/improvisation.</td></tr>
+          <tr><td><strong>tu / vous</strong></td><td>Informal vs formal "you" in French; a professional agent uses <em>vous</em> throughout.</td></tr>
+          <tr><td><strong>tutoiement / vouvoiement</strong></td><td>The acts of using <em>tu</em> / using <em>vous</em>.</td></tr>
+          <tr><td><strong>UTF-8</strong></td><td>The dominant text encoding; represents accented characters as multiple bytes.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-12-phonetic-match-gate-and-montreal-clock.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 12 — When the Map Forgets a City</div>
+    </a>
+    <a href="sessions.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a class="right disabled">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 14 — coming soon</div>
+    </a>
+  </div>
+  <div class="copyright">Session 13 — CRM Learning Series · generated 2026-06-25</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>

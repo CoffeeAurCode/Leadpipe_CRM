@@ -314,7 +314,8 @@ PropertyGroup (properties_list)
 |---|---|---|
 | id | UUID PK | |
 | manager_id | UUID UNIQUE | FK → auth.users |
-| vapi_lease_assistant_id | text | Per-manager VAPI assistant ID |
+| vapi_lease_assistant_id | text | Per-manager VAPI assistant ID (the **entry** assistant) |
+| vapi_lease_french_assistant_id | text | Dedicated French-only lease assistant ID (handoff target); null = none. Migration 031 |
 | vapi_phone_number_id | text | VAPI's internal ID for the claimed number |
 | vapi_phone_number | text | E.164 phone number for this manager's lease line |
 | vapi_provisioning_status | text | pending / active / failed / not_set_up |
@@ -347,6 +348,7 @@ Admin script to add numbers: `python backend/scripts/add_twilio_number_to_vapi.p
 
 **VAPI tool naming (critical):** every tool's `function.name` must be **unique** within an assistant. VAPI/OpenAI dedupe tools by function name — duplicates collapse and the model can only ever reach the *first* tool sharing a name. apiRequest tools historically all set `function.name="api_request_tool"`, which made every apiRequest tool after the first unreachable (the lease agent could never call `search_listings`/`submit_lease_lead`, so it looped on `find_units` and never logged a lead). Fixed in `vapi_agent_config.py` by `_alias_apirequest_tool_names()`, which aliases each apiRequest tool's `function.name` to its (unique) top-level `name`; it wraps the returns of `build_tools`/`build_complaint_tools`/`_build_lease_tools`. Pure `function` tools (`submit_complaint`) keep their own unique `function.name`. Backend handlers route apiRequest tools by **URL**, so these names are LLM-facing only.
 - `reprovision_existing_groups.py` — provision new per-manager agents for property groups that don't have one yet (status != active)
+- `provision_lease_french_handoff.py` — creates the dedicated **French-only** lease assistant (nova-3 `fr`, `FRENCH_TRANSCRIBER_CONFIG`) and wires a **gated handoff** tool onto the entry assistant so French callers are transferred to it by `assistantId` with `contextEngineeringPlan:"all"` (continues, not restarts). **No squad, no phone-number repoint** — the inbound number stays on the entry assistant; English path unchanged. Shared-agent **pilot** is the default; `--all --confirm-fleet` does the per-manager rollout (needs migration 031 + a validated pilot). Supports `--dry-run`. See `docs/development_plans/PLAN_lease_agent_french_squad_routing_2026-06-26.md`
 
 #### `subscriptions`
 | Column | Type | Notes |
@@ -713,6 +715,7 @@ Key vars:
 - `VAPI_NUMBER_ID`, `VAPI_ASSISTANT_ID` — **legacy**, kept for backward compat only; not used by any current live path
 - `VAPI_COMPLAINT_ASSISTANT_ID`, `VAPI_COMPLAINT_NUMBER_ID`, `VAPI_COMPLAINT_PHONE_NUMBER` — complaint agent (`+14382314283`)
 - `VAPI_SHARED_LEASE_ASSISTANT_ID`, `VAPI_SHARED_LEASE_NUMBER_ID`, `VAPI_SHARED_LEASE_PHONE_NUMBER` — shared lease agent (`+14313415768`)
+- `VAPI_SHARED_LEASE_FRENCH_ASSISTANT_ID` — dedicated French-only assistant for the shared lease agent's French handoff (set after running `provision_lease_french_handoff.py`; consumed by it and by `update_lease_agents.py` to keep the handoff across redeploys)
 - `OPEN_AI_API`, `GROQ_API_KEY`
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
 - `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`
@@ -833,6 +836,7 @@ Four builder functions:
 **Voice & language config (all agents):**
 - Voice: ElevenLabs voiceId `E4GQ42zEV1kwul03Bl16` (Wilkins bilingual voice), stability 0.6, useSpeakerBoost, optimizeStreamingLatency 1. TTS model: `eleven_turbo_v2_5` for complaint/tenant (shared `VOICE_CONFIG`); the **lease agent** uses `eleven_flash_v2_5` (`LEASE_VOICE_CONFIG`) for lower TTS first-byte (latency fix 2026-06-23)
 - Transcriber: Deepgram nova-3, `language: "multi"`, confidenceThreshold 0.4, numerals False, OpenAI gpt-4o-transcribe fallback (unchanged)
+- **French handoff routing (lease agent, 2026-06-26):** because the STT language is fixed at call-start and cannot switch mid-call, French callers are routed to a **dedicated French-only assistant** (`FRENCH_TRANSCRIBER_CONFIG` — Deepgram nova-3 **`language:"fr"`**, threshold 0.4; better French WER than `multi` and supports keyterm prompting). The entry assistant keeps `multi`; when built with `french_assistant_id` it gains a `[French Routing — STRICT]` block + a Vapi **handoff** tool (`type:"handoff"`, destination `assistantId`, `contextEngineeringPlan:{type:"all"}`). Routing is an **explicit English-first language gate** (2026-06-26): the entry opens with a short English intro and asks "Would you like to continue in English, or in French? / Préférez-vous continuer en anglais ou en français?" (the one permitted bilingual line), does no leasing until the caller picks, then hands off **only on a French choice** (or the caller answering in French); English continues on the entry assistant. No squad, no phone-number change. Builders: `build_lease_config_french[_shared]()` (target) and the optional `french_assistant_id` arg on `build_lease_config[_shared]()` (entry, gated/additive — English path byte-identical when null). Provisioned by `provision_lease_french_handoff.py`. The French assistant carries a `[French Call — Continuation]` note so it continues mid-call rather than re-greeting. **LIVE on all 4 per-manager agents as of 2026-06-26 (testing phase); the shared agent is not yet wired.** Per-manager French assistant ids live in `manager_vapi_config.vapi_lease_french_assistant_id`. Rollback: `provision_lease_french_handoff.py --rollback --all --fleet-only`.
 - Speaking: waitSeconds 0.1, transcriptionEndpointingPlan onNumberSeconds 0.1, stopSpeakingPlan numWords 2, backgroundDenoisingEnabled
 - Language policy: **all agents respond in the caller's detected language** (English or Quebec French). Tool submissions are always English — French is silently translated before any tool call.
 - First messages are bilingual (English / French) so callers know both are supported
