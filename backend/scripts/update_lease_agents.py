@@ -37,6 +37,7 @@ def _to_vapi_payload(cfg: dict) -> dict:
     payload = {
         "name": cfg.get("name"),
         "firstMessageMode": cfg.get("first_message_mode"),
+        "firstMessage": cfg.get("first_message"),
         "voicemailMessage": cfg.get("voicemail_message"),
         "endCallMessage": cfg.get("end_call_message"),
         "endCallPhrases": cfg.get("end_call_phrases"),

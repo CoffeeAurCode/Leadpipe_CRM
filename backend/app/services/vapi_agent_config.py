@@ -1389,14 +1389,23 @@ for YOU the language is chosen explicitly, and French always means hand off.
 """
 
 
+# Deterministic opener for the FRENCH assistant. A static first message (vs. a model-generated one)
+# guarantees it greets-and-asks instead of role-playing the router ("je vous mets en relation…"),
+# removes the LLM-generation latency at handoff, and ends on a question so the caller is prompted to
+# speak — eliminating the post-handoff dead air. See PLAN_lease_agent_french_squad_routing.
+_LEASE_FRENCH_FIRST_MESSAGE = "Parfait, je continue en français. Qu'est-ce que vous cherchez comme logement?"
+
+
 # Appended to the FRENCH assistant prompt — it receives the call mid-conversation via handoff.
 _LEASE_FRENCH_CONTINUATION_NOTE = """
 
 [French Call — Continuation]
-The caller just chose to continue in French at the language gate; they have NOT yet said what they
-are looking for. Greet them warmly in French with the formal vous, introduce yourself briefly, and
-ask what they're looking for — e.g. "Parfait! Je suis Max, votre assistant de location. Qu'est-ce que
-vous cherchez comme logement?" The entire call stays in French; never switch to English.
+You ARE the French-speaking leasing assistant — the caller has already been routed to you. NEVER say
+you will transfer, connect, or hand them to anyone, and never mention a "collègue" — there is no one
+else; you handle the whole call. The caller just chose French at the language gate and has NOT yet
+said what they are looking for. Your opening line greets them and asks what they're looking for, and
+every turn that needs a reply must end with a question so the caller knows to speak. Use the formal
+vous. The entire call stays in French; never switch to English.
 """
 
 
@@ -1755,23 +1764,29 @@ def build_lease_config_french(backend_url: str, manager_id: str,
     tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=manager_id))
     context_block = _LEASE_CONTEXT_BLOCK.format(manager_id=manager_id, manager_name=manager_name)
     system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block + _LEASE_FRENCH_CONTINUATION_NOTE
-    return _lease_assistant_shell(
+    cfg = _lease_assistant_shell(
         name=f"Lease Agent FR [{manager_id[:8]}]",
         system_prompt=system_prompt,
         tools=tools,
         backend_url=backend_url,
         transcriber=FRENCH_TRANSCRIBER_CONFIG,
     )
+    cfg["first_message_mode"] = "assistant-speaks-first"
+    cfg["first_message"] = _LEASE_FRENCH_FIRST_MESSAGE
+    return cfg
 
 
 def build_lease_config_french_shared(backend_url: str) -> dict:
     """Shared FRENCH-ONLY lease assistant (handoff target for the shared entry agent)."""
     tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=None))
     system_prompt = _LEASE_SYSTEM_PROMPT_BASE + _LEASE_FRENCH_CONTINUATION_NOTE
-    return _lease_assistant_shell(
+    cfg = _lease_assistant_shell(
         name="Shared Lease Agent FR",
         system_prompt=system_prompt,
         tools=tools,
         backend_url=backend_url,
         transcriber=FRENCH_TRANSCRIBER_CONFIG,
     )
+    cfg["first_message_mode"] = "assistant-speaks-first"
+    cfg["first_message"] = _LEASE_FRENCH_FIRST_MESSAGE
+    return cfg
