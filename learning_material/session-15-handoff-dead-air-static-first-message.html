@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 15 — The Six-Second Silence: When a Handoff Forgot to Pass the Mic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; white-space: pre-wrap; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 15</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-fmm" style="padding-left:1.4rem">— The 3 firstMessage modes</a>
+    <a href="#c-coldstart" style="padding-left:1.4rem">— Handoff cold-start latency</a>
+    <a href="#c-leak" style="padding-left:1.4rem">— Context leakage</a>
+    <a href="#c-floor" style="padding-left:1.4rem">— The conversational floor</a>
+    <a href="#c-nondet" style="padding-left:1.4rem">— Non-determinism &amp; temperature</a>
+    <a href="#c-forensic" style="padding-left:1.4rem">— Reading a transcript forensically</a>
+    <a href="#c-scope" style="padding-left:1.4rem">— Scoping a field with None-filtering</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#bug1" style="padding-left:1.4rem">— Bug 1: the six-second silence</a>
+    <a href="#bug2" style="padding-left:1.4rem">— Bug 2: the dropped firstMessage</a>
+    <a href="#bug3" style="padding-left:1.4rem">— Bug 3: ten stale tests</a>
+    <a href="#bug4" style="padding-left:1.4rem">— Bug 4: the fake mojibake</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 15 · Voice AI · Conversation Design · LLM Non-Determinism · Live Hotfix</div>
+      <h1>The Six-Second Silence — When a Handoff Forgot to Pass the Mic</h1>
+      <p class="lead muted">Last session we taught the lease agent to <strong>hand French callers off</strong> to a dedicated French assistant. It worked — on the first test call. On the <em>second</em> call, the French assistant picked up, said <em>"Parfait, je vous mets en relation avec mon collègue francophone tout de suite,"</em> ("I'll connect you to my French colleague right away") … and then <strong>went silent for six seconds</strong>. Nobody spoke. The whole session is the hunt for why a single line of generated speech could freeze a call — and why it broke on call two but not call one. The answer is a tour through how Vapi opens a handed-off call, how an LLM can <em>leak</em> the framing of a conversation into its first words, and why a coin-flip of <strong>temperature</strong> made the bug intermittent. The fix is four small edits and a one-command redeploy.</p>
+      <div class="meta">
+        <span class="chip diff">🔴 Advanced</span>
+        <span class="chip time">⏱️ ~70 min read / build</span>
+        <span class="chip pre">📋 Requires: Session 14 (the French handoff &amp; language gate); helpful: Sessions 10–11 (latency, dead air)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was a <strong>diagnosis-and-hotfix</strong> session. There was no new feature — we made a feature that already shipped actually <em>feel</em> right. A native-French partner did two test calls against the live agent built in Session 14. Call one was smooth. Call two had a jarring gap. The user brought us the transcript and one question:</p>
+
+      <div class="term"><span class="spk">You:</span> my french partner did a test call, it worked in the first call, but in the
+       second call... <span class="cal">"Parfait, je vous mets en relation avec mon collègue
+       francophone tout de suite,"</span> ... there was silence for 6 seconds... why was that</div>
+
+      <p>By the end of the session we had, <strong>live on all four manager lines</strong>:</p>
+      <ul>
+        <li><strong>A precise root cause</strong> for the silence — not a guess. We traced it to the French assistant's <em>opening line being generated by the model</em> instead of being a fixed script, which let it <em>announce a transfer that never happens</em> and then wait for nobody.</li>
+        <li><strong>A deterministic French opener</strong> — the French assistant now always says one fixed sentence that ends in a question, so the caller is always invited to speak. No more dead air, no more generation lag.</li>
+        <li><strong>A hardened prompt</strong> — the continuation note now explicitly forbids the assistant from ever announcing a transfer or mentioning a "colleague."</li>
+        <li><strong>A plumbing fix</strong> — the field that carries that fixed opener (<code class="ic">firstMessage</code>) was never actually being sent to Vapi by our deploy scripts; we added it to both.</li>
+        <li><strong>A verified live deploy</strong> — re-provisioned all four French assistants and confirmed by reading the live config straight back from Vapi's API.</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Explain Vapi's three <strong>firstMessage modes</strong> and when a <em>model-generated</em> opener is a liability rather than a convenience.</li>
+          <li>Describe what happens — and how long it takes — when a call is <strong>handed off</strong> to a fresh assistant (the "cold start").</li>
+          <li>Recognise <strong>context leakage</strong>: how carrying an entire conversation into a second assistant can bias <em>what it says first</em>.</li>
+          <li>Diagnose <strong>dead air</strong> as a turn-taking failure — nobody holding the "conversational floor" — and fix it by always ending a turn with a question.</li>
+          <li>Explain why <strong>LLM temperature</strong> made the bug intermittent ("worked the first call, not the second"), and why determinism is the cure.</li>
+          <li>Read a call <strong>transcript forensically</strong> — timestamps, speaker labels, and a trailing comma — to reconstruct what the software did.</li>
+          <li>Scope a new field to a subset of agents safely using <strong>None-filtering</strong>, leaving the English path byte-for-byte unchanged.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our product is a <strong>CRM</strong> (Customer Relationship Management — the web app a property manager uses to track buildings, units, tenants, and leads). It runs an AI <strong>voice agent</strong> called <strong>Max</strong> that answers a phone line, talks to a prospective renter, finds the unit they want, and saves a <strong>lead</strong>. Max lives on <strong>Vapi</strong> (a hosted "Voice API" that wires a phone number to three swappable pieces — a <strong>transcriber</strong> that turns speech into text, a <strong>model</strong> / LLM that decides what to say, and a <strong>voice</strong> that speaks the reply).</p>
+
+      <p><strong>Session 14</strong> solved a hard constraint: a phone call's transcriber language is locked the instant the call connects, so you cannot "switch to French" mid-call. The fix was <em>routing</em>. Each manager's existing bilingual assistant became an <strong>entry assistant</strong> that opens with a spoken <strong>language gate</strong> ("English or French? / Anglais ou français?"). On a French choice it fires a Vapi <strong>handoff tool</strong> that transfers the live call to a second, French-only assistant (Deepgram <code class="ic">nova-3</code> set to <code class="ic">language:"fr"</code>). The handoff carries the whole conversation across (<code class="ic">contextEngineeringPlan:{type:"all"}</code>) so the French assistant <em>continues</em> the call rather than restarting it. We shipped it live to all four per-manager agents with a one-command rollback standing by.</p>
+
+      <p>That is exactly where this session begins: the handoff <em>fires correctly</em> — the call really does move to the French assistant. The problem is the very <strong>first thing the French assistant says</strong> once it takes over. Session 14 even flagged this as the thing to watch: its open question #1 was <em>"Exact French-assistant first-message behavior on handoff (continue vs. re-greet) — settle from the pilot transcript."</em> This session is us settling it, the hard way — from a transcript with a six-second hole in it.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need Session 14 open. The one fact to carry in: when a French caller is detected, the call is <em>handed off</em> from the entry assistant to a separate "Lease Agent FR" assistant, and that second assistant has its own opening line. Everything else is re-explained here.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Seven ideas, and they stack into the bug. C1 is the knob we got wrong (who writes the first line). C2 and C3 explain the two halves of the gap (the cold-start lag, then the wrong words). C4 explains why the wrong words <em>freeze</em> the call. C5 explains why it only happened sometimes. C6 is the skill that let us see all of it (reading the transcript). C7 is the small, safe way we shipped the fix.</p>
+
+      <!-- ---- Concept 1 ---- -->
+      <h3 id="c-fmm">1 · Who speaks first: the three firstMessage modes</h3>
+      <p><strong>Plain-English explanation.</strong> Every Vapi assistant has a setting that decides how it opens a call — its <code class="ic">firstMessageMode</code>. There are three choices. <code class="ic">assistant-speaks-first</code> means it speaks a <em>fixed, pre-written sentence</em> you supply in a <code class="ic">firstMessage</code> field. <code class="ic">assistant-speaks-first-with-model-generated-message</code> means it speaks first, but the <em>LLM writes the opening line on the fly</em> each call. <code class="ic">assistant-waits-for-user</code> means it stays quiet until the caller talks. Our French assistant was on the <em>middle</em> one — the model improvised its opener — and that improvisation is the whole bug.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> For the <em>entry</em> assistant, a model-generated opener is genuinely nice: it can weave in the manager's name ("I'm Max, the AI leasing assistant for Sean Siri") and ask the language-gate question in a natural way, fresh each call. But the <em>French</em> assistant has exactly one job on its first turn — greet and ask what the caller wants. There is nothing to improvise. Letting the model write that line buys us no flexibility and, as we'll see, hands it a loaded gun.</p>
+
+      <p><strong>How it works (analogy).</strong> Think of a stage actor. <code class="ic">assistant-speaks-first</code> is reading a scripted line off the page — same every night. The model-generated mode is improv: the actor invents the opening line based on whatever just happened in the scene. Improv is great for a lead who needs to react — and a disaster for a stagehand whose only line is "Right this way, what are you looking for?" Give the stagehand the script.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>firstMessageMode</strong> — the Vapi assistant setting choosing <em>how</em> the assistant opens: fixed line, generated line, or silence.</li>
+        <li><strong>firstMessage</strong> — the fixed text spoken when the mode is <code class="ic">assistant-speaks-first</code>. (Ignored by the generated mode — which is why nobody had set it.)</li>
+        <li><strong>LLM (Large Language Model)</strong> — the AI "brain" (here OpenAI <code class="ic">gpt-5.2-chat-latest</code>) that produces the assistant's words.</li>
+      </ul>
+
+      <p>Here is the shared "shell" every lease assistant is built from. Notice the mode — and notice what's <em>missing</em>:</p>
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — _lease_assistant_shell() (before)"><pre><code>def _lease_assistant_shell(name, system_prompt, tools, backend_url=BACKEND_URL,
+                           transcriber=None):
+    return {
+        "name": name,
+        # The model improvises the opening line every call. Good for the entry
+        # assistant's bilingual greeting -- but the French assistant inherits it too.
+        "first_message_mode": "assistant-speaks-first-with-model-generated-message",
+        # NOTE: there is NO "first_message" key here at all. Nothing to fall back to.
+        "voicemail_message": "...",
+        "transcriber": transcriber or TRANSCRIBER_CONFIG,
+        # ...voice, model (gpt-5.2-chat-latest, temperature 0.7), tools, server...
+    }</code></pre></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — a "convenience" default is a decision in disguise</div>
+        <p>The French assistant didn't <em>choose</em> a generated opener — it <em>inherited</em> one from the shared shell because nobody overrode it. Shared defaults are great for consistency, but every assistant that reuses a shell silently adopts its choices. When a new assistant has different needs (here: a scripted opener), you must consciously override, not assume the default fits.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/api-reference/assistants/create">Vapi — assistant config (firstMessage / firstMessageMode)</a> ·
+        <a class="inline" href="https://docs.vapi.ai/assistants">Vapi — assistants overview</a>
+      </p>
+
+      <!-- ---- Concept 2 ---- -->
+      <h3 id="c-coldstart">2 · The handoff cold-start (why ~2.3 seconds passed before it spoke)</h3>
+      <p><strong>Plain-English explanation.</strong> A handoff isn't a single brain changing topic — it's a <em>second, separate assistant</em> taking over a live call. That second assistant has its own transcriber, its own model session, and its own voice connection, and none of them exist yet at the moment of handoff. They have to be spun up: open a fresh Deepgram <code class="ic">nova-3 fr</code> websocket, start a model session, connect the text-to-speech voice. Then, because our mode was "generate the opener," the model also had to <em>read the entire carried-over conversation and write a sentence</em> before a single word could be spoken. All of that is the ~2.3-second gap between "handoff completed" and the French assistant's first audio.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Understanding this gap tells you which delay you can remove and which you can't. The websocket/voice spin-up is structural — it comes with handing off. But the "read the whole transcript and compose a line" delay is <em>optional</em>: it only exists because we asked the model to generate the opener. Switch to a fixed line and that part of the latency vanishes. So this concept is half the motivation for the fix.</p>
+
+      <p><strong>How it works (analogy).</strong> A warm transfer in a call centre: when Agent A passes you to Agent B, B has to pull up your file, put on their headset, and read what's happened before they can greet you. If B also insists on <em>composing</em> a bespoke greeting from your whole history before speaking, you wait even longer. A B who just says their standard "Hi, you're through to the French desk — what are you after?" greets you instantly.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>cold start</strong> — the one-time setup cost of a resource that wasn't running yet (here, the destination assistant's whole audio pipeline).</li>
+        <li><strong>websocket</strong> — a persistent two-way network connection; Deepgram streams audio over one. Opening it takes a beat.</li>
+        <li><strong>TTFT (Time To First Token)</strong> — how long the model takes to produce the first word of its reply. Generating an opener from a long transcript raises it.</li>
+      </ul>
+
+      <p>Reading the timestamps straight from the transcript shows the two delays clearly:</p>
+      <div class="term"><span class="dim">11:13:00 (+19.36)</span>  <span class="cal">Handoff To 8900a5c4-…</span>  Completed successfully
+<span class="dim">11:13:03 (+21.71)</span>  <span class="spk">Lease Agent FR:</span> "Parfait, je vous mets en relation…"   <span class="dim">&lt;- ~2.3s cold start + generation</span>
+<span class="dim">11:13:03 → ~11:13:09</span>  <span class="err">······ six seconds of silence ······</span>          <span class="dim">&lt;- the real bug (see C4)</span></div>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — separate the two gaps</div>
+        <p>There were <em>two</em> delays, and conflating them sends you down the wrong rabbit hole. The ~2.3s <em>before</em> the French line is cold-start + generation (partly unavoidable). The ~6s <em>after</em> the line is the dead air we actually have to fix. The user's question was about the second one — but understanding the first kept us honest about what the fix could and couldn't speed up.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/squads/handoff">Vapi — handoff (destination assistants)</a> ·
+        <a class="inline" href="https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API">MDN — WebSocket API</a>
+      </p>
+
+      <!-- ---- Concept 3 ---- -->
+      <h3 id="c-leak">3 · Context leakage — when carrying the conversation backfires</h3>
+      <p><strong>Plain-English explanation.</strong> To make the French assistant <em>continue</em> the call smoothly, the handoff carries the entire conversation so far into it (<code class="ic">contextEngineeringPlan:{type:"all"}</code>). That's usually what you want — it knows the caller already chose French. But it has a side effect: when the model then composes its opening line, it can see that <em>a routing/transfer just happened</em>, and it pattern-matches to that framing. Instead of greeting as the destination, it role-plays the <em>router</em> again — "I'll connect you to my French colleague" — as if it were still the entry agent passing the call onward. The framing of the prior turns <em>leaked</em> into its first words.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> This is the subtle one, and it's exactly why a model-generated opener was dangerous <em>here specifically</em>. The carried context is full of language-gate / hand-off cues. A model improvising on top of that context is being nudged toward "announce a transfer." The continuation note we wrote in Session 14 told it to greet-and-ask — but a soft instruction competes with a strong contextual pattern, and at <code class="ic">temperature 0.7</code> (see C5) the context sometimes wins.</p>
+
+      <p><strong>How it works (analogy).</strong> You ask a new hire to introduce themselves to a customer, and hand them the full email thread first. Half the thread is the previous rep saying "let me loop in a French speaker." The new hire skims it and opens with "Hi, I'll get you over to our French speaker" — echoing the thread's vibe instead of realising <em>they are</em> the French speaker. The context they were given to help them shaped what they said, wrongly.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>contextEngineeringPlan</strong> — the Vapi setting controlling how much prior conversation is carried to a handoff destination. <code class="ic">{type:"all"}</code> = carry everything.</li>
+        <li><strong>context leakage</strong> — when information meant as <em>background</em> ends up steering the <em>output</em> in an unintended way.</li>
+        <li><strong>system prompt</strong> — the standing instructions for an assistant; ours appends a <code class="ic">[French Call — Continuation]</code> note telling the FR assistant how to behave.</li>
+      </ul>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — a soft prompt does not reliably beat a strong context cue</div>
+        <p>"I told it in the prompt not to do that" is not a guarantee. An LLM weighs <em>everything</em> in its window — your instruction <em>and</em> the conversation it can see. When the surrounding context strongly suggests one behaviour, a single polite instruction may lose. The robust fix removes the model's discretion entirely (a fixed line); the hardened prompt is a belt-and-suspenders backup.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/squads/handoff">Vapi — context engineering on handoff</a> ·
+        <a class="inline" href="https://platform.openai.com/docs/guides/prompt-engineering">OpenAI — prompt engineering</a>
+      </p>
+
+      <!-- ---- Concept 4 ---- -->
+      <h3 id="c-floor">4 · The conversational floor — why a wrong line caused silence</h3>
+      <p><strong>Plain-English explanation.</strong> In any conversation, exactly one party "has the floor" — it's their turn to talk — and a turn usually ends in a way that <em>hands the floor</em> to the other side, most clearly by asking a question. When the French assistant said "I'll connect you to my colleague right away," it did two damaging things: it implied <em>someone else</em> is about to speak, and it ended on a trailing comma with <em>no question</em>. So the assistant fell silent, expecting the (non-existent) colleague to come on. The caller fell silent too, politely waiting to be connected. Neither side held the floor. That stalemate <em>is</em> the six seconds of dead air.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> This reframes the fix. The cure for dead air isn't "make the model talk more" — it's "make sure every turn that needs a reply ends by <em>inviting</em> one." A greeting that ends in "…what are you looking for?" structurally cannot cause this stall: the caller is explicitly cued to speak. Session 11 fought dead air around tool calls; this is the same disease in a new spot — the handoff seam.</p>
+
+      <p><strong>How it works (analogy).</strong> A walkie-talkie. You end your turn with "over" so the other person knows to talk. The bad line was like releasing the button after "I'll get my colleague…" without saying "over" — both people sit there holding their radios, waiting for the other. The good line ends with a clear "over" (the question).</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>turn-taking</strong> — the implicit protocol of who talks when in a conversation.</li>
+        <li><strong>conversational floor</strong> — the right/expectation to be the one speaking at a given moment.</li>
+        <li><strong>dead air</strong> — broadcast/telephony term for unwanted silence when someone should be talking.</li>
+        <li><strong>endpointing</strong> — the engine's judgement of "the user has stopped talking, it's our turn." Irrelevant here because the caller, cued to wait, never started — there was nothing to endpoint.</li>
+      </ul>
+
+      <p>Look at the offending line. The diagnosis is in the punctuation and the missing question mark:</p>
+      <div class="term"><span class="spk">Lease Agent FR:</span> "Parfait, je vous mets en relation avec mon collègue francophone tout de suite<span class="err">,</span>"
+                       <span class="dim">└─ implies a 3rd party is coming  +  trailing comma, no question  =  floor dropped on the floor</span></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — design every agent turn to end by handing back the floor</div>
+        <p>The most reliable anti-dead-air rule for a voice agent: if a turn expects a response, it must <em>end on a question</em>. This is a conversation-design invariant, not a model tuning trick. Our fixed opener bakes it in — it literally ends with "…?" — so the failure mode is structurally impossible, not merely discouraged.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://en.wikipedia.org/wiki/Turn-taking">Turn-taking (Wikipedia)</a> ·
+        <a class="inline" href="https://www.nngroup.com/articles/voice-first/">NN/g — designing voice interfaces</a>
+      </p>
+
+      <!-- ---- Concept 5 ---- -->
+      <h3 id="c-nondet">5 · Non-determinism &amp; temperature — why call one worked, call two didn't</h3>
+      <p><strong>Plain-English explanation.</strong> An LLM doesn't return the same answer every time. A setting called <strong>temperature</strong> controls how much randomness it injects when picking each next word. At <code class="ic">temperature 0.7</code> (our value) the model deliberately varies — so the <em>same</em> situation can yield a correct greet-and-ask on one call and a wrong transfer-announcement on the next. That is precisely the user's report: <em>"it worked in the first call, but in the second call…"</em>. The bug wasn't random gremlins; it was a non-deterministic opener rolling the dice and losing the second time.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> "Works sometimes" is the signature of a non-determinism bug, and it's the strongest clue that the culprit is generated content rather than fixed code. It also dictates the fix: you cannot reliably patch a dice roll by re-rolling with slightly better instructions; you make the value <em>deterministic</em>. A fixed <code class="ic">firstMessage</code> removes the dice from the one turn that can't afford them.</p>
+
+      <p><strong>How it works (analogy).</strong> Temperature is how loosely a jazz musician improvises. High temperature = wild, surprising solos; low = plays it straight. Improvisation is wonderful for a solo, terrible for the safety announcement before take-off — that one you read verbatim, every flight. The French opener is a safety announcement.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>temperature</strong> — a 0–1+ knob on LLM sampling; higher = more random/creative, lower = more predictable. Ours is <code class="ic">0.7</code>.</li>
+        <li><strong>deterministic vs non-deterministic</strong> — same input → always same output, vs same input → possibly different outputs.</li>
+        <li><strong>intermittent bug</strong> — one that doesn't reproduce every time; the hardest kind, and a fingerprint of randomness or timing.</li>
+      </ul>
+
+      <div class="callout c-deep">
+        <div class="c-title">📖 Deep Dive — "it's flaky" is diagnostic information, not noise</div>
+        <p>When a stakeholder says "it happened once but not again," resist the urge to call it unreproducible and move on. Intermittency narrows the search dramatically: it points at sources of variation — randomness (LLM sampling), timing (races, cold starts), or environment differences. Here, "worked then didn't" with identical config pointed straight at the one non-deterministic element in the path: the model writing the opener. Lowering temperature would <em>reduce</em> the odds; removing generation <em>eliminates</em> them. Prefer eliminating a class of failure over making it rarer.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://platform.openai.com/docs/api-reference/chat/create#chat-create-temperature">OpenAI — temperature parameter</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Nondeterministic_algorithm">Nondeterminism (Wikipedia)</a>
+      </p>
+
+      <!-- ---- Concept 6 ---- -->
+      <h3 id="c-forensic">6 · Reading a transcript forensically</h3>
+      <p><strong>Plain-English explanation.</strong> A Vapi call transcript isn't just a chat log — it's a timestamped event record, and you can reconstruct what the <em>software</em> did from it. Three details cracked this case: (1) the <strong>speaker label flipped</strong> from "Lease Agent" to "Lease Agent FR" right after the "Handoff … Completed successfully" event, proving the handoff really fired and the French line came from the <em>destination</em> assistant; (2) the <strong>timestamps</strong> separated cold-start lag from dead air; (3) the <strong>trailing comma</strong> on the French line hinted the utterance was a dangling announcement, not a complete, floor-handing turn.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Voice bugs are ephemeral — you can't set a breakpoint in a phone call. The transcript (plus call logs) is your crime scene. Learning to read the labels and the clock is how you separate "the handoff is broken" (it wasn't) from "the destination's first line is wrong" (it was). That distinction saved us from re-engineering the routing we'd just shipped.</p>
+
+      <p><strong>How it works (analogy).</strong> A flight recorder. You don't watch the crash happen; you read the timestamped instrument trace afterwards and rebuild the sequence. The label flip is the cockpit handover; the clock is the timeline; the dangling comma is the last reading before the silence.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>speaker label / diarization</strong> — the transcript's attribution of each line to a party; here it even names <em>which assistant</em> spoke ("Lease Agent" vs "Lease Agent FR").</li>
+        <li><strong>handoff event</strong> — the explicit "Handoff To &lt;id&gt; — Completed successfully" marker the transcript logs at the transfer.</li>
+        <li><strong>relative timestamp</strong> — the <code class="ic">(+MM:SS.ss)</code> offset from call start; subtract two to measure a gap.</li>
+      </ul>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/calls/call-analysis">Vapi — call analysis &amp; transcripts</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Speaker_diarisation">Speaker diarisation (Wikipedia)</a>
+      </p>
+
+      <!-- ---- Concept 7 ---- -->
+      <h3 id="c-scope">7 · Scoping a field with None-filtering (English untouched, again)</h3>
+      <p><strong>Plain-English explanation.</strong> We needed to start sending a new field, <code class="ic">firstMessage</code>, to Vapi — but <em>only</em> for the French assistants, never for the English entry assistants. The trick: the function that builds the API payload already <em>drops any key whose value is <code class="ic">None</code></em>. So we set <code class="ic">first_message</code> only inside the French builders; the English builders never set it, it comes out as <code class="ic">None</code>, and the filter removes it before the request is sent. One mapper line serves both — French gets the field, English provably doesn't.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Same constraint as Session 14: <em>do not touch the English path</em>. If we'd put <code class="ic">first_message</code> in the shared shell, every assistant (English included) would suddenly get a fixed French opener — catastrophic. None-filtering lets one shared payload mapper carry an optional field that's present for some agents and absent for others, with the absence being a provable fact, not a hope.</p>
+
+      <p><strong>How it works (analogy).</strong> A customs form with an optional "items to declare" box. If you have nothing, you leave it blank and the officer ignores it — same form, same process, no extra handling. The French agents declare a first message; the English agents leave the box blank.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>None</strong> — Python's "no value." Our payload builder treats a <code class="ic">None</code> value as "don't send this field."</li>
+        <li><strong>dict comprehension</strong> — the one-liner <code class="ic">{k: v for k, v in d.items() if v is not None}</code> that rebuilds a dict keeping only non-None entries.</li>
+        <li><strong>payload mapper</strong> — the function (<code class="ic">_to_vapi_payload</code>) that converts our internal snake_case config into Vapi's camelCase JSON.</li>
+      </ul>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.python.org/3/tutorial/datastructures.html#dictionaries">Python — dict comprehensions</a> ·
+        <a class="inline" href="https://developer.mozilla.org/en-US/docs/Glossary/Falsy">MDN — truthy/falsy (concept parallel)</a>
+      </p>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ Step-by-Step Build Log</h2>
+      <p>The session ran as: <em>reproduce → locate → baseline → fix (4 edits) → verify locally → document → deploy → verify live</em>. Every step below is exactly what happened, in order.</p>
+
+      <h3>Step 1 — Reproduce the symptom from the transcript</h3>
+      <p>We started with the artifact, not the code. The user pasted the second call's transcript. We read it as a timeline (see Concept 6) and pinned down the exact failing moment: the French assistant's first line, then six seconds of nothing.</p>
+      <p><strong>Why now:</strong> you cannot fix what you haven't located in time. <strong>If skipped:</strong> you guess, and a voice bug has a dozen plausible-but-wrong causes (network, TTS, endpointing, the handoff itself).</p>
+
+      <h3>Step 2 — Locate the French handoff code</h3>
+      <p>We searched the repo for the French/handoff machinery and read the three files that matter: the provisioning script, the routing plan, and the config builders.</p>
+      <div class="code-block" data-lang="bash" data-file="terminal — find the relevant code"><pre><code># Grep the codebase for the French/handoff surfaces (ripgrep via the search tool)
+#   -> backend/app/services/vapi_agent_config.py   (the builders)
+#   -> backend/scripts/provision_lease_french_handoff.py  (the deploy script)
+#   -> docs/development_plans/PLAN_lease_agent_french_squad_routing_2026-06-26.md
+grep -rn "francophone\|first_message\|build_lease_config_french" backend/</code></pre></div>
+      <p>The smoking gun appeared in two places at once: the shell sets <code class="ic">first_message_mode</code> to the model-generated mode and sets <em>no</em> <code class="ic">first_message</code>; and the French continuation note only <em>suggests</em> a greeting rather than forbidding a transfer announcement.</p>
+      <p><strong>Why now:</strong> read before you write — the fix depends on where the opener is decided. <strong>If skipped:</strong> you might "fix" the prompt while the real lever (the mode) stays generated.</p>
+
+      <h3>Step 3 — Establish a test baseline</h3>
+      <p>Before changing anything, we ran the existing unit tests so we'd know whether our edits broke something — or whether failures were already there.</p>
+      <div class="code-block" data-lang="bash" data-file="terminal — baseline the unit tests"><pre><code># Use the backend virtualenv's python so 'supabase' &amp; friends are importable.
+backend/.venv/Scripts/python.exe -m pytest backend/tests/unit/test_vapi_lease_config.py -q</code></pre></div>
+      <div class="term"><span class="err">10 failed</span>, <span class="ok">21 passed</span>, 1 warning in 0.17s</div>
+      <p>Ten were <em>already</em> failing — stale tests from an older design (Bug 3). Crucial to know <em>now</em>: it means "10 failed" after our change is the baseline, not our fault.</p>
+      <p><strong>Why now:</strong> a baseline turns "did I break it?" into a diff instead of a panic. <strong>If skipped:</strong> you see reds after your edit and can't tell which are yours.</p>
+
+      <h3>Step 4 — Edit ①: add a fixed opener + harden the continuation note</h3>
+      <p>We added a constant for the deterministic French opener and rewrote the continuation note to forbid transfer talk and demand a question.</p>
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — new constant + hardened note"><pre><code># A fixed opener for the FRENCH assistant. Deterministic (no model dice), and it
+# ENDS ON A QUESTION so the caller is always cued to speak -> no dead air.
+_LEASE_FRENCH_FIRST_MESSAGE = "Parfait, je continue en français. Qu'est-ce que vous cherchez comme logement?"
+
+
+# Appended to the FRENCH assistant's system prompt. Now it forbids the failure mode.
+_LEASE_FRENCH_CONTINUATION_NOTE = """
+
+[French Call — Continuation]
+You ARE the French-speaking leasing assistant — the caller has already been routed to you. NEVER say
+you will transfer, connect, or hand them to anyone, and never mention a "collègue" — there is no one
+else; you handle the whole call. The caller just chose French at the language gate and has NOT yet
+said what they are looking for. Your opening line greets them and asks what they're looking for, and
+every turn that needs a reply must end with a question so the caller knows to speak. Use the formal
+vous. The entire call stays in French; never switch to English.
+"""</code></pre></div>
+      <p><strong>Why now:</strong> the constant and note are referenced by Edit ② next. <strong>If skipped:</strong> the builder edit would reference an undefined name.</p>
+
+      <h3>Step 5 — Edit ②: override the mode in both French builders</h3>
+      <p>The builders call the shared shell (which sets the generated mode), then <em>override</em> the two keys. Same change in the per-manager and shared French builders.</p>
+      <div class="code-block" data-lang="python" data-file="vapi_agent_config.py — build_lease_config_french() (after)"><pre><code>def build_lease_config_french(backend_url, manager_id,
+                              manager_name="our property management team"):
+    tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=manager_id))
+    context_block = _LEASE_CONTEXT_BLOCK.format(manager_id=manager_id, manager_name=manager_name)
+    system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block + _LEASE_FRENCH_CONTINUATION_NOTE
+    cfg = _lease_assistant_shell(                       # shell still returns the generated mode...
+        name=f"Lease Agent FR [{manager_id[:8]}]",
+        system_prompt=system_prompt, tools=tools, backend_url=backend_url,
+        transcriber=FRENCH_TRANSCRIBER_CONFIG,
+    )
+    cfg["first_message_mode"] = "assistant-speaks-first"   # ...override: speak a FIXED line
+    cfg["first_message"] = _LEASE_FRENCH_FIRST_MESSAGE     # ...the line itself (deterministic)
+    return cfg</code></pre></div>
+      <p><strong>Why now:</strong> this is the core behaviour change. <strong>If skipped:</strong> nothing else matters — the opener stays generated.</p>
+
+      <h3>Step 6 — Edit ③: actually send <code>firstMessage</code> to Vapi</h3>
+      <p>Then the quiet bombshell (Bug 2): the deploy scripts' payload mappers sent <code class="ic">firstMessageMode</code> but <strong>never</strong> <code class="ic">firstMessage</code>. So even a correct config wouldn't reach Vapi. We added one line to <em>both</em> mappers.</p>
+      <div class="code-block" data-lang="python" data-file="provision_lease_french_handoff.py &amp; update_lease_agents.py — _to_vapi_payload()"><pre><code>    payload = {
+        "name": cfg.get("name"),
+        "firstMessageMode": cfg.get("first_message_mode"),
+        "firstMessage": cfg.get("first_message"),     # ADDED — without this, the fixed line never ships
+        "voicemailMessage": cfg.get("voicemail_message"),
+        # ...rest unchanged...
+    }
+    # None-filter: English agents set no first_message -> key dropped -> English path untouched.
+    return {k: v for k, v in payload.items() if v is not None}</code></pre></div>
+      <p><strong>Why now:</strong> the fix is inert until the field is transmitted. <strong>If skipped:</strong> "I changed the config but the call still misbehaves" — the worst kind of silent no-op.</p>
+
+      <h3>Step 7 — Verify the built config locally</h3>
+      <p>Before touching any live system, we built the configs in a throwaway script and asserted the shapes: French gets the fixed line; English does not; and the payload mapper carries it for French only.</p>
+      <div class="code-block" data-lang="python" data-file="terminal — local config assertions"><pre><code>from app.services.vapi_agent_config import build_lease_config, build_lease_config_french
+from scripts.provision_lease_french_handoff import _to_vapi_payload
+fr = build_lease_config_french("https://x", "28c4...e3", manager_name="Sean Siri")
+en = build_lease_config("https://x", "28c4...e3", french_assistant_id="fake-fr-id")
+print(fr["first_message_mode"], "|", fr["first_message"])  # assistant-speaks-first | Parfait, ...
+print("EN has first_message?", "first_message" in en)      # False
+print("payload FR sends firstMessage?", "firstMessage" in _to_vapi_payload(fr))  # True
+print("payload EN sends firstMessage?", "firstMessage" in _to_vapi_payload(en))  # False</code></pre></div>
+      <div class="term"><span class="ok">FR mode</span> : assistant-speaks-first
+<span class="ok">FR firstMsg</span> : Parfait, je continue en français. Qu'est-ce que vous cherchez comme logement?
+<span class="ok">EN has fm?</span> : False
+payload FR firstMessage present: <span class="ok">True</span>
+payload EN firstMessage present: <span class="ok">False</span></div>
+      <p><strong>Why now:</strong> cheap proof before expensive deploy. <strong>If skipped:</strong> you discover a scoping mistake on a live agent, mid-call.</p>
+
+      <h3>Step 8 — Confirm the source bytes are real UTF-8</h3>
+      <p>The console printed <code class="ic">fran�ais</code>. Before trusting that as corruption, we checked the actual file bytes (Bug 4 — and a lesson we'd already written down once).</p>
+      <div class="code-block" data-lang="python" data-file="terminal — is the ç real, or a display artifact?"><pre><code>s = open("backend/app/services/vapi_agent_config.py", encoding="utf-8").read()
+line = s[s.index("_LEASE_FRENCH_FIRST_MESSAGE ="):].split("\n", 1)[0]
+print("decodes as utf-8 OK")
+print("contains français with ç:", "français" in line)   # True -> the file is fine</code></pre></div>
+      <p><strong>Why now:</strong> never "fix" encoding you haven't proven broken. <strong>If skipped:</strong> you waste an hour re-encoding a perfectly good file because a terminal can't draw a ç.</p>
+
+      <h3>Step 9 — Re-run the tests; confirm no NEW failures</h3>
+      <div class="term"><span class="err">10 failed</span>, <span class="ok">21 passed</span>, 1 warning in 0.14s   <span class="dim"># identical to the Step 3 baseline -> our edits added zero failures</span></div>
+      <p><strong>Why now:</strong> close the loop opened in Step 3. <strong>If skipped:</strong> you ship without knowing whether you regressed anything.</p>
+
+      <h3>Step 10 — Update <code>CODEBASE_CONTEXT.md</code></h3>
+      <p>Per the project's mandatory rule, we recorded the static-opener change, the root cause, and the deploy/verification in the French-handoff section — so the next session inherits the full story instead of re-deriving it.</p>
+
+      <h3>Step 11 — (Human) deploy the backend &amp; commit</h3>
+      <p>The user deployed the backend and the code landed in a commit (working tree clean). We confirmed the change was actually in <code class="ic">HEAD</code> before going further — a deploy that doesn't contain your change is the classic false sense of done.</p>
+
+      <h3>Step 12 — Dry-run the provisioner</h3>
+      <p>Always preview a live deploy. <code class="ic">--dry-run</code> resolves every agent and prints what it <em>would</em> patch, touching nothing.</p>
+      <div class="code-block" data-lang="bash" data-file="terminal — preview the fleet patch"><pre><code>backend/.venv/Scripts/python.exe backend/scripts/provision_lease_french_handoff.py \
+  --all --fleet-only --confirm-fleet --dry-run</code></pre></div>
+      <div class="term">  [eb4b27dc]  entry=dc53d48d-…  existing_french=<span class="cal">8900a5c4-…</span>
+    DRY RUN — PATCH /assistant/8900a5c4-…  (French assistant)
+    DRY RUN — PATCH /assistant/dc53d48d-…  (entry assistant)  handoff-&gt;8900a5c4-…
+  <span class="dim">…all 4 managers resolved…</span>
+Done.  (dry run — nothing changed)</div>
+      <p>The FR id <code class="ic">8900a5c4…</code> matched the handoff target from the buggy transcript — confirming we were about to patch the very assistant that misbehaved.</p>
+
+      <h3>Step 13 — Provision live</h3>
+      <div class="code-block" data-lang="bash" data-file="terminal — push to all 4 FR assistants"><pre><code>backend/.venv/Scripts/python.exe backend/scripts/provision_lease_french_handoff.py \
+  --all --fleet-only --confirm-fleet</code></pre></div>
+      <div class="term">  [28c43c77]  <span class="ok">[OK] patched French assistant</span>  …  <span class="ok">[OK] patched entry assistant</span>
+  [7fb0c018]  <span class="ok">[OK]</span> …
+  [eb4b27dc]  <span class="ok">[OK] patched French assistant  id=8900a5c4-…</span>
+  [d2a63e94]  <span class="ok">[OK]</span> …
+Done.</div>
+
+      <h3>Step 14 — Verify the LIVE config by reading it back</h3>
+      <p>"It returned 200" is not "it's correct." We <code class="ic">GET</code> the live assistant from Vapi and read the actual fields.</p>
+      <div class="code-block" data-lang="python" data-file="terminal — GET the live FR assistant"><pre><code>import os, httpx
+r = httpx.get("https://api.vapi.ai/assistant/8900a5c4-1671-4b33-875b-fd1f065f6a99",
+              headers={"Authorization": f"Bearer {os.environ['PRIVATE_VAPI_API']}"})
+d = r.json()
+print(d["firstMessageMode"])   # assistant-speaks-first
+print(d["firstMessage"])       # Parfait, je continue en français. ...
+print(d["transcriber"]["model"], d["transcriber"]["language"])  # nova-3 fr</code></pre></div>
+      <div class="term"><span class="spk">FR eb4b27dc</span> HTTP <span class="ok">200</span>
+  firstMessageMode: <span class="ok">assistant-speaks-first</span>
+  firstMessage    : "Parfait, je continue en français. Qu'est-ce que vous cherchez comme logement?"
+  transcriber     : nova-3 fr</div>
+      <p>Live, correct, on the exact assistant that broke. The only step left is a fresh French test call to hear the silence is gone.</p>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p>Four bugs, in descending order of nastiness: the one we were hired to fix, the silent no-op hiding behind it, the rotten test baseline, and a fake bug that wasn't a bug.</p>
+
+      <!-- Bug 1 -->
+      <h3 id="bug1">Bug 1 — The six-second silence after handoff</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>On the <em>second</em> French test call (the first was fine), right after the handoff completed, the French assistant said one line and then nothing happened for six seconds:</p>
+      </div>
+      <div class="term"><span class="spk">Lease Agent:</span> Hi there. I am Max, the AI leasing assistant for Sean Siri. Would you like to
+             continue in English or in French? Préférez-vous…
+<span class="spk">User:</span> Uh, we're in Wisconsin.
+<span class="spk">Lease Agent:</span> English or French? / anglais ou français?
+<span class="spk">User:</span> Oui français.
+<span class="cal">Handoff To 8900a5c4-… — Completed successfully</span>
+<span class="spk">Lease Agent FR:</span> Parfait, je vous mets en relation avec mon collègue francophone tout de suite<span class="err">,</span>
+<span class="err">······ [ 6 seconds of silence ] ······</span></div>
+
+      <div class="callout c-bug">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>The exact steps we took:</p>
+        <ol>
+          <li><strong>Confirmed the handoff fired.</strong> The speaker label flips to "Lease Agent <em>FR</em>" right after "Handoff … Completed successfully" — so routing works; the bad line comes from the <em>destination</em> assistant, not the entry one. This ruled out "the handoff is broken."</li>
+          <li><strong>Measured the two gaps.</strong> Handoff at +19.36s, French line at +21.71s (~2.3s), then ~6s silence. Two different problems: a cold-start delay (partly unavoidable) and the dead air (the real target). We focused on the dead air.</li>
+          <li><strong>Read the line itself.</strong> "Je vous mets en relation avec mon collègue francophone" = "I'll connect you to my French colleague." But the French assistant <em>is</em> that colleague. It was role-playing the router. And it ended on a comma — no question — so it handed the floor to no one.</li>
+          <li><strong>Found the mechanism in code.</strong> The French assistant inherited <code class="ic">first_message_mode = assistant-speaks-first-with-model-generated-message</code> from the shell, and the handoff carries the whole transcript (<code class="ic">contextEngineeringPlan:{type:"all"}</code>). So the model improvised an opener off a context full of "transfer" cues — and improvised a transfer announcement.</li>
+          <li><strong>Explained the intermittency.</strong> Generation runs at <code class="ic">temperature 0.7</code>. Non-deterministic → correct greeting on call one, wrong announcement on call two. The "worked then didn't" report <em>was</em> the diagnosis confirming itself.</li>
+        </ol>
+        <p><strong>Red herring considered &amp; rejected:</strong> "maybe the new <code class="ic">nova-3 fr</code> transcriber didn't hear the caller." Rejected because the caller, told someone was coming, never spoke — so there was nothing to transcribe. The silence was a turn-taking stall, not a missed transcription.</p>
+      </div>
+
+      <div class="callout c-bug">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>A <strong>model-generated first message</strong> on the handoff destination, composing its opener from a carried context saturated with routing/transfer framing (<strong>context leakage</strong>), at a <strong>non-zero temperature</strong> that made it intermittent. The improvised line announced a transfer that doesn't exist and ended without a question, so neither party held the <strong>conversational floor</strong> → six seconds of dead air. The class of bug: <em>letting an LLM improvise a turn that has exactly one correct, fixed form.</em></p>
+      </div>
+
+      <div class="callout c-bug">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Make the opener deterministic, and forbid the failure mode in the prompt.</p>
+      </div>
+      <div class="code-block" data-lang="python" data-file="BEFORE — French assistant inherits a generated opener"><pre><code>    # build_lease_config_french(): returns the shell as-is
+    return _lease_assistant_shell(
+        name=f"Lease Agent FR [{manager_id[:8]}]",
+        system_prompt=system_prompt, tools=tools, backend_url=backend_url,
+        transcriber=FRENCH_TRANSCRIBER_CONFIG,
+    )
+    # mode = ...with-model-generated-message  (inherited)  -> model improvises the first line</code></pre></div>
+      <div class="code-block" data-lang="python" data-file="AFTER — fixed, question-ending opener"><pre><code>    cfg = _lease_assistant_shell(
+        name=f"Lease Agent FR [{manager_id[:8]}]",
+        system_prompt=system_prompt, tools=tools, backend_url=backend_url,
+        transcriber=FRENCH_TRANSCRIBER_CONFIG,
+    )
+    cfg["first_message_mode"] = "assistant-speaks-first"   # no improvisation on this turn
+    cfg["first_message"] = _LEASE_FRENCH_FIRST_MESSAGE     # "...Qu'est-ce que vous cherchez ?" (ends on a question)
+    return cfg</code></pre></div>
+      <p>Plus the hardened note (Step 4) that bans "je vous mets en relation" / "collègue" outright, as a backup against any residual generation.</p>
+
+      <div class="callout c-bug">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Three transferable principles. <strong>(1)</strong> If a conversational turn has exactly one correct form, don't let the model write it — script it. Reserve generation for turns that genuinely need to adapt. <strong>(2)</strong> "Works sometimes" = look for non-determinism (LLM sampling, timing) and remove it, don't just discourage it. <strong>(3)</strong> Carrying context into a handoff helps continuity but can <em>steer</em> the first output — when you carry context, pin down the opening turn.</p>
+      </div>
+
+      <!-- Bug 2 -->
+      <h3 id="bug2">Bug 2 — The fixed line that would never have shipped</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>Latent, not yet observed — we caught it while writing the fix. Setting <code class="ic">first_message</code> in the config would have had <em>zero effect</em> on the live agent, even after deploy.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We read both deploy scripts' <code class="ic">_to_vapi_payload</code> mappers and noticed they translated <code class="ic">first_message_mode → firstMessageMode</code> but had <strong>no line for <code class="ic">firstMessage</code> at all</strong>. The mapper is an explicit allow-list; any key not listed is silently never sent. So our new fixed opener would sit in the config dict and quietly get dropped before the HTTP request.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>An <strong>allow-list payload mapper</strong> only forwards fields it explicitly names. <code class="ic">firstMessage</code> was never needed before (nothing set it), so it was never added. New config field + un-updated mapper = silent no-op. This is the dual of Session 14's lesson about the Vapi <em>SDK</em> dropping fields — here it's <em>our own</em> mapper doing the dropping.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Add <code class="ic">"firstMessage": cfg.get("first_message")</code> to both mappers (Step 6). The existing None-filter keeps it scoped to French agents automatically.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>When you add a config field, trace it <em>all the way to the wire</em>. An allow-list serializer is a common silent-drop point. The cheap guard is exactly what we did in Step 7: assert the field is present in the built payload <em>before</em> deploying, so a forgotten mapper line fails loudly on your laptop, not silently in production.</p>
+      </div>
+
+      <!-- Bug 3 -->
+      <h3 id="bug3">Bug 3 — Ten unit tests already red on arrival</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>Our very first <code class="ic">pytest</code> run, before any edit, showed <code class="ic">10 failed, 21 passed</code>.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We read the failing assertions. They expected tools named <code class="ic">load_listings</code> / <code class="ic">find_listing</code> and a top-level <code class="ic">first_message</code> key — all from an <em>older</em> lease-agent design that was since replaced by <code class="ic">find_units</code> / <code class="ic">search_listings</code> (and the entry assistant's generated greeting, with no <code class="ic">first_message</code>). The tests were never updated when the design changed, so they fail against current code.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p><strong>Test rot.</strong> Production code evolved; the tests didn't follow. They now assert a contract that no longer exists, so they're noise, not signal.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔧 The Fix</div>
+        <p>Deliberately <em>scoped out</em> for this hotfix. Rewriting ten stale assertions is its own task and unrelated to the silence bug; bundling it would muddy the change and its review. We instead <strong>baselined</strong> (Step 3) and confirmed our edits added <em>zero</em> new failures (Step 9). Fixing the suite is filed as Exercise 🔴.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>A red test suite that everyone ignores is worse than none — it hides real regressions in the noise. When you find pre-existing failures mid-task, <em>baseline and diff</em> rather than getting derailed, but file the cleanup so the rot doesn't compound. Tests are a contract; when the contract changes, the tests are part of the change.</p>
+      </div>
+
+      <!-- Bug 4 -->
+      <h3 id="bug4">Bug 4 — The fake mojibake (a bug that wasn't)</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>Our verification printout showed the opener as <code class="ic">"Parfait, je continue en fran�ais…"</code> — a replacement character where the <em>ç</em> should be. Looks like classic encoding corruption.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>We'd seen this ghost before, so we didn't trust the eyes — we checked the <em>bytes</em>. Opening the source file as UTF-8 and testing <code class="ic">"français" in line</code> returned <code class="ic">True</code>. The string in memory was perfect; only the <em>display</em> was wrong.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>The Windows console (code page 1252) can't render the UTF-8 bytes for <em>ç</em>, so it draws a <code class="ic">�</code>. The file, the Python string, and what we sent to Vapi were all correct UTF-8. It's a <strong>rendering artifact at the terminal</strong>, not data corruption — confirmed again live, where Vapi returned the <em>ç</em> intact.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔧 The Fix</div>
+        <p>None — there was nothing to fix. The "fix" is the <em>method</em>: verify the underlying bytes before believing a terminal's depiction of them.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p>Distinguish <strong>data</strong> from its <strong>presentation</strong>. A garbled glyph in a console is a claim, not proof. Test the bytes (<code class="ic">"français" in s</code>, a hex dump, a length check) before re-encoding anything — otherwise you "fix" a healthy file and introduce the very corruption you imagined.</p>
+      </div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Alternatives considered</th><th>Why we chose this</th><th>Trade-offs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Fixed French opener</strong> (<code>assistant-speaks-first</code>)</td>
+            <td>Keep generated opener but lower temperature; keep generated but add stronger prompt only</td>
+            <td>Eliminates the failure class entirely (no dice), removes generation latency, guarantees a question-ending turn</td>
+            <td>First line can't reference what the caller said pre-handoff (acceptable: the gate hands off before they state a need; full context still flows from turn two)</td>
+          </tr>
+          <tr>
+            <td><strong>Also harden the prompt</strong> (ban "collègue"/transfer)</td>
+            <td>Prompt-only fix; fixed-line-only fix</td>
+            <td>Belt-and-suspenders — if Vapi ever regenerates or a future edit flips the mode back, the prompt still resists the bad line</td>
+            <td>Slight prompt bloat; two places now encode the same intent</td>
+          </tr>
+          <tr>
+            <td><strong>Scope <code>firstMessage</code> to French builders</strong> via None-filter</td>
+            <td>Put <code>first_message</code> in the shared shell (all agents)</td>
+            <td>English entry agents must keep their generated bilingual greeting; None-filtering proves they get no fixed line</td>
+            <td>The "magic" is implicit in the mapper's filter — a reader must know None means "drop"</td>
+          </tr>
+          <tr>
+            <td><strong>Keep <code>contextEngineeringPlan:{type:"all"}</code></strong></td>
+            <td>Carry less context to reduce leakage</td>
+            <td>Continuity from turn two onward needs the history; the fixed opener already neutralises the leakage on turn one</td>
+            <td>Leakage risk remains for <em>generated</em> turns; mitigated by the hardened prompt</td>
+          </tr>
+          <tr>
+            <td><strong>Baseline &amp; diff the stale tests</strong>, don't fix now</td>
+            <td>Fix all 10 as part of this change</td>
+            <td>Keeps the hotfix small and reviewable; test rewrite is unrelated scope</td>
+            <td>Suite stays red; relies on discipline to file the follow-up (Exercise 🔴)</td>
+          </tr>
+          <tr>
+            <td><strong>Verify live via GET</strong></td>
+            <td>Trust the PATCH 200; trust the dry-run</td>
+            <td>"200" ≠ "correct fields"; reading the live config is the only real proof</td>
+            <td>One extra API call &amp; a few lines of script</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+
+      <h4 class="sub">1 · Local — the built config is correct</h4>
+      <div class="code-block" data-lang="bash" data-file="terminal"><pre><code>backend/.venv/Scripts/python.exe -c "from app.services.vapi_agent_config import build_lease_config_french as f; c=f('https://x','28c4...e3'); print(c['first_message_mode'], '|', c['first_message'])"</code></pre></div>
+      <ul class="check">
+        <li>Prints <code class="ic">assistant-speaks-first | Parfait, je continue en français. Qu'est-ce que vous cherchez comme logement?</code></li>
+        <li>English: <code class="ic">build_lease_config(...)</code> has <em>no</em> <code class="ic">first_message</code> key.</li>
+        <li>Payload: <code class="ic">_to_vapi_payload(fr)</code> contains <code class="ic">firstMessage</code>; <code class="ic">_to_vapi_payload(en)</code> does not.</li>
+      </ul>
+
+      <h4 class="sub">2 · Tests — no new failures</h4>
+      <ul class="check">
+        <li><code class="ic">pytest backend/tests/unit/test_vapi_lease_config.py -q</code> still shows exactly <code class="ic">10 failed, 21 passed</code> (the Step-3 baseline).</li>
+      </ul>
+
+      <h4 class="sub">3 · Live — Vapi has the new config</h4>
+      <ul class="check">
+        <li>GET each FR assistant: <code class="ic">firstMessageMode = "assistant-speaks-first"</code>, <code class="ic">firstMessage</code> = the fixed line, <code class="ic">transcriber = nova-3 / fr</code>.</li>
+      </ul>
+
+      <h4 class="sub">4 · The real test — a French call</h4>
+      <ul class="check">
+        <li>Choose French at the gate → the FR assistant opens with <em>"Parfait, je continue en français. Qu'est-ce que vous cherchez comme logement?"</em></li>
+        <li>It does <strong>not</strong> say "je vous mets en relation" or mention a "collègue."</li>
+        <li>No dead air — the caller is cued by the question and replies immediately.</li>
+      </ul>
+      <p class="muted">❌ Something's wrong if… the FR assistant still announces a transfer (the PATCH didn't take — re-check the live GET), or there's silence after the opener (confirm the line ends with the "?" — a question-less opener re-opens the floor bug), or you hear an English greeting on the FR side (wrong assistant patched).</p>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — wire the fixed opener into the shared FR assistant</div>
+        <p>The shared lease agent isn't French-wired yet. Confirm <code class="ic">build_lease_config_french_shared()</code> also sets <code class="ic">first_message_mode="assistant-speaks-first"</code> and the fixed <code class="ic">first_message</code> (it should — same pattern). Write a 3-line script that builds it and prints both fields.</p>
+        <details><summary>Hint</summary>
+          <p>Import <code class="ic">build_lease_config_french_shared</code> from <code class="ic">app.services.vapi_agent_config</code>, call it with a backend URL, and print <code class="ic">cfg["first_message_mode"]</code> and <code class="ic">cfg["first_message"]</code>. If either is missing, the override block wasn't copied into the shared builder — add the two <code class="ic">cfg[...] = ...</code> lines before <code class="ic">return cfg</code>.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — personalise the opener with the manager's name</div>
+        <p>A fixed line can't say the manager's name today. Make <code class="ic">_LEASE_FRENCH_FIRST_MESSAGE</code> a template and have the per-manager builder format in <code class="ic">manager_name</code> — while still ending on a question and never announcing a transfer.</p>
+        <details><summary>Hint</summary>
+          <p>Change the constant to e.g. <code class="ic">"Parfait, je continue en français pour {manager_name}. Qu'est-ce que vous cherchez comme logement?"</code> and set <code class="ic">cfg["first_message"] = _LEASE_FRENCH_FIRST_MESSAGE.format(manager_name=manager_name)</code> in <code class="ic">build_lease_config_french</code>. Keep the shared builder's version name-free (it has no manager). Watch the accents are written as real UTF-8.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — make the regression un-shippable with a test</div>
+        <p>Write unit tests that would have <em>caught</em> this bug: assert the French config uses <code class="ic">assistant-speaks-first</code> with a non-empty <code class="ic">first_message</code> that ends in <code class="ic">"?"</code> and contains no transfer language ("collègue", "mets en relation"); assert the English config sets no <code class="ic">first_message</code>; and assert <code class="ic">_to_vapi_payload</code> forwards <code class="ic">firstMessage</code> for French and drops it for English. Bonus: while in there, repair the 10 stale tests (Bug 3) so the suite goes green.</p>
+        <details><summary>Hint</summary>
+          <p>New file <code class="ic">backend/tests/unit/test_vapi_french_opener.py</code>. Build both configs, assert on the keys, and use <code class="ic">.endswith("?")</code> plus <code class="ic">assert "collègue" not in cfg["first_message"]</code>. For the payload, call <code class="ic">_to_vapi_payload</code> from each script and check <code class="ic">"firstMessage" in payload</code>. For Bug 3, update the stale assertions to the current tool names (<code class="ic">find_units</code>, <code class="ic">search_listings</code>) and drop the <code class="ic">first_message</code>/<code class="ic">find_listing</code> expectations.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary>The FR assistant still announces a transfer / mentions a "collègue"</summary>
+        <p>The PATCH didn't reach that assistant, or you patched the wrong one. GET the assistant by id and check <code class="ic">firstMessageMode</code> is <code class="ic">assistant-speaks-first</code> and <code class="ic">firstMessage</code> is the fixed line. Re-run the provisioner; confirm the id in the dry-run matches the handoff target in the transcript.</p>
+      </details>
+
+      <details>
+        <summary>Config looks right locally but the live call is unchanged</summary>
+        <p>Classic Bug 2: the field isn't being transmitted. Confirm <code class="ic">"firstMessage": cfg.get("first_message")</code> exists in the deploy script's <code class="ic">_to_vapi_payload</code>, and that a built payload actually contains the key (Step 7). Also confirm you ran the script with the <em>backend venv</em> python, not base python.</p>
+      </details>
+
+      <details>
+        <summary><code>ModuleNotFoundError: No module named 'supabase'</code></summary>
+        <p>You ran the script with the wrong interpreter. The fleet path imports <code class="ic">supabase</code>, which only exists in the backend virtualenv. Use <code class="ic">backend/.venv/Scripts/python.exe …</code>, not a bare <code class="ic">python</code>.</p>
+      </details>
+
+      <details>
+        <summary>The provisioner refuses to run with <code>--all</code></summary>
+        <p>The fleet rollout is guarded: it requires <code class="ic">--confirm-fleet</code> (acknowledging the DB column exists and the pilot was validated). Add it. To preview safely first, append <code class="ic">--dry-run</code>.</p>
+      </details>
+
+      <details>
+        <summary>HTTP 401 from <code>api.vapi.ai</code></summary>
+        <p>Missing/!wrong API key. The script reads <code class="ic">PRIVATE_VAPI_API</code> from <code class="ic">backend/.env</code>. Confirm it's set and current.</p>
+      </details>
+
+      <details>
+        <summary>Accented French shows as <code>fran�ais</code> in my terminal</summary>
+        <p>Almost certainly Bug 4 — a Windows console rendering artifact, not corruption. Verify the bytes: <code class="ic">"français" in open(path, encoding="utf-8").read()</code>. If that's <code class="ic">True</code>, your data is fine; ignore the console glyph.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🧭 What's Next</h2>
+      <p>The fix is live and verified at the config level; the one remaining step is the <strong>human validation call</strong> — a native-French tester confirming the opener lands and the dead air is gone. After that, the natural follow-ups are: <strong>wiring the shared agent</strong> for French (it's still the one entry assistant without a French sibling — Exercise 🟢 is the warm-up), <strong>per-manager French keyterms</strong> (feeding each manager's real street/city names to the <code class="ic">nova-3 fr</code> engine to push Québec accuracy further, the lever Session 14 unlocked), and <strong>turning this bug into a test</strong> so the regression can never silently return (Exercise 🔴). A future session will likely pick up keyterm prompting — the last big French-accuracy win on the table.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📖 Glossary</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>allow-list mapper</strong></td><td>A serializer that forwards only the fields it explicitly names; any unnamed field is silently dropped (our <code>_to_vapi_payload</code>).</td></tr>
+          <tr><td><strong>cold start</strong></td><td>The one-time setup cost of a resource not yet running — here, a handoff destination's transcriber/model/voice pipeline.</td></tr>
+          <tr><td><strong>conversational floor</strong></td><td>The expectation of whose turn it is to speak; "holding the floor" = it's your turn.</td></tr>
+          <tr><td><strong>contextEngineeringPlan</strong></td><td>Vapi setting for how much prior conversation is carried to a handoff destination; <code>{type:"all"}</code> carries everything.</td></tr>
+          <tr><td><strong>context leakage</strong></td><td>When information meant as background unintentionally steers the model's output.</td></tr>
+          <tr><td><strong>dead air</strong></td><td>Unwanted silence when someone should be speaking; here, a turn-taking stall.</td></tr>
+          <tr><td><strong>determinism</strong></td><td>Same input always yields the same output; the opposite of the LLM's sampled, variable output.</td></tr>
+          <tr><td><strong>diarization</strong></td><td>Attributing transcript lines to speakers; ours even labels which assistant spoke.</td></tr>
+          <tr><td><strong>endpointing</strong></td><td>The engine's judgement that the caller has finished talking and it's the agent's turn.</td></tr>
+          <tr><td><strong>firstMessage</strong></td><td>The fixed opening line spoken when <code>firstMessageMode</code> is <code>assistant-speaks-first</code>.</td></tr>
+          <tr><td><strong>firstMessageMode</strong></td><td>How an assistant opens a call: fixed line, model-generated line, or wait for the user.</td></tr>
+          <tr><td><strong>handoff</strong></td><td>Transferring a live call from one assistant to another (a separate brain with its own pipeline).</td></tr>
+          <tr><td><strong>intermittent bug</strong></td><td>One that doesn't reproduce every time — a fingerprint of randomness or timing.</td></tr>
+          <tr><td><strong>mojibake</strong></td><td>Garbled text from an encoding mismatch — or, as here, a console that can't <em>render</em> valid UTF-8.</td></tr>
+          <tr><td><strong>None-filtering</strong></td><td>Dropping dict keys whose value is <code>None</code> so optional fields are sent only when set.</td></tr>
+          <tr><td><strong>temperature</strong></td><td>LLM sampling randomness knob (0 = predictable, higher = more varied); ours is 0.7.</td></tr>
+          <tr><td><strong>test rot</strong></td><td>Tests left asserting a contract the code no longer has, so they fail as noise.</td></tr>
+          <tr><td><strong>TTFT</strong></td><td>Time To First Token — how long until the model produces its first word.</td></tr>
+          <tr><td><strong>turn-taking</strong></td><td>The implicit protocol of who talks when in a conversation.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-14-french-handoff-language-gate.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 14 — One Line, Two Brains</div>
+    </a>
+    <a href="sessions.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a class="right disabled">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 16 — coming soon</div>
+    </a>
+  </div>
+  <div class="copyright">Session 15 — CRM Learning Series · generated 2026-06-29</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>
