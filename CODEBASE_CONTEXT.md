@@ -841,6 +841,8 @@ Four builder functions:
 - Language policy: **all agents respond in the caller's detected language** (English or Quebec French). Tool submissions are always English — French is silently translated before any tool call.
 - First messages are bilingual (English / French) so callers know both are supported
 - **Currency:** lease agent quotes all rent amounts in **Canadian dollars** — "two thousand dollars per month", never "rupees" or bare digits
+- **French pronunciation of digits (`[Unit Size Pronunciation]` + `[Date & Number Pronunciation — STRICT]` in `_LEASE_SYSTEM_PROMPT_BASE`):** on French calls the model must SPEAK sizes, **years, dates, and prices** as French words, never as bare digits — the ElevenLabs voice reads bare digits with an **English** pronunciation (e.g. it said the year "2026" as "twenty twenty-six" on a live FR call, 2026-06-29). So "2026-06-22" → "le vingt-deux juin deux mille vingt-six", 1400 → "quatorze cents". Speech only — tool submissions keep ISO/digit form. Sizes already covered by `<nombre> et demi`.
+- **Deploy paths differ by agent role (IMPORTANT):** `update_lease_agents.py` pushes config to the **ENTRY + shared** lease agents ONLY (`build_lease_config[_shared]`). It does **NOT** touch the dedicated **FR** assistants. Any change to `_LEASE_SYSTEM_PROMPT_BASE` (shared by both) or to `build_lease_config_french[_shared]` must ALSO be pushed to the FR assistants with `provision_lease_french_handoff.py --all --fleet-only --confirm-fleet` (patches existing FR assistants in place). Forgetting this silently ships the change to English callers only.
 
 ---
 
