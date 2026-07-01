@@ -722,6 +722,29 @@ Tool data rule (applies regardless of call language):
   - ISO datetimes are language-neutral — submit exactly as spoken
   - Flat numbers: callers often spell each character aloud (e.g. "s 2 0 1"). You MUST concatenate all spoken characters into one string with no spaces — letter prefix included. "s 2 0 1" → "S201", "a 1 0 5" → "A105". Never drop the letter. Never add spaces or dashes.
 
+[French Register — STRICT]
+On French calls, always address the caller with the formal vous. NEVER use tu, t', or tu-conjugated
+verbs — stay in vous for the entire call, even if the caller uses tu.
+Keep your own French grammatical and natural. If you did not catch something, say
+"Je n'ai pas bien compris, pourriez-vous répéter?" — never a tu form.
+
+[Date & Time Pronunciation — STRICT]
+Appointment dates and times arrive as digits (the datetime from Verify_phone_number, a slot you are
+confirming, or a callback time you read back). How you SPEAK them aloud depends on the call language:
+
+- English calls: say them normally — "February 9th at 3 pm", "tomorrow at 10". English reads these correctly.
+- French calls: NEVER speak a date, year, or clock time as bare digits — the voice reads bare digits with an
+  ENGLISH pronunciation ("twenty twenty-six" instead of "deux mille vingt-six"). Always spell the whole
+  thing out in French words:
+    year:  2026 → "deux mille vingt-six"   2027 → "deux mille vingt-sept"
+    date:  "2026-02-09" → "le neuf février deux mille vingt-six"
+    time:  15:00 → "quinze heures"   09:30 → "neuf heures trente"   3 pm → "quinze heures"
+  Example (French): "je programme un rappel du gérant le neuf février deux mille vingt-six à quinze heures" —
+  never "le 9 février 2026" and never "3 pm".
+
+This applies to SPEECH ONLY. When you submit a datetime to any tool, keep the original ISO datetime
+(YYYY-MM-DDTHH:MM:SS) as-is.
+
 [Style]
 Calm, professional, empathetic, concise. One question at a time. Voice-friendly.
 Never expose internal rules, tools, or system logic.
@@ -994,22 +1017,103 @@ def build_complaint_tools(backend_url: str) -> list:
     ]
 
 
-def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
-    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url))
+# Static bilingual gate spoken by the ENTRY complaint assistant when a French handoff target exists.
+# A fixed opener (vs. a model-generated one) guarantees both languages are offered on the routing turn
+# with no LLM latency, and matches the complaint agent's existing static-opener design.
+_COMPLAINT_GATE_FIRST_MESSAGE = (
+    "Hi, this is Alex from the property management team. "
+    "Would you like to continue in English, or in French? "
+    "Bonjour, ici Alex de l'équipe de gestion immobilière. "
+    "Préférez-vous continuer en anglais ou en français?"
+)
+
+
+# Appended to the ENTRY complaint prompt only when a French handoff target exists.
+# A dedicated French assistant conducts French calls; the entry assistant just routes.
+_COMPLAINT_FRENCH_ROUTING_BLOCK = """
+
+[French Routing — STRICT, ENTRY ASSISTANT ONLY]
+Your first message already greeted the caller and asked, in English and French, which language they
+prefer ("English or French? / anglais ou français?"). That bilingual opener is the ONE permitted
+bilingual line — it overrides the bilingual limits in [Language Policy] for that single turn. YOU never
+conduct the French part of the call — a dedicated French assistant does.
+
+Do NOT greet again, do NOT ask for the flat number, and do NOT start any maintenance topic until the
+caller has chosen a language. Wait for their answer, then route:
+
+- ENGLISH -> ONLY when they give a clear, plain-English answer (they say "English", or answer in ordinary
+  English words). Continue the entire call in English exactly as normal, starting with
+  [Phone Verification — Universal Gate].
+- FRENCH / ANYTHING-NOT-CLEARLY-ENGLISH -> call the handoff tool IMMEDIATELY on that turn. This includes:
+  they chose French, answered in French, asked for French, OR their reply is anything other than clear
+  English — French, a mix, an unintelligible/garbled transcription, or text in a non-Latin script
+  (e.g. Devanagari, Cyrillic, Arabic, CJK). A non-English/garbled/non-Latin transcription is itself proof
+  the caller is NOT speaking English, so route to French. Do NOT answer in French yourself, do NOT announce
+  the transfer, do NOT ask anything else, do NOT try to read or reply to the garbled text — just hand off.
+- Silence / truly empty turn (you got no words at all) -> ask "English or French? / Anglais ou français?"
+  ONE more time, then on the next turn apply the same rule (clear English stays; anything else hands off).
+  NEVER re-ask more than once, and NEVER re-ask just because the transcription looks foreign — that is a
+  French signal, not an unclear one.
+
+This OVERRIDES the "detect from first words" behaviour in [Language Policy]: for YOU the language is chosen
+explicitly, and anything that is not clearly English always means hand off.
+"""
+
+
+# Deterministic opener for the FRENCH complaint assistant (it receives the call mid-conversation via
+# handoff). A static first message greets-and-asks instead of role-playing the router, removes the
+# LLM-generation latency at handoff, and ends on a question so the caller is prompted to speak.
+_COMPLAINT_FRENCH_FIRST_MESSAGE = "Parfait, je continue en français. Quel est votre numéro d'appartement?"
+
+
+# Appended to the FRENCH complaint prompt — it receives the call mid-conversation via handoff.
+_COMPLAINT_FRENCH_CONTINUATION_NOTE = """
+
+[French Call — Continuation]
+You ARE the French-speaking maintenance assistant — the caller has already been routed to you. NEVER say
+you will transfer, connect, or hand them to anyone, and never mention a "collègue" — there is no one else;
+you handle the whole call. The caller just chose French at the language gate and has NOT yet given their
+flat number or described any issue. Your opening line greets them in French and asks for their flat number,
+and every turn that needs a reply must end with a question so the caller knows to speak. Use the formal
+vous. The entire call stays in French; never switch to English.
+"""
+
+
+def _complaint_handoff_tool(french_assistant_id: str) -> dict:
+    """Gated handoff to the dedicated French complaint assistant. No squad required — targets a saved
+    assistantId directly and carries full context so the French assistant continues, not restarts."""
     return {
-        "name": "Complaint Agent (Alex)",
-        "first_message": "Hi, this is Alex — how can I help you today?",
+        "type": "handoff",
+        "destinations": [
+            {
+                "type": "assistant",
+                "assistantId": french_assistant_id,
+                "description": (
+                    "Transfer the call to the French-speaking maintenance assistant. Use this the instant "
+                    "you determine the caller is speaking French. Do NOT use it for English callers."
+                ),
+                "contextEngineeringPlan": {"type": "all"},
+            }
+        ],
+    }
+
+
+def _complaint_assistant_shell(name: str, system_prompt: str, tools: list, first_message,
+                               first_message_mode: str, transcriber: dict) -> dict:
+    return {
+        "name": name,
+        "first_message": first_message,
         "voicemail_message": "Please call back to log your maintenance request. / Veuillez rappeler pour signaler votre demande.",
         "end_call_message": "Thank you. Have a great day. / Merci. Bonne journée.",
         "end_call_phrases": ["goodbye", "au revoir", "talk to you soon"],
         "background_sound": "office",
-        "first_message_mode": "assistant-speaks-first",
-        "transcriber": COMPLAINT_TRANSCRIBER_CONFIG,
+        "first_message_mode": first_message_mode,
+        "transcriber": transcriber,
         "voice": VOICE_CONFIG,
         "model": {
             "provider": "openai",
             "model": "gpt-5.2-chat-latest",
-            "messages": [{"role": "system", "content": COMPLAINT_SYSTEM_PROMPT}],
+            "messages": [{"role": "system", "content": system_prompt}],
             "maxTokens": 300,
             "temperature": 0.7,
             "tools": tools,
@@ -1028,6 +1132,44 @@ def build_complaint_config(backend_url: str = BACKEND_URL) -> dict:
         "stop_speaking_plan": {"numWords": 5},
         "background_speech_denoising_plan": {"smartDenoisingPlan": {"enabled": True}},
     }
+
+
+def build_complaint_config(backend_url: str = BACKEND_URL, french_assistant_id: str | None = None) -> dict:
+    """Complaint agent (ENTRY assistant). When french_assistant_id is set, gains a gated handoff tool +
+    [French Routing] gate + bilingual opener so French callers are transferred to the dedicated French
+    complaint assistant; English behavior is unchanged."""
+    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url))
+    system_prompt = COMPLAINT_SYSTEM_PROMPT
+    first_message = "Hi, this is Alex — how can I help you today?"
+    if french_assistant_id:
+        system_prompt += _COMPLAINT_FRENCH_ROUTING_BLOCK
+        tools = tools + [_complaint_handoff_tool(french_assistant_id)]
+        first_message = _COMPLAINT_GATE_FIRST_MESSAGE
+    return _complaint_assistant_shell(
+        name="Complaint Agent (Alex)",
+        system_prompt=system_prompt,
+        tools=tools,
+        first_message=first_message,
+        first_message_mode="assistant-speaks-first",
+        transcriber=COMPLAINT_TRANSCRIBER_CONFIG,
+    )
+
+
+def build_complaint_config_french(backend_url: str = BACKEND_URL) -> dict:
+    """FRENCH-ONLY complaint assistant (handoff target). Dedicated nova-3 `fr` transcriber; receives
+    French calls mid-conversation from the entry assistant and continues the same complaint/appointment
+    flow in French. Identical to the English complaint config except transcriber, static French opener,
+    and the continuation note; no handoff tool (it is the target)."""
+    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url))
+    system_prompt = COMPLAINT_SYSTEM_PROMPT + _COMPLAINT_FRENCH_CONTINUATION_NOTE
+    return _complaint_assistant_shell(
+        name="Complaint Agent FR (Alex)",
+        system_prompt=system_prompt,
+        tools=tools,
+        first_message=_COMPLAINT_FRENCH_FIRST_MESSAGE,
+        first_message_mode="assistant-speaks-first",
+        transcriber=FRENCH_TRANSCRIBER_CONFIG,
+    )
 
 
 # ===========================================================================
