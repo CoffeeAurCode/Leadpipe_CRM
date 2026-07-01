@@ -26,11 +26,12 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from app.services.vapi_agent_config import build_complaint_config, build_lease_config_shared
 
-VAPI_API_KEY             = os.environ.get("PRIVATE_VAPI_API", "")
-COMPLAINT_ASSISTANT_ID   = os.environ.get("VAPI_COMPLAINT_ASSISTANT_ID", "")
-LEASE_ASSISTANT_ID       = os.environ.get("VAPI_SHARED_LEASE_ASSISTANT_ID", "")
-BACKEND_URL              = "https://tenant-management-mvp.onrender.com"
-VAPI_API_BASE            = "https://api.vapi.ai"
+VAPI_API_KEY                    = os.environ.get("PRIVATE_VAPI_API", "")
+COMPLAINT_ASSISTANT_ID          = os.environ.get("VAPI_COMPLAINT_ASSISTANT_ID", "")
+COMPLAINT_FRENCH_ASSISTANT_ID   = os.environ.get("VAPI_COMPLAINT_FRENCH_ASSISTANT_ID", "")
+LEASE_ASSISTANT_ID              = os.environ.get("VAPI_SHARED_LEASE_ASSISTANT_ID", "")
+BACKEND_URL                     = "https://tenant-management-mvp.onrender.com"
+VAPI_API_BASE                   = "https://api.vapi.ai"
 
 # snake_case (vapi_agent_config) → camelCase (VAPI REST). Only keys present in a
 # given config are sent; PATCH merge leaves everything else intact.
@@ -122,10 +123,12 @@ def main():
         print("  DRY RUN mode — no changes will be made")
     print("=" * 60)
 
+    # Preserve the French handoff across redeploys: pass the French assistant id from env so the
+    # PATCH does NOT strip the gated handoff tool + [French Routing] gate (mirrors update_lease_agents).
     ok1 = update_assistant(
         "Complaint agent (+14382314283)",
         COMPLAINT_ASSISTANT_ID,
-        build_complaint_config(BACKEND_URL),
+        build_complaint_config(BACKEND_URL, french_assistant_id=COMPLAINT_FRENCH_ASSISTANT_ID or None),
         ["end-of-call-report", "tool-calls"],
         args.dry_run, headers,
     )
