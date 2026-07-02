@@ -1,39 +1,34 @@
-Assistant
-Hi there, bonjour. Max the AI leasing assistant for Chante Serre. Are you looking for a new place or you have a specific unit in mind?
-6:41:23 AM(+00:02.00)
+Complaint Agent (Alex)
+Hi. This is Alex from the property management team. Would you like to continue in English or in French? Bonjour. Ici Alex. De l'équipe de gestion immobilière. Préférez-vous continuer en anglais ou en français
+8:03:57 PM(+00:01.28)
 User
-Oui salut, j'ai été assez raison. Vu que vous avez des unités à louer. J'aimerais j'aimerais, je serais intéressé.
+Hello?
 
-6:41:32 AM(+00:11.06)
+8:04:19 PM(+00:23.60)
 
-Assistant
-Bonjour. Super, ça me fait plaisir. Vous cherchez dans quelle ville ou quelle sec
-6:41:41 AM(+00:20.42)
-
-Assistant
-D'accord, je veux juste m'assurer de de bien comprendre. Vous cherchez dans quelle ville ou quel secteur exactement.
-6:41:52 AM(+00:30.83)
+Complaint Agent (Alex)
+Thank you. Could you please provide your flat number?
+8:04:21 PM(+00:25.75)
 User
-Say that all.
+Est-ce que vous parlez français
 
-6:42:00 AM(+00:38.73)
+8:04:30 PM(+00:33.91)
 
-Assistant
-Bien sûr, dans quelle ville ou quel secteur est-ce que ce que vous cherchez exactement
-6:42:03 AM(+00:41.82)
-User
-Lazor Lazor
-
-6:42:09 AM(+00:47.59)
-
-Find Units
+Handoff To 71105e4a-2c4c-42d7-8bac-21db1d1b017b
 Completed successfully
-06:42
+20:04
+8:04:33 PM(+00:37.71)
 
-6:42:12 AM(+00:51.16)
+Complaint Agent FR (Alex)
+Parfait, je continue en français. Était votre numéro d'appartement
+8:04:35 PM(+00:39.52)
+User
+Le 26.
 
-Assistant
-Un instant, juste pour confirmer, que vous parlez de l'endroit de l'heure autour de quatorze cents par mois à Saint-Lazare.
-6:42:18 AM(+00:56.69)
-Customer ended the call
-06:42
+8:04:40 PM(+00:44.14)
+
+Complaint Agent FR (Alex)
+Laissez-moi vérifier ça dans mon système un instant s'il vous plaît.
+8:04:43 PM(+00:47.14)
+Call ended due to silence
+20:05

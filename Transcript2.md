@@ -1,77 +1,62 @@
-Assistant
-Hi there, bonjour. I am Max, the AI leasing assistant for Chante Serre. Are you looking for a new place, or is there specific unit you had in mind?
-7:51:36 AM(+00:02.32)
+Complaint Agent (Alex)
+Hi. This is Alex from the property management team. Uh, would you like to continue in English or in French? Bonjour ici Alex de l'équipe de gestion immobilière Préférez-vous continuer en anglais ou en français
+8:16:25 PM(+00:01.13)
+
+Complaint Agent (Alex)
+Thank you. Could you please provide your flat number?
+8:16:45 PM(+00:20.60)
 User
-Hey. I'm in Saint Lazar. Right now, and I see that you guys have units to lease
+I asked for French.
 
-7:51:46 AM(+00:11.94)
+8:16:52 PM(+00:27.48)
 
-Find Units
+Handoff To 71105e4a-2c4c-42d7-8bac-21db1d1b017b
 Completed successfully
-07:51
+20:16
+8:16:54 PM(+00:29.88)
 
-7:51:52 AM(+00:18.54)
-
-Assistant
-1 moment. Got it. We do have units in Saint Lazar. What size are you looking for? A 3 and a half or 4 and a half?
-7:51:57 AM(+00:22.57)
+Complaint Agent FR (Alex)
+Parfait, je continue en français. Était votre numéro d'appartement
+8:16:55 PM(+00:31.35)
 User
-I'm looking for the 4 and a half today.
+Je pense c'est le 26.
 
-7:52:03 AM(+00:29.42)
+8:17:00 PM(+00:35.81)
 
-Search Listings
-Completed successfully
-07:52
-7:52:06 AM(+00:32.39)
+Complaint Agent FR (Alex)
+Merci. Pourriez-vous me confirmer le numéro complet de votre appartement avec la lettre au début si y en a une, s'il vous plaît.
+8:17:03 PM(+00:39.15)
 
-Assistant
-Let me take a quick look. When are you hoping to move in?
-7:52:09 AM(+00:34.86)
+Complaint Agent FR (Alex)
+Je n'ai pas bien compris. Pourriez-vous me donner le numéro complet de votre appartement avec la lettre au début s'il y en a une s'il vous plaît
+8:17:15 PM(+00:51.21)
+
+Complaint Agent FR (Alex)
+Merci, mais j'ai besoin du numéro complet avec la lettre au début si
+8:17:27 PM(+01:02.77)
 User
-Uh, next week.
+Oui,
 
-7:52:13 AM(+00:38.74)
+8:17:31 PM(+01:06.49)
 
-Assistant
-Next week, perfect I'm not finding anything available that quickly right now. The 4 and Iqa, we have in Saint Lazar isn't ready until late June. Would it be okay if I passed your info to the team in case something sooner opens up?
-7:52:15 AM(+00:41.31)
+Complaint Agent FR (Alex)
+y en a une, par exemple a 20
+8:17:31 PM(+01:06.51)
 User
-Yeah. I mean, when would the so when would they open up?
+il n'y a pas de, il n'y pas de
 
-7:52:30 AM(+00:55.62)
+8:17:32 PM(+01:08.20)
 
-Assistant
-The current 4 and a half in Saint La is scheduled for late June, and that's the only 1 available right now. Yeah. Can I grab your name so I can have the team reach out if anything opens up sooner?
-7:52:35 AM(+01:01.36)
+Complaint Agent FR (Alex)
+ou b 20 10.
+8:17:33 PM(+01:08.48)
 User
-Uh, Yeah. Sure. My name is Sean.
+il n'y pas de lettre. C'est 2, 2
 
-7:52:47 AM(+01:12.70)
+8:17:35 PM(+01:10.80)
 
-Submit Lease Lead
-Completed successfully
-07:52
-7:52:51 AM(+01:16.77)
-
-Assistant
-Perfect. I'll get that over to the Sean Sari team right now, and they'll reach out if anything opens up sooner. Take care.
-7:52:55 AM(+01:20.60)
-User
-Alright. Well, you. Have a great day, I guess.
-
-7:53:08 AM(+01:33.85)
-
-Assistant
-You too, Sean. Thanks for reaching out. Have a great day.
-7:53:12 AM(+01:38.55)
-User
-Bye bye.
-
-7:53:16 AM(+01:42.48)
-
-Assistant
-My
-7:53:18 AM(+01:44.38)
+Complaint Agent FR (Alex)
+Merci pour la précision là pour que je puisse vérifier votre dossier j'ai besoin du numéro complet de l'appartement tel qu'il apparaît
+8:17:40 PM(+01:15.73)
 Customer ended the call
-07:53
+20:17

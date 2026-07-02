@@ -67,6 +67,7 @@ def _phones_match(a: str, b: str) -> bool:
 async def verify_phone(
     request: FlatVerifyPhoneRequest,
     phone_number: Optional[str] = Query(None, description="Caller phone — injected by VAPI as {{customer.number}}"),
+    language: Optional[str] = Query(None, description="Language of the assistant that fired this verify (en|fr) — records the tenant's first-call language preference"),
     db: Client = Depends(get_service_db),
 ):
     """
@@ -111,19 +112,17 @@ async def verify_phone(
         flat_uuid = flat["uuid"]
 
         # 2. Look up tenant — primary: flat_uuid FK; fallback: flat.tenant_uuid
-        tenant_resp = (
-            db.table("tenants")
-            .select("phone")
-            .eq("flat_uuid", flat_uuid)
-            .execute()
-        )
-        if not tenant_resp.data and flat.get("tenant_uuid"):
-            tenant_resp = (
-                db.table("tenants")
-                .select("phone")
-                .eq("uuid", flat["tenant_uuid"])
-                .execute()
-            )
+        # preferred_language selected in a migration-tolerant way (migration 032)
+        def _tenant_lookup(cols: str):
+            resp = db.table("tenants").select(cols).eq("flat_uuid", flat_uuid).execute()
+            if not resp.data and flat.get("tenant_uuid"):
+                resp = db.table("tenants").select(cols).eq("uuid", flat["tenant_uuid"]).execute()
+            return resp
+
+        try:
+            tenant_resp = _tenant_lookup("uuid, phone, preferred_language")
+        except Exception:
+            tenant_resp = _tenant_lookup("uuid, phone")
 
         if not tenant_resp.data:
             return FlatVerifyPhoneResponse(result="Verification result: vacant. Flat has no registered tenant.", status="vacant")
@@ -134,6 +133,16 @@ async def verify_phone(
         print(f"[DEBUG] phone match: caller={phone_number!r} db={tenant_phone!r} match={match}")
         if match:
             current_time_ist = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
+
+            # First verified call locks the tenant's complaint-agent language (migration 032).
+            # Never overwritten afterwards — routing keeps the tenant on their chosen assistant.
+            tenant_row = tenant_resp.data[0]
+            if language in ("en", "fr") and tenant_row.get("preferred_language") is None:
+                try:
+                    db.table("tenants").update({"preferred_language": language}).eq("uuid", tenant_row["uuid"]).execute()
+                    print(f"[DEBUG] verify_phone: locked preferred_language={language} for tenant {tenant_row['uuid']}")
+                except Exception as pref_err:
+                    print(f"[WARN] verify_phone: failed to store preferred_language: {pref_err}")
 
             # Resolve property_group_id via building → properties_list
             property_group_id = None

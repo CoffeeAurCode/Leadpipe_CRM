@@ -1003,6 +1003,83 @@ async def get_voice_agent_info(_: dict = Depends(require_active_subscription)):
     }
 
 
+# ── Complaint language routing (tenants.preferred_language, migration 032) ───
+
+def _complaint_assistant_for_phone(svc_db: Client, caller_number: str | None):
+    """Resolve which complaint assistant should take a call with this caller.
+
+    Returns (assistant_id, first_message_override | None).
+    - preferred_language = 'fr' → French assistant + direct French opener
+    - preferred_language = 'en' → English-locked assistant
+    - unknown caller / no preference / any error → entry assistant (bilingual gate)
+    """
+    entry = (settings.VAPI_COMPLAINT_ASSISTANT_ID, None)
+    if not caller_number:
+        return entry
+    try:
+        pref = None
+        rows = (
+            svc_db.table("tenants")
+            .select("phone, preferred_language")
+            .eq("phone", caller_number)
+            .not_.is_("preferred_language", "null")
+            .limit(1)
+            .execute()
+        )
+        if rows.data:
+            pref = rows.data[0]["preferred_language"]
+        else:
+            # Stored tenant phones aren't always exact E.164 — fall back to the same
+            # digits-only suffix match verify_phone uses.
+            from app.routes.flats import _phones_match
+            candidates = (
+                svc_db.table("tenants")
+                .select("phone, preferred_language")
+                .not_.is_("preferred_language", "null")
+                .execute()
+            )
+            for row in candidates.data or []:
+                if _phones_match(caller_number, row.get("phone", "")):
+                    pref = row["preferred_language"]
+                    break
+
+        if pref == "fr" and settings.VAPI_COMPLAINT_FRENCH_ASSISTANT_ID:
+            from app.services.vapi_agent_config import COMPLAINT_FRENCH_DIRECT_FIRST_MESSAGE
+            return (settings.VAPI_COMPLAINT_FRENCH_ASSISTANT_ID, COMPLAINT_FRENCH_DIRECT_FIRST_MESSAGE)
+        if pref == "en" and settings.VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID:
+            return (settings.VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID, None)
+    except Exception as e:
+        print(f"[WARN] complaint language routing failed for {caller_number}: {e}")
+    return entry
+
+
+@router.post("/voice/inbound-router")
+async def complaint_inbound_router(request: Request, svc_db: Client = Depends(get_service_db)):
+    """VAPI assistant-request handler for the complaint number.
+
+    The complaint phone number has no static assistant — VAPI asks this endpoint per inbound
+    call and we return the assistantId matching the tenant's stored language preference.
+    Always returns HTTP 200; any failure falls back to the entry assistant (bilingual gate)
+    so inbound never breaks.
+    """
+    try:
+        payload = await request.json()
+        message = payload.get("message", {})
+        if message.get("type") != "assistant-request":
+            return {}
+        customer = message.get("customer") or message.get("call", {}).get("customer") or {}
+        caller_number = customer.get("number")
+        assistant_id, first_message = _complaint_assistant_for_phone(svc_db, caller_number)
+        print(f"[inbound-router] caller={caller_number} -> assistant={assistant_id} fr_open={bool(first_message)}")
+        response: dict = {"assistantId": assistant_id}
+        if first_message:
+            response["assistantOverrides"] = {"firstMessage": first_message}
+        return response
+    except Exception as e:
+        print(f"[ERROR] inbound-router failed: {type(e).__name__}: {e}")
+        return {"assistantId": settings.VAPI_COMPLAINT_ASSISTANT_ID}
+
+
 # ── Outbound call endpoint ────────────────────────────────────────────────────
 
 class OutboundCallRequest(BaseModel):
@@ -1046,13 +1123,15 @@ async def make_outbound_call(
         if mvc_row.data and mvc_row.data[0].get("vapi_lease_assistant_id"):
             assistant_id = mvc_row.data[0]["vapi_lease_assistant_id"]
             phone_number_id = mvc_row.data[0]["vapi_phone_number_id"]
+            lang_first_message = None
         else:
             raise HTTPException(
                 status_code=500,
                 detail="No active lease agent found for this account. Check VAPI provisioning status."
             )
     else:
-        assistant_id    = settings.VAPI_COMPLAINT_ASSISTANT_ID
+        # Route to the tenant's language-locked assistant when a preference is stored
+        assistant_id, lang_first_message = _complaint_assistant_for_phone(svc_db, req.customer_number)
         phone_number_id = settings.VAPI_COMPLAINT_NUMBER_ID
         if not assistant_id:
             raise HTTPException(status_code=500, detail="VAPI_COMPLAINT_ASSISTANT_ID env var is not configured on the server")
@@ -1060,8 +1139,9 @@ async def make_outbound_call(
     client = Vapi(token=settings.PRIVATE_VAPI_API)
 
     overrides = None
-    if req.first_message:
-        overrides = AssistantOverrides(first_message=req.first_message)
+    first_message = req.first_message or lang_first_message
+    if first_message:
+        overrides = AssistantOverrides(first_message=first_message)
 
     try:
         call = await asyncio.to_thread(
