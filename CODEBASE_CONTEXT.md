@@ -600,7 +600,7 @@ Common to all lease webhooks:
 
 **Outbound call:** `POST /voice/call/outbound`
 - Body: `{customer_number, agent, first_message?}` — `agent` is `"complaint"` (default) or `"lease"`
-- `complaint` → uses `VAPI_COMPLAINT_ASSISTANT_ID` + `VAPI_COMPLAINT_NUMBER_ID` (complaint agent Alex on `+14382314283`)
+- `complaint` → uses `VAPI_COMPLAINT_ASSISTANT_ID` + `VAPI_COMPLAINT_NUMBER_ID` (complaint agent Alex on `+14382567782`)
 - `lease` → looks up `manager_vapi_config` for this manager's `vapi_lease_assistant_id` + `vapi_phone_number_id`; raises HTTP 500 if no active config found
 - Outbound phone number default in frontend: `+1` (Canadian); accepts any E.164 number
 - Wrapped in `asyncio.to_thread` to avoid blocking the event loop
@@ -714,7 +714,7 @@ Key vars:
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`
 - `PRIVATE_VAPI_API` — server-side VAPI SDK key
 - `VAPI_NUMBER_ID`, `VAPI_ASSISTANT_ID` — **legacy**, kept for backward compat only; not used by any current live path
-- `VAPI_COMPLAINT_ASSISTANT_ID`, `VAPI_COMPLAINT_NUMBER_ID`, `VAPI_COMPLAINT_PHONE_NUMBER` — complaint agent (`+14382314283`)
+- `VAPI_COMPLAINT_ASSISTANT_ID`, `VAPI_COMPLAINT_NUMBER_ID`, `VAPI_COMPLAINT_PHONE_NUMBER` — complaint agent (`+14382567782`)
 - `VAPI_COMPLAINT_FRENCH_ASSISTANT_ID` — dedicated French-only assistant for the complaint agent's French handoff (set after running `provision_complaint_french_handoff.py`; consumed by it and by `update_shared_agents.py` to keep the handoff across redeploys)
 - `VAPI_SHARED_LEASE_ASSISTANT_ID`, `VAPI_SHARED_LEASE_NUMBER_ID`, `VAPI_SHARED_LEASE_PHONE_NUMBER` — shared lease agent (`+14313415768`)
 - `VAPI_SHARED_LEASE_FRENCH_ASSISTANT_ID` — dedicated French-only assistant for the shared lease agent's French handoff (set after running `provision_lease_french_handoff.py`; consumed by it and by `update_lease_agents.py` to keep the handoff across redeploys)
@@ -1085,7 +1085,8 @@ window.dispatchEvent(new Event('refresh-listings'))      // after tenant assignm
 ### VAPI Agent Types
 - Two agent roles: **complaint** (maintenance intake) and **lease** (lead capture)
 - Both agents can be triggered via outbound call; `agent` field in `POST /voice/call/outbound` selects which
-- Complaint agent is global (one assistant for all groups): `VAPI_COMPLAINT_ASSISTANT_ID` on `+14382314283` (`VAPI_COMPLAINT_NUMBER_ID`)
+- Complaint agent is global (one assistant for all groups): `VAPI_COMPLAINT_ASSISTANT_ID` on `+14382567782` (`VAPI_COMPLAINT_NUMBER_ID`)
+- **Inbound requires the number→assistant binding in VAPI** (`PATCH /phone-number/{id}` with `assistantId`). Outbound passes the assistant per-call, so it works even when the binding is missing — an unbound number silently kills only inbound calls (endedReason `call.in-progress.twilio-completed-call`, empty assistantId in the call log). Binding restored 2026-07-02 after inbound to the complaint line failed this way.
 - Lease agent is **per-manager account** (one number + one assistant per manager, not per property group). Stored in `manager_vapi_config` table.
 - `vapi_provisioning_status` in `manager_vapi_config` tracks state: `pending` | `active` | `failed` | `not_set_up` (not_set_up = no row exists yet)
 - **Provisioning trigger:** fires only when a manager creates their FIRST property group. Second, third, ... groups do NOT re-trigger provisioning.
@@ -1094,7 +1095,7 @@ window.dispatchEvent(new Event('refresh-listings'))      // after tenant assignm
 - **DB-level race guard**: `CREATE UNIQUE INDEX twilio_number_pool_one_per_manager ON twilio_number_pool (assigned_manager_id) WHERE assigned_manager_id IS NOT NULL` — migration `016_fix_vapi_provisioning_cleanup.sql`. Prevents two concurrent provisioning tasks from claiming two different numbers for the same manager.
 - **Retry endpoint guard**: `POST /property-groups/users/me/provision-voice` checks `manager_vapi_config.vapi_provisioning_status` first; returns early without spawning a background task if already `active`.
 - **Live phone numbers** (do not reassign):
-  - `+14382314283` → complaint agent (`VAPI_COMPLAINT_NUMBER_ID`)
+  - `+14382567782` → complaint agent (`VAPI_COMPLAINT_NUMBER_ID`)
   - `+14313404212` → leadpipecrm manager `28c43c77` (active)
   - `+14313415768` → available in pool (unassigned)
 - Outbound complaint call uses `VAPI_COMPLAINT_ASSISTANT_ID`/`VAPI_COMPLAINT_NUMBER_ID` (fixed 2026-05-23).
@@ -1185,7 +1186,7 @@ Per-building feature control stored in `property_features` table.
 ## 14. Voice Call Flow (VAPI)
 
 ### Complaint Agent Flow
-1. Tenant calls the VAPI complaint number (`+14382314283`)
+1. Tenant calls the VAPI complaint number (`+14382567782`)
 2. Agent asks for flat number → calls `POST /flats/verify-phone` (caller ID gate)
 3. Tenant describes issue → agent silently identifies category
 4. Agent asks for preferred callback time → calls `GET /appointments/availability` to check slot

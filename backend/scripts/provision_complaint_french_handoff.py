@@ -3,7 +3,7 @@ Provision the dedicated French complaint assistant and wire the gated handoff on
 complaint assistant.
 
 Mirror of provision_lease_french_handoff.py, adapted for the complaint agent — which is a single
-GLOBAL assistant (VAPI_COMPLAINT_ASSISTANT_ID → +14382314283), not per-manager. So:
+GLOBAL assistant (VAPI_COMPLAINT_ASSISTANT_ID → +14382567782), not per-manager. So:
   - There is exactly ONE entry + ONE French assistant. No fleet, no Supabase, no DB migration.
   - The French assistant id lives in an env var (VAPI_COMPLAINT_FRENCH_ASSISTANT_ID), the way
     the shared lease French id lives in VAPI_SHARED_LEASE_FRENCH_ASSISTANT_ID.

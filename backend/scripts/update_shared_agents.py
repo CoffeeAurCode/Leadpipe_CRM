@@ -1,6 +1,6 @@
 """
 Push the latest vapi_agent_config.py config to the two live shared agents:
-  - Complaint agent  (VAPI_COMPLAINT_ASSISTANT_ID  → +14382314283)
+  - Complaint agent  (VAPI_COMPLAINT_ASSISTANT_ID  → +14382567782)
   - Shared lease agent (VAPI_SHARED_LEASE_ASSISTANT_ID → +14313415768)
 
 Only updates assistant configs. Phone number bindings already exist and are
@@ -126,7 +126,7 @@ def main():
     # Preserve the French handoff across redeploys: pass the French assistant id from env so the
     # PATCH does NOT strip the gated handoff tool + [French Routing] gate (mirrors update_lease_agents).
     ok1 = update_assistant(
-        "Complaint agent (+14382314283)",
+        "Complaint agent (+14382567782)",
         COMPLAINT_ASSISTANT_ID,
         build_complaint_config(BACKEND_URL, french_assistant_id=COMPLAINT_FRENCH_ASSISTANT_ID or None),
         ["end-of-call-report", "tool-calls"],
