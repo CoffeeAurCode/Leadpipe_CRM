@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leadpipe CRM — Production Readiness &amp; Security Audit (2026-07-02)</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --card2:#1d212b; --ink:#e6e8ec; --muted:#9aa4b2;
+    --line:#2a2f3a; --crit:#ff4d4f; --high:#ff8c1a; --med:#f5c518; --low:#4aa3ff; --ok:#2ecc71;
+    --accent:#6ea8fe;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 80px}
+  h1{font-size:30px;margin:0 0 6px}
+  h2{font-size:22px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:17px;margin:26px 0 8px}
+  .sub{color:var(--muted);margin:0 0 24px}
+  .verdict{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--crit);border-radius:10px;padding:20px 22px;margin:24px 0}
+  .verdict.no-go{border-left-color:var(--crit)}
+  .verdict h2{border:0;margin:0 0 8px;font-size:20px}
+  .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+  .p-crit{background:rgba(255,77,79,.15);color:var(--crit);border:1px solid var(--crit)}
+  .p-high{background:rgba(255,140,26,.15);color:var(--high);border:1px solid var(--high)}
+  .p-med{background:rgba(245,197,24,.13);color:var(--med);border:1px solid var(--med)}
+  .p-low{background:rgba(74,163,255,.13);color:var(--low);border:1px solid var(--low)}
+  .p-ok{background:rgba(46,204,113,.13);color:var(--ok);border:1px solid var(--ok)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  .finding{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0;margin:16px 0;overflow:hidden}
+  .finding .head{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--card2);border-bottom:1px solid var(--line)}
+  .finding .head .id{font-weight:800;color:var(--muted);font-size:13px}
+  .finding .head .title{font-weight:700;font-size:16px}
+  .finding .body{padding:16px 18px}
+  .finding .body p{margin:0 0 10px}
+  .lbl{color:var(--muted);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.4px;display:block;margin:12px 0 4px}
+  code,.mono{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:13px;background:#0b0d11;border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow:auto;font-family:"SF Mono",Consolas,Menlo,monospace;font-size:12.5px;line-height:1.5;color:#d5dae2}
+  .path{color:var(--accent)}
+  ul{margin:8px 0;padding-left:22px}
+  li{margin:4px 0}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .box h3{margin-top:0}
+  .good{color:var(--ok)}
+  .foot{color:var(--muted);font-size:13px;margin-top:50px;border-top:1px solid var(--line);padding-top:16px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Leadpipe CRM — Production Readiness &amp; Security Audit</h1>
+  <p class="sub">Senior-dev review · Prepared 2026-07-02 · Target launch region: Canada · Branch: <code>test</code></p>
+
+  <div class="verdict no-go">
+    <h2>Verdict: <span class="pill p-crit">NOT READY — DO NOT LAUNCH YET</span></h2>
+    <p style="margin:10px 0 0">The product is feature-rich and mostly well-structured, but it carries <b>three critical, exploitable defects</b> that break multi-tenant isolation and expose the entire database. Any one of them alone is a launch blocker. The good news: all three are fixable in roughly <b>2–5 focused days</b>, and none require re-architecture. Once C-1, C-2, and C-3 are closed and re-tested, this is a reasonable MVP to pilot with a small set of building managers.</p>
+  </div>
+
+  <h2>Summary of Findings</h2>
+  <table>
+    <tr><th>ID</th><th>Severity</th><th>Issue</th><th>Impact</th></tr>
+    <tr><td><b>C-1</b></td><td><span class="pill p-crit">Critical</span></td><td>Shared Supabase client with per-request JWT mutation</td><td>Cross-tenant data leakage under concurrent load</td></tr>
+    <tr><td><b>C-2</b></td><td><span class="pill p-crit">Critical</span></td><td>Live service-role key &amp; user JWT committed to git</td><td>Full database compromise, RLS bypass</td></tr>
+    <tr><td><b>C-3</b></td><td><span class="pill p-crit">Critical</span></td><td>Unauthenticated RLS-bypassing VAPI/webhook endpoints</td><td>PII enumeration, data injection for any tenant</td></tr>
+    <tr><td><b>H-1</b></td><td><span class="pill p-high">High</span></td><td>No rate limiting anywhere (slowapi installed, unused)</td><td>Abuse, scraping, cost/DoS on AI &amp; voice endpoints</td></tr>
+    <tr><td><b>H-2</b></td><td><span class="pill p-high">High</span></td><td>PII (phones, transcripts, names) logged in plaintext</td><td>PIPEDA exposure via Render logs</td></tr>
+    <tr><td><b>M-1</b></td><td><span class="pill p-med">Medium</span></td><td>Subscription gate ignores <code>trial_ends_at</code> expiry</td><td>Expired trials retain access if a webhook is missed</td></tr>
+    <tr><td><b>M-2</b></td><td><span class="pill p-med">Medium</span></td><td>No CI, no automated test gate; unpinned <code>openai</code></td><td>Regressions ship silently; non-reproducible builds</td></tr>
+    <tr><td><b>M-3</b></td><td><span class="pill p-med">Medium</span></td><td>Canadian compliance gaps (consent, residency, retention)</td><td>PIPEDA / call-recording consent risk</td></tr>
+    <tr><td><b>L-1</b></td><td><span class="pill p-low">Low</span></td><td>Debug <code>print()</code> logging, stray files in repo root</td><td>Noise, minor info disclosure, breaks own rules</td></tr>
+  </table>
+
+  <h2>Critical Findings</h2>
+
+  <div class="finding">
+    <div class="head"><span class="id">C-1</span><span class="pill p-crit">Critical</span><span class="title">Shared DB client + per-request JWT = cross-tenant leak</span></div>
+    <div class="body">
+      <p>The anon Supabase client is a <b>module-level singleton</b>, and every authenticated request mutates its auth token in place before querying:</p>
+      <pre><span class="path"># db/session.py</span>
+_anon_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)   <span style="color:#9aa4b2"># one global instance</span>
+
+<span class="path"># dependencies/authenticated_db.py</span>
+async def get_authenticated_db(credentials, db=Depends(get_db)):
+    db.postgrest.auth(credentials.credentials)   <span style="color:#ff8c1a"># mutates the SHARED client</span>
+    return db</pre>
+      <p>All route handlers are <code>async def</code> and share one event loop. When requests from two managers overlap, Manager B's <code>auth()</code> call can overwrite Manager A's token in the window between A setting its token and A's query executing (any <code>await</code> yields the loop). A's query then runs as B — <b>RLS resolves <code>auth.uid()</code> to the wrong user</b>, and A reads/writes B's tenants, complaints, and leads.</p>
+      <span class="lbl">Failure scenario</span>
+      <p>Two managers load their dashboards at the same moment. The parallel <code>GET /tenants</code> / <code>GET /complaints</code> calls interleave; one manager receives rows belonging to the other. In a multi-tenant CRM this is the single worst class of bug — silent, non-deterministic, and a privacy breach.</p>
+      <span class="lbl">Fix</span>
+      <ul>
+        <li>Create a <b>fresh Supabase client per request</b> inside <code>get_authenticated_db</code> (construct <code>create_client(...)</code> and call <code>.postgrest.auth(token)</code> on that instance), or</li>
+        <li>Pass the JWT as a per-call header (<code>ClientOptions</code> headers) rather than mutating shared state, or</li>
+        <li>Move to a request-scoped client via a dependency that never touches a singleton.</li>
+      </ul>
+      <p>This must be load-tested with concurrent users of different managers before launch.</p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="id">C-2</span><span class="pill p-crit">Critical</span><span class="title">Live secrets committed to the repository</span></div>
+    <div class="body">
+      <p>Real, working credentials are checked into git (confirmed tracked, not gitignored):</p>
+      <table>
+        <tr><th>File</th><th>Secret</th></tr>
+        <tr><td><code>tests/test_import.py</code></td><td>Supabase <b>anon key</b> + <b>service_role key</b> (<code>exp 2085</code>)</td></tr>
+        <tr><td><code>tests/run_api_tests.py</code></td><td>Live user access-token JWT</td></tr>
+        <tr><td><code>tests/run_csv_tests.py</code></td><td>Supabase key material</td></tr>
+      </table>
+      <p>The <b>service_role key bypasses all RLS</b> — anyone with it has unrestricted read/write to the entire database of every manager and tenant. It is valid until 2085. The Supabase project ref (<code>nfgnxndktecqeleabbip</code>) is also exposed, so the endpoint is known.</p>
+      <span class="lbl">Fix (do immediately, before anything else)</span>
+      <ul>
+        <li><b>Rotate the Supabase service_role and anon keys now</b> in the Supabase dashboard — assume they are compromised.</li>
+        <li>Remove the secrets from the files; load them from env vars instead.</li>
+        <li>Purge them from git history (<code>git filter-repo</code> / BFG) — deleting the file in a new commit is not enough; the keys remain in history and on GitHub forks/caches.</li>
+        <li>Add a secret-scanning pre-commit hook (e.g. gitleaks) so this can't recur.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="id">C-3</span><span class="pill p-crit">Critical</span><span class="title">Unauthenticated, RLS-bypassing public endpoints</span></div>
+    <div class="body">
+      <p>The VAPI/webhook endpoints use <code>get_service_db</code> (RLS bypassed) with <b>no authentication and no signature verification</b>. There is no VAPI signing-secret check anywhere in <code>voice.py</code> (only the outbound Vapi client token). Anyone on the internet who knows the URL can call them.</p>
+      <p>The most damaging are the ones that read or write tenant data with attacker-supplied identifiers:</p>
+      <table>
+        <tr><th>Endpoint</th><th>Abuse</th></tr>
+        <tr><td><code>POST /flats/identify-caller</code></td><td>Submit any phone number → returns tenant name, flat, building, society, <b>manager name + phone</b>. Bulk PII enumeration.</td></tr>
+        <tr><td><code>POST /flats/verify-phone</code></td><td>Probe which flats exist / are occupied / vacant.</td></tr>
+        <tr><td><code>GET /appointments/view?flat_number=</code></td><td>Read appointments for any flat number.</td></tr>
+        <tr><td><code>GET /leasing/find-units</code>, <code>/find-listing</code>, <code>/search</code>, <code>/search-listings</code></td><td>Accept <code>manager_id</code> as a query param → dump any manager's listings.</td></tr>
+        <tr><td><code>POST /voice/webhook</code>, <code>/voice/lease-lead-direct</code></td><td>Inject fake complaints, leads, appointments and notifications against an arbitrary <code>manager_id</code>.</td></tr>
+        <tr><td><code>PATCH /appointments/update</code>, <code>/cancel</code></td><td>Reschedule/cancel appointments by flat number, unauthenticated.</td></tr>
+      </table>
+      <span class="lbl">Fix</span>
+      <ul>
+        <li>Verify the <b>VAPI request signature / shared secret</b> on every voice endpoint (VAPI supports a server secret header — check it and reject mismatches while still returning HTTP 200 as the contract requires, or 401 for non-VAPI callers).</li>
+        <li>The Stripe webhook already does this correctly (<code>construct_event</code> + signature) — mirror that discipline for VAPI.</li>
+        <li>Stop trusting <code>manager_id</code> / <code>property_group_id</code> as free query params on read endpoints; derive them from the authenticated call context (assistant/number → manager mapping) instead of the caller.</li>
+        <li>Rate-limit these endpoints (see H-1) to blunt enumeration.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>High Findings</h2>
+
+  <div class="finding">
+    <div class="head"><span class="id">H-1</span><span class="pill p-high">High</span><span class="title">No rate limiting</span></div>
+    <div class="body">
+      <p><code>slowapi&gt;=0.1.9</code> is in <code>requirements.txt</code> but <b>is never imported or wired up</b> (grep of all <code>*.py</code> returns nothing). There is no limiter on any route — including the unauthenticated service-role endpoints (C-3), the OpenAI-backed <code>/chat</code>, the Groq extraction path, and outbound-call initiation. This makes PII scraping, complaint/lead spam, and cost-amplification (each <code>/chat</code> and each outbound call costs money) trivial.</p>
+      <span class="lbl">Fix</span> Wire up slowapi with per-IP and per-user limits; apply the tightest limits to <code>/voice/*</code>, <code>/flats/identify-caller</code>, <code>/leasing/find-*</code>, <code>/chat</code>, and <code>/voice/call/outbound</code>.
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="id">H-2</span><span class="pill p-high">High</span><span class="title">PII logged in plaintext</span></div>
+    <div class="body">
+      <p>Handlers print caller phone numbers, tenant phone numbers, and full call transcripts to stdout (e.g. <code>[DEBUG] verify_phone: ... phone_number=...</code>, transcript handling in the voice webhook). On Render these land in retained log storage. For a Canadian launch handling tenant personal data, plaintext PII in logs is a <b>PIPEDA exposure</b> and an incident-blast-radius multiplier if logs leak.</p>
+      <span class="lbl">Fix</span> Replace <code>print()</code> with the standard <code>logging</code> module at appropriate levels; redact/mask phone numbers and never log full transcripts at INFO. Gate any verbose logging behind <code>DEBUG</code>.
+    </div>
+  </div>
+
+  <h2>Medium Findings</h2>
+
+  <div class="finding">
+    <div class="head"><span class="id">M-1</span><span class="pill p-med">Medium</span><span class="title">Subscription gate doesn't enforce trial expiry</span></div>
+    <div class="body">
+      <p><code>require_active_subscription</code> only checks <code>status in ('trialing','active')</code> and selects <code>trial_ends_at</code> but never compares it to now. If the Stripe <code>customer.subscription.updated</code> webhook is missed or delayed, a manager whose trial has actually ended keeps full access. Revenue leak, not a security hole.</p>
+      <span class="lbl">Fix</span> Reject <code>trialing</code> rows where <code>trial_ends_at &lt; now()</code>, and/or reconcile subscription status on a schedule rather than relying solely on webhook delivery.
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="id">M-2</span><span class="pill p-med">Medium</span><span class="title">No CI gate; unpinned dependency</span></div>
+    <div class="body">
+      <p>No <code>.github/workflows</code> present — the pytest suite (<code>backend/tests</code>) and Playwright e2e (<code>e2e/</code>) exist but nothing runs them automatically, so regressions ship silently. Most Python deps are pinned, but <code>openai&gt;=1.0.0</code> is open-ended, which makes builds non-reproducible and risks a breaking minor.</p>
+      <span class="lbl">Fix</span> Add a CI workflow that runs lint + backend tests + e2e on PRs to <code>test</code>; pin <code>openai</code> to a known-good version.
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="id">M-3</span><span class="pill p-med">Medium</span><span class="title">Canadian compliance gaps</span></div>
+    <div class="body">
+      <ul>
+        <li><b>Call recording/transcription consent:</b> the voice agent records and transcribes tenant calls. Canadian law generally requires the caller be notified of recording. Confirm the agent's first message discloses this; keep evidence of consent.</li>
+        <li><b>Data residency:</b> tenant PII sits in Supabase, VAPI, Twilio, SendGrid, OpenAI, Groq, and Stripe — several are US-based. PIPEDA permits cross-border transfer but requires transparency about it. Confirm the Supabase project region and document processors in a privacy policy.</li>
+        <li><b>Retention/deletion:</b> transcripts and leads accumulate with no visible retention policy or tenant deletion/right-to-access path.</li>
+      </ul>
+      <span class="lbl">Fix</span> Add a recording-consent line to the agent script, publish a privacy policy listing sub-processors and residency, and define a retention + deletion process. Worth a short legal review before a Canadian launch.
+    </div>
+  </div>
+
+  <h2>Low Findings</h2>
+  <div class="finding">
+    <div class="head"><span class="id">L-1</span><span class="pill p-low">Low</span><span class="title">Repo hygiene</span></div>
+    <div class="body">
+      <ul>
+        <li>Stray files committed to the repo root (<code>Transcript1–4.md</code>, <code>Render_logs.md</code>, <code>French_cere.md</code>, <code>Complaint_transcript.md</code>, <code>Lease_listing_*.csv</code>) — violates the project's own "repo root is reserved" rule and <code>Render_logs.md</code> / transcripts may contain PII. Move to <code>docs/</code> or delete.</li>
+        <li>Debug <code>print()</code> scattered through routes (see H-2).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>What's already done well</h2>
+  <div class="grid">
+    <div class="box"><h3 class="good">Stripe webhook</h3><p>Signature verified with <code>construct_event</code> and idempotency via <code>stripe_events</code>. This is the correct pattern — apply it to VAPI.</p></div>
+    <div class="box"><h3 class="good">JWT validation</h3><p>Proper ES256/JWKS with HS256 fallback, audience checked, expiry handled.</p></div>
+    <div class="box"><h3 class="good">RLS as a model</h3><p>Row-level security with <code>manager_id</code> keys is the right multi-tenant foundation — C-1 undermines it in the client layer, not the DB design.</p></div>
+    <div class="box"><h3 class="good">CORS &amp; uploads</h3><p>CORS locked to configured origins; uploads enforce content-type and size limits.</p></div>
+    <div class="box"><h3 class="good">DB error mapping</h3><p><code>clean_db_error</code> keeps raw Postgres errors from reaching the frontend.</p></div>
+    <div class="box"><h3 class="good">Clean architecture</h3><p>Consistent dependency-injection auth pattern, service vs. authenticated client separation, thorough <code>CODEBASE_CONTEXT.md</code>.</p></div>
+  </div>
+
+  <h2>Pre-launch checklist</h2>
+  <table>
+    <tr><th>#</th><th>Action</th><th>Blocker?</th></tr>
+    <tr><td>1</td><td>Rotate Supabase service_role + anon keys; purge secrets from git history (C-2)</td><td><span class="pill p-crit">Yes</span></td></tr>
+    <tr><td>2</td><td>Fix shared-client JWT race with a per-request client; load-test concurrent managers (C-1)</td><td><span class="pill p-crit">Yes</span></td></tr>
+    <tr><td>3</td><td>Add VAPI signature/secret verification; stop trusting caller-supplied <code>manager_id</code> (C-3)</td><td><span class="pill p-crit">Yes</span></td></tr>
+    <tr><td>4</td><td>Wire up slowapi rate limiting on public + AI + voice endpoints (H-1)</td><td><span class="pill p-high">Strongly</span></td></tr>
+    <tr><td>5</td><td>Replace print() with redacted logging; stop logging transcripts/phones (H-2)</td><td><span class="pill p-high">Strongly</span></td></tr>
+    <tr><td>6</td><td>Enforce trial expiry in subscription gate (M-1)</td><td>No</td></tr>
+    <tr><td>7</td><td>Add CI running tests + e2e; pin <code>openai</code> (M-2)</td><td>No</td></tr>
+    <tr><td>8</td><td>Recording consent + privacy policy + retention for Canada (M-3)</td><td>No (but before real tenants)</td></tr>
+    <tr><td>9</td><td>Clean repo root; move/delete PII-bearing stray files (L-1)</td><td>No</td></tr>
+  </table>
+
+  <p class="foot">
+    Scope: static review of backend routes, auth/DB dependencies, config, Stripe/VAPI integrations, and repo hygiene. Not covered: live penetration testing, frontend XSS review, load testing, or a full RLS-policy audit in the Supabase console (recommended as follow-ups). Line references reflect the <code>test</code> branch as of 2026-07-02.
+  </p>
+
+</div>
+</body>
+</html>
