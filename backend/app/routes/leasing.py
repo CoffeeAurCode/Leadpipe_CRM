@@ -53,6 +53,7 @@ def _format_listings(rows: list) -> list:
             "country": r.get("country") or "",
             "bedrooms": flat.get("bedrooms"),
             "bathrooms": flat.get("bathrooms"),
+            "quebec_size": r.get("quebec_size") or "",
             "monthly_rent": float(r["monthly_rent"]),
             "floor_number": str(flat.get("floor_number") or ""),
             "available_from": str(r.get("available_from") or ""),
@@ -436,7 +437,7 @@ async def listings_for_agent(
             db.table("lease_listings")
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
-                "square_footage, included_utilities, parking, laundry, "
+                "square_footage, included_utilities, parking, laundry, quebec_size, "
                 "street_address, city, state, country, "
                 "flats!inner(bedrooms, bathrooms, floor_number)"
             )
@@ -496,7 +497,7 @@ async def search_listings(
             db.table("lease_listings")
             .select(
                 "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
-                "square_footage, included_utilities, parking, laundry, "
+                "square_footage, included_utilities, parking, laundry, quebec_size, "
                 "street_address, city, state, country, "
                 "flats!inner(bedrooms, bathrooms, floor_number)"
             )

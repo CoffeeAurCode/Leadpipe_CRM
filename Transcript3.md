@@ -1,37 +1,93 @@
-Assistant
-Hi there. Bonjour. I'm Max the AI leasing assistant for Sean Seri. Are you looking for a new place or did you have a specific unit in mind?
-7:53:30 AM(+00:01.92)
+Lease Agent [eb4b27dc]
+Hi there. I'm Max. This AI leasing assistant for Sean Cery. Would you like to continue in English or in in French? Preferez-vous continuer en
+10:03:30 PM(+00:01.88)
 User
-Oui, allô, je à Saint-L'Ador présentement. Et j'ai vu que vous avez des unités allouées.
+वही आप कहां से?
 
-7:53:41 AM(+00:12.10)
+10:03:48 PM(+00:19.98)
+
+Handoff To 8900a5c4-1671-4b33-875b-Fd1f065f6a99
+Completed successfully
+22:03
+10:03:50 PM(+00:21.92)
+
+Lease Agent FR [eb4b27dc]
+Parfait, je continue en français. -ce que vous cherchez comme logement
+10:03:52 PM(+00:23.71)
+User
+Dans le fond, j'étais, je suis à Saint-Lazore, présentement. Puis c'est ça, j'ai vu que vous avez des unités à louer là, j'ai juste appelé le numéro sur la pancarte.
+
+10:03:58 PM(+00:29.99)
 
 Find Units
 Completed successfully
-07:53
+22:04
 
-7:53:48 AM(+00:19.31)
+10:04:07 PM(+00:39.12)
 
-Assistant
-Un instant, je ne trouve rien à Saint -Lador pour le moment. Nous avons des logements à Château-Güey et à Saint-Lazar. Est-ce que ce qu'un de ces secteurs là pourrait vous convenir
-7:53:50 AM(+00:21.73)
+Lease Agent FR [eb4b27dc]
+Un moment,
+10:04:09 PM(+00:40.60)
+
+Lease Agent FR [eb4b27dc]
+un instant, parfait. Nous avons un logement à Saint-Lazare, vous cherchez quelle grandeur, un 3 et demi, un 4 et demi.
+10:04:12 PM(+00:43.91)
 User
-Uh, oui, bien, ça que je viens de dire, oui.
+Sur un 4 minutes,
 
-7:54:02 AM(+00:33.57)
+10:04:22 PM(+00:53.76)
 
-Assistant
-D'accord, mais juste pour être sûr, le premier que j'ai mentionné ou le deuxième,
-7:54:07 AM(+00:38.21)
+Lease Agent FR [eb4b27dc]
+Je n'ai pas bien compris, pourriez-vous répéter la grandeur que vous recherchez un 4 et demi par exemple,
+10:04:26 PM(+00:57.77)
 User
-La deuxième.
+Moins 4 et demi.
 
-7:54:15 AM(+00:46.76)
+10:04:33 PM(+01:05.23)
 
-Find Units
+Lease Agent FR [eb4b27dc]
+D'accord, donc plus petit qu'un 4 et demi, mais est-ce que vous cherchez un 3 et demi,
+10:04:36 PM(+01:08.23)
+User
+Non non, un 4, 1 4 et demi.
+
+10:04:42 PM(+01:13.81)
+
+Search Listings
 Completed successfully
-07:54
+22:04
+10:04:44 PM(+01:16.12)
 
-7:54:17 AM(+00:48.05)
+Lease Agent FR [eb4b27dc]
+Ça ne prendra qu'une seconde.
+10:04:46 PM(+01:17.55)
+
+Lease Agent FR [eb4b27dc]
+Je vérifie ça quand souhaitez-vous emménager.
+10:04:48 PM(+01:19.97)
+User
+Le mois prochain, si possible.
+
+10:04:55 PM(+01:26.43)
+
+Lease Agent FR [eb4b27dc]
+Parfait. Donc pour le mois prochain, pour le moment, je n'ai rien de disponible en 4 et demi à Saint-Lazare. Est-ce que ce que ce serait correct si je prenais vos informations
+10:04:58 PM(+01:29.76)
+User
+Vous n'aviez pas un, logement de, de litres pour ce mois-ci Je, je le vois moi dans, dans votre système là que vous avez un logement disponible
+
+10:05:12 PM(+01:44.21)
+
+Lease Agent FR [eb4b27dc]
+Vous avez raison, peut-être nous avons bien un 4 et demi au carré Saint-Laurent, au 4e étage disponible depuis le 22 juin 2026 à 14 100 par mois. Est-ce que c'est celui que vous avez vu sur la pancarte.
+10:05:30 PM(+02:01.47)
+User
+Voilà,
+
+10:05:44 PM(+02:15.94)
+
+Lease Agent FR [eb4b27dc]
+Parfait, le 4
+10:05:49 PM(+02:20.47)
 Customer ended the call
-07:54
+22:05
