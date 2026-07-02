@@ -1,7 +1,10 @@
 # Complaint Agent — Per-Tenant Language Preference Routing
 
 **Date:** 2026-07-02
-**Status:** Code + VAPI assistants live; awaiting migration 032 + backend deploy + number repoint.
+**Status:** ✅ FULLY LIVE (2026-07-02). Migration 032 applied, backend deployed, number repointed to
+`/voice/inbound-router`. Verified end-to-end on production with a test tenant: fr lock on first
+valid verify → router returns FR assistant + French opener; lock survives a later `language=en`
+verify; `en` pref → EN assistant; NULL → entry gate. Awaiting real-call test by the French partner.
 
 ## Goal
 First call from any tenant: bilingual gate ("English or French?"). The chosen language is stored
@@ -53,13 +56,14 @@ helper; FR gets the direct French opener unless `first_message` was passed expli
    FastAPI ignores the extra param until the new code ships)
 2. ✅ English assistant created: `VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID=43d28cbd-d01f-406f-bc70-646f45852a8a`
    (added to local `.env`)
-3. ⬜ Run `backend/migrations/032_tenant_preferred_language.sql` in the Supabase SQL editor
-   (project `nfgnxndktecqeleabbip` — not reachable from the connected Supabase MCP account)
-4. ⬜ Add to Render env: `VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID`, `VAPI_COMPLAINT_FRENCH_ASSISTANT_ID`
-5. ⬜ Deploy the backend (push to the deploy branch)
-6. ⬜ `python backend/scripts/provision_complaint_language_routing.py --route-number`
-7. Test matrix: unknown number inbound (gate), English tenant re-call inbound + outbound (EN direct),
-   French tenant re-call inbound + outbound (FR direct with "Bonjour, ici Alex…" opener)
+3. ✅ Migration 032 run in the Supabase SQL editor (project `nfgnxndktecqeleabbip`)
+4. ✅ Render env: `VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID`, `VAPI_COMPLAINT_FRENCH_ASSISTANT_ID`
+5. ✅ Backend deployed (commit `deef01c0` on `test`)
+6. ✅ Number repointed: `--route-number` run; VAPI confirms `assistantId=null`,
+   `server.url=/voice/inbound-router`
+7. ✅ API-level test matrix passed on production (test tenant `9dee048d`, reset to NULL after):
+   fr verify locks pref; en verify cannot overwrite; router returns FR+opener / EN / entry per pref.
+   ⬜ Real-call test by the French partner pending.
 
 Rollback any time: `python backend/scripts/provision_complaint_language_routing.py --rollback`
 (number goes back to the static entry binding; everything else is additive).

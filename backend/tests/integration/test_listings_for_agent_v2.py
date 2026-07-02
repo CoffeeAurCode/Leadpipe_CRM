@@ -240,6 +240,30 @@ class TestSearchListings:
             for field in ("listing_uuid", "flat_number", "bedrooms", "monthly_rent"):
                 assert field in listing
 
+    def test_quebec_size_variant_spelling_matches(self, authed_client):
+        row = {**_LISTING_ROW, "quebec_size": "4½"}
+        tc, _ = authed_client(lease_listings=[row])
+        resp = tc.get("/leasing/search-listings", params={"quebec_size": "4 1/2"})
+        body = resp.json()
+        assert body["count"] == 1
+        assert body["listings"][0]["quebec_size"] == "4½"
+
+    def test_quebec_size_mismatch_filters_out(self, authed_client):
+        row = {**_LISTING_ROW, "quebec_size": "3½"}
+        tc, _ = authed_client(lease_listings=[row])
+        resp = tc.get("/leasing/search-listings", params={"quebec_size": "4½"})
+        assert resp.json()["count"] == 0
+
+    def test_quebec_size_column_is_fetched(self, authed_client):
+        """Regression (Transcript3): the filter compares r['quebec_size'], so the
+        select MUST fetch that column — otherwise every row silently drops and the
+        agent reports 'no listings' for sizes that exist."""
+        row = {**_LISTING_ROW, "quebec_size": "4½"}
+        tc, db = authed_client(lease_listings=[row])
+        tc.get("/leasing/search-listings", params={"quebec_size": "4½"})
+        select_arg = db.table("lease_listings").select.call_args.args[0]
+        assert "quebec_size" in select_arg
+
 
 # ---------------------------------------------------------------------------
 # POST /voice/lease-lead-direct — regression + bug fix
