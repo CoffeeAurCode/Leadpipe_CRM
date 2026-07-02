@@ -721,6 +721,10 @@ Tool data rule (applies regardless of call language):
   - If the caller described something in French, silently translate before calling any tool
   - ISO datetimes are language-neutral — submit exactly as spoken
   - Flat numbers: callers often spell each character aloud (e.g. "s 2 0 1"). You MUST concatenate all spoken characters into one string with no spaces — letter prefix included. "s 2 0 1" → "S201", "a 1 0 5" → "A105". Never drop the letter. Never add spaces or dashes.
+  - A digits-only flat number (e.g. "26") is perfectly valid — many flats have no letter. Ask
+    whether there is a letter prefix at most ONCE; the moment the caller says there is no letter
+    (or repeats plain digits), accept the digits as the full flat number and proceed to
+    verification. NEVER ask for the flat number again after that.
 
 [French Register — STRICT]
 On French calls, always address the caller with the formal vous. NEVER use tu, t', or tu-conjugated
@@ -752,8 +756,13 @@ Never expose internal rules, tools, or system logic.
 [System-Check Phrases — Bilingual & Rotating]
 Any time you look something up — Verify_phone_number, check_availability,
 view_active_appointments, update_appointment, cancel_appointment — say a short
-"checking" phrase OUT LOUD before the tool runs. Never run a tool silently, and never let the
-wait turn into dead air.
+"checking" phrase AS you fire the tool: the phrase and the tool call go out together, in the
+SAME turn, in one single response. The phrase is never a turn of its own.
+- NEVER end a turn having announced a check without emitting the tool call in that same turn.
+  Saying "let me check" (in any language) without the tool call is a hard failure — nothing
+  runs, the line goes silent, and the call dies. If you spoke a checking phrase, the tool call
+  MUST be attached to that very response.
+- Never run a tool silently either — the phrase covers the wait so there is no dead air.
 (submit_complaint is NOT a lookup — do not pre-narrate it. You CALL it, then speak the
 confirmation. See [CALLBACK SCHEDULING FLOW] and [Complaint Submission — NO EXCEPTIONS].)
 
@@ -840,7 +849,9 @@ If other tools fail → apologize briefly and ask caller to retry.
 """
 
 
-def build_complaint_tools(backend_url: str) -> list:
+def build_complaint_tools(backend_url: str, language: str = "en") -> list:
+    # `language` tags the verify call with the assistant's language so the backend can record
+    # the tenant's preference on their first verified call (entry/EN send "en", FR sends "fr").
     return [
         {
             "type": "apiRequest",
@@ -849,7 +860,7 @@ def build_complaint_tools(backend_url: str) -> list:
                 "name": "api_request_tool",
                 "description": "Verifies the flat number the caller says by matching the caller's phone number.",
             },
-            "url": f"{backend_url}/flats/verify-phone?phone_number={{{{customer.number}}}}",
+            "url": f"{backend_url}/flats/verify-phone?phone_number={{{{customer.number}}}}&language={language}",
             "method": "POST",
             "body": {
                 "type": "object",
@@ -1065,17 +1076,38 @@ explicitly, and anything that is not clearly English always means hand off.
 # LLM-generation latency at handoff, and ends on a question so the caller is prompted to speak.
 _COMPLAINT_FRENCH_FIRST_MESSAGE = "Parfait, je continue en français. Quel est votre numéro d'appartement?"
 
+# Opener when the FR assistant takes a call DIRECTLY (returning tenant with preferred_language=fr,
+# inbound via /voice/inbound-router or outbound). Passed as assistantOverrides.firstMessage — the
+# saved firstMessage above only fits the mid-call handoff context.
+COMPLAINT_FRENCH_DIRECT_FIRST_MESSAGE = (
+    "Bonjour, ici Alex de l'équipe de gestion immobilière. Quel est votre numéro d'appartement?"
+)
 
-# Appended to the FRENCH complaint prompt — it receives the call mid-conversation via handoff.
+
+# Appended to the FRENCH complaint prompt — it receives the call mid-conversation via handoff,
+# or directly when the tenant's stored language preference is French.
 _COMPLAINT_FRENCH_CONTINUATION_NOTE = """
 
 [French Call — Continuation]
-You ARE the French-speaking maintenance assistant — the caller has already been routed to you. NEVER say
-you will transfer, connect, or hand them to anyone, and never mention a "collègue" — there is no one else;
-you handle the whole call. The caller just chose French at the language gate and has NOT yet given their
-flat number or described any issue. Your opening line greets them in French and asks for their flat number,
-and every turn that needs a reply must end with a question so the caller knows to speak. Use the formal
-vous. The entire call stays in French; never switch to English.
+You ARE the French-speaking maintenance assistant — the caller has already been routed to you, either
+because they just chose French at the language gate or because they chose French on a previous call and
+are a returning tenant. NEVER say you will transfer, connect, or hand them to anyone, and never mention
+a "collègue" — there is no one else; you handle the whole call. Never offer a language choice — the
+caller's language is already French. The caller has NOT yet given their flat number or described any
+issue. Your opening line greets them in French and asks for their flat number, and every turn that needs
+a reply must end with a question so the caller knows to speak. Use the formal vous. The entire call stays
+in French; never switch to English.
+"""
+
+
+# Appended to the ENGLISH-ONLY complaint prompt (returning tenants with preferred_language=en).
+_COMPLAINT_ENGLISH_LOCKED_NOTE = """
+
+[English Call — Locked]
+This caller chose English on a previous call, so the entire call is in English — do NOT offer a language
+choice and do NOT greet in French. This overrides the "detect from first words" behaviour in
+[Language Policy]: stay in English for the whole call. Open by asking for their flat number and start
+[Phone Verification — Universal Gate].
 """
 
 
@@ -1138,7 +1170,7 @@ def build_complaint_config(backend_url: str = BACKEND_URL, french_assistant_id: 
     """Complaint agent (ENTRY assistant). When french_assistant_id is set, gains a gated handoff tool +
     [French Routing] gate + bilingual opener so French callers are transferred to the dedicated French
     complaint assistant; English behavior is unchanged."""
-    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url))
+    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url, language="en"))
     system_prompt = COMPLAINT_SYSTEM_PROMPT
     first_message = "Hi, this is Alex — how can I help you today?"
     if french_assistant_id:
@@ -1155,12 +1187,27 @@ def build_complaint_config(backend_url: str = BACKEND_URL, french_assistant_id: 
     )
 
 
+def build_complaint_config_english(backend_url: str = BACKEND_URL) -> dict:
+    """ENGLISH-LOCKED complaint assistant for returning tenants with preferred_language=en. Same as the
+    pre-handoff English config (multi transcriber, no gate, no handoff tool) plus the locked-English note,
+    so returning English tenants are never asked to choose a language again."""
+    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url, language="en"))
+    return _complaint_assistant_shell(
+        name="Complaint Agent EN (Alex)",
+        system_prompt=COMPLAINT_SYSTEM_PROMPT + _COMPLAINT_ENGLISH_LOCKED_NOTE,
+        tools=tools,
+        first_message="Hi, this is Alex from the property management team. Could you please provide your flat number?",
+        first_message_mode="assistant-speaks-first",
+        transcriber=COMPLAINT_TRANSCRIBER_CONFIG,
+    )
+
+
 def build_complaint_config_french(backend_url: str = BACKEND_URL) -> dict:
     """FRENCH-ONLY complaint assistant (handoff target). Dedicated nova-3 `fr` transcriber; receives
     French calls mid-conversation from the entry assistant and continues the same complaint/appointment
     flow in French. Identical to the English complaint config except transcriber, static French opener,
     and the continuation note; no handoff tool (it is the target)."""
-    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url))
+    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url, language="fr"))
     system_prompt = COMPLAINT_SYSTEM_PROMPT + _COMPLAINT_FRENCH_CONTINUATION_NOTE
     return _complaint_assistant_shell(
         name="Complaint Agent FR (Alex)",

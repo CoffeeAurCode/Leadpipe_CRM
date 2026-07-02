@@ -29,6 +29,9 @@ class Settings:
     VAPI_COMPLAINT_NUMBER_ID: str = os.getenv("VAPI_COMPLAINT_NUMBER_ID", "")
     # E.164 inbound number for the complaint agent (displayed in Voice Stats tab)
     VAPI_COMPLAINT_PHONE_NUMBER: str = os.getenv("VAPI_COMPLAINT_PHONE_NUMBER", "")
+    # Language-locked complaint assistants (routed per tenants.preferred_language)
+    VAPI_COMPLAINT_FRENCH_ASSISTANT_ID: str = os.getenv("VAPI_COMPLAINT_FRENCH_ASSISTANT_ID", "")
+    VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID: str = os.getenv("VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID", "")
     BACKEND_URL: str = os.getenv("BACKEND_URL", "https://tenant-management-mvp.onrender.com")
     APP_NAME: str = os.getenv("APP_NAME", "Tenant Management System")
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
