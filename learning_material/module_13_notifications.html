@@ -556,7 +556,53 @@ notif_result = {<span class="str">"sms"</span>: <span class="str">"skipped"</spa
     </ul>
   </div>
 
-  <div class="nav-buttons">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Section 7 — Why This Design</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfa" aria-label="Mark section complete"><label for="chk-bfa">Mark complete</label></div>
+
+<h3>Decision: Fire-and-forget BackgroundTasks vs. sync send vs. a real queue</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>BackgroundTasks after response (chosen)</td><td>API stays fast (Twilio/SendGrid round-trips are 300ms–2s); zero infrastructure; failures don't break the user's action</td><td>No retries, no dead-letter queue — a failed SMS is just a log line; tasks die if the worker restarts</td></tr>
+<tr><td>Send synchronously in the route</td><td>Caller knows delivery was attempted</td><td>Every complaint creation waits on two third-party APIs; timeouts become user-facing 500s</td></tr>
+<tr><td>Celery/RQ + Redis</td><td>Retries, scheduling, observability</td><td>A whole new infrastructure component for an MVP sending tens of messages a day</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> match delivery guarantees to consequences. A missed courtesy SMS is a shrug; a missed payment webhook is a disaster. The first gets fire-and-forget; the second gets idempotent processing and retries (see Module 04). Don't pay queue-infrastructure tax for shrug-grade messages.</div>
+<h3>Decision: Thin client wrappers (<code>twilio_client.py</code>, <code>email_client.py</code>)</h3>
+<p>Each provider gets one module that owns credentials, formatting, and error swallowing. Routes never import <code>twilio</code> or <code>sendgrid</code> directly. This means: provider swap = one file; provider outage = errors contained in one place; tests mock one seam.</p>
+<h2 id="bf-checkpoint">Section 8 — Checkpoint ✓</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfb" aria-label="Mark section complete"><label for="chk-bfb">Mark complete</label></div>
+<div class="bf-card">
+<p>Verify non-blocking behavior and actual delivery. First, timing: trigger an action that sends a notification (e.g. create a complaint with SMS enabled) and time it:</p>
+<pre><code>curl -w "\ntime_total: %{time_total}s\n" -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{...complaint payload...}' \
+  http://localhost:8000/complaints</code></pre>
+<p><strong>Expected:</strong> the response returns in well under a second even though an SMS is being sent — proof the send happens after the response. Watch the backend log for the send result line.</p>
+<p>For safe delivery testing without spending money, switch to <strong>Twilio test credentials</strong> (see Resources): the magic number <code>+15005550006</code> accepts sends and returns success without delivering anything.</p></div>
+<h2 id="bf-resources">Section 9 — Resources</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfc" aria-label="Mark section complete"><label for="chk-bfc">Mark complete</label></div>
+<div class="bf-res"><div><h4>Twilio SMS Python</h4><a href="https://www.twilio.com/docs/messaging/quickstart/python" target="_blank" rel="noopener">Python quickstart</a><a href="https://www.twilio.com/docs/iam/test-credentials" target="_blank" rel="noopener">Test credentials &amp; magic numbers</a><p>The client wrapper's underlying API, and how to test sends for free.</p></div><div><h4>SendGrid Python</h4><a href="https://github.com/sendgrid/sendgrid-python" target="_blank" rel="noopener">sendgrid-python</a><p>Mail construction and the API-key auth used by email_client.py.</p></div><div><h4>E.164 format</h4><a href="https://www.twilio.com/docs/glossary/what-e164" target="_blank" rel="noopener">Twilio — E.164 explained</a><p>The +countrycode format every phone number in the DB must normalize to before it touches Twilio.</p></div><div><h4>Email deliverability</h4><a href="https://www.twilio.com/docs/sendgrid/ui/account-and-settings/how-to-set-up-domain-authentication" target="_blank" rel="noopener">SendGrid sender authentication</a><p>Why mail lands in spam without domain authentication — the ops half of “sending email”.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-buttons">
     <a href="module_12_vapi_provisioning.html" class="nav-btn">← Previous: VAPI Provisioning</a>
     <a href="module_14_feature_flags.html" class="nav-btn">Next: Feature Flags →</a>
   </div>

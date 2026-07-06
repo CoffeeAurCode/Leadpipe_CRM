@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 28 — Leasing Voice Agent v2: Language, Matching &amp; Routing</title>
+<style>
+  :root, :root[data-theme="dark"] {
+    --bg:#0f1117; --surface:#1a1d27; --border:#2a2d3a; --text:#e2e8f0; --muted:#94a3b8;
+    --primary:#6366f1; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --code-bg:#141720;
+    --kw:#c678dd; --str:#98c379; --fn:#61afef; --cm:#5c6370; --num:#d19a66; --typ:#e5c07b;
+  }
+  :root[data-theme="light"] {
+    --bg:#ffffff; --surface:#f8fafc; --border:#e2e8f0; --text:#1e293b; --muted:#64748b;
+    --primary:#4f46e5; --code-bg:#f1f5f9;
+    --kw:#a626a4; --str:#50a14f; --fn:#4078f2; --cm:#a0a1a7; --num:#986801; --typ:#c18401;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.65; }
+  .sidebar { position:fixed; top:0; left:0; width:250px; height:100vh; overflow-y:auto; background:var(--surface); border-right:1px solid var(--border); padding:1.2rem; font-size:.85rem; }
+  .sidebar h3 { font-size:.75rem; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:.8rem; }
+  .sidebar a { display:block; color:var(--muted); text-decoration:none; padding:.28rem .5rem; border-radius:6px; margin-bottom:2px; }
+  .sidebar a:hover { color:var(--text); background:rgba(128,128,128,.1); }
+  .sidebar a.active { color:var(--primary); background:rgba(99,102,241,.12); font-weight:600; }
+  .main-content { margin-left:250px; }
+  .container { max-width:880px; margin:0 auto; padding:2.5rem 2rem 6rem; }
+  @media (max-width:900px){ .sidebar{display:none} .main-content{margin-left:0} }
+  h1 { font-size:1.9rem; font-weight:800; line-height:1.25; margin-bottom:.6rem; }
+  h2 { font-size:1.35rem; font-weight:700; color:var(--primary); margin:2.6rem 0 .9rem; padding-top:.5rem; border-top:1px solid var(--border); }
+  h3 { font-size:1.05rem; font-weight:700; margin:1.6rem 0 .6rem; }
+  h4 { font-size:.95rem; font-weight:700; margin:1.1rem 0 .4rem; }
+  p, li { color:var(--text); font-size:.95rem; margin-bottom:.7rem; }
+  ul, ol { padding-left:1.5rem; margin-bottom:.8rem; }
+  code { background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:.08rem .35rem; font-family:Consolas,monospace; font-size:.85em; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem; overflow-x:auto; margin:.8rem 0 1rem; position:relative; }
+  pre code { background:none; border:none; padding:0; font-size:.85rem; line-height:1.6; display:block; }
+  .kw{color:var(--kw)} .str{color:var(--str)} .fn{color:var(--fn)} .cm{color:var(--cm)} .num{color:var(--num)} .typ{color:var(--typ)}
+  table { width:100%; border-collapse:collapse; margin:.9rem 0 1.1rem; font-size:.88rem; }
+  th, td { border:1px solid var(--border); padding:.5rem .65rem; text-align:left; vertical-align:top; }
+  th { background:var(--surface); }
+  .meta-row { display:flex; gap:1.4rem; flex-wrap:wrap; color:var(--muted); font-size:.85rem; margin:.6rem 0 1.2rem; }
+  .progress-bar { height:6px; background:var(--surface); border-radius:99px; overflow:hidden; margin-bottom:1.6rem; }
+  .progress-fill { height:100%; background:var(--primary); width:0%; transition:width .3s; }
+  .nav-buttons { display:flex; justify-content:space-between; gap:1rem; margin:1.6rem 0; }
+  .nav-btn { color:var(--primary); text-decoration:none; font-size:.88rem; font-weight:600; padding:.55rem .9rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+  .nav-btn:hover { border-color:var(--primary); }
+  .callout { border-left:4px solid var(--primary); background:rgba(99,102,241,.08); border-radius:0 10px 10px 0; padding:.8rem 1.1rem; margin:1rem 0; font-size:.92rem; }
+  .callout-warn { border-color:var(--amber); background:rgba(245,158,11,.08); }
+  .callout-bug { border-color:var(--red); background:rgba(239,68,68,.07); }
+  .callout-key { border-color:var(--green); background:rgba(16,185,129,.08); }
+  .card-success { border:1px solid var(--border); border-left:4px solid var(--green); border-radius:10px; padding:1rem 1.3rem; margin:1rem 0; background:var(--surface); }
+  details { border:1px solid var(--border); border-radius:10px; padding:.8rem 1.1rem; margin:.8rem 0; background:var(--surface); }
+  details summary { cursor:pointer; font-weight:600; font-size:.93rem; }
+  details[open] summary { margin-bottom:.7rem; }
+  .badge { display:inline-block; padding:.12rem .55rem; border-radius:99px; font-size:.72rem; font-weight:700; margin-right:.4rem; }
+  .badge-easy{background:rgba(16,185,129,.15);color:#34d399} .badge-medium{background:rgba(245,158,11,.15);color:#fbbf24} .badge-hard{background:rgba(239,68,68,.15);color:#f87171}
+  .section-check { display:flex; align-items:center; gap:.45rem; font-size:.8rem; color:var(--muted); margin:-.3rem 0 .9rem; }
+  .diagram { background:var(--code-bg); border:1px solid var(--border); border-radius:10px; padding:1.1rem 1.3rem; margin:.9rem 0; font-family:Consolas,monospace; font-size:.82rem; line-height:1.75; white-space:pre; overflow-x:auto; }
+  .resource-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:.85rem; margin:.9rem 0; }
+  .resource-card { border:1px solid var(--border); border-radius:10px; padding:.85rem 1.05rem; background:var(--surface); }
+  .resource-card h4 { margin:0 0 .4rem; }
+  .resource-card a { display:block; color:var(--primary); text-decoration:none; font-size:.85rem; margin:.15rem 0; }
+  .resource-card p { font-size:.8rem; color:var(--muted); margin:.4rem 0 0; }
+  .theme-toggle { position:fixed; top:1rem; right:1rem; z-index:50; background:var(--surface); border:1px solid var(--border); border-radius:99px; width:2.4rem; height:2.4rem; cursor:pointer; font-size:1.05rem; }
+  .breadcrumbs { font-size:.82rem; color:var(--muted); margin-bottom:1.1rem; }
+  .breadcrumbs a { color:var(--primary); text-decoration:none; }
+  .timeline { border-left:2px solid var(--border); margin:1rem 0 1rem .4rem; padding-left:1.2rem; }
+  .timeline h4 { margin-top:1.2rem; }
+  @media print { .sidebar,.theme-toggle,.nav-buttons{display:none} .main-content{margin:0} body{background:#fff;color:#000} }
+</style>
+</head>
+<body>
+<nav class="sidebar" aria-label="Table of contents"><h3>Module 28</h3><div id="toc"></div></nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 28 — Leasing Voice Agent v2</strong></div>
+
+  <h1>Module 28 — Leasing Voice Agent v2: Language, Matching &amp; Routing</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 90 minutes</span>
+    <span>📁 Files: <code>app/services/city_matching.py</code>, <code>app/services/vapi_agent_config.py</code>, <code>app/routes/leasing.py</code>, <code>backend/scripts/update_lease_agents.py</code></span>
+    <span>🔰 Prerequisites: Modules 11, 12, 16, 27</span>
+    <span>📼 Distilled from build sessions 8–15 &amp; 18</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_27_rls_ownership_migrations.html" class="nav-btn">← Module 27: Ownership &amp; Migrations</a>
+    <a href="module_29_deploy_testing_operations.html" class="nav-btn">Module 29: Production Operations →</a>
+  </div>
+
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>Module 16 built the leasing API; Module 12 provisioned voice agents. What shipped after that was v1 — and v1 met real callers. Real callers speak French, mispronounce city names, interrupt, hang up mid-question, and call from numbers the system has never seen. This module is the distillation of ten build sessions of hardening v1 into v2: <strong>an agent that hears imperfectly but matches confidently, speaks the caller's language without drifting, never leaves dead air, knows what time it is in Montréal, and routes every caller to the right agent automatically.</strong></p>
+
+  <div class="diagram">Inbound call
+   │
+   ▼
+/leasing/voice/inbound-router ── reads tenant preferred_language (Module 27)
+   │            │
+   en ▼         fr ▼
+ EN assistant  FR assistant ── register-locked prompts, French templates
+   │
+   ▼ tool calls (find-units, search-listings…)
+/leasing endpoints ── fuzzy + phonetic city matching, banded confirmation,
+   │                  Montréal clock stamped on every response
+   ▼
+lead capture (3 redundant layers) → lease_leads pipeline → manager UI</div>
+
+  <p>Every subsystem above exists because a specific production call failed in a specific way. The walkthrough (Section 3) is that story in build order — it's the closest thing this course has to watching a senior engineer work over ten sessions.</p>
+
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>1 · The STT error model — your input is a guess, not a transcript</summary>
+    <p>Speech-to-text output is a <em>hypothesis</em>. For short, proper-noun answers ("Montréal", "Longueuil") spoken over a phone line — possibly with a French accent into an English-configured transcriber — the hypothesis is frequently wrong in <em>systematic</em> ways: syllables merge, accents shift vowels, and the STT substitutes phonetically-similar English words. Session 8's diagnosis built a <strong>garble corpus</strong> (<code>backend/scripts/generate_stt_garble_corpus.py</code>): a list of real and synthesized mis-hearings per city, which then became the regression test bed for every matcher change.</p>
+    <div class="callout-key callout"><strong>🔑 Key concept:</strong> you cannot fix STT errors upstream (you don't own the transcriber's model). You fix them downstream, by making your <em>matching</em> tolerant — and you measure that tolerance against a corpus, not against vibes.</div>
+  </details>
+
+  <details open>
+    <summary>2 · Fuzzy vs. phonetic matching — two different kinds of "close"</summary>
+    <p><strong>Fuzzy (edit-distance) matching</strong> — RapidFuzz's ratio family — measures how many character edits separate two strings. Great for typos; weak for mis-hearings, because "Munreal" is <em>phonetically</em> near Montréal but several edits away.</p>
+    <p><strong>Phonetic matching</strong> — Metaphone-style encoding — collapses words to how they <em>sound</em>. "Montreal" and "Munreal" encode to the same key. Weak for typos of the visual kind; strong for exactly the STT failure mode.</p>
+    <p>The production matcher (<code>app/services/city_matching.py</code>) is a <strong>hybrid</strong>: normalize (strip accents, lowercase), try exact, then phonetic, then fuzzy, and produce a <em>score</em>, not a boolean. The score feeds the band logic below. Both extra libraries are <strong>optional dependencies with graceful degradation</strong> — if the phonetic lib is missing, the matcher falls back to fuzzy-only rather than crashing the route (Session 9's "fail-open initialization" principle).</p>
+  </details>
+
+  <details open>
+    <summary>3 · Confidence banding — three zones, and the gate/ranker law</summary>
+    <p>A score alone is useless until you decide what to <em>do</em> at each level. The banded decision function has three zones:</p>
+    <table>
+      <thead><tr><th>Band</th><th>Score</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Accept</td><td>High</td><td>Proceed silently — confirming "did you say Montréal?" on an obvious match wastes the caller's time</td></tr>
+        <tr><td>Confirm</td><td>Middle</td><td>Return a <strong>disambiguation block</strong> — a JSON contract the agent's prompt knows how to speak: "Did you mean Montréal?"</td></tr>
+        <tr><td>Reject</td><td>Low</td><td>Ask again from scratch; guessing here creates confidently-wrong searches</td></tr>
+      </tbody>
+    </table>
+    <div class="callout-bug callout"><strong>🐛 Bug story (Session 12): the silent drop.</strong> The matcher <em>ranked</em> candidates with the hybrid scorer, but a separate validity <em>gate</em> upstream still used plain fuzzy matching. A city the ranker would have matched fine was discarded by the stricter gate before ranking ever ran — the agent said "no listings" for a city with listings, and nothing logged an error. <strong>The law that came out of it: a gate must never be stricter than its ranker.</strong> If two components score the same input, they must share one scoring function — the fix literally unified them into one code path.</div>
+  </details>
+
+  <details open>
+    <summary>4 · The latency budget — anatomy of a voice-agent turn</summary>
+    <p>Every turn a caller experiences is a pipeline: <strong>STT finalizes → LLM time-to-first-token → (maybe: tool call → your backend → second LLM pass) → TTS starts speaking.</strong> Session 10 budgeted it:</p>
+    <ul>
+      <li><strong>Model size is a per-turn tax</strong> — a bigger model adds TTFT to every single exchange, not just hard ones.</li>
+      <li><strong>Tool turns are the slowest</strong> — the model generates the call, waits on your HTTP endpoint, then generates again. Your backend's latency sits in the middle of a live conversation, which is why the N+1 query in a tool endpoint (fixed with a PostgREST nested embed) was a <em>caller-audible</em> bug.</li>
+      <li><strong>Dead air is the failure mode</strong> — humans tolerate ~1s of silence before "hello?". Two tools exist for bridging: <strong>request-start filler messages</strong> (deterministic phrases VAPI speaks the moment a tool call starts — "let me check that for you") and prompt-level acknowledgment habits. Fillers are configuration, not model behavior, so they never fail to fire.</li>
+    </ul>
+    <div class="callout-bug callout"><strong>🐛 Bug story (Session 17): the promise that never ran.</strong> The prompt told the agent to say a filler phrase <em>and then</em> call the tool. The model said the phrase… and considered its turn complete. No tool call, permanent silence — the caller and agent each waiting for the other. Fix: prompt must command the tool call <strong>in the same turn</strong> ("say X <em>while calling</em> the tool" → use request-start messages instead of asking the model to sequence it). A voice conversation has a turn-taking floor: whoever holds it must either speak or yield — a skipped tool call holds it forever.</div>
+  </details>
+
+  <details open>
+    <summary>5 · Language discipline — locks, register, and handing the model the line</summary>
+    <p>Bilingual calling surfaced a family of failures with one root: <strong>the model treats language as a suggestion unless you make it structural.</strong></p>
+    <ul>
+      <li><strong>Register drift (Session 13):</strong> mid-call, French slid from formal <em>vous</em> to informal <em>tu</em> and grammar degraded. LLMs drift when asked to <em>generate</em> French continuously. The fix: <strong>hand the model the line</strong> — put exact French sentence templates in the prompt for the fixed questions, so the model recites rather than translates. Recitation can't drift.</li>
+      <li><strong>The static-string leak (Session 11):</strong> a hardcoded English filler string played during French calls, because a static config value can't respect a per-call language lock. Anything spoken must either be per-language configured or generated under the lock — never a shared constant.</li>
+      <li><strong>The handoff gate (Session 14):</strong> when the complaint agent hands off to a French flow, the language decision must be made <em>once, explicitly, at the gate</em> — and everything downstream (prompt, first message, fillers) derives from it. Distributed language decisions disagree with each other.</li>
+    </ul>
+  </details>
+
+  <details open>
+    <summary>6 · Handoff mechanics — who speaks first, and why silence happened</summary>
+    <p>Session 15's incident: after handoff to the French assistant, ~6 seconds of silence. Three findings that generalize:</p>
+    <ul>
+      <li><strong>firstMessage modes matter.</strong> VAPI assistants can speak a fixed first message, generate one, or wait for the user. A <em>generated</em> first message after handoff means cold-start LLM latency before anyone speaks — into a call that just went quiet. The fix was a <strong>static first message</strong>: instant, deterministic, correct-register French.</li>
+      <li><strong>Context leakage:</strong> carrying the full prior conversation into the new assistant made it "continue" instead of greeting — sometimes concluding it had nothing to say. Scope what crosses the handoff.</li>
+      <li><strong>Non-determinism means one good test call proves nothing.</strong> Call one worked, call two didn't — temperature guarantees variance. Test conversational changes multiple times before declaring victory.</li>
+    </ul>
+  </details>
+
+  <details open>
+    <summary>7 · Language models have no clock — inject time as data</summary>
+    <p>A caller asks "can I view it tomorrow at 3?" — and the model has no idea what "tomorrow" is. It will confidently guess. Session 12's fix: the backend stamps <strong>Montréal-local current datetime</strong> (via <code>zoneinfo</code>/tzdata — DST-correct) onto every relevant tool response, and a <code>variableExtractionPlan</code> exposes it to the model as a variable it can reference. <strong>Generalization: anything the model must be right about (time, prices, availability) must arrive as data in-context — never from its priors.</strong></p>
+  </details>
+
+  <details open>
+    <summary>8 · Dynamic call routing — memory + a router endpoint</summary>
+    <p>Session 18 closed the loop: instead of every caller getting the English agent and opting into French per call, the system <em>remembers</em>. The pieces:</p>
+    <ul>
+      <li><strong>The memory cell:</strong> <code>tenants.preferred_language</code> (migration 032, Module 27), write-once.</li>
+      <li><strong>Preference capture via URL tagging:</strong> the French assistant's verify-tool URL carries a <code>lang=fr</code> tag, so the backend knows the answered language from <em>which endpoint variant was called</em> — a deterministic signal — rather than asking the LLM to report what language it heard (an unreliable one).</li>
+      <li><strong>The routing brain:</strong> <code>/leasing/voice/inbound-router</code> looks up the caller's number → tenant → preferred language, and returns which assistant takes the call. Outbound calls consult the same function — one brain, two directions.</li>
+      <li><strong>Migration-tolerant + ordered deploy:</strong> the whole feature shipped in the four-step order from Module 27, and every read of the new column was tolerant, so no step could break live calls.</li>
+    </ul>
+  </details>
+
+  <h2 id="walkthrough">Section 3 — The Build, Session by Session</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <p>Read this as a build order — if you were recreating v2 from scratch, this is the sequence, and each step's lesson is what you'd carry forward. (Each session has a full standalone lesson file — <code>sessions.html</code> indexes them — this is the connective tissue.)</p>
+
+  <div class="timeline">
+    <h4>Session 8 — Diagnose before designing</h4>
+    <p>Complaints: the agent paused awkwardly ("one moment…") and mis-heard cities. Built the evidence base first: transcript forensics, a garble corpus, a designed-vs-observed flow comparison. Only then designed the fix family and chose banded confirmation (B2) over always-confirm (A1) and reject-only (B1). <em>Lesson: the diagnosis document is a deliverable — it's what makes the design defensible.</em></p>
+    <h4>Session 9 — Ship the hybrid matcher</h4>
+    <p>Implemented normalize→exact→phonetic→fuzzy with score bands, the JSON disambiguation contract, tool schema + prompt updates, corpus tests, pinned deps, and a dry-run-then-deploy pipeline. Made the new libraries optional with graceful fallback. <em>Lesson: a matcher is a contract between backend and prompt — ship both sides together.</em></p>
+    <h4>Session 10 — Buy back latency</h4>
+    <p>Latency budget analysis; fixed an N+1 with a nested embed; tightened prompts (a reworded question <em>is</em> a product change); gated the risky model swap behind evidence; wrote a rollback snapshot before touching shared config. <em>Lesson: in shared-config systems, know your blast radius and pre-write your rollback.</em></p>
+    <h4>Session 11 — Leads must survive anything</h4>
+    <p>Missing leads investigation. Fixed tolerant matching for size fields, then built <strong>defense in depth for lead capture: three independent layers</strong> (during-call tool write, end-of-call webhook extraction, direct capture endpoint) so no single mechanism owns critical data. Also: killed a function-name collision hypothesis with evidence, retracted a wrong "corruption" theory after byte-level verification. <em>Lesson: for revenue-critical data, redundancy beats elegance; and hypotheses get falsified, not assumed.</em></p>
+    <h4>Session 12 — Unify the gate, teach it the time</h4>
+    <p>The silent-drop fix (gate = ranker, one scoring path) and the Montréal clock injection with <code>variableExtractionPlan</code>. <em>Lesson: duplicate scoring logic will eventually disagree — and the disagreement will be silent.</em></p>
+    <h4>Sessions 13–15 — French that stays French</h4>
+    <p>Register lock via handed lines (13); the handoff language gate — decide once, derive everything (14); the dead-air fix — static first message, scoped context, and re-testing under non-determinism (15). All three were <strong>prompt/config-only deploys</strong> — no backend release needed, which is its own architectural win (see Section 4). <em>Lesson: language behavior is engineered, not requested.</em></p>
+    <h4>Session 18 — Close the loop with memory</h4>
+    <p>Preference memory + dynamic routing, shipped across four systems in strict order. <em>Lesson: when a feature spans systems, the deploy plan is part of the design.</em></p>
+  </div>
+
+  <h2 id="design">Section 4 — Why This Design</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <h3>Decision: Banded confirmation (B2) vs. the alternatives</h3>
+  <table>
+    <thead><tr><th>Option</th><th>Behavior</th><th>Why / why not</th></tr></thead>
+    <tbody>
+      <tr><td>A1 — always confirm</td><td>Repeat every city back</td><td>Safe but maddening — doubles turn count on the happy path; callers hang up on robots that confirm the obvious</td></tr>
+      <tr><td>B1 — hard threshold</td><td>Match or re-ask, never confirm</td><td>Wastes the middle band — cases where one clarifying question would have saved the call</td></tr>
+      <tr><td><strong>B2 — three bands (chosen)</strong></td><td>Accept / confirm / reject by score</td><td>Spends caller patience exactly where uncertainty lives; the confirm band is also your telemetry for tuning thresholds later</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Decision: Separate EN/FR assistants + router vs. one bilingual assistant</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>Per-language assistants, routed by stored preference (chosen)</td><td>Each assistant's prompt, first message, fillers, and templates are single-language — the entire drift/leak bug family becomes structurally impossible; transcriber can be tuned per language</td><td>N×languages assistants to provision and keep in sync — the provisioning scripts (Module 12's discipline) carry the weight</td></tr>
+      <tr><td>One bilingual assistant</td><td>One config</td><td>Every string is a potential wrong-language leak; register control twice as hard; the transcriber must guess the language per utterance</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Decision: Deterministic mechanisms over model behavior, wherever stakes are high</h3>
+  <table>
+    <thead><tr><th>Concern</th><th>Deterministic mechanism (chosen)</th><th>Rejected model-dependent alternative</th></tr></thead>
+    <tbody>
+      <tr><td>Filler speech during tool calls</td><td>request-start messages (config)</td><td>“Remember to say something before calling tools” (prompt)</td></tr>
+      <tr><td>Which language the caller answered in</td><td>URL tag on the tool endpoint</td><td>Asking the model to report the language it heard</td></tr>
+      <tr><td>First words after handoff</td><td>Static firstMessage</td><td>Generated greeting (cold-start latency + variance)</td></tr>
+      <tr><td>Lead data reaching the DB</td><td>Three redundant capture layers</td><td>Trusting the one in-call tool invocation</td></tr>
+      <tr><td>Current date/time</td><td>Backend-stamped Montréal clock</td><td>The model's guess</td></tr>
+    </tbody>
+  </table>
+  <div class="callout-key callout"><strong>🔑 The meta-pattern of the entire module:</strong> every hardening step moved something from "the model usually does this" to "the system always does this." Prompts are for judgment; configuration and code are for guarantees. When a failure repeats, ask which side of that line the mechanism is on — and move it.</div>
+
+  <h2 id="data-flow">Section 5 — How It Connects</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <div class="diagram">Caller dials ──► VAPI number ──► /leasing/voice/inbound-router
+                                     │ tenant lookup (flat-anchored, M27)
+                          ┌──────────┴──────────┐
+                          ▼ preferred=en/None    ▼ preferred=fr
+                     EN assistant           FR assistant (static 1st msg,
+                          │                  register-locked templates)
+                          │  tools: find-units / search-listings / capture-lead
+                          ▼
+                /leasing endpoints (M16)
+                  │ city_matching hybrid score → band → maybe disambiguation JSON
+                  │ Montréal clock stamped on responses
+                  ▼
+                lease_leads (3-layer capture) ──► LeasingTab UI (M24)
+                          │
+                          ▼
+                /leasing/voice/lease-eoc-webhook (end-of-call, M11 rules apply)</div>
+
+  <h2 id="running">Section 6 — Running &amp; Testing</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <p>The matcher has a real test suite — run it first, it's the fastest signal:</p>
+  <pre><code>cd backend
+python -m pytest ../tests/test_city_matching.py -v
+<span class="cm"># the corpus tests: garbled inputs → expected city + expected band</span></code></pre>
+  <p>Exercise the banded behavior through the actual endpoint (no auth on agent-facing routes):</p>
+  <pre><code>curl "http://localhost:8000/leasing/find-units?city=Munreal"
+<span class="cm"># expected: 200; either matched-as-Montréal results (accept band)</span>
+<span class="cm"># or a disambiguation block (confirm band) — never a 500, never silence</span></code></pre>
+  <p>Agent config changes deploy through the two-stage pipeline (fully covered in Module 29):</p>
+  <pre><code>python backend/scripts/update_lease_agents.py --dry-run   <span class="cm"># diff only</span>
+python backend/scripts/update_lease_agents.py             <span class="cm"># push to all assistants</span></code></pre>
+  <table>
+    <thead><tr><th>Symptom</th><th>Likely cause</th><th>Where to look</th></tr></thead>
+    <tbody>
+      <tr><td>Agent says "no listings" for a city that has them</td><td>A gate stricter than the ranker (regression of the Session-12 bug)</td><td>Confirm one shared scoring path; run the corpus tests</td></tr>
+      <tr><td>Dead air after a question</td><td>Prompt promised speech + tool in sequence; model stopped after speech</td><td>request-start messages; prompt's tool-call phrasing</td></tr>
+      <tr><td>English phrase in a French call</td><td>A static string outside the language derivation</td><td>Per-language config in <code>vapi_agent_config.py</code></td></tr>
+      <tr><td>Wrong dates for "tomorrow"</td><td>Clock injection missing from a new tool response</td><td>Montréal timestamp stamping + variableExtractionPlan</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="checkpoint">Section 7 — Checkpoint ✓</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7"><label for="chk-s7">Mark complete</label></div>
+  <div class="card-success">
+    <h3>Prove the three bands with three inputs</h3>
+    <p>Hit <code>/leasing/find-units</code> (or run the matcher in a Python shell) with: (1) <code>Montreal</code> — exact/accept; (2) a corpus garble like <code>Munreal</code> — accept or confirm with the right candidate; (3) garbage like <code>Xyzzyville</code> — reject, no guessed city.</p>
+    <p><strong>Success:</strong> three inputs, three different behaviors, zero errors — and you can say which band each landed in and why. If you can also point to the single function where gate and ranker share their score, you've absorbed the module's hardest-won lesson.</p>
+  </div>
+
+  <h2 id="exercises">Section 8 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s8"><label for="chk-s8">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Extend the garble corpus</summary>
+    <p><strong>Problem:</strong> Add three plausible STT mis-hearings for "Longueuil" (say them aloud with an anglophone accent — that's the generator) to the corpus test data, assert the expected match, and run the suite.</p>
+    <details><summary>Solution sketch</summary><p>Candidates like <code>"long gay"</code>, <code>"lawn gale"</code>, <code>"longay"</code>. Add to the corpus entries in <code>tests/test_city_matching.py</code> (follow the existing structure), run pytest. If one lands in reject, that's a finding, not a failure — decide whether the matcher should stretch (phonetic key tweak) or the band is correctly refusing. Document whichever you conclude — that judgment call is the exercise.</p></details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Threshold tuning with a confusion mindset</summary>
+    <p><strong>Problem:</strong> Product wants fewer "did you mean…?" confirmations. You could widen the accept band. Using the corpus, describe how you'd measure what that change trades away before shipping it.</p>
+    <details><summary>Solution</summary><p>Run every corpus entry through the scorer and bucket by band at the current and proposed thresholds. The entries that move from <em>confirm</em> to <em>accept</em> split into: correctly-matched (pure win) and wrongly-matched (now a <strong>silent wrong search</strong> — the worst outcome, worse than a confirmation). Count both. Ship only if the wrong-accept count is zero on the corpus, and add the moved entries as regression pins. The general form: <em>never tune a threshold without a labeled set on both sides of it</em> — the corpus (Session 8's artifact) is exactly that set. Note the asymmetry: an unnecessary confirmation costs 3 seconds; a wrong accept costs the whole call's trust.</p></details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Add Spanish without re-fighting the war</summary>
+    <p><strong>Problem:</strong> Spanish support is requested. Using this module's patterns, write the design (no code): what gets created, what gets extended, and which five deterministic mechanisms from Section 4 must exist in Spanish form before the first test call.</p>
+    <details><summary>Solution</summary>
+      <ol>
+        <li><strong>Create:</strong> an ES assistant (per-language, not bilingual) with ES-tuned transcriber; static ES firstMessage; ES request-start fillers; handed-line ES templates for the fixed questions (usted register — decide once, at the gate).</li>
+        <li><strong>Extend:</strong> migration widens the <code>preferred_language</code> CHECK to <code>('en','fr','es')</code> (Module 27 conventions — and note the deploy order: migration → tolerant backend → assistant → router flip); the verify-tool URL tagging gains <code>lang=es</code>; the router's language map gains a branch.</li>
+        <li><strong>Unchanged by design:</strong> city matching (language-independent phonetics may need corpus entries from Spanish-accented garbles — new corpus rows, same machinery), the clock injection, the three lead layers, gate=ranker.</li>
+        <li><strong>Test plan:</strong> corpus additions first, then multiple live calls (non-determinism rule from Session 15), then the write-once preference check: an ES answer must not overwrite an existing FR record.</li>
+      </ol>
+      <p><strong>What's being tested:</strong> recognizing that Sessions 8–18 built <em>machinery</em>, not French support — a third language is configuration plus corpus, and if any step requires new architecture, that's a smell you missed a pattern.</p>
+    </details>
+  </details>
+
+  <h2 id="glossary">Section 9 — Glossary</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s9"><label for="chk-s9">Mark complete</label></div>
+  <table>
+    <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td>Garble corpus</td><td>Curated list of real/synthetic STT mis-hearings used as the matcher's regression test set</td></tr>
+      <tr><td>Hybrid matcher</td><td>normalize → exact → phonetic (Metaphone) → fuzzy (RapidFuzz), producing a score</td></tr>
+      <tr><td>Confidence band</td><td>Score range mapped to a behavior: accept / confirm / reject</td></tr>
+      <tr><td>Gate/ranker law</td><td>A validity gate must never score more strictly than the ranker behind it — share one scoring function</td></tr>
+      <tr><td>Disambiguation block</td><td>JSON contract on tool responses that tells the agent to ask "did you mean X?"</td></tr>
+      <tr><td>TTFT</td><td>Time to first token — the LLM latency paid on every conversational turn</td></tr>
+      <tr><td>request-start message</td><td>VAPI config: deterministic filler spoken the instant a tool call begins</td></tr>
+      <tr><td>Register (T–V)</td><td>Formal vs. informal address (vous/tu); locked by handing the model exact lines</td></tr>
+      <tr><td>firstMessage mode</td><td>Whether an assistant speaks a fixed line, generates one, or waits — decisive after handoffs</td></tr>
+      <tr><td>Context leakage</td><td>Prior-conversation carryover making a handed-off assistant "continue" instead of greeting</td></tr>
+      <tr><td>URL tagging</td><td>Encoding a fact (language) in which endpoint variant a tool calls — deterministic preference capture</td></tr>
+      <tr><td>variableExtractionPlan</td><td>VAPI mechanism exposing response fields to the model as named variables (the Montréal clock rides it)</td></tr>
+      <tr><td>Defense in depth (leads)</td><td>Three independent capture layers so no single mechanism owns revenue-critical data</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="resources">Section 10 — Resources</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s10"><label for="chk-s10">Mark complete</label></div>
+  <div class="resource-grid">
+    <div class="resource-card"><h4>RapidFuzz</h4>
+      <a href="https://rapidfuzz.github.io/RapidFuzz/" target="_blank" rel="noopener">RapidFuzz docs</a>
+      <p>ratio vs. partial_ratio vs. token_sort_ratio — pick per failure mode, not by default.</p></div>
+    <div class="resource-card"><h4>Phonetic algorithms</h4>
+      <a href="https://en.wikipedia.org/wiki/Metaphone" target="_blank" rel="noopener">Metaphone family</a>
+      <p>How sound-alike encoding works and where it breaks (non-English phonology — relevant to Québécois names).</p></div>
+    <div class="resource-card"><h4>VAPI assistant config</h4>
+      <a href="https://docs.vapi.ai/assistants" target="_blank" rel="noopener">Assistants docs</a>
+      <a href="https://docs.vapi.ai/tools/custom-tools" target="_blank" rel="noopener">Custom tools</a>
+      <p>firstMessage modes, tool messages (request-start), and the tool schema contract.</p></div>
+    <div class="resource-card"><h4>Time zones done right</h4>
+      <a href="https://docs.python.org/3/library/zoneinfo.html" target="_blank" rel="noopener">zoneinfo</a>
+      <a href="https://data.iana.org/time-zones/tz-link.html" target="_blank" rel="noopener">IANA tz database</a>
+      <p>America/Toronto vs. fixed offsets — the DST correctness behind the Montréal clock.</p></div>
+    <div class="resource-card"><h4>Voice UX latency</h4>
+      <a href="https://docs.vapi.ai/how-vapi-works" target="_blank" rel="noopener">How VAPI works (pipeline)</a>
+      <p>The STT→LLM→TTS pipeline whose sum is your caller's silence budget.</p></div>
+    <div class="resource-card"><h4>The session lessons</h4>
+      <a href="sessions.html">sessions.html (local index)</a>
+      <p>Every session distilled here has a full standalone lesson with complete code diffs and bug journals — this module is the map, those are the territory.</p></div>
+  </div>
+
+  <h2 id="whats-next">Section 11 — What's Next</h2>
+  <p>Module 29 covers how all of this ships and stays shipped: the dry-run deploy pipeline, config snapshots and rollback, the test pyramid, forensic debugging technique, and production smoke testing.</p>
+
+  <div class="nav-buttons">
+    <a href="module_27_rls_ownership_migrations.html" class="nav-btn">← Module 27: Ownership &amp; Migrations</a>
+    <a href="module_29_deploy_testing_operations.html" class="nav-btn">Module 29: Production Operations →</a>
+  </div>
+</div></div>
+
+<script>
+  const saved = localStorage.getItem('theme');
+  if (saved) { document.documentElement.setAttribute('data-theme', saved); }
+  const toggle = document.getElementById('themeToggle');
+  toggle.textContent = (document.documentElement.getAttribute('data-theme') === 'dark') ? '🌙' : '☀️';
+  toggle.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '🌙' : '☀️';
+  });
+  const tocDiv = document.getElementById('toc');
+  document.querySelectorAll('h2[id]').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent.replace(/^Section \d+ — /, '');
+    tocDiv.appendChild(a);
+  });
+  const obs = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+      const act = document.querySelector('.sidebar a[href="#' + e.target.id + '"]');
+      if (act) act.classList.add('active');
+    }
+  }), { rootMargin: '-15% 0px -75% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => obs.observe(h));
+  const boxes = document.querySelectorAll('.section-check input');
+  const KEY = 'mod28-checks';
+  const state = JSON.parse(localStorage.getItem(KEY) || '{}');
+  boxes.forEach((b, i) => {
+    if (state[i]) b.checked = true;
+    b.addEventListener('change', () => {
+      boxes.forEach((c, j) => state[j] = c.checked);
+      localStorage.setItem(KEY, JSON.stringify(state));
+      upd();
+    });
+  });
+  function upd() {
+    const n = [...boxes].filter(b => b.checked).length;
+    document.getElementById('progressFill').style.width = (n / boxes.length * 100) + '%';
+  }
+  upd();
+</script>
+</body>
+</html>

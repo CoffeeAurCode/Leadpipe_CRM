@@ -70,7 +70,7 @@
   <div class="meta">
     <span class="badge badge-session">Session 6</span>
     <span class="badge badge-part">Part F — Frontend Advanced</span>
-    <span>Module 25 of 26</span>
+    <span>Module 25 of 29</span>
   </div>
   <h1>Module 25 — Chatbot UI & Outbound Calls</h1>
   <p>Two FAB (Floating Action Button) components anchored to the bottom-right of the screen. The chatbot enables natural-language management of tenants and appointments. The outbound call button triggers VAPI calls to tenants or lease prospects.</p>
@@ -395,7 +395,54 @@ refresh_needed = last_tool_called <span class="kw">in</span> refresh_tools
     </div>
   </details>
 
-  <div class="nav-links">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Why This Design</h2>
+
+
+<h3>Decision: FAB overlay widget vs. a dedicated chat page</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Floating action button + overlay panel (chosen)</td><td>The bot's value is acting on whatever page you're viewing (“create a complaint for flat 101” while looking at complaints); context never lost; conversation survives page navigation because the widget doesn't unmount</td><td>Overlay z-index/focus management; small viewport real estate on mobile</td></tr>
+<tr><td>Dedicated /chat route</td><td>Full-screen room for history</td><td>Forces a context switch away from the data being discussed — kills the assistant use-case</td></tr>
+</tbody>
+</table>
+<h3>Decision: Rendering bot output with ReactMarkdown</h3>
+<p>The model emits markdown (lists, bold, tables). <code>react-markdown</code> renders it WITHOUT <code>dangerouslySetInnerHTML</code> — it parses to a React element tree, so script injection via model output isn't possible by default. Never switch this to raw HTML rendering to “fix” formatting; that converts a formatting bug into an XSS surface.</p>
+<div class="bf-insight"><strong>Senior takeaway:</strong> the <code>refresh_needed</code> contract makes the chatbot a first-class mutator: backend tools report whether they changed data, the widget bubbles that to the app, lists refetch. The frontend never guesses what changed — it's told. When you add a new mutating tool, setting <code>refresh_needed</code> is part of the definition of done.</div>
+<h3>Decision: E.164 validation on both sides</h3>
+<p>The outbound-call button validates phone format client-side (instant feedback, no wasted call) AND the backend validates again (never trust the client — other consumers exist). Duplicated validation of external-facing invariants isn't DRY violation; it's defense in depth.</p>
+<h2 id="bf-checkpoint">Checkpoint ✓</h2>
+
+<div class="bf-card">
+<p>Three contracts to verify:</p>
+<ol>
+<li><strong>Markdown rendering:</strong> ask the bot something that returns a list (“list my buildings”). <strong>Expected:</strong> a formatted bullet list, not literal asterisks. Then check the DOM — no <code>dangerouslySetInnerHTML</code> in the message elements.</li>
+<li><strong>refresh_needed:</strong> with the complaints page visible, tell the bot to create a complaint. <strong>Expected:</strong> the new card appears in the list without a manual refresh.</li>
+<li><strong>E.164 gate:</strong> try an outbound call with <code>9876543210</code> (no +country code). <strong>Expected:</strong> blocked client-side with a clear message; with a valid <code>+91…</code> number the call POSTs to the backend.</li>
+</ol></div>
+<h2 id="bf-resources">Resources</h2>
+
+<div class="bf-res"><div><h4>react-markdown</h4><a href="https://github.com/remarkjs/react-markdown" target="_blank" rel="noopener">react-markdown</a><p>The security section explains exactly why it's safe by default — read it before ever customizing renderers.</p></div><div><h4>XSS fundamentals</h4><a href="https://owasp.org/www-community/attacks/xss/" target="_blank" rel="noopener">OWASP — XSS</a><p>What you're protected from as long as model output never meets innerHTML.</p></div><div><h4>Phone validation</h4><a href="https://www.npmjs.com/package/libphonenumber-js" target="_blank" rel="noopener">libphonenumber-js</a><p>The library to reach for when regex validation of E.164 stops being enough.</p></div><div><h4>Scroll anchoring</h4><a href="https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollIntoView" target="_blank" rel="noopener">MDN — scrollIntoView</a><p>The bottom-ref auto-scroll pattern the message list uses.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-links">
     <a href="module_24_voice_leasing_ui.html" class="nav-btn">← Module 24: Voice Stats & Leasing</a>
     <a href="module_26_settings_onboarding.html" class="nav-btn">Module 26: Settings & Onboarding →</a>
   </div>

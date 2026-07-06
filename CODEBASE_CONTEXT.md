@@ -689,6 +689,8 @@ Common to all lease webhooks:
 - `_apply_mapping(rows, mapping)` — renames row keys per `{original: target}` dict; drops null-mapped columns
 - `_map_columns_with_ai(headers, sample_rows, import_type)` — async; calls `AsyncOpenAI` with headers + 3 sample rows + schema descriptions; sanitizes response to only allow valid target columns; falls back to `{header: None}` on any exception
 
+**Phone normalization:** both tenant-creation paths (`/import/tenants` rows and `/import/properties` rows carrying `tenant_name`/`tenant_phone`) normalize the phone to E.164 via `normalize_phone_e164` (`app/core/phone.py`) before INSERT; rows whose phone can't be normalized are reported in `errors` and skipped (the unit itself is still created on the properties path). Raw phones like `514-555-0130` previously reached the DB and broke `GET /tenants` serialization.
+
 ---
 
 ### `/upload` — `routes/upload.py`
@@ -765,7 +767,10 @@ Extends `FlatBase` with: `id`, `uuid`, `created_at`, `image_url`, `tenant_uuid`,
 Non-vacant/non-enriched responses leave building_name/property_name as `null`.
 
 ### `app/schemas/tenant.py`
-Includes a Pydantic `field_validator` on `phone` enforcing E.164 format (`^\+[1-9]\d{9,14}$`). Raises `ValueError` on invalid input, surfaced as HTTP 422.
+Phone validation is **write-only by design**: `TenantCreate` and `TenantUpdate` carry a Pydantic `field_validator` on `phone` that **normalizes then validates** via `normalize_phone_e164` (`app/core/phone.py`) — strips separators, `00` prefix → `+`, bare 10-digit numbers assumed NANP (`+1`), 11+ digits assumed to include a country code; unnormalizable input raises `ValueError` (HTTP 422). `TenantBase`/`TenantResponse` deliberately have **no** phone validator so responses faithfully return stored rows — do NOT add validators to `TenantBase`: they would run on response serialization and one dirty DB row would 500 the whole `GET /tenants` (`ResponseValidationError` — caused the July 2026 "Failed to load tenants" bug; data repaired by `scripts/backfills/backfill_tenant_phones_e164.sql`).
+
+### `app/core/phone.py`
+`normalize_phone_e164(raw) -> str | None` + `E164_RE`. Single source of truth for phone normalization; used by the tenant schemas, `import_routes.py` (both tenant-creation paths), and `flats.py` `create_flat`. Every path that writes `tenants.phone` must normalize through it.
 
 ### `app/schemas/leasing.py`
 - `CustomRules` — JSONB config: `max_occupants`, `income_required`, `pets_allowed`, `vegetarian_only`, `lease_term_months`, `custom_question`

@@ -61,7 +61,7 @@
   <div class="meta">
     <span class="badge badge-session">Session 6</span>
     <span class="badge badge-part">Part F — Frontend Advanced</span>
-    <span>Module 26 of 26</span>
+    <span>Module 26 of 29</span>
   </div>
   <h1>Module 26 — Settings, Notifications, Onboarding & SMS Broadcast</h1>
   <p>The final module covers four interconnected systems: the hierarchical feature-flag settings page, the SMS broadcast workflow with template CRUD, the onboarding checklist with sequential unlocking, and the React Context that tracks completion in both localStorage and Supabase.</p>
@@ -471,9 +471,62 @@ localStorage.setItem(key, <span class="fn">JSON.stringify</span>(next));   <span
     <strong>Congratulations!</strong> You've completed all 27 modules of the Tenant Management MVP learning series. You've covered: FastAPI + Supabase backend, JWT auth, Stripe subscriptions, VAPI voice integration, AI chatbot with tool calling, and a complete React 18 frontend with all its advanced patterns.
   </div>
 
-  <div class="nav-links">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Why This Design</h2>
+
+
+<h3>Decision: <code>pendingChanges</code> diff-and-save vs. autosave per field</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Accumulate a diff, one explicit Save (chosen)</td><td>One PATCH containing only changed keys — trivially auditable in the Network tab; user can back out of half-finished edits; settings that interact (SMS enabled + template) commit together</td><td>Unsaved-changes state must be tracked and signposted; a navigation guard becomes necessary</td></tr>
+<tr><td>Autosave on every toggle</td><td>Nothing to forget</td><td>A mis-click on “disable notifications” takes effect instantly; N requests for N toggles; interacting settings can commit in a broken intermediate state</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> autosave suits low-stakes, independent fields (a notes box); explicit save suits consequential, interacting configuration. Settings that change how the business communicates with tenants are consequential. Match the save model to the blast radius.</div>
+<h3>Decision: Dual persistence for onboarding (localStorage + DB)</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>localStorage for step position, DB for completion (chosen)</td><td>Mid-flow refreshes resume instantly with zero API chatter; the DB records the fact that matters long-term (finished or not) and survives device switches</td><td>Two sources of truth need a reconciliation rule (DB wins on conflict)</td></tr>
+<tr><td>DB-only</td><td>One source of truth</td><td>A write per wizard click; latency on every step</td></tr>
+<tr><td>localStorage-only</td><td>Zero backend</td><td>New device = onboarding replays for a veteran user; support can't see who finished</td></tr>
+</tbody>
+</table>
+<h2 id="bf-checkpoint">Checkpoint ✓</h2>
+
+<div class="bf-card">
+<p>Verify the diff mechanics and onboarding resilience:</p>
+<ol>
+<li>Change exactly TWO settings, hit Save with the Network tab open. <strong>Expected:</strong> ONE PATCH whose body contains exactly those two keys — not the whole settings object.</li>
+<li>Change a setting, navigate away without saving, come back. <strong>Expected:</strong> the change is gone (or you were warned) — either is correct, silent persistence is not.</li>
+<li>Start onboarding, advance two steps, hard-refresh (F5). <strong>Expected:</strong> you resume at step three, not step one (localStorage working).</li>
+<li>Complete onboarding, then clear localStorage and reload. <strong>Expected:</strong> onboarding does NOT replay — completion came from the DB (the reconciliation rule working).</li>
+</ol></div>
+<h2 id="bf-resources">Resources</h2>
+
+<div class="bf-res"><div><h4>localStorage patterns</h4><a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API" target="_blank" rel="noopener">MDN — Web Storage API</a><p>Limits, JSON serialization, and the multi-tab storage event.</p></div><div><h4>Controlled forms</h4><a href="https://react.dev/learn/reacting-to-input-with-state" target="_blank" rel="noopener">React — reacting to input with state</a><p>The state model under the settings form and its pendingChanges diff.</p></div><div><h4>SMS templates</h4><a href="https://www.twilio.com/docs/content" target="_blank" rel="noopener">Twilio — message templates &amp; variables</a><p>Where template thinking goes when it outgrows simple string substitution.</p></div><div><h4>Unsaved-changes guards</h4><a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeunload_event" target="_blank" rel="noopener">MDN — beforeunload</a><p>The escape-hatch warning for dirty forms — and its mobile-browser caveats.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-links">
     <a href="module_25_chatbot_outbound.html" class="nav-btn">← Module 25: Chatbot & Outbound Calls</a>
-    <a href="index.html" class="nav-btn">Back to Index →</a>
+    <a href="module_27_rls_ownership_migrations.html" class="nav-btn">Module 27: Ownership, RLS & Migrations →</a>
   </div>
 
 </div>

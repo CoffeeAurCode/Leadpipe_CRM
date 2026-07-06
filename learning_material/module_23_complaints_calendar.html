@@ -66,7 +66,7 @@
   <div class="meta">
     <span class="badge badge-session">Session 6</span>
     <span class="badge badge-part">Part F — Frontend Advanced</span>
-    <span>Module 23 of 26</span>
+    <span>Module 23 of 29</span>
   </div>
   <h1>Module 23 — Complaints & Appointments UI</h1>
   <p>This module builds the complaints card grid with filters and the calendar view that overlays both appointments and complaints. Key patterns: <code>useMemo</code> for filtered lists, custom calendar grid math, slide-over event panel, and cross-linked detail modals.</p>
@@ -356,7 +356,53 @@ window.dispatchEvent(<span class="kw">new</span> <span class="fn">Event</span>(<
     </div>
   </details>
 
-  <div class="nav-links">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Why This Design</h2>
+
+
+<h3>Decision: Hand-built month grid vs. a calendar library</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Custom CSS-grid month view with date-fns (chosen)</td><td>The need is exactly one month grid with appointment chips — ~100 lines; full styling control matches the app's design; date-fns already in the bundle</td><td>Week views, drag-to-reschedule, and recurring events would all be from-scratch work</td></tr>
+<tr><td>react-big-calendar / FullCalendar</td><td>Week/day/agenda views, drag &amp; drop free</td><td>Heavy dependency; wrestling its CSS to match the app's theme takes as long as building the month grid; localization/timezone config becomes your problem anyway</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> the build-vs-buy line for UI widgets is <em>feature count you'll actually use</em>. One view used = build. Three+ views or drag-and-drop = buy. Revisit the decision when requirements change; don't pre-buy flexibility.</div>
+<h3>Decision: Client-side filtering with <code>useMemo</code> vs. server filtering</h3>
+<p>Complaints for one manager number in the hundreds at most — the full list is already in memory for the card grid. Filtering that array in a <code>useMemo</code> is instant and saves a round-trip per filter click. The tenants page (Module 22) chose SERVER filtering because its filters interact with computed fields and sorting. Same app, two correct answers — the variable is where the authoritative computation lives.</p>
+<h2 id="bf-checkpoint">Checkpoint ✓</h2>
+
+<div class="bf-card">
+<p>Verify date math at the boundaries — that's where calendar bugs live:</p>
+<ol>
+<li>Create an appointment for the <strong>last day of the current month</strong> and one for the <strong>1st of next month</strong>. <strong>Expected:</strong> each appears in its own month view only.</li>
+<li>Navigate December → January. <strong>Expected:</strong> the year advances; the grid's leading/trailing filler days render dimmed, not as phantom appointments.</li>
+<li>Click a day with an appointment. <strong>Expected:</strong> the slide-over opens with that appointment's complaint context.</li>
+<li>Apply a status filter on the complaints grid and count — expected: no network request fires (client-side filter), and the count matches a manual count of matching cards.</li>
+</ol></div>
+<h2 id="bf-resources">Resources</h2>
+
+<div class="bf-res"><div><h4>date-fns for calendars</h4><a href="https://date-fns.org/docs/startOfMonth" target="_blank" rel="noopener">startOfMonth / endOfMonth</a><a href="https://date-fns.org/docs/eachDayOfInterval" target="_blank" rel="noopener">eachDayOfInterval</a><p>The three functions that generate a month grid, filler days included.</p></div><div><h4>CSS grid calendar</h4><a href="https://css-tricks.com/building-a-conference-schedule-with-css-grid/" target="_blank" rel="noopener">Building a calendar with CSS Grid</a><p>grid-template-columns: repeat(7, 1fr) and friends.</p></div><div><h4>react-big-calendar</h4><a href="https://github.com/jquense/react-big-calendar" target="_blank" rel="noopener">react-big-calendar</a><p>Read the feature list to understand what NOT building it saved — and when to reverse the call.</p></div><div><h4>useMemo filtering</h4><a href="https://react.dev/reference/react/useMemo" target="_blank" rel="noopener">React — useMemo</a><p>Memoized derivations from props/state — the filter pipeline pattern.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-links">
     <a href="module_22_tenant_management.html" class="nav-btn">← Module 22: Tenant Management</a>
     <a href="module_24_voice_leasing_ui.html" class="nav-btn">Module 24: Voice Stats & Leasing →</a>
   </div>

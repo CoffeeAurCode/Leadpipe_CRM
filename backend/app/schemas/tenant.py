@@ -3,9 +3,8 @@ from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validat
 from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
-import re
 
-_PHONE_RE = re.compile(r'^\+[1-9]\d{9,14}$')
+from app.core.phone import normalize_phone_e164
 
 
 class TenantBase(BaseModel):
@@ -14,16 +13,20 @@ class TenantBase(BaseModel):
     phone: str = Field(..., description="Tenant's phone number (unique)")
     email: Optional[str] = None
 
-    @field_validator('phone')
-    @classmethod
-    def validate_phone(cls, v):
-        if v and not _PHONE_RE.match(v):
-            raise ValueError('Phone must be E.164 format, e.g. +16135551234')
-        return v
-
 
 class TenantCreate(TenantBase):
     """Schema for creating a new tenant"""
+    # validate on write only — TenantResponse must never reject stored rows
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if not v:
+            return v
+        normalized = normalize_phone_e164(v)
+        if not normalized:
+            raise ValueError('Phone must be E.164 format, e.g. +16135551234')
+        return normalized
+
     flat_uuid: Optional[UUID] = Field(None, description="UUID of the flat this tenant lives in")
     lease_start_date: Optional[date] = None
     lease_end_date: Optional[date] = None
@@ -38,6 +41,16 @@ class TenantUpdate(BaseModel):
     name: Optional[str] = Field(None, description="Update tenant's name")
     phone: Optional[str] = Field(None, description="Update tenant's phone")
     email: Optional[str] = None
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if not v:
+            return v
+        normalized = normalize_phone_e164(v)
+        if not normalized:
+            raise ValueError('Phone must be E.164 format, e.g. +16135551234')
+        return normalized
     flat_uuid: Optional[UUID] = Field(None, description="Reassign tenant to a different flat")
     lease_start_date: Optional[date] = None
     lease_end_date: Optional[date] = None

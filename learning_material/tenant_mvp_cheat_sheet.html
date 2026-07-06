@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tenant MVP — Cheat Sheet</title>
+<style>
+  :root, :root[data-theme="dark"] {
+    --bg:#0f1117; --surface:#1a1d27; --border:#2a2d3a; --text:#e2e8f0; --muted:#94a3b8;
+    --primary:#6366f1; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --code-bg:#141720;
+  }
+  :root[data-theme="light"] {
+    --bg:#ffffff; --surface:#f8fafc; --border:#e2e8f0; --text:#1e293b; --muted:#64748b;
+    --primary:#4f46e5; --code-bg:#f1f5f9;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.55; font-size:.92rem; }
+  .container { max-width:960px; margin:0 auto; padding:2.2rem 1.5rem 5rem; }
+  h1 { font-size:1.7rem; font-weight:800; }
+  .sub { color:var(--muted); margin:.3rem 0 1.2rem; }
+  h2 { font-size:1.05rem; font-weight:700; color:var(--primary); margin:2.2rem 0 .7rem; padding-top:.6rem; border-top:1px solid var(--border); }
+  h3 { font-size:.95rem; font-weight:700; margin:1.1rem 0 .45rem; }
+  p, li { margin-bottom:.5rem; }
+  ul, ol { padding-left:1.4rem; margin-bottom:.6rem; }
+  code { background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:.06rem .3rem; font-family:Consolas,monospace; font-size:.84em; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:.8rem 1rem; overflow-x:auto; margin:.5rem 0 .9rem; }
+  pre code { background:none; border:none; padding:0; font-size:.82rem; line-height:1.55; display:block; }
+  table { width:100%; border-collapse:collapse; margin:.5rem 0 1rem; font-size:.85rem; }
+  th, td { border:1px solid var(--border); padding:.4rem .55rem; text-align:left; vertical-align:top; }
+  th { background:var(--surface); }
+  a { color:var(--primary); text-decoration:none; }
+  .toc { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.25rem .9rem; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.9rem 1.1rem; font-size:.84rem; margin-bottom:1rem; }
+  .rules { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--red); border-radius:8px; padding:.8rem 1.1rem; margin:.5rem 0 1rem; font-family:Consolas,monospace; font-size:.84rem; line-height:1.9; }
+  .theme-toggle { position:fixed; top:1rem; right:1rem; z-index:50; background:var(--surface); border:1px solid var(--border); border-radius:99px; width:2.3rem; height:2.3rem; cursor:pointer; font-size:1rem; }
+  .crumb { font-size:.82rem; color:var(--muted); margin-bottom:.9rem; }
+  @media print { .theme-toggle{display:none} body{background:#fff;color:#000;font-size:.8rem} }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+<div class="container">
+  <div class="crumb"><a href="index.html">← Course index</a> · <a href="sessions.html">Session lessons</a></div>
+  <h1>Tenant Management MVP — Cheat Sheet</h1>
+  <p class="sub">Every key rule, pattern, and decision on one page. Companion to the 30 learning modules. Markdown source of record: <code>docs/reference/WORKSHEET.md</code>.</p>
+
+  <div class="toc" id="toc"></div>
+
+  <h2 id="s1">1 · Stack at a Glance</h2>
+  <table>
+    <thead><tr><th>Layer</th><th>Tech</th><th>Key file</th></tr></thead>
+    <tbody>
+      <tr><td>Backend</td><td>FastAPI + Uvicorn</td><td><code>backend/app/main.py</code></td></tr>
+      <tr><td>Database SDK</td><td>Supabase Python SDK</td><td><code>backend/app/db/session.py</code></td></tr>
+      <tr><td>Auth</td><td>Supabase Auth (Google PKCE) + JWT</td><td><code>backend/app/dependencies/auth.py</code></td></tr>
+      <tr><td>Schemas</td><td>Pydantic V2 (<code>model_validator</code>)</td><td><code>backend/app/schemas/</code></td></tr>
+      <tr><td>AI chatbot</td><td>OpenAI <code>gpt-4o-mini</code></td><td><code>backend/app/ai/chatbot.py</code></td></tr>
+      <tr><td>AI extraction</td><td>Groq <code>llama-3.3-70b-versatile</code></td><td><code>backend/app/ai/extractor.py</code></td></tr>
+      <tr><td>Voice</td><td>VAPI.ai</td><td><code>backend/app/routes/voice.py</code>, <code>app/services/vapi_agent_config.py</code></td></tr>
+      <tr><td>City matching</td><td>Hybrid fuzzy + phonetic</td><td><code>backend/app/services/city_matching.py</code></td></tr>
+      <tr><td>SMS / Email</td><td>Twilio / SendGrid</td><td><code>backend/app/integrations/</code></td></tr>
+      <tr><td>Payments</td><td>Stripe</td><td><code>backend/app/routes/payments.py</code></td></tr>
+      <tr><td>Frontend</td><td>React 18 + Vite + Tailwind + Framer Motion</td><td><code>frontend/src/</code></td></tr>
+      <tr><td>HTTP client (FE)</td><td>authFetch wrapper</td><td><code>frontend/src/services/apiService.js</code></td></tr>
+      <tr><td>Charts / dates</td><td>Recharts / date-fns</td><td><code>frontend/src/components/dashboard/</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="s2">2 · Data Hierarchy &amp; Key FKs</h2>
+  <pre><code>PropertyGroup (properties_list)
+  └── Building (buildings)
+        └── Flat (flats)  ←→  Tenant (tenants)   [bidirectional FK]
+              └── Complaint (complaints)
+                    └── Appointment (appointments)
+              └── Rent (rents)
+        └── LeaseListing (lease_listings) → LeadPipeline (lease_leads)</code></pre>
+  <ul>
+    <li><code>flats.tenant_uuid</code> ↔ <code>tenants.flat_uuid</code> — <strong>bidirectional, must stay in sync</strong> (only via assign/unassign endpoints)</li>
+    <li><code>complaints.flat_uuid</code> → flats · <code>appointments.complaint_uuid</code> → complaints · <code>rents.flat_uuid</code> → flats</li>
+    <li><code>manager_vapi_config.manager_id</code> → auth.users (one per manager) · <code>twilio_number_pool.assigned_manager_id</code> → auth.users (nullable, UNIQUE)</li>
+    <li><code>tenants.preferred_language</code> — write-once language memory (migration 032, drives call routing)</li>
+  </ul>
+
+  <h2 id="s3">3 · Non-Negotiable Rules</h2>
+  <div class="rules">
+Rule 1 · No /api prefix on ANY route<br>
+Rule 2 · All frontend HTTP through apiService.js — never inline fetch<br>
+Rule 3 · Never use SQLAlchemy models — Supabase SDK directly<br>
+Rule 4 · User routes → get_authenticated_db · webhooks/admin → get_service_db<br>
+Rule 5 · VAPI endpoints always return HTTP 200 — never raise<br>
+Rule 6 · Pydantic V2 — model_validator / field_validator (never @validator)<br>
+Rule 7 · Groq model: llama-3.3-70b-versatile (3.1 is decommissioned)<br>
+Rule 8 · Dates: YYYY-MM-DDTHH:MM:SS (T separator) for parseISO<br>
+Rule 9 · Datetimes stored as IST (+05:30, no offset suffix)<br>
+Rule 10 · flats INSERT uses service-role client (RLS INSERT policy)<br>
+Rule 11 · A matching gate must never be stricter than its ranker — one scoring path<br>
+Rule 12 · Anything spoken on a call is per-language config or derived under the language lock — never a shared static string<br>
+Rule 13 · Flat number is a label, not a key — every flat lookup is building/manager-scoped; UUIDs are the identity
+  </div>
+
+  <h2 id="s4">4 · Auth Dependency Chain</h2>
+  <pre><code># Standard authenticated + gated route
+async def my_route(
+    db:   Client = Depends(get_authenticated_db),        # RLS-enforced
+    user: dict   = Depends(get_current_user),            # JWT payload {sub, email, role}
+    _:    None   = Depends(require_active_subscription), # Stripe gate → 403
+): ...
+
+# Webhook / admin route (no user JWT)
+async def webhook_route(svc: Client = Depends(get_service_db)): ...</code></pre>
+
+  <h2 id="s5">5 · Backend Route Map (no /api prefix)</h2>
+  <table>
+    <thead><tr><th>Router</th><th>Highlights</th></tr></thead>
+    <tbody>
+      <tr><td><code>/complaints</code></td><td>CRUD + joined appointment data</td></tr>
+      <tr><td><code>/tenants</code></td><td>CRUD, computed lease fields; VAPI: <code>/by-flat/{flat_no}</code>, <code>/by-flat-query</code></td></tr>
+      <tr><td><code>/flats</code></td><td>CRUD (svc INSERT), <code>/verify-phone</code> + <code>/identify-caller</code> (VAPI), <code>/{uuid}/assign-tenant</code> / <code>unassign-tenant</code> (bidirectional)</td></tr>
+      <tr><td><code>/appointments</code></td><td>CRUD + VAPI view/update/cancel by flat_number; soft-delete via status</td></tr>
+      <tr><td><code>/buildings</code>, <code>/property-groups</code></td><td>Hierarchy CRUD; group create triggers VAPI provisioning; <code>/property-groups/users/me/vapi-config</code> + <code>provision-voice</code></td></tr>
+      <tr><td><code>/rents</code></td><td><code>/set</code> (deactivate old, activate new), <code>/summary</code></td></tr>
+      <tr><td><code>/voice</code></td><td><code>/webhook</code> (always 200, svc DB), <code>/call-status</code>, <code>/call/outbound</code>, lease lead webhooks</td></tr>
+      <tr><td><code>/leasing</code></td><td>Manager CRUD: listings, leads, metrics, export. Agent tools (no auth, always 200): <code>find-listing</code>, <code>find-units</code>, <code>search</code>, <code>search-listings</code>, <code>listings-for-agent</code>. Routing: <code>/voice/inbound-router</code>, <code>/voice/agent-info</code>, <code>/voice/lease-eoc-webhook</code></td></tr>
+      <tr><td><code>/chat</code></td><td>{messages} → {reply, refresh_needed}</td></tr>
+      <tr><td><code>/payments</code></td><td>create-checkout-session, webhook (idempotent via stripe_events), subscription-status</td></tr>
+      <tr><td><code>/import</code></td><td><code>/analyze</code> (AI mapping preview) then <code>/properties</code> | <code>/tenants</code></td></tr>
+      <tr><td><code>/settings</code>, <code>/notifications</code>, <code>/workflow</code>, <code>/upload</code>, <code>/call-logs</code>, <code>/properties</code>, <code>/property-types</code></td><td>Settings + feature flags, test SMS/email, SMS broadcast + templates, image upload → Storage, call logs, property cards</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="s6">6 · Computed Tenant Fields (server-side only)</h2>
+  <table>
+    <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>tenancy_duration_months</code></td><td>Months since lease_start_date</td></tr>
+      <tr><td><code>lease_duration_months</code></td><td>Total lease length</td></tr>
+      <tr><td><code>remaining_time_on_lease_days</code></td><td>Days until lease_end_date</td></tr>
+      <tr><td><code>lease_status</code></td><td><code>active</code> / <code>expiring_soon</code> (≤30 days) / <code>expired</code></td></tr>
+    </tbody>
+  </table>
+  <p>Computed in <code>schemas/tenant.py</code> model_validator. The frontend <strong>never</strong> re-derives them.</p>
+
+  <h2 id="s7">7 · VAPI Patterns</h2>
+  <pre><code># Always 200 — errors are data the agent can speak
+@router.post("/flats/verify-phone")
+async def verify_phone(payload: PhonePayload):
+    try:
+        return {"status": "valid", "flat_number": flat_number}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}   # still 200
+
+# Empty-string params: VAPI sends "" for unconfirmed int/float fields
+bedrooms: Optional[str] = None      # NOT int — parse with _parse_int()
+
+# serverMessages for lease agents: ["end-of-call-report"] ONLY
+# adding "tool-calls" silently breaks all tool calling</code></pre>
+  <ul>
+    <li>Normalize all speech-derived inputs: <code>.strip().upper()</code> flat numbers, tolerant size/number parsing.</li>
+    <li>Deterministic over model-dependent: request-start fillers (not "remember to say…"), static firstMessage after handoff, URL-tagged language capture, backend-stamped Montréal clock, three redundant lead-capture layers.</li>
+    <li>City matching: normalize → exact → phonetic → fuzzy → score → band (accept / confirm / reject). Corpus tests in <code>tests/test_city_matching.py</code>.</li>
+  </ul>
+
+  <h2 id="s8">8 · Supabase Client Decision Matrix</h2>
+  <table>
+    <thead><tr><th>Situation</th><th>Client</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>User-facing CRUD</td><td><code>get_authenticated_db</code></td><td>RLS filters to the manager's data</td></tr>
+      <tr><td>VAPI / Stripe webhooks</td><td><code>get_service_db</code></td><td>No user JWT on inbound webhooks</td></tr>
+      <tr><td><code>POST /flats</code> INSERT</td><td>service-role</td><td>RLS INSERT policy rejects anon for some shapes</td></tr>
+      <tr><td>BackgroundTasks</td><td>service-role passed in</td><td>Request-scoped client dies with the response</td></tr>
+      <tr><td>Subscription checks</td><td>service-role</td><td>Reads subscriptions without RLS filter</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="s9">9 · PG Error Codes → Messages</h2>
+  <table>
+    <thead><tr><th>Code</th><th>Meaning</th><th>User message</th></tr></thead>
+    <tbody>
+      <tr><td><code>42501</code></td><td>Permission denied (RLS)</td><td>"You do not have permission…" — check policy coverage first, not auth</td></tr>
+      <tr><td><code>23505</code></td><td>Unique violation</td><td>"Already exists" (409)</td></tr>
+      <tr><td><code>23503</code></td><td>FK violation</td><td>"Related record not found" (400)</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="s10">10 · Date/Time Rules</h2>
+  <pre><code>IST = timezone(timedelta(hours=5, minutes=30))
+datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")   # "2026-06-03T14:30:00" ✓
+# space instead of T → parseISO silently fails            ✗
+
+# Voice agent responses: stamp Montréal-local now (zoneinfo "America/Toronto")
+# — the model has no clock; "tomorrow" must arrive as data</code></pre>
+  <pre><code>// Frontend — always parseISO from date-fns
+const d = parseISO(row.appointment_date);
+format(d, 'MMM d, yyyy h:mm a');</code></pre>
+
+  <h2 id="s11">11 · Frontend Patterns</h2>
+  <pre><code>// apiService.js — the only place fetch lives
+const authFetch = async (path, options = {}) => {
+  const token = await getToken();
+  const res = await fetch(`${BASE_URL}${path}`, { ...options,
+    headers: { 'Content-Type': 'application/json',
+               Authorization: `Bearer ${token}`, ...options.headers } });
+  if (res.status === 401) { signOut(); return; }        // who are you?
+  if (res.status === 403) { redirect('/pricing'); return; } // paywall ≠ logout
+  return res.json();
+};
+
+// Cross-component refresh after mutations (chatbot, voice, CRUD):
+window.dispatchEvent(new Event('refresh-appointments'));
+useEffect(() => { const h = () => fetchData();
+  window.addEventListener('refresh-appointments', h);
+  return () => window.removeEventListener('refresh-appointments', h); }, []);</code></pre>
+
+  <h2 id="s12">12 · AI Facts</h2>
+  <ul>
+    <li><strong>Chatbot:</strong> gpt-4o-mini · <code>run_chat(messages, db)</code> → <code>(reply, refresh_needed)</code> · last 10 messages · <code>{today}</code> injected into system prompt · tool results are strings · <code>refresh_needed=True</code> on any write tool · hallucinated-tool guard: catch <code>BadRequestError</code> with <code>"tool_use_failed"</code>, retry without tools.</li>
+    <li><strong>Extraction:</strong> Groq llama-3.3-70b-versatile · <code>extract_complaint_from_transcript()</code> → <code>{flat_number, category, priority, description}</code> · category must be in <code>ALLOWED_CATEGORIES</code> (water, electricity, cleaning, noise, maintenance, security, other) · missing fields → null, never guessed · rule-based extractor runs first, AI is fallback.</li>
+  </ul>
+
+  <h2 id="s13">13 · Stripe Flow</h2>
+  <pre><code>403 → /pricing → POST /payments/create-checkout-session
+→ Stripe Checkout (14-day trial + $1 verify) → webhook events
+→ dedupe via stripe_events (event_id UNIQUE) → subscriptions table
+→ frontend polls GET /payments/subscription-status
+
+states: trialing → active → past_due → cancelled → expired</code></pre>
+
+  <h2 id="s14">14 · VAPI Provisioning Flow</h2>
+  <pre><code>First property group created → BackgroundTask provision_vapi_for_manager:
+1. exit if manager_vapi_config already active
+2. race guard: UNIQUE INDEX on twilio_number_pool(assigned_manager_id)
+3. claim oldest available pool number → 'assigned'
+4. create assistant via build_lease_config(backend_url, manager_id)
+5. link number: httpx.patch direct (SDK phone_numbers.update is broken)
+6. upsert manager_vapi_config status='active' | on failure 'failed'
+Subsequent groups: skipped — one number per manager</code></pre>
+
+  <h2 id="s15">15 · Feature Flags (per building, <code>property_features</code>)</h2>
+  <p>Default <strong>enabled</strong>: rent_management, rent_due_date, flat_details, voice_calls, tenant_details. Default <strong>disabled</strong>: sms_reminders, email_reminders, tenant_documents. Check via <code>Depends(require_feature(Feature.X, building_id))</code>.</p>
+
+  <h2 id="s16">16 · Status Enums</h2>
+  <pre><code>Complaint:     pending | in-progress | resolved
+Appointment:   scheduled | attended | cancelled | completed
+Subscription:  trialing | active | past_due | cancelled | expired
+Provisioning:  pending | active | failed | not_set_up
+Lease lead:    qualified | not_qualified | unmatched | contacted | toured | converted | lost
+Rent:          On-time | Upcoming | Overdue | At Risk
+Language:      en | fr   (tenants.preferred_language, write-once, NULL = unknown)</code></pre>
+
+  <h2 id="s17">17 · Env Vars (see <code>docs/reference/RENDER_ENV_VARS.md</code> for prod)</h2>
+  <pre><code># backend/.env
+SUPABASE_URL / SUPABASE_KEY / SUPABASE_SERVICE_KEY / SUPABASE_JWT_SECRET
+STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_ID
+PRIVATE_VAPI_API + VAPI_COMPLAINT_* + VAPI_SHARED_LEASE_* ids/numbers
+OPEN_AI_API / GROQ_API_KEY
+TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER
+SENDGRID_API_KEY / SENDGRID_FROM_EMAIL
+FRONTEND_URL / BACKEND_URL / LANDING_PAGE_URL / ALLOWED_ORIGINS
+
+# frontend/.env
+VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / VITE_API_BASE_URL</code></pre>
+  <p><strong>Rule:</strong> set new env vars in Render <em>before</em> deploying code that reads them (fail-fast startup will crash-loop otherwise), and update RENDER_ENV_VARS.md in the same PR.</p>
+
+  <h2 id="s18">18 · Common Bugs &amp; Fixes</h2>
+  <table>
+    <thead><tr><th>Bug</th><th>Root cause → fix</th></tr></thead>
+    <tbody>
+      <tr><td>parseISO Invalid Date</td><td>Space separator → use <code>%Y-%m-%dT%H:%M:%S</code></td></tr>
+      <tr><td>Flat INSERT 42501</td><td>RLS INSERT policy → service-role client</td></tr>
+      <tr><td>VAPI 422 on int param</td><td>"" for unset fields → <code>Optional[str]</code> + <code>_parse_int()</code></td></tr>
+      <tr><td>Groq calls phantom tools</td><td>Catch <code>tool_use_failed</code>, retry without tools</td></tr>
+      <tr><td>BackgroundTask DB dies</td><td>Request-scoped client → pass service client in</td></tr>
+      <tr><td>Duplicate number claim</td><td>Race → UNIQUE INDEX guards at DB level</td></tr>
+      <tr><td>Tool calls silently break</td><td><code>"tool-calls"</code> in serverMessages → only <code>["end-of-call-report"]</code></td></tr>
+      <tr><td>Stripe double-processing</td><td>Webhook replays → stripe_events dedupe</td></tr>
+      <tr><td>NULL int field 500s</td><td>Pydantic <code>int</code> → <code>Optional[int] = None</code></td></tr>
+      <tr><td>VAPI SDK number update broken</td><td>Use <code>httpx.patch</code> to the API directly</td></tr>
+      <tr><td>Size-filtered search always empty</td><td>Column missing from <code>.select()</code> projection — filters read a field the query never fetched (silent + legal). Pin with a query-contract test</td></tr>
+      <tr><td>Agent "no listings" for a valid city</td><td>Gate scored stricter than ranker → one shared scoring function</td></tr>
+      <tr><td>Silence after handoff</td><td>Generated firstMessage cold start → static first message; scope handoff context</td></tr>
+      <tr><td>Filler spoken, tool never called</td><td>Prompt sequenced speech-then-tool → request-start messages; same-turn tool command</td></tr>
+      <tr><td>English string in French call</td><td>Static config string outside language derivation → per-language config</td></tr>
+      <tr><td>"11Â½" in console output</td><td>cp1252 rendering of UTF-8 — verify raw bytes; do NOT "fix" the data</td></tr>
+      <tr><td>Inbound calls dead on arrival</td><td>Phone number never bound to the entry assistant — verify binding + call ledger</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="s19">19 · Deploy &amp; Ops Discipline (Modules 27–29)</h2>
+  <ul>
+    <li><strong>Three surfaces:</strong> backend (git push → Render), agent config (<code>backend/scripts/*.py</code> → VAPI), schema (numbered SQL in Supabase). Name the surface before deciding how to ship.</li>
+    <li><strong>Agent config:</strong> always <code>--dry-run</code> → read the diff → push → read back live state (<code>vapi_inspect.py</code>).</li>
+    <li><strong>Risky shared-config change:</strong> write the rollback snapshot (live values + idempotent restore) <em>before</em> the change.</li>
+    <li><strong>Multi-system feature order:</strong> ① DB migration → ② tolerant backend → ③ agents/provisioning → ④ flip routing. Never reorder.</li>
+    <li><strong>Migrations:</strong> numbered, small, idempotent (<code>IF NOT EXISTS</code>), CHECK-constrained; constraint-adding = clean data → stop producing dirt → lock (three steps).</li>
+    <li><strong>RLS evolution:</strong> fix coverage gaps with <em>additive</em> policies; inspect with <code>SELECT * FROM pg_policies WHERE tablename='…'</code>; never "temporarily" bypass with service-role.</li>
+    <li><strong>Tests at the failing layer:</strong> query bug → contract test on the SELECT; matcher bug → corpus test; conversation bug → repeated live calls (non-determinism!); route bug → integration test.</li>
+    <li><strong>Test ladder:</strong> <code>pytest backend/tests/unit</code> → <code>backend/tests/integration</code> → <code>tests/test_city_matching.py</code> → Playwright <code>e2e/</code> → <code>smoke_test_leasing.ps1</code> against prod.</li>
+    <li><strong>ImportError in tests?</strong> Stale venv before code: <code>pip install -r requirements.txt</code>.</li>
+    <li><strong>Triage rule:</strong> classify every production observation as defect / artifact / needs-evidence — only defects get fixes.</li>
+  </ul>
+
+  <h2 id="s20">20 · Dev Commands</h2>
+  <pre><code># backend                                 # frontend
+cd backend                                cd frontend
+python -m uvicorn app.main:app --reload --port 8000
+                                          npm run dev   # :5173
+
+# admin scripts
+python backend/scripts/add_twilio_number_to_vapi.py +1XXXXXXXXXX
+python backend/scripts/update_lease_agents.py [--dry-run]
+python backend/scripts/update_shared_agents.py
+python backend/scripts/reprovision_existing_groups.py
+python backend/scripts/vapi_inspect.py</code></pre>
+
+  <h2 id="s21">21 · Learning Material Map</h2>
+  <table>
+    <thead><tr><th>Range</th><th>Covers</th></tr></thead>
+    <tbody>
+      <tr><td><a href="index.html">index.html</a></td><td>Course dashboard — all 30 modules, architecture, hard rules</td></tr>
+      <tr><td>Modules 00–04</td><td>Backend foundation: setup, FastAPI entry, DB layer, auth/JWT, Stripe gate</td></tr>
+      <tr><td>Modules 05–08</td><td>Core data: hierarchy CRUD, flats/assignment, computed tenants, complaints/appointments</td></tr>
+      <tr><td>Modules 09–12</td><td>AI &amp; voice: Groq extraction, chatbot tool calling, VAPI webhook, provisioning</td></tr>
+      <tr><td>Modules 13–16</td><td>Integrations: notifications, feature flags, bulk import, leasing</td></tr>
+      <tr><td>Modules 17–21</td><td>Frontend foundation: Vite, auth context, apiService, dashboard, properties UI</td></tr>
+      <tr><td>Modules 22–26</td><td>Frontend advanced: tenants, calendar, voice/leasing UI, chatbot UI, settings</td></tr>
+      <tr><td>Modules 27–29</td><td>Production era: RLS evolution &amp; migrations · voice agent v2 (language/matching/routing) · deploys, testing &amp; forensics</td></tr>
+      <tr><td><a href="sessions.html">sessions.html</a></td><td>Per-build-session lessons (7–18+): full diffs, bug journals, decision memos — the ongoing series</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  const saved = localStorage.getItem('theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+  const toggle = document.getElementById('themeToggle');
+  toggle.textContent = (document.documentElement.getAttribute('data-theme') === 'dark') ? '🌙' : '☀️';
+  toggle.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '🌙' : '☀️';
+  });
+  const toc = document.getElementById('toc');
+  document.querySelectorAll('h2[id]').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+</script>
+</body>
+</html>
