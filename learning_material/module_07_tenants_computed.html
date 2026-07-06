@@ -699,7 +699,59 @@ update_data = tenant_data.model_dump(exclude_unset=<span class="kw">True</span>,
       <p>Note: this new endpoint must be registered <em>before</em> <code>/{tenant_uuid}</code> in the file, otherwise FastAPI would match the path <code>/expiring-leases</code> as <code>tenant_uuid="expiring-leases"</code>.</p>
     </details>
 
-    <div class="nav-buttons">
+    
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Section 7 — Why This Design</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfa" aria-label="Mark section complete"><label for="chk-bfa">Mark complete</label></div>
+
+<h3>Decision: Where to compute <code>lease_status</code> / <code>tenancy_duration_months</code></h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Pydantic <code>model_validator</code> on the response model (chosen)</td><td>One implementation serves web UI, chatbot, and voice agent; frontend does zero date math; changes ship with a backend deploy only</td><td>Recomputed on every request (cheap here); not filterable by the DB without duplicating logic in SQL</td></tr>
+<tr><td>PostgreSQL generated columns / views</td><td>Filterable and sortable in SQL for free</td><td><code>now()</code>-relative values (days remaining) can't be STORED generated columns; logic split between SQL and Python</td></tr>
+<tr><td>Compute in React</td><td>No backend work</td><td>Three consumers (UI, chatbot, VAPI) would each reimplement it — guaranteed drift; timezone bugs multiply</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> put derived values where ALL consumers can reach them. The moment a second client (the chatbot) needed lease status, frontend computation was dead. The API is the narrowest shared waist — compute there.</div>
+<h3>Decision: Storing dates as naive IST (<code>YYYY-MM-DDTHH:MM:SS</code>, no offset)</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Naive IST strings (chosen)</td><td>Single-market product; <code>parseISO</code> on the frontend works untouched; humans read DB rows directly</td><td>Breaks the day the product serves a second timezone; comparisons must always assume IST</td></tr>
+<tr><td>UTC with offset</td><td>The textbook-correct answer; portable</td><td>Every display point needs conversion; the original bug (dates shifting by 5:30) came from doing this halfway</td></tr>
+</tbody>
+</table>
+<h2 id="bf-checkpoint">Section 8 — Checkpoint ✓</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfb" aria-label="Mark section complete"><label for="chk-bfb">Mark complete</label></div>
+<div class="bf-card">
+<p>Verify a computed field against manual math. With a JWT (see Module 05):</p>
+<pre><code>curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/tenants</code></pre>
+<p>Pick a tenant with a <code>lease_end_date</code>. <strong>Expected:</strong> the response contains <code>lease_status</code>, <code>remaining_time_on_lease_days</code>, and <code>tenancy_duration_months</code> — none of which exist as columns in the <code>tenants</code> table (check Supabase to confirm they're not stored).</p>
+<p>Now verify one by hand in a Python shell:</p>
+<pre><code>python -c "from datetime import date; print((date.fromisoformat('2026-12-31') - date.today()).days)"</code></pre>
+<p>The printed number must match <code>remaining_time_on_lease_days</code> for a tenant whose lease ends 2026-12-31. If it's off by one, check how the validator treats today's date — inclusive vs. exclusive boundaries are the classic bug here.</p></div>
+<h2 id="bf-resources">Section 9 — Resources</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfc" aria-label="Mark section complete"><label for="chk-bfc">Mark complete</label></div>
+<div class="bf-res"><div><h4>Pydantic V2 validators</h4><a href="https://docs.pydantic.dev/latest/concepts/validators/#model-validators" target="_blank" rel="noopener">model_validator docs</a><p>mode='after' validators are where all computed fields live. Note the V1 @validator is banned in this codebase.</p></div><div><h4>Python zoneinfo</h4><a href="https://docs.python.org/3/library/zoneinfo.html" target="_blank" rel="noopener">zoneinfo — stdlib docs</a><p>ZoneInfo('Asia/Kolkata') — how IST 'now' is obtained without pytz.</p></div><div><h4>Postgres generated columns</h4><a href="https://www.postgresql.org/docs/current/ddl-generated-columns.html" target="_blank" rel="noopener">Generated columns docs</a><p>Read the STORED-only limitation to understand why now()-relative fields can't live in the DB.</p></div><div><h4>date-fns parseISO</h4><a href="https://date-fns.org/docs/parseISO" target="_blank" rel="noopener">parseISO reference</a><p>The frontend consumer that dictates the T-separator date format rule.</p></div><div><h4>Falsehoods about time</h4><a href="https://infiniteundo.com/post/25326999628/falsehoods-programmers-believe-about-time" target="_blank" rel="noopener">Falsehoods programmers believe about time</a><p>Classic reading before touching any date arithmetic.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-buttons">
       <a href="module_06_flats_assignment.html" class="nav-btn">← Module 06: Flats &amp; Assignment</a>
       <a href="module_08_complaints_appointments.html" class="nav-btn">Next: Complaints &amp; Appointments →</a>
     </div>

@@ -540,7 +540,59 @@ SECRET_INTERNAL_KEY=never_exposed  <span class="cm"># NOT prefixed — never rea
     </ul>
   </div>
 
-  <div class="nav-buttons">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Section 9 — Why This Design</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfa" aria-label="Mark section complete"><label for="chk-bfa">Mark complete</label></div>
+
+<h3>Decision: Vite vs. Create React App / webpack</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Vite (chosen)</td><td>Dev server starts in milliseconds (native ES modules, no bundle step); HMR stays instant as the app grows; Rollup production builds; first-class Tailwind/PostCSS story</td><td>Dev and prod use different pipelines (esbuild vs. Rollup) — rare behavior differences surface only at build time</td></tr>
+<tr><td>Create React App</td><td>Historically the default; zero config</td><td>Deprecated/unmaintained; webpack cold starts grow linearly with app size</td></tr>
+<tr><td>Next.js</td><td>SSR, routing, image optimization</td><td>This is a pure SPA behind auth — SSR buys nothing and adds a server runtime</td></tr>
+</tbody>
+</table>
+<h3>Decision: Dev proxy vs. CORS for talking to the backend</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>CORS middleware on FastAPI (chosen)</td><td>Same behavior in dev and prod (the deployed frontend is on a different origin anyway); no proxy config drift</td><td>Backend must maintain the allowed-origins list</td></tr>
+<tr><td>Vite dev proxy</td><td>No CORS thinking during dev</td><td>Prod still needs CORS — you'd be testing a configuration you don't ship</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> Tailwind's JIT scans your source for class names at build time — which is why dynamically constructed class strings (<code>{'bg-' + color}</code>) silently produce no CSS. Always write complete class names; use lookup maps (as the status-color maps in Module 22 do) when classes vary.</div>
+<h2 id="bf-checkpoint">Section 10 — Checkpoint ✓</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfb" aria-label="Mark section complete"><label for="chk-bfb">Mark complete</label></div>
+<div class="bf-card">
+<p>Three proofs, two minutes:</p>
+<ol>
+<li><strong>Dev server:</strong> <code>npm run dev</code> in <code>frontend/</code> — expected: “ready in &lt;N&gt; ms” and the app on <code>http://localhost:5173</code>.</li>
+<li><strong>HMR:</strong> edit any visible JSX text and save — expected: the browser updates <em>without</em> a full page reload (watch: component state like an open modal survives).</li>
+<li><strong>Production build:</strong> <code>npm run build</code> — expected: a <code>dist/</code> folder with hashed asset filenames; then <code>npm run preview</code> serves the built app. If build fails but dev worked, you've hit the esbuild/Rollup difference mentioned above — read the error, it's almost always an import casing or extension issue.</li>
+</ol></div>
+<h2 id="bf-resources">Section 11 — Resources</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfc" aria-label="Mark section complete"><label for="chk-bfc">Mark complete</label></div>
+<div class="bf-res"><div><h4>Vite</h4><a href="https://vite.dev/guide/why.html" target="_blank" rel="noopener">Why Vite</a><a href="https://vite.dev/config/" target="_blank" rel="noopener">Config reference</a><p>The mental model (native ESM dev, Rollup prod) plus every vite.config.js option.</p></div><div><h4>Tailwind CSS</h4><a href="https://tailwindcss.com/docs/styling-with-utility-classes" target="_blank" rel="noopener">Core concepts — utility-first</a><a href="https://tailwindcss.com/docs/content-configuration" target="_blank" rel="noopener">Content configuration</a><p>The content-scanning rule that makes dynamic class names fail.</p></div><div><h4>React 18 root API</h4><a href="https://react.dev/reference/react-dom/client/createRoot" target="_blank" rel="noopener">createRoot docs</a><p>What changed vs. ReactDOM.render and why StrictMode double-invokes effects in dev.</p></div><div><h4>PostCSS</h4><a href="https://postcss.org/" target="_blank" rel="noopener">PostCSS docs</a><p>The pipeline Tailwind rides through — relevant when a plugin ordering issue eats your styles.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-buttons">
     <a href="module_16_leasing.html" class="nav-btn">← Previous: Leasing Module</a>
     <a href="module_18_auth_context.html" class="nav-btn">Next: Auth Context →</a>
   </div>

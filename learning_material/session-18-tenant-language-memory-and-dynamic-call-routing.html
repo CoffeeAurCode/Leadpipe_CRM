@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 18 — Tenants Remember: Language Memory &amp; Dynamic Call Routing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; white-space: pre-wrap; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 18</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-areq" style="padding-left:1.4rem">— The assistant-request webhook</a>
+    <a href="#c-tag" style="padding-left:1.4rem">— Preference capture via URL tag</a>
+    <a href="#c-once" style="padding-left:1.4rem">— Write-once semantics</a>
+    <a href="#c-overrides" style="padding-left:1.4rem">— assistantOverrides</a>
+    <a href="#c-tolerant" style="padding-left:1.4rem">— Migration-tolerant queries</a>
+    <a href="#c-order" style="padding-left:1.4rem">— Deploy ordering</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#bug1" style="padding-left:1.4rem">— Bug 1: the three flats named 102</a>
+    <a href="#bug2" style="padding-left:1.4rem">— Bug 2: the variable that almost wasn't</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 18 · Feature Build · Dynamic Routing · DB Migration · Live Deploy &amp; Prod Testing</div>
+      <h1>Tenants Remember — Language Memory &amp; Dynamic Call Routing</h1>
+      <p class="lead muted">After Session 17, both languages worked — but every caller, on every call, still had to answer <em>"English or French?"</em> This session turns that one-time question into a stored preference: a tenant's <strong>first verified call locks their language</strong>, and every future call — inbound <em>and</em> outbound — starts directly with the right assistant, in the right language, with no gate. To build it we add a <strong>write-once database column</strong>, tag each assistant's verification tool with a language marker, teach the phone number to <em>ask our backend</em> who should pick up (Vapi's <code class="ic">assistant-request</code> webhook), and choose per-call greetings with <code class="ic">assistantOverrides</code>. Then we deploy it in an order where a single swapped step would take the phone line down — and prove the whole thing works with five tests against production, no phone required.</p>
+      <div class="meta">
+        <span class="chip diff">🔴 Advanced</span>
+        <span class="chip time">⏱️ Estimated: 80–95 min</span>
+        <span class="chip pre">Requires: Sessions 01–17</span>
+        <span class="chip">🐛 2 Bug Stories</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">🧭 B · Session Overview</h2>
+      <p>We built <strong>per-tenant language preference routing</strong> for the complaint agent, end to end:</p>
+      <ul>
+        <li><strong>Migration 032</strong>: a <code class="ic">preferred_language</code> column on <code class="ic">tenants</code> (<code class="ic">en</code> / <code class="ic">fr</code> / NULL) with a CHECK constraint.</li>
+        <li><strong>Deterministic capture</strong>: each assistant's <code class="ic">Verify_phone_number</code> tool URL now carries <code class="ic">&amp;language=en|fr</code>; the backend records the preference on the tenant's first <em>valid</em> verification — and never overwrites it.</li>
+        <li><strong>A third assistant</strong>: "Complaint Agent EN (Alex)" — English-locked, no gate, for returning English tenants.</li>
+        <li><strong>Dynamic inbound routing</strong>: the number's static binding is gone; Vapi now POSTs an <code class="ic">assistant-request</code> to our new <code class="ic">/voice/inbound-router</code>, which returns the caller's assistant.</li>
+        <li><strong>Outbound routing</strong>: <code class="ic">/voice/call/outbound</code> does the same lookup before dialing.</li>
+        <li><strong>Ordered deploy</strong>: migration → env vars → backend → number repoint, plus a provisioning script with a <code class="ic">--rollback</code> that restores the old world in one command.</li>
+        <li><strong>Production verification</strong>: five API-level tests against the live system, using a seed tenant, then restored to its original state.</li>
+      </ul>
+      <h3>The behavior, in one table</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Caller</th><th>Inbound call</th><th>Outbound call</th></tr>
+        <tr><td>Unknown / never verified</td><td>Entry assistant — bilingual gate, French handoff available</td><td>Entry assistant — same gate</td></tr>
+        <tr><td>Tenant who chose <strong>English</strong></td><td>English-locked assistant, straight to business</td><td>English-locked assistant</td></tr>
+        <tr><td>Tenant who chose <strong>French</strong></td><td>French assistant — <em>"Bonjour, ici Alex de l'équipe de gestion immobilière…"</em></td><td>French assistant, same greeting</td></tr>
+      </table></div>
+      <h3>Why this matters for a CRM</h3>
+      <p>Language preference is <em>customer data</em>, and asking for the same data twice is the cardinal CRM sin — it tells the customer you don't remember them. In Québec it's sharper still: greeting a francophone tenant in English on their tenth call reads as indifference. This feature is the voice-channel version of a CRM remembering a contact's timezone or salutation — small field, outsized respect.</p>
+      <h3>Learning objectives</h3>
+      <ul class="check">
+        <li>Explain Vapi's three inbound routing modes (static assistant, squad, server-resolved) and when to use each.</li>
+        <li>Capture user preferences <strong>deterministically</strong> through a tool-URL side channel instead of trusting the LLM to report them.</li>
+        <li>Implement write-once semantics and defend them at the query level.</li>
+        <li>Use <code class="ic">assistantOverrides</code> to adapt one saved assistant to different call contexts.</li>
+        <li>Sequence a multi-system deploy (DB → env → code → traffic) so no step depends on a later one.</li>
+        <li>Test a phone feature end-to-end from a terminal, without placing a call.</li>
+      </ul>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 C · Recap Bridge</h2>
+      <p><strong>Session 17</strong> ended with a healthy bilingual complaint agent: the number <code class="ic">+14382567782</code> statically bound to the entry assistant, whose bilingual gate routes French callers via handoff to "Complaint Agent FR (Alex)", and whose prompts now enforce same-turn tool calling. English and French complaints both complete.</p>
+      <p>But the architecture had no memory. The gate ran on <em>every</em> call: our French partner would answer "français" today, tomorrow, and every day after. And outbound calls from the website always used the entry assistant, gate and all. The system knew the tenant's name, flat, lease, and rent status — everything except the one thing it asked about every single time.</p>
+      <p>We also carried forward two assets this session leans on: the <code class="ic">verify-phone</code> endpoint (Session 08 onward) that matches a caller's phone to a tenant — the natural moment to <em>learn</em> the preference — and the provisioning-script pattern (Sessions 14–16) of direct HTTP against Vapi with dry-run and rollback flags.</p>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 D · Concepts Introduced This Session</h2>
+
+      <h3 id="c-areq">D1 · The <code class="ic">assistant-request</code> webhook — a number that phones home</h3>
+      <p><strong>Plain English:</strong> until now, the phone number's config <em>statically</em> named its assistant. Vapi offers a third routing mode: leave <code class="ic">assistantId</code> empty and set a <code class="ic">server.url</code> on the number. Now, every time someone dials in, Vapi pauses and sends your backend a webhook — <code class="ic">{"message": {"type": "assistant-request", "customer": {"number": "+1514…"}}}</code> — asking, literally, <em>"who should take this call?"</em> Your server answers with <code class="ic">{"assistantId": "…"}</code> and the call proceeds with that assistant.</p>
+      <p><strong>Why we need it:</strong> per-caller routing cannot be static by definition — the right assistant depends on <em>who is calling</em>, which is only known at ring time. The lookup (phone → tenant → preference) lives in our database, so our backend must be the decision point.</p>
+      <p><strong>Analogy:</strong> a hotel switchboard operator. The old setup was a doorbell wired straight to one receptionist. Now the call reaches an operator (our router) who checks the guest file first: Mme Gagnon → put her through to the French-speaking concierge; unknown caller → the front desk that asks the language question. The caller never sees the lookup; they just hear the right voice.</p>
+      <div class="diagram"><span class="lbl">INBOUND, AFTER THIS SESSION</span>
+
+ caller dials +14382567782
+        │
+        ▼
+ Vapi looks up the number:  assistantId = null,  server.url = …/voice/inbound-router
+        │
+        ▼  POST { message: { type: "assistant-request", customer: { number: "+1514…" }}}
+ our backend: phone → tenants.preferred_language
+        │
+        ├── "fr"      → { assistantId: FR,  assistantOverrides: { firstMessage: "Bonjour, ici Alex…" }}
+        ├── "en"      → { assistantId: EN }
+        └── NULL/err  → { assistantId: ENTRY }   <span class="good">← fail-safe: worst case = the old gate</span></div>
+      <div class="callout c-warn"><div class="c-title">⚠️ Warning — the router is now on the critical path of every inbound call</div>
+      <p>Vapi waits only a few seconds (~7.5 s) for the assistant-request answer. If the backend is down or cold-starting (Render can spin down idle services), inbound calls fail entirely. This is the price of dynamic routing: you traded a static config for an availability dependency. Keep the service warm, keep the handler fast (one indexed query), and make it return HTTP 200 with the entry assistant on <em>any</em> internal error — a wrong-language answer beats a dead line.</p></div>
+      <div class="callout c-deep"><div class="c-title">📖 Resources</div>
+      <ul>
+        <li>Official: <a class="inline" href="https://docs.vapi.ai/server-url/events">Vapi — server events, incl. assistant-request</a></li>
+        <li>Beginner: <a class="inline" href="https://docs.vapi.ai/phone-numbers">Vapi — phone number configuration</a></li>
+        <li>Deep dive: <a class="inline" href="https://microservices.io/patterns/apigateway.html">The API-gateway / dynamic-dispatch pattern</a> (this is the telephony version)</li>
+      </ul></div>
+
+      <h3 id="c-tag">D2 · Preference capture via URL tagging — don't ask the LLM what it heard</h3>
+      <p><strong>Plain English:</strong> how do we <em>know</em> which language the tenant chose? The tempting answer: have the agent report it ("call a save_language tool"). But that trusts an LLM to remember to call a tool — exactly the failure class Session 17 was about. Instead we exploit something structural: <strong>each assistant already is a language</strong>. The FR assistant only ever conducts French calls. So we stamp the language into each assistant's <code class="ic">Verify_phone_number</code> tool URL — <code class="ic">…/flats/verify-phone?phone_number={{customer.number}}&amp;language=fr</code> on the FR assistant, <code class="ic">&amp;language=en</code> on the entry and EN assistants. When verification succeeds, the backend reads the tag off the URL. No LLM judgment involved anywhere.</p>
+      <p><strong>Why we need it:</strong> the preference decides all future routing — it must be correct. The tag is correct <em>by construction</em>: the only way a <code class="ic">language=fr</code> verify can fire is if the caller is already on the French assistant, which only happens if they chose French. It also costs zero latency and zero new tools.</p>
+      <p><strong>Analogy:</strong> pre-printed forms. Instead of asking the clerk to write down which language the meeting was held in (they might forget, or misremember), the French office simply uses forms with "FR" pre-printed in the corner. Whichever form lands in the archive tells you the language — because only that office stocks that form.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — the tag at tool-build time">
+<pre><code>def build_complaint_tools(backend_url: str, language: str = "en") -&gt; list:
+    # `language` tags the verify call with the assistant's language so the backend
+    # can record the tenant's preference on their first verified call.
+    # Entry + EN assistants pass "en"; the FR assistant passes "fr".
+    return [
+        {
+            "type": "apiRequest",
+            "name": "Verify_phone_number",
+            ...
+            # {{customer.number}} is filled by VAPI at call time; &amp;language= is baked
+            # in when the assistant is provisioned — a per-ASSISTANT constant.
+            "url": f"{backend_url}/flats/verify-phone"
+                   f"?phone_number={{{{customer.number}}}}&amp;language={language}",
+            ...
+        },
+        ...
+    ]</code></pre></div>
+      <div class="callout c-key"><div class="c-title">🔑 Key Concept — deterministic side channels beat model self-reporting</div>
+      <p>Whenever a fact is implied by <em>which code path is running</em>, capture it from the path — a URL parameter, a header, a column default — never from the model's narration of events. The model's job is conversation; the plumbing's job is truth.</p></div>
+      <div class="callout c-deep"><div class="c-title">📖 Resources</div>
+      <ul>
+        <li>Official: <a class="inline" href="https://docs.vapi.ai/tools/api-request">Vapi — apiRequest tools &amp; URL templating</a></li>
+        <li>Beginner: <a class="inline" href="https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams">MDN — query parameters</a></li>
+        <li>Deep dive: <a class="inline" href="https://en.wikipedia.org/wiki/Out-of-band_data">Out-of-band signaling</a> (the general pattern)</li>
+      </ul></div>
+
+      <h3 id="c-once">D3 · Write-once semantics — first answer wins, forever</h3>
+      <p><strong>Plain English:</strong> the spec says the <em>first</em> choice is binding: "in any future call, the English agent will <em>only</em> handle my call." So the column is written only when it is currently NULL. Every later verification — even one tagged with the other language — leaves it untouched. In code that's one guard: <code class="ic">if language in ("en","fr") and row.get("preferred_language") is None</code>.</p>
+      <p><strong>Why we need it:</strong> without the guard, the value would be <em>last-write-wins</em>, and the routing would feed back into the data: a French-preference tenant is always routed to the FR assistant, whose verify always sends <code class="ic">fr</code>… which sounds stable — until any odd path (an outbound call with an explicit assistant, a shared phone, a manager test) writes the other tag and silently flips the tenant's language. Write-once makes the preference an immutable fact with one clear origin story; changing it becomes a deliberate admin action (set the column back to NULL) rather than a side effect.</p>
+      <p><strong>Analogy:</strong> the language field on a passport application. It's captured once, at issuance, and printed. Border agents (the router) read it on every trip; they don't re-interview you about it. If you genuinely change languages, you file for a new passport — an explicit act, not something that happens because one border guard heard you say "bonjour".</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/flats.py — inside verify_phone, on a valid match">
+<pre><code>if match:
+    current_time_ist = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
+
+    # First verified call locks the tenant's complaint-agent language (migration 032).
+    # Never overwritten afterwards — routing keeps the tenant on their chosen assistant.
+    tenant_row = tenant_resp.data[0]
+    if language in ("en", "fr") and tenant_row.get("preferred_language") is None:
+        try:
+            # Service-role client: this endpoint is called by VAPI, no user JWT exists.
+            db.table("tenants").update({"preferred_language": language}) \
+              .eq("uuid", tenant_row["uuid"]).execute()
+        except Exception as pref_err:
+            # Preference recording must NEVER break verification — the call comes first.
+            print(f"[WARN] verify_phone: failed to store preferred_language: {pref_err}")</code></pre></div>
+      <div class="callout c-deep"><div class="c-title">📖 Resources</div>
+      <ul>
+        <li>Official: <a class="inline" href="https://www.postgresql.org/docs/current/ddl-constraints.html">PostgreSQL — CHECK constraints</a> (the <code class="ic">IN ('en','fr')</code> guard)</li>
+        <li>Beginner: <a class="inline" href="https://en.wikipedia.org/wiki/Idempotence">Idempotence</a> — why re-running the same write must be harmless</li>
+        <li>Deep dive: <a class="inline" href="https://martinfowler.com/eaaDev/EventSourcing.html">Event sourcing</a> — the heavyweight cousin of "facts don't get overwritten"</li>
+      </ul></div>
+
+      <h3 id="c-overrides">D4 · <code class="ic">assistantOverrides</code> — one saved assistant, many entrances</h3>
+      <p><strong>Plain English:</strong> the FR assistant's <em>saved</em> first message is <em>"Parfait, je continue en français. Quel est votre numéro d'appartement?"</em> — "Perfect, I'll continue in French." That sentence only makes sense mid-conversation, right after a handoff. A returning French tenant whose call starts <em>directly</em> on the FR assistant would hear "Perfect, I'll continue…" as the very first words of the call — answering a question nobody asked. Vapi's fix: both the assistant-request response and the outbound call API accept <code class="ic">assistantOverrides</code>, a per-call patch on top of the saved assistant. We override just <code class="ic">firstMessage</code> with a proper cold-open: <em>"Bonjour, ici Alex de l'équipe de gestion immobilière. Quel est votre numéro d'appartement?"</em></p>
+      <p><strong>Why we need it:</strong> the alternative is a fourth assistant (FR-direct vs FR-handoff) — double the French maintenance surface for one differing sentence. Overrides let one saved assistant serve both entrances, with the entrance-specific line supplied by whoever routed the call there.</p>
+      <p><strong>Analogy:</strong> the same actor with two entrance lines. Walking into an ongoing scene: "as I was saying…". Opening the play: "Good evening, ladies and gentlemen." Same costume, same script for the rest — the director (our router) whispers which opening line to use.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/voice.py — the router's answer for a French-preference caller">
+<pre><code>response: dict = {"assistantId": assistant_id}
+if first_message:
+    # Per-call patch: replaces ONLY firstMessage; prompt, tools, voice, transcriber
+    # all come from the saved assistant. camelCase because this JSON goes to VAPI.
+    response["assistantOverrides"] = {"firstMessage": first_message}
+return response  # always HTTP 200 — a routing answer, never an error page</code></pre></div>
+      <div class="callout c-deep"><div class="c-title">📖 Resources</div>
+      <ul>
+        <li>Official: <a class="inline" href="https://docs.vapi.ai/api-reference/assistants/create-assistant">Vapi — AssistantOverrides schema</a></li>
+        <li>Beginner: <a class="inline" href="https://docs.vapi.ai/assistants/dynamic-variables">Vapi — dynamic variables &amp; per-call values</a></li>
+        <li>Deep dive: <a class="inline" href="https://en.wikipedia.org/wiki/Prototype_pattern">Prototype pattern</a> — clone-and-patch as a design idea</li>
+      </ul></div>
+
+      <h3 id="c-tolerant">D5 · Migration-tolerant queries — code that survives being deployed "too early"</h3>
+      <p><strong>Plain English:</strong> the new backend code SELECTs <code class="ic">preferred_language</code>. If that code ever runs against a database where migration 032 hasn't been applied, PostgREST (the REST layer over Postgres that Supabase uses) rejects the whole query — column doesn't exist — and since this SELECT sits inside <em>phone verification</em>, the crash would look like "verification failed" for every caller. So the tenant lookup tries the full column list first and falls back to the old list on any error.</p>
+      <p><strong>Why we need it:</strong> code and schema deploy through different pipelines (git push vs SQL editor), so there is always a window where one is ahead. You either enforce ordering perfectly forever, or write the read side to tolerate both worlds during the window. For a route as critical as verify-phone, tolerance wins.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/flats.py — the tolerant tenant lookup">
+<pre><code># preferred_language selected in a migration-tolerant way (migration 032)
+def _tenant_lookup(cols: str):
+    # One helper, two call sites: primary lookup by flat FK, fallback by tenant_uuid.
+    resp = db.table("tenants").select(cols).eq("flat_uuid", flat_uuid).execute()
+    if not resp.data and flat.get("tenant_uuid"):
+        resp = db.table("tenants").select(cols).eq("uuid", flat["tenant_uuid"]).execute()
+    return resp
+
+try:
+    # New world: column exists → we also learn the current preference (for the
+    # write-once guard) in the same round-trip.
+    tenant_resp = _tenant_lookup("uuid, phone, preferred_language")
+except Exception:
+    # Old world: column missing → verification still works; preference recording
+    # silently no-ops until the migration lands. NEVER let bookkeeping kill the call.
+    tenant_resp = _tenant_lookup("uuid, phone")</code></pre></div>
+      <div class="callout c-tip"><div class="c-title">💡 Tip — the "expand, then contract" habit</div>
+      <p>The general recipe for schema changes with zero downtime: <strong>expand</strong> (add the column, nullable, no code depends on it) → <strong>deploy code</strong> that works with and without it → <strong>backfill/enable</strong> → much later, <strong>contract</strong> (make it required, drop fallbacks). Our fallback SELECT is the middle step made explicit.</p></div>
+      <div class="callout c-deep"><div class="c-title">📖 Resources</div>
+      <ul>
+        <li>Official: <a class="inline" href="https://postgrest.org/en/stable/references/api/tables_views.html">PostgREST — column selection &amp; errors</a></li>
+        <li>Beginner: <a class="inline" href="https://www.prisma.io/dataguide/types/relational/expand-and-contract-pattern">Expand-and-contract migrations, explained</a></li>
+        <li>Deep dive: <a class="inline" href="https://martinfowler.com/articles/evodb.html">Fowler — evolutionary database design</a></li>
+      </ul></div>
+
+      <h3 id="c-order">D6 · Deploy ordering — four systems, one safe sequence</h3>
+      <p><strong>Plain English:</strong> this feature touches four systems that deploy independently: the <strong>database</strong> (Supabase), <strong>environment variables</strong> (Render), <strong>backend code</strong> (git push → Render), and <strong>Vapi config</strong> (our scripts). Each step must only depend on steps <em>already done</em>. One ordering is safe; most others break live traffic. The dangerous edge: re-pointing the phone number to <code class="ic">/voice/inbound-router</code> before that route exists in production = <strong>every inbound call fails</strong> — precisely bug 1 from Session 17, self-inflicted this time.</p>
+      <div class="diagram"><span class="lbl">THE SAFE SEQUENCE (each step only leans backwards)</span>
+
+ 1. DB migration 032            <span class="dim">column exists; nothing reads it yet — inert</span>
+ 2. Vapi: patch entry+FR tools,  <span class="dim">&amp;language= param sent; old backend ignores unknown</span>
+    create EN assistant          <span class="dim">query params — harmless. EN assistant: unrouted — inert</span>
+ 3. Render env vars              <span class="dim">read only by code that ships next — inert</span>
+ 4. Deploy backend               <span class="dim">router live but nothing calls it yet — inert</span>
+ 5. Repoint number (--route-number)  <span class="warn">← the ONLY step that moves live traffic</span>
+ 6. Verify + real-call tests
+
+ <span class="bad">Swap 4 and 5 → dead phone line until the deploy finishes.</span>
+ <span class="good">Every step before 5 is invisible to callers. That's the design goal:</span>
+ <span class="good">stack up inert changes, then flip one switch — with a one-command rollback.</span></div>
+      <p><strong>Analogy:</strong> replacing a bridge. You build the new bridge <em>next to</em> the old one (steps 1–4: nobody drives on it, mistakes cost nothing), and only then move the traffic barriers (step 5). Nobody closes the old bridge first and then starts pouring concrete.</p>
+      <div class="callout c-key"><div class="c-title">🔑 Key Concept — separate "making it exist" from "sending traffic to it"</div>
+      <p>Every risky launch gets safer when you split it into inert-preparation steps and exactly one traffic-flip step. The flip should be small, fast, verifiable, and reversible — ours is one PATCH with a scripted <code class="ic">--rollback</code>.</p></div>
+      <div class="callout c-deep"><div class="c-title">📖 Resources</div>
+      <ul>
+        <li>Official: <a class="inline" href="https://render.com/docs/deploys">Render — how deploys roll out</a></li>
+        <li>Beginner: <a class="inline" href="https://martinfowler.com/bliki/BlueGreenDeployment.html">Fowler — blue-green deployment</a></li>
+        <li>Deep dive: <a class="inline" href="https://sre.google/workbook/canarying-releases/">Google SRE Workbook — canarying releases</a></li>
+      </ul></div>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🛠️ E · Step-by-Step Build Log</h2>
+
+      <h3>Step 1 — Migration 032: the memory cell</h3>
+      <p><strong>Why now:</strong> everything else reads or writes this column; it must exist first (and it's inert until code uses it — the perfect first domino).</p>
+      <div class="code-block" data-lang="sql" data-file="backend/migrations/032_tenant_preferred_language.sql">
+<pre><code>-- 032: Per-tenant complaint-agent language preference.
+-- Recorded the first time a tenant passes phone verification on a language-specific
+-- complaint assistant; once set it is never overwritten by calls.
+-- NULL = tenant has never chosen — they get the bilingual language gate.
+
+ALTER TABLE tenants
+  ADD COLUMN IF NOT EXISTS preferred_language text          -- nullable on purpose: NULL means "unset"
+  CHECK (preferred_language IN ('en', 'fr'));               -- DB-level guard: only two legal values, ever
+
+COMMENT ON COLUMN tenants.preferred_language IS             -- self-documenting schema for the next reader
+  'Complaint-agent language chosen on the tenant''s first verified call: en | fr. NULL = not chosen yet.';</code></pre></div>
+      <p><strong>What breaks if skipped:</strong> nothing crashes immediately (the tolerant SELECT falls back) — but no preference is ever stored, so every caller gets the gate forever and the feature silently doesn't exist. The quiet failure mode is why we verified the column with a live SELECT before testing.</p>
+
+      <h3>Step 2 — Settings for the two routed assistants</h3>
+      <div class="code-block" data-lang="python" data-file="backend/app/config.py — two new settings">
+<pre><code># Language-locked complaint assistants (routed per tenants.preferred_language)
+# The FRENCH id existed only in local .env before — the backend never needed it.
+# Now the router does, so both become first-class settings (and must be on Render!).
+VAPI_COMPLAINT_FRENCH_ASSISTANT_ID: str = os.getenv("VAPI_COMPLAINT_FRENCH_ASSISTANT_ID", "")
+VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID: str = os.getenv("VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID", "")</code></pre></div>
+      <p><strong>Why now:</strong> the router and outbound code written in Steps 6–7 reference these; defining them first keeps every later diff compiling. Empty-string defaults mean "feature off, fall back to the entry assistant" — never a crash.</p>
+
+      <h3>Step 3 — Tag the verify tool and build the third assistant</h3>
+      <p>Three changes in <code class="ic">vapi_agent_config.py</code>: (a) <code class="ic">build_complaint_tools(backend_url, language="en")</code> bakes <code class="ic">&amp;language=</code> into the verify URL (<a class="inline" href="#c-tag">concept D2</a>); (b) a new English-locked builder; (c) a French <em>direct</em> opener for cold-start FR calls.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — the English-locked assistant">
+<pre><code># Appended to the ENGLISH-ONLY complaint prompt (returning tenants with preferred_language=en).
+_COMPLAINT_ENGLISH_LOCKED_NOTE = """
+
+[English Call — Locked]
+This caller chose English on a previous call, so the entire call is in English — do NOT offer a language
+choice and do NOT greet in French. This overrides the "detect from first words" behaviour in
+[Language Policy]: stay in English for the whole call. Open by asking for their flat number and start
+[Phone Verification — Universal Gate].
+"""
+
+def build_complaint_config_english(backend_url: str = BACKEND_URL) -&gt; dict:
+    # Same shell as the entry assistant BUT: no gate first-message, no handoff tool,
+    # and the locked note so [Language Policy]'s auto-detect can't flip it to French.
+    tools = _alias_apirequest_tool_names(build_complaint_tools(backend_url, language="en"))
+    return _complaint_assistant_shell(
+        name="Complaint Agent EN (Alex)",
+        system_prompt=COMPLAINT_SYSTEM_PROMPT + _COMPLAINT_ENGLISH_LOCKED_NOTE,
+        tools=tools,
+        # Straight to business — this caller has heard the pleasantries before.
+        first_message="Hi, this is Alex from the property management team. Could you please provide your flat number?",
+        first_message_mode="assistant-speaks-first",
+        transcriber=COMPLAINT_TRANSCRIBER_CONFIG,   # the multi-language transcriber is fine for English
+    )</code></pre></div>
+      <div class="code-block" data-lang="python" data-file="backend/app/services/vapi_agent_config.py — the FR direct opener">
+<pre><code># Opener when the FR assistant takes a call DIRECTLY (returning tenant with
+# preferred_language=fr). Passed as assistantOverrides.firstMessage — the SAVED
+# firstMessage ("Parfait, je continue en français…") only fits the mid-call handoff.
+COMPLAINT_FRENCH_DIRECT_FIRST_MESSAGE = (
+    "Bonjour, ici Alex de l'équipe de gestion immobilière. Quel est votre numéro d'appartement?"
+)</code></pre></div>
+      <p>We also generalized the FR continuation note ("the caller chose French at the gate <em>or on a previous call</em>") so the prompt is truthful for both entrances.</p>
+      <p><strong>Why now:</strong> assistants are provisioned <em>from</em> these builders in Step 8; the builders must be final first. <strong>What breaks if skipped:</strong> without the locked note, the English assistant could drift into French mid-call (its base prompt still contains bilingual policy); without the direct opener, returning French tenants get a nonsensical "Perfect, I'll continue…" as a greeting.</p>
+
+      <h3>Step 4 — Record the preference in <code class="ic">verify_phone</code></h3>
+      <p>The endpoint gains a <code class="ic">language</code> query parameter and the write-once guard (full code in <a class="inline" href="#c-once">concept D3</a>), plus the migration-tolerant SELECT (<a class="inline" href="#c-tolerant">concept D5</a>). <strong>Why now:</strong> capture must be live before routing — routing without recorded preferences would just send everyone to the gate anyway.</p>
+
+      <h3>Step 5 — The shared routing brain: <code class="ic">_complaint_assistant_for_phone</code></h3>
+      <p><strong>Why one helper:</strong> inbound and outbound must route <em>identically</em> or a tenant would hear French when calling in and the gate when called back. One function, two callers, zero drift.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/voice.py — the resolver (annotated)">
+<pre><code>def _complaint_assistant_for_phone(svc_db: Client, caller_number: str | None):
+    """Returns (assistant_id, first_message_override | None) for this caller."""
+    entry = (settings.VAPI_COMPLAINT_ASSISTANT_ID, None)   # the universal fallback
+    if not caller_number:                                  # anonymous/withheld number →
+        return entry                                       # gate, like any stranger
+    try:
+        pref = None
+        # Fast path: exact match on the stored phone (most rows are E.164 already).
+        rows = (svc_db.table("tenants")
+                .select("phone, preferred_language")
+                .eq("phone", caller_number)
+                .not_.is_("preferred_language", "null")    # only rows that HAVE a preference
+                .limit(1).execute())
+        if rows.data:
+            pref = rows.data[0]["preferred_language"]
+        else:
+            # Slow path: stored phones aren't always exact E.164 ("514-555-0102"),
+            # so reuse the SAME digits-suffix matcher verify_phone trusts.
+            from app.routes.flats import _phones_match
+            candidates = (svc_db.table("tenants")
+                          .select("phone, preferred_language")
+                          .not_.is_("preferred_language", "null").execute())
+            for row in candidates.data or []:
+                if _phones_match(caller_number, row.get("phone", "")):
+                    pref = row["preferred_language"]; break
+
+        if pref == "fr" and settings.VAPI_COMPLAINT_FRENCH_ASSISTANT_ID:
+            from app.services.vapi_agent_config import COMPLAINT_FRENCH_DIRECT_FIRST_MESSAGE
+            return (settings.VAPI_COMPLAINT_FRENCH_ASSISTANT_ID,
+                    COMPLAINT_FRENCH_DIRECT_FIRST_MESSAGE)  # FR + cold-open greeting
+        if pref == "en" and settings.VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID:
+            return (settings.VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID, None)
+    except Exception as e:
+        # ANY failure (DB down, column missing, bad data) → log and fall through.
+        print(f"[WARN] complaint language routing failed for {caller_number}: {e}")
+    return entry   # fail-safe: worst case is the pre-feature behavior, never a dead call</code></pre></div>
+
+      <h3>Step 6 — The inbound router endpoint</h3>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/voice.py — POST /voice/inbound-router">
+<pre><code>@router.post("/voice/inbound-router")
+async def complaint_inbound_router(request: Request, svc_db: Client = Depends(get_service_db)):
+    """VAPI assistant-request handler for the complaint number. Always HTTP 200;
+    any failure falls back to the entry assistant so inbound never breaks."""
+    try:
+        payload = await request.json()
+        message = payload.get("message", {})
+        if message.get("type") != "assistant-request":   # other event types may arrive;
+            return {}                                     # acknowledge and ignore them
+        # Caller number location varies slightly by payload shape — check both spots.
+        customer = message.get("customer") or message.get("call", {}).get("customer") or {}
+        caller_number = customer.get("number")
+        assistant_id, first_message = _complaint_assistant_for_phone(svc_db, caller_number)
+        response: dict = {"assistantId": assistant_id}
+        if first_message:                                 # only FR needs a greeting override
+            response["assistantOverrides"] = {"firstMessage": first_message}
+        return response
+    except Exception as e:
+        print(f"[ERROR] inbound-router failed: {type(e).__name__}: {e}")
+        return {"assistantId": settings.VAPI_COMPLAINT_ASSISTANT_ID}   # gate beats silence</code></pre></div>
+      <p><strong>Why now:</strong> must exist in production <em>before</em> the number points at it (<a class="inline" href="#c-order">concept D6</a>). Note the family resemblance to every VAPI endpoint since Session 08: always 200, fail toward the least-bad behavior.</p>
+
+      <h3>Step 7 — Route outbound the same way</h3>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/voice.py — outbound complaint branch, before/after">
+<pre><code># BEFORE — one assistant for everyone:
+#   assistant_id    = settings.VAPI_COMPLAINT_ASSISTANT_ID
+#   phone_number_id = settings.VAPI_COMPLAINT_NUMBER_ID
+
+# AFTER — same resolver as inbound; caller ID unchanged:
+assistant_id, lang_first_message = _complaint_assistant_for_phone(svc_db, req.customer_number)
+phone_number_id = settings.VAPI_COMPLAINT_NUMBER_ID
+
+# Explicit first_message from the API caller still wins; otherwise the
+# language-appropriate opener (FR direct greeting) applies.
+first_message = req.first_message or lang_first_message
+if first_message:
+    overrides = AssistantOverrides(first_message=first_message)</code></pre></div>
+
+      <h3>Step 8 — The provisioning script</h3>
+      <p><code class="ic">backend/scripts/provision_complaint_language_routing.py</code> — same house pattern as Sessions 14–16 (direct HTTP, <code class="ic">--dry-run</code>), with the traffic flip isolated behind its own flag:</p>
+      <div class="code-block" data-lang="python" data-file="backend/scripts/provision_complaint_language_routing.py — the two verbs that matter">
+<pre><code>def route_number(dry_run: bool) -&gt; None:
+    # THE traffic flip: clear the static binding AND point server.url at the router.
+    # Run ONLY after the backend with /voice/inbound-router is live (deploy ordering!).
+    body = {"assistantId": None,
+            "server": {"url": f"{BACKEND_URL}/voice/inbound-router"}}
+    resp = httpx.patch(f"{VAPI_API_BASE}/phone-number/{number_id}",
+                       headers=_headers(), json=body, timeout=30)
+
+def rollback(dry_run: bool) -&gt; None:
+    # One command back to the pre-feature world: static entry binding, no server url.
+    body = {"assistantId": entry_id, "server": None}
+    httpx.patch(f"{VAPI_API_BASE}/phone-number/{number_id}",
+                headers=_headers(), json=body, timeout=30)</code></pre></div>
+      <p>Running it (without <code class="ic">--route-number</code>) created the EN assistant and printed the env line to add:</p>
+      <div class="term">  [OK] created English complaint assistant  id=43d28cbd-d01f-406f-bc70-646f45852a8a
+  &gt;&gt;&gt; ADD TO .env / Render env:  VAPI_COMPLAINT_ENGLISH_ASSISTANT_ID=43d28cbd-…
+  (number binding untouched — run with --route-number after the backend deploy)</div>
+
+      <h3>Step 9 — Deploy in order, wait for the route, flip the switch</h3>
+      <p>Migration run in the Supabase SQL editor and env vars added (steps 1 &amp; 3 of the sequence, done by the project owner); code pushed as commit <code class="ic">deef01c0</code>. Then, instead of guessing when Render finished, we <strong>polled the new route until it answered</strong> — and only then repointed:</p>
+      <div class="code-block" data-lang="bash" data-file="poll-then-flip (never flip on a 404)">
+<pre><code># Probe the new endpoint every 20s. A non-assistant-request POST returns {} with
+# HTTP 200 once the new code is live — and 404 while the old code still runs.
+for i in $(seq 1 30); do
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+    "https://tenant-management-mvp.onrender.com/voice/inbound-router" \
+    -H "Content-Type: application/json" -d '{"message":{"type":"status-update"}}')
+  echo "attempt $i: HTTP $CODE"
+  [ "$CODE" = "200" ] &amp;&amp; break
+  sleep 20
+done
+# attempts 1-4: HTTP 404  ← old code still serving
+# attempt  5:   HTTP 200  ← deploy live. NOW (and only now):
+python backend/scripts/provision_complaint_language_routing.py --route-number
+#   [OK] number +14382567782 now routes via server url …/voice/inbound-router (assistantId=None)</code></pre></div>
+
+      <h3>Step 10 — Prove it on production, without a phone</h3>
+      <p><strong>Why now:</strong> the switch just flipped; before asking a human to dial, exercise every path from the terminal. We found a seed tenant literally named <code class="ic">"testing"</code> (flat 102, phone +1234567890), ran five tests, and restored it to NULL afterwards — results in Section H.</p>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 F · Bug Journal</h2>
+      <p class="muted">A mostly clean build — the two stories below are a discovered latent defect and a caught-before-runtime coding slip. Fewer bugs than Session 17 for a structural reason: we were <em>adding</em> new paths guarded by fallbacks, not rewiring existing behavior.</p>
+
+      <h3 id="bug1">Bug 1 — Three flats named "102": verification fails for the wrong tenant</h3>
+      <div class="callout c-bug"><div class="c-title">🚨 The Symptom</div>
+      <p>During production testing, we picked tenant Marie-Claude Gagnon (flat "102", phone 514-555-0102) and simulated the FR assistant's verify call. Expected <code class="ic">status: "valid"</code>. Got:</p>
+      <div class="term">{"result":"Verification failed: phone number does not match the registered
+tenant for this flat.","status":"invalid"}</div></div>
+      <div class="callout c-bug"><div class="c-title">🔍 The Diagnosis</div>
+      <ul>
+        <li>Two suspects: the phone matcher (her number is stored as <code class="ic">514-555-0102</code>, not E.164) or the flat lookup. Checked the matcher first — <code class="ic">_phones_match</code> is digits-suffix-aware; <code class="ic">+15145550102</code> vs <code class="ic">514-555-0102</code> matches fine. Not it.</li>
+        <li>Queried the database directly: <code class="ic">flats?flat_number=ilike.102</code> → <strong>three rows</strong>. Three different flats, in different buildings, all named "102".</li>
+        <li>Read <code class="ic">verify_phone</code>: it looks up the flat by number globally and takes <code class="ic">flat_resp.data[0]</code> — the <em>first</em> flat 102, whose registered tenant is someone else entirely. Marie-Claude's flat 102 was row three. Mystery solved.</li>
+      </ul></div>
+      <div class="callout c-bug"><div class="c-title">🧠 The Root Cause</div>
+      <p>Migration 024 made flat numbers unique <em>per building</em> — the right rule for the web app, where every screen has building context. But a phone call has no building context: the voice flow asks only "what's your flat number?" and <code class="ic">verify_phone</code> resolves it <strong>globally</strong>, silently betting that flat numbers are globally unique. They aren't. The class of bug: <strong>a uniqueness assumption imported from one context (web UI) into another (voice) where it doesn't hold.</strong> It predates this session — our routing tests merely surfaced it.</p></div>
+      <div class="callout c-bug"><div class="c-title">🔧 The Fix</div>
+      <p><strong>Deliberately not fixed this session</strong> — it's a pre-existing defect in a critical path, out of scope for a routing feature, and any fix (e.g., try <em>every</em> flat with that number and match the caller's phone against each tenant) changes verification semantics and deserves its own tested change. We switched to the tenant actually registered on the first flat 102 for testing, and documented the defect. Honesty note: "not fixed, documented, scoped for later" is a legitimate resolution — pretending otherwise is how bugs get half-fixed at midnight.</p></div>
+      <div class="callout c-bug"><div class="c-title">🛡️ The Lesson</div>
+      <p>When a lookup returns a <em>list</em> and the code takes <code class="ic">[0]</code>, ask: what makes the first row the right row? If the answer is "nothing, we assume there's only one," you've found a bug waiting for data to trigger it. And: testing a <em>new</em> feature on production data is also an audit of <em>old</em> features — budget time for what it digs up.</p></div>
+
+      <h3 id="bug2">Bug 2 — The variable that almost wasn't: <code class="ic">lang_first_message</code></h3>
+      <div class="callout c-bug"><div class="c-title">🚨 The Symptom</div>
+      <p>No runtime symptom — this one was caught during the edit, which is exactly the point. The first draft of the outbound change read:</p>
+      <div class="code-block" data-lang="python" data-file="first draft — subtly fragile">
+<pre><code># complaint branch sets lang_first_message; the LEASE branch never does…
+first_message = req.first_message or (lang_first_message if req.agent != "lease" else None)</code></pre></div></div>
+      <div class="callout c-bug"><div class="c-title">🔍 The Diagnosis + 🧠 Root Cause</div>
+      <p>The conditional only <em>evaluates</em> <code class="ic">lang_first_message</code> when <code class="ic">agent != "lease"</code>, so Python never raises <code class="ic">NameError</code> at runtime — lazy evaluation saves it, <em>today</em>. But the code's correctness now depends on an invisible pact between a branch 30 lines up and the exact short-circuit shape of one expression. The next person who "simplifies" the conditional, or reorders branches, ships a <code class="ic">NameError</code> in the lease path. Root cause class: <strong>a variable whose definedness depends on control flow</strong> — legal, working, and a trap.</p></div>
+      <div class="callout c-bug"><div class="c-title">🔧 The Fix</div>
+      <div class="code-block" data-lang="python" data-file="the boring, safe version">
+<pre><code># In the LEASE branch, define it explicitly:
+lang_first_message = None       # lease calls have no language-preference opener
+
+# …and the expression collapses to something a reviewer parses in one glance:
+first_message = req.first_message or lang_first_message</code></pre></div></div>
+      <div class="callout c-bug"><div class="c-title">🛡️ The Lesson</div>
+      <p>Every variable should be <em>obviously</em> defined on every path that can read it — "the interpreter happens not to look" is not a definition. Initialize at branch level, keep expressions dumb. Static analyzers (pylint's <code class="ic">possibly-used-before-assignment</code>, mypy) flag exactly this; a linter in CI would have caught the first draft automatically.</p></div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ G · Design Decisions</h2>
+      <div class="table-wrap"><table>
+        <tr><th>Decision</th><th>Alternatives Considered</th><th>Why We Chose This</th><th>Trade-offs</th></tr>
+        <tr>
+          <td>Capture the preference from the verify tool's <code>&amp;language=</code> tag</td>
+          <td>(a) An explicit save_language tool the LLM calls; (b) detecting handoff/French in the end-of-call webhook</td>
+          <td>Deterministic by construction — Session 17 proved "trust the LLM to call a tool" is the exact failure mode to avoid; (b) is transcript archaeology with edge cases.</td>
+          <td>Preference only locks after a <em>successful</em> verification — a caller who gates to French but never verifies stays unknown (and just gates again, harmlessly).</td>
+        </tr>
+        <tr>
+          <td>Write-once (first verified choice is permanent)</td>
+          <td>Last-write-wins; per-call re-detection</td>
+          <td>Matches the spec ("only the chosen agent handles future calls"); immune to feedback loops between routing and recording.</td>
+          <td>A tenant who changes languages needs an admin to NULL the column — acceptable, explicit, documented.</td>
+        </tr>
+        <tr>
+          <td>Column on <code>tenants</code></td>
+          <td>A separate phone→language table keyed by caller number</td>
+          <td>The complaint agent only serves tenants; "tenant preference" is what the user asked for; visible in existing admin tooling and RLS (Row-Level Security) scope.</td>
+          <td>Non-tenants (never verifiable anyway) can't have preferences; tenants sharing a phone resolve to the first matching row.</td>
+        </tr>
+        <tr>
+          <td>A third, English-locked assistant</td>
+          <td>Reuse the entry assistant with a Liquid-templated conditional prompt driven by override variables</td>
+          <td>Mirrors the existing one-assistant-per-language architecture (Sessions 14–16); trivially inspectable in the Vapi dashboard; no template logic to debug at call time.</td>
+          <td>A third artifact to keep in sync — mitigated because all three build from the same <code>COMPLAINT_SYSTEM_PROMPT</code> and one provisioning script.</td>
+        </tr>
+        <tr>
+          <td>Server-URL routing on the number (assistant-request)</td>
+          <td>Keep static binding + have the entry assistant silently "transfer" known tenants after answering</td>
+          <td>Right assistant from the very first ring — no gate flash, no handoff latency, no wasted turn.</td>
+          <td>Backend becomes call-path critical (~7.5 s answer budget; cold starts are now an outage class). Fail-safe: any error returns the entry assistant.</td>
+        </tr>
+        <tr>
+          <td>One shared resolver for inbound + outbound</td>
+          <td>Independent logic per direction</td>
+          <td>The two directions can never disagree about a tenant's language; one place to fix bugs.</td>
+          <td>None worth naming — this is the free lunch of the session.</td>
+        </tr>
+        <tr>
+          <td>Bug 1 (flat "102") documented, not fixed</td>
+          <td>Patch verify_phone's flat lookup inside this feature</td>
+          <td>Pre-existing, different blast radius, deserves its own change + tests; bundling unrelated fixes into a routing deploy muddies rollback.</td>
+          <td>The defect remains live for duplicate flat numbers until addressed.</td>
+        </tr>
+      </table></div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ H · Verification Checklist</h2>
+      <p>The five production tests, exactly as run (tenant "testing", flat 102, phone +1234567890 — a seed row; restored afterwards):</p>
+      <div class="term"><span class="dim">== T1: FR assistant verifies (language=fr) — expect valid + pref locked to fr</span>
+<span class="pmt">$</span> curl -s -X POST ".../flats/verify-phone?phone_number=%2B1234567890&amp;language=fr" \
+    -H "Content-Type: application/json" -d '{"flat_number":"102"}'
+ verify: <span class="ok">valid</span>      DB after: [{"preferred_language":"<span class="ok">fr</span>"}]
+
+<span class="dim">== T2: second verify with language=en — pref must STAY fr (write-once)</span>
+ verify: valid      DB after: [{"preferred_language":"<span class="ok">fr</span>"}]   <span class="ok">← lock held</span>
+
+<span class="dim">== T3: inbound router for this caller — expect FR + French cold-open</span>
+{"assistantId":"71105e4a-…","assistantOverrides":{"firstMessage":
+ "Bonjour, ici Alex de l'équipe de gestion immobilière. Quel est votre numéro d'appartement?"}}
+
+<span class="dim">== T4: set pref=en directly — router must return the EN assistant</span>
+{"assistantId":"<span class="ok">43d28cbd-…</span>"}
+
+<span class="dim">== T5: reset pref=NULL (cleanup) — router must return the entry gate</span>
+{"assistantId":"<span class="ok">9e507761-…</span>"}</div>
+      <p>Plus the routing-layer check:</p>
+      <div class="term"><span class="pmt">$</span> curl -s -H "Authorization: Bearer $VAPI_KEY" https://api.vapi.ai/phone-number/c3b8394e-…
+{ "number": "+14382567782", "assistantId": <span class="ok">null</span>,
+  "server": { "url": "https://tenant-management-mvp.onrender.com/voice/inbound-router" } }
+<span class="dim">← null assistantId is CORRECT here — the router owns inbound now (cf. Session 17!)</span></div>
+      <p><strong>✅ It works if…</strong> all five tests return exactly the values above, an unknown number gets the entry assistant, and a real French tenant's <em>second</em> call opens with "Bonjour, ici Alex…" and no language question.<br />
+      <strong>❌ Something's wrong if…</strong> the router returns the entry assistant for a tenant with a stored preference (env var missing on Render → the resolver's <code class="ic">if pref == … and settings.…</code> guard silently falls through), T1 leaves the column NULL (migration missing, or verification hit the wrong flat "102" — see Bug 1), or inbound calls die entirely (router unreachable → check Render, then <code class="ic">--rollback</code> while you investigate).</p>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🏋️ I · Exercises</h2>
+      <div class="callout c-ex"><div class="c-title">🟢 Practice — a language column report</div>
+      <p>Write a query (or a small script against PostgREST) that reports, per manager: how many tenants have <code class="ic">preferred_language = 'en'</code>, <code class="ic">'fr'</code>, and NULL. This is the adoption dashboard for the feature.</p>
+      <details><summary>Hints</summary><p>SQL: <code class="ic">SELECT manager_id, preferred_language, COUNT(*) FROM tenants GROUP BY 1, 2</code>. Via PostgREST you'll need one request per value or the <code class="ic">select=manager_id,preferred_language</code> trick plus client-side counting.</p></details></div>
+      <div class="callout c-ex"><div class="c-title">🟡 Stretch — let tenants switch languages politely</div>
+      <p>Design (prompt + backend) a <code class="ic">change_language</code> flow: if a locked-English tenant speaks French for two consecutive turns, the EN assistant offers — once — to switch permanently, and a confirmation updates the column and hands the live call to the FR assistant.</p>
+      <details><summary>Hints</summary><p>You need: a handoff tool on the EN assistant (mirror <code class="ic">_complaint_handoff_tool</code>), an apiRequest tool that PATCHes the preference (design the endpoint — and decide: does write-once bend here? This is an <em>explicit</em> user action, which is exactly the exception write-once allows), and a prompt rule with a strict once-only bound — remember Session 17's Bug 3.</p></details></div>
+      <div class="callout c-ex"><div class="c-title">🔴 Challenge — fix Bug 1 properly</div>
+      <p>Rework <code class="ic">verify_phone</code> for duplicate flat numbers: fetch <em>all</em> flats matching the number, check the caller's phone against <em>each</em> flat's registered tenant, and verify against the (unique) flat whose tenant matches. Define the semantics when the phone matches tenants in two different flats "102", write the code, and list the test cases you'd need before daring to deploy it.</p>
+      <details><summary>Hints</summary><p>The loop is easy; the semantics are the work. Zero matches → invalid (unchanged). One match → valid, and note the matched <code class="ic">flat_uuid</code> now comes from the <em>tenant</em> side. Two matches (same person rents two flats "102" in different buildings!) → you must either ask a disambiguating question via the agent or pick by most-recent lease — argue your choice. Don't forget the preference-recording line must use the matched tenant row.</p></details></div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🚑 J · Troubleshooting / Common Errors</h2>
+      <div class="table-wrap"><table>
+        <tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr>
+        <tr><td>All inbound calls fail after the repoint</td><td>Router URL wrong, backend down, or Render cold start blowing the ~7.5 s assistant-request budget</td><td><code>curl -X POST …/voice/inbound-router</code> yourself; if slow/404, run the script's <code>--rollback</code> to restore the static binding, then fix and re-flip</td></tr>
+        <tr><td>Known-French tenant still gets the gate</td><td>Env var <code>VAPI_COMPLAINT_FRENCH_ASSISTANT_ID</code> missing on Render — the resolver guard silently falls back</td><td>Add the env var, redeploy; the resolver needs both the preference AND the assistant id</td></tr>
+        <tr><td>Preference never gets recorded (stays NULL)</td><td>Migration 032 not applied (tolerant SELECT hides it), or verification matched the wrong duplicate flat, or the tool URL lacks <code>&amp;language=</code></td><td>SELECT the column directly; GET the assistant and read the verify tool URL; re-run the assistant provisioning if the tag is missing</td></tr>
+        <tr><td>Returning FR tenant hears "Parfait, je continue en français…" as a cold open</td><td>Router returned the FR assistant without the <code>assistantOverrides.firstMessage</code></td><td>Check the router's response body in logs; the override rides with the fr branch only</td></tr>
+        <tr><td>Router returns entry for a tenant you KNOW has a preference</td><td>Phone format mismatch: exact <code>eq</code> missed and the row's phone digits don't suffix-match the caller</td><td>Compare digits of both numbers; normalize stored phones to E.164 going forward</td></tr>
+        <tr><td><code>PGRST204</code>-style column error in backend logs</td><td>New code, old schema — the window concept D5 exists for</td><td>Apply migration 032; the tolerant SELECT keeps verification alive meanwhile</td></tr>
+        <tr><td>Outbound speaks the wrong language</td><td>Outbound bypassed the resolver (old deploy), or an explicit <code>first_message</code> masked the FR opener</td><td>Confirm commit <code>deef01c0+</code> is deployed; remember <code>req.first_message</code> always wins by design</td></tr>
+      </table></div>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🔮 K · What's Next</h2>
+      <p>The machinery is proven end-to-end at the API level; what remains is the human pass: the French partner's next <em>verified</em> call locks his <code class="ic">fr</code> preference, and the call after that should open in French with no gate — the full loop under real acoustics. Beyond that, three threads are queued: fixing the duplicate-flat verification defect properly (this session's 🔴 challenge is a head start), bringing the same language memory to the <em>lease</em> agent (per-manager assistants make the routing lookup two-level — number → manager → language), and warm-keeping or upgrading the Render service so the assistant-request budget is never at the mercy of a cold start. The complaint line now remembers; next we make the rest of the phone system as thoughtful.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📚 L · Glossary</h2>
+      <div class="table-wrap"><table>
+        <tr><th>Term</th><th>Definition</th></tr>
+        <tr><td>assistant-request</td><td>Vapi webhook sent per inbound call when a phone number has a <code>server.url</code> and no static assistant; the server's JSON reply names the assistant (and optional overrides) for that call.</td></tr>
+        <tr><td>assistantOverrides</td><td>A per-call patch applied on top of a saved assistant's config (e.g. <code>firstMessage</code>) — one assistant, many entrances.</td></tr>
+        <tr><td>CHECK constraint</td><td>A database rule limiting a column's legal values (<code>IN ('en','fr')</code>); the last line of defense against bad writes from any code path.</td></tr>
+        <tr><td>Cold start</td><td>The delay while an idle/spun-down service boots to answer its first request; fatal when a caller-facing webhook has a seconds-level budget.</td></tr>
+        <tr><td>Deploy ordering</td><td>Sequencing changes across independently-deployed systems (DB, env, code, external config) so each step depends only on completed ones.</td></tr>
+        <tr><td>E.164</td><td>The international phone-number format: <code>+</code>, country code, number, no separators (<code>+15145550102</code>).</td></tr>
+        <tr><td>Expand-and-contract</td><td>Zero-downtime schema strategy: add the new thing (expand), migrate readers/writers tolerant of both worlds, then remove the old (contract).</td></tr>
+        <tr><td>Fail-safe routing</td><td>Designing the router so every failure path returns a <em>usable</em> answer (the entry gate) instead of an error — a wrong greeting beats a dead line.</td></tr>
+        <tr><td>Lazy evaluation</td><td>Expressions evaluated only when their branch is taken — which can hide a use-before-assignment until someone refactors (Bug 2).</td></tr>
+        <tr><td>Migration-tolerant query</td><td>A read written to succeed both before and after a schema migration, typically via try-with-new-columns / fall-back-to-old.</td></tr>
+        <tr><td>PostgREST</td><td>The REST layer Supabase puts over Postgres; whole-query failure on unknown columns is why tolerance matters.</td></tr>
+        <tr><td>Preference lock</td><td>This feature's write-once rule: the first verified call's language is recorded and never overwritten by later calls.</td></tr>
+        <tr><td>Resolver</td><td>Our shared function (<code>_complaint_assistant_for_phone</code>) mapping a caller's number to (assistant, greeting) — the single source of routing truth.</td></tr>
+        <tr><td>Seed data</td><td>Pre-loaded demo/test rows (like tenant "testing"); invaluable for production tests that must not touch real customers.</td></tr>
+        <tr><td>Side channel (deterministic)</td><td>Carrying a fact via the code path itself (a URL tag) rather than via model output — truth by construction.</td></tr>
+        <tr><td>Traffic flip</td><td>The single step in a rollout that moves live users onto the new path; everything before it should be inert, and it should have a one-command rollback.</td></tr>
+        <tr><td>Write-once</td><td>Column semantics where only NULL may be written over; all later writes are refused by the application guard.</td></tr>
+      </table></div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-17-unbound-number-and-the-tool-call-that-never-came.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 17 — Dead Line, Dead Air</div>
+    </a>
+    <a href="sessions.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a class="right disabled">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 19 — coming soon</div>
+    </a>
+  </div>
+  <div class="copyright">Session 18 — CRM Learning Series · generated 2026-07-03</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>

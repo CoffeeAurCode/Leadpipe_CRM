@@ -546,7 +546,7 @@ VITE_API_BASE_URL=               # http://localhost:8000 in dev
 
 ## 21. Learning Material Index
 
-All files in `docs/learning_material/`:
+All files in `learning_material/` (repo root). Browser-readable cheat sheet version of this file: `learning_material/tenant_mvp_cheat_sheet.html`.
 
 | File | Module | Topic |
 |---|---|---|
@@ -578,6 +578,11 @@ All files in `docs/learning_material/`:
 | `module_24_voice_leasing_ui.html` | 24 | VoiceStatsTab, LeasingTab, provisioning status UI |
 | `module_25_chatbot_outbound.html` | 25 | Chatbot FAB, markdown, OutboundCallButton |
 | `module_26_settings_onboarding.html` | 26 | SettingsPage, SmsWorkflow, react-joyride onboarding |
+| `module_27_rls_ownership_migrations.html` | 27 | Additive RLS policies, flat-anchored ownership, numbered migrations, deploy ordering (sessions 7/11/18) |
+| `module_28_leasing_voice_agent_v2.html` | 28 | STT garble corpus, hybrid fuzzy+phonetic matching, confidence bands, French register/handoff, dynamic language routing (sessions 8–15/18) |
+| `module_29_deploy_testing_operations.html` | 29 | Dry-run deploys, rollback snapshots, Render env vars, test pyramid, query-contract tests, forensic debugging (sessions 9–17) |
+| `tenant_mvp_cheat_sheet.html` | — | This worksheet as browser-readable HTML |
+| `sessions.html` | — | Index of per-build-session lessons (sessions 7–18+) |
 
 ---
 

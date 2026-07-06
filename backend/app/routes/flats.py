@@ -22,6 +22,7 @@ from app.schemas.flat import (
 )
 from app.schemas.flat_update import FlatEditRequest
 from app.core.db_errors import clean_db_error
+from app.core.phone import normalize_phone_e164
 from typing import Optional, List
 from uuid import uuid4
 from pydantic import BaseModel as _BaseModel
@@ -753,10 +754,17 @@ async def create_flat(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="tenant_phone cannot be empty"
                 )
-            
+
+            normalized_tenant_phone = normalize_phone_e164(tenant_phone)
+            if not normalized_tenant_phone:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="tenant_phone must be a valid phone number with country code, e.g. +15145550130"
+                )
+
             tenant_payload = {
                 "name": tenant_name.strip(),
-                "phone": tenant_phone.strip(),
+                "phone": normalized_tenant_phone,
                 "flat_uuid": flat_uuid
             }
 

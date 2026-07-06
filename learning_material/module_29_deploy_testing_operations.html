@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 29 — Production Operations: Deploys, Testing &amp; Forensics</title>
+<style>
+  :root, :root[data-theme="dark"] {
+    --bg:#0f1117; --surface:#1a1d27; --border:#2a2d3a; --text:#e2e8f0; --muted:#94a3b8;
+    --primary:#6366f1; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --code-bg:#141720;
+    --kw:#c678dd; --str:#98c379; --fn:#61afef; --cm:#5c6370; --num:#d19a66; --typ:#e5c07b;
+  }
+  :root[data-theme="light"] {
+    --bg:#ffffff; --surface:#f8fafc; --border:#e2e8f0; --text:#1e293b; --muted:#64748b;
+    --primary:#4f46e5; --code-bg:#f1f5f9;
+    --kw:#a626a4; --str:#50a14f; --fn:#4078f2; --cm:#a0a1a7; --num:#986801; --typ:#c18401;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.65; }
+  .sidebar { position:fixed; top:0; left:0; width:250px; height:100vh; overflow-y:auto; background:var(--surface); border-right:1px solid var(--border); padding:1.2rem; font-size:.85rem; }
+  .sidebar h3 { font-size:.75rem; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:.8rem; }
+  .sidebar a { display:block; color:var(--muted); text-decoration:none; padding:.28rem .5rem; border-radius:6px; margin-bottom:2px; }
+  .sidebar a:hover { color:var(--text); background:rgba(128,128,128,.1); }
+  .sidebar a.active { color:var(--primary); background:rgba(99,102,241,.12); font-weight:600; }
+  .main-content { margin-left:250px; }
+  .container { max-width:880px; margin:0 auto; padding:2.5rem 2rem 6rem; }
+  @media (max-width:900px){ .sidebar{display:none} .main-content{margin-left:0} }
+  h1 { font-size:1.9rem; font-weight:800; line-height:1.25; margin-bottom:.6rem; }
+  h2 { font-size:1.35rem; font-weight:700; color:var(--primary); margin:2.6rem 0 .9rem; padding-top:.5rem; border-top:1px solid var(--border); }
+  h3 { font-size:1.05rem; font-weight:700; margin:1.6rem 0 .6rem; }
+  h4 { font-size:.95rem; font-weight:700; margin:1.1rem 0 .4rem; }
+  p, li { color:var(--text); font-size:.95rem; margin-bottom:.7rem; }
+  ul, ol { padding-left:1.5rem; margin-bottom:.8rem; }
+  code { background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:.08rem .35rem; font-family:Consolas,monospace; font-size:.85em; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem; overflow-x:auto; margin:.8rem 0 1rem; position:relative; }
+  pre code { background:none; border:none; padding:0; font-size:.85rem; line-height:1.6; display:block; }
+  .kw{color:var(--kw)} .str{color:var(--str)} .fn{color:var(--fn)} .cm{color:var(--cm)} .num{color:var(--num)} .typ{color:var(--typ)}
+  table { width:100%; border-collapse:collapse; margin:.9rem 0 1.1rem; font-size:.88rem; }
+  th, td { border:1px solid var(--border); padding:.5rem .65rem; text-align:left; vertical-align:top; }
+  th { background:var(--surface); }
+  .meta-row { display:flex; gap:1.4rem; flex-wrap:wrap; color:var(--muted); font-size:.85rem; margin:.6rem 0 1.2rem; }
+  .progress-bar { height:6px; background:var(--surface); border-radius:99px; overflow:hidden; margin-bottom:1.6rem; }
+  .progress-fill { height:100%; background:var(--primary); width:0%; transition:width .3s; }
+  .nav-buttons { display:flex; justify-content:space-between; gap:1rem; margin:1.6rem 0; }
+  .nav-btn { color:var(--primary); text-decoration:none; font-size:.88rem; font-weight:600; padding:.55rem .9rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+  .nav-btn:hover { border-color:var(--primary); }
+  .callout { border-left:4px solid var(--primary); background:rgba(99,102,241,.08); border-radius:0 10px 10px 0; padding:.8rem 1.1rem; margin:1rem 0; font-size:.92rem; }
+  .callout-warn { border-color:var(--amber); background:rgba(245,158,11,.08); }
+  .callout-bug { border-color:var(--red); background:rgba(239,68,68,.07); }
+  .callout-key { border-color:var(--green); background:rgba(16,185,129,.08); }
+  .card-success { border:1px solid var(--border); border-left:4px solid var(--green); border-radius:10px; padding:1rem 1.3rem; margin:1rem 0; background:var(--surface); }
+  details { border:1px solid var(--border); border-radius:10px; padding:.8rem 1.1rem; margin:.8rem 0; background:var(--surface); }
+  details summary { cursor:pointer; font-weight:600; font-size:.93rem; }
+  details[open] summary { margin-bottom:.7rem; }
+  .badge { display:inline-block; padding:.12rem .55rem; border-radius:99px; font-size:.72rem; font-weight:700; margin-right:.4rem; }
+  .badge-easy{background:rgba(16,185,129,.15);color:#34d399} .badge-medium{background:rgba(245,158,11,.15);color:#fbbf24} .badge-hard{background:rgba(239,68,68,.15);color:#f87171}
+  .section-check { display:flex; align-items:center; gap:.45rem; font-size:.8rem; color:var(--muted); margin:-.3rem 0 .9rem; }
+  .diagram { background:var(--code-bg); border:1px solid var(--border); border-radius:10px; padding:1.1rem 1.3rem; margin:.9rem 0; font-family:Consolas,monospace; font-size:.82rem; line-height:1.75; white-space:pre; overflow-x:auto; }
+  .resource-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:.85rem; margin:.9rem 0; }
+  .resource-card { border:1px solid var(--border); border-radius:10px; padding:.85rem 1.05rem; background:var(--surface); }
+  .resource-card h4 { margin:0 0 .4rem; }
+  .resource-card a { display:block; color:var(--primary); text-decoration:none; font-size:.85rem; margin:.15rem 0; }
+  .resource-card p { font-size:.8rem; color:var(--muted); margin:.4rem 0 0; }
+  .theme-toggle { position:fixed; top:1rem; right:1rem; z-index:50; background:var(--surface); border:1px solid var(--border); border-radius:99px; width:2.4rem; height:2.4rem; cursor:pointer; font-size:1.05rem; }
+  .breadcrumbs { font-size:.82rem; color:var(--muted); margin-bottom:1.1rem; }
+  .breadcrumbs a { color:var(--primary); text-decoration:none; }
+  @media print { .sidebar,.theme-toggle,.nav-buttons{display:none} .main-content{margin:0} body{background:#fff;color:#000} }
+</style>
+</head>
+<body>
+<nav class="sidebar" aria-label="Table of contents"><h3>Module 29</h3><div id="toc"></div></nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 29 — Production Operations</strong></div>
+
+  <h1>Module 29 — Production Operations: Deploys, Testing &amp; Forensic Debugging</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 75 minutes</span>
+    <span>📁 Files: <code>backend/scripts/</code>, <code>backend/tests/</code>, <code>tests/</code>, <code>e2e/</code>, <code>docs/reference/RENDER_ENV_VARS.md</code></span>
+    <span>🔰 Prerequisites: Modules 27–28 (uses their incidents as case studies)</span>
+    <span>📼 Distilled from build sessions 9–17</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_28_leasing_voice_agent_v2.html" class="nav-btn">← Module 28: Leasing Voice Agent v2</a>
+    <a href="index.html" class="nav-btn">Course Index →</a>
+  </div>
+
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>Modules 00–28 built the product. This module is about everything that keeps it alive: <strong>how changes reach production safely, how you know they work, and how you find out why they don't.</strong> None of it is optional knowledge — every session from 9 onward spent as much time on these skills as on feature code, which is an accurate picture of senior work.</p>
+
+  <div class="diagram">The three operational surfaces of this system
+
+1. BACKEND CODE   git push → Render auto-deploy (env vars in dashboard)
+2. AGENT CONFIG   backend/scripts/*.py → VAPI API (dry-run, then push)
+3. DATABASE       numbered SQL in Supabase SQL Editor (Module 27)
+
+Different speeds, different blast radii, different rollbacks.
+Knowing WHICH surface a change lives on is the first deploy decision.</div>
+
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>1 · The two-stage deploy: dry-run, then push</summary>
+    <p>Every agent-config deploy script in <code>backend/scripts/</code> (e.g. <code>update_lease_agents.py</code>, <code>update_shared_agents.py</code>) supports a dry run: build the would-be config, diff it against what's live, print, change nothing. The real push runs only after a human reads the diff. This mattered every single session because the scripts fan out to <em>five assistants at once</em> — a bad push is five broken phone lines.</p>
+    <pre><code>python backend/scripts/update_lease_agents.py --dry-run   <span class="cm"># show the diff</span>
+python backend/scripts/update_lease_agents.py             <span class="cm"># apply it</span>
+python backend/scripts/vapi_inspect.py                    <span class="cm"># read back what's ACTUALLY live</span></code></pre>
+    <div class="callout-key callout"><strong>🔑 Key concept:</strong> a deploy isn't done when the script exits — it's done when you <em>read the live state back</em> and it matches intent (Session 15 verified the live config by fetching it after provisioning). Push, then read back, every time. Config systems drift; read-back is how you catch it.</div>
+  </details>
+
+  <details open>
+    <summary>2 · Snapshots and idempotent rollback</summary>
+    <p>Before Session 10 touched shared latency config, it wrote a <strong>rollback snapshot document</strong>: the exact current values of everything about to change, plus an idempotent push script that restores them. Rollback engineering happens <em>before</em> the risky change, while the system still works — not during the incident, from memory, at 2am. "Idempotent" matters: a restore you can run twice safely is a restore you can run while panicking.</p>
+  </details>
+
+  <details open>
+    <summary>3 · Prompt-only changes are their own deploy class</summary>
+    <p>Sessions 13–15 shipped behavior changes (French register, handoff fixes) <em>without any backend release</em> — they were prompt/config pushes only. Recognizing which surface a change needs is leverage: prompt-only fixes skip the Render deploy queue entirely, and conversely, a fix that spans both surfaces needs ordering (backend first if the prompt references new tool behavior). The question to ask of every voice-agent change: <em>"which of the three surfaces does this touch, and in what order?"</em></p>
+  </details>
+
+  <details open>
+    <summary>4 · The test pyramid, as it actually exists in this repo</summary>
+    <table>
+      <thead><tr><th>Layer</th><th>Where</th><th>What it catches</th><th>Speed</th></tr></thead>
+      <tbody>
+        <tr><td>Unit</td><td><code>backend/tests/unit/</code>, <code>tests/test_city_matching.py</code> (corpus)</td><td>Matcher regressions, auth logic, chatbot tool schemas</td><td>Seconds</td></tr>
+        <tr><td>Integration</td><td><code>backend/tests/integration/</code> (per-route: tenants, leasing, voice…)</td><td>Route + schema + DB contract breaks</td><td>Minutes</td></tr>
+        <tr><td>API smoke</td><td><code>tests/run_api_tests.py</code>, <code>backend/scripts/test_leasing_endpoints.sh</code>, <code>smoke_test_leasing.ps1</code></td><td>“Is the deployed thing actually up and answering?”</td><td>Minutes, runnable against prod</td></tr>
+        <tr><td>E2E</td><td><code>e2e/</code> (Playwright + <code>MANUAL_TESTING.md</code>)</td><td>Full browser flows: auth → CRUD → UI state</td><td>Slow; run before releases</td></tr>
+        <tr><td>Live call</td><td>A phone, multiple times (non-determinism!)</td><td>Everything no automation can hear: register, dead air, tone</td><td>Human minutes — the scarcest kind</td></tr>
+      </tbody>
+    </table>
+    <p>The pyramid's operational rule: <strong>test at the layer that failed.</strong> Session 16's bug was a query bug → it got a query-contract test, not an e2e test. Session 15's bug was conversational → it got repeated live calls, not a unit test. Writing the test at the wrong layer gives you green checkmarks and the same bug next month.</p>
+  </details>
+
+  <details open>
+    <summary>5 · Query-contract tests — asserting on the SELECT itself</summary>
+    <p>Session 16's phantom-vacancy bug (full case study below) was fixed by adding a column name to a <code>.select(...)</code> projection. The regression test doesn't spin up a database — it asserts <em>on the query string the code builds</em>: does the projection include the column the downstream filter needs? That's testing the <strong>contract</strong> between query and consumer. It's fast, needs no fixtures, and fails the instant someone "cleans up" the projection again. When a bug is "the code asked for the wrong thing," pin the <em>asking</em>, not just the outcome.</p>
+  </details>
+
+  <details open>
+    <summary>6 · Environment parity — the stale virtualenv wall</summary>
+    <p>Also Session 16: the new tests wouldn't run locally because the dev virtualenv had drifted behind <code>requirements.txt</code> — the code under test imported a library the venv predated. Two rules fall out: <strong>(1)</strong> when tests fail with ImportError, suspect the environment before the code; <strong>(2)</strong> after every pull that touches <code>requirements.txt</code>, re-run <code>pip install -r requirements.txt</code>. Pinned versions (Session 9 pinned the new matcher deps) are what make "works on my machine" reproducible at all.</p>
+  </details>
+
+  <details open>
+    <summary>7 · Forensic debugging — the discipline the sessions keep reusing</summary>
+    <p>Across sessions 11–17, the same investigation shape repeats. Learn it as a checklist:</p>
+    <ol>
+      <li><strong>Layer isolation (Session 11):</strong> reproduce at the lowest layer you can reach directly. "Agent says no Montréal listings" → curl the backend endpoint first. If the backend is right, the bug is above it; you just eliminated half the system in one command.</li>
+      <li><strong>The flight recorder (Session 17):</strong> the provider keeps a per-call object — tools attached, messages exchanged, what the model actually did. Read it via <code>vapi_inspect.py</code> / the VAPI API before theorizing. Session 17's "missing tools" hypothesis died in one look: the tools were attached; the model just never called one.</li>
+      <li><strong>Falsify, don't confirm:</strong> Session 11 formed a function-name-collision hypothesis and then <em>killed it with evidence</em> before acting. The measure of a debugging session is hypotheses destroyed per hour.</li>
+      <li><strong>Verify bytes before blaming data (Sessions 11, 13, 16, 17):</strong> the recurring "11½ → 11Â½ corruption" was, three separate times, a Windows console rendering artifact (cp1252 vs UTF-8), not corrupt data. Check with <code>python -c "print(open(f,'rb').read()[i:j])"</code> — raw bytes end mojibake debates in seconds. A false bug costs as much as a real one until it's retracted.</li>
+      <li><strong>Distinguish artifacts from bugs (Session 16):</strong> the "$14,100 apartment" was an STT transcription artifact, not a data bug. Production forensics must sort observations into <em>defect</em> / <em>artifact</em> / <em>expected</em> — and only defects get fixes.</li>
+    </ol>
+  </details>
+
+  <details open>
+    <summary>8 · Backend deployment — Render + environment variables</summary>
+    <p>The backend deploys to Render: push to the deploy branch → build → restart. Configuration is entirely environment variables (<code>docs/reference/RENDER_ENV_VARS.md</code> is the canonical list — Supabase keys, Stripe, Twilio, SendGrid, VAPI, OpenAI, Groq). The operational habits:</p>
+    <ul>
+      <li>A new env var is a <strong>deploy dependency</strong>: set it in Render's dashboard <em>before</em> deploying code that reads it — config.py's fail-fast startup (Module 01) will otherwise crash-loop the service.</li>
+      <li>Update <code>RENDER_ENV_VARS.md</code> in the same PR that introduces the variable — the doc is only useful while it's true.</li>
+      <li>After deploy, smoke: hit <code>/</code> and one authenticated endpoint (<code>smoke_test_leasing.ps1</code> automates the leasing surface). Session 16 smoke-tested production <em>after</em> the fix deploy and found the two false alarms above — that's the smoke test doing its job: telling you what production actually looks like.</li>
+    </ul>
+  </details>
+
+  <details open>
+    <summary>9 · The paper trail — living docs as part of the definition of done</summary>
+    <p>Every session ends the same way: update <code>CODEBASE_CONTEXT.md</code> (the always-current map), append decision records to the relevant plan doc in <code>docs/development_plans/</code>, and record diagnoses in <code>docs/diagnoses/</code>. This isn't bureaucracy — Session 10's rollback doc and Session 8's diagnosis were <em>load-bearing artifacts</em> that later sessions built on. The rule from CLAUDE.md: docs update in the same session as the change, never "later."</p>
+  </details>
+
+  <h2 id="walkthrough">Section 3 — Case Study: the Phantom Vacancy (Session 16, end to end)</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <p>One bug, worked from complaint to closed — every concept above appears in order.</p>
+  <ol>
+    <li><strong>The complaint:</strong> callers asking for a size-filtered search ("a 3½ in Montréal") always heard "nothing available" — while unfiltered searches for the same city returned listings. The agent flip-flopped between its two search tools.</li>
+    <li><strong>Read the transcript like a detective:</strong> pin down <em>which tool</em> returned empty and with <em>which parameters</em>. The defect list: size-filtered = always zero; unfiltered = fine.</li>
+    <li><strong>Find the suspect code:</strong> the size filter ran <em>in Python, after the fetch</em> — on rows whose <code>.select(...)</code> projection <strong>didn't include the size column</strong>. Every row's size read as missing; every row failed the filter; result: permanently empty. No error anywhere, because asking PostgREST for a subset of columns is perfectly legal.</li>
+    <li><strong>The fix: one word, three places</strong> — add the column to three projections. The diff is trivially small; the finding is not. (This is the general shape of projection bugs: <em>silent, legal, and downstream.</em>)</li>
+    <li><strong>Regression tests at the right layer:</strong> query-contract tests asserting the projections include what the filters consume (<code>test_listings_for_agent_v2.py</code>).</li>
+    <li><strong>Hit the environment wall:</strong> stale venv, ImportError, <code>pip install -r requirements.txt</code>, tests green.</li>
+    <li><strong>Update the living docs</strong>, deploy to Render, then <strong>smoke-test production</strong> — where the two false alarms ($14,100 rent, "4Â½") were investigated and correctly classified as artifacts, not bugs.</li>
+  </ol>
+  <div class="callout-bug callout"><strong>🐛 The companion bug (Session 17), compressed:</strong> a partner's inbound test calls hit a dead line — the phone number was never <em>bound</em> to the entry assistant (provisioning created everything but the binding). Diagnosis path: check what the number points at (one API read) → confirm via the call ledger → bind → retest. Then the follow-up transcripts exposed the same-turn tool-call trap (Module 28, concept 4). Lesson: <em>inbound and outbound are different routing paths — verify each end-to-end separately.</em></div>
+
+  <h2 id="design">Section 4 — Why This Design</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <h3>Decision: Dry-run-first deploy scripts vs. direct pushes</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>Dry-run diff + human read + push + read-back (chosen)</td><td>Five-assistant fan-out means one mistake is five outages; the diff catches it at zero cost; read-back catches partial failures</td><td>Slower; requires the script to be able to fetch and diff live state (worth building once)</td></tr>
+      <tr><td>Push directly</td><td>Fast</td><td>You learn about mistakes from callers</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Decision: Smoke-test production vs. trusting staging</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>Scripted smoke against prod after every deploy (chosen)</td><td>There is no staging VAPI + staging phone number + staging caller — the integration surface only fully exists in prod; smoke scripts make checking it cheap and repeatable</td><td>Smoke calls touch real data — scripts must be read-only or clearly tagged</td></tr>
+      <tr><td>Full staging environment</td><td>Safe rehearsal</td><td>Doubling every third-party integration (numbers, assistants, webhooks) for an MVP is cost without matching risk reduction — revisit at scale</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Decision: Where a regression test lives</h3>
+  <table>
+    <thead><tr><th>Bug class</th><th>Right test</th><th>Wrong (but tempting) test</th></tr></thead>
+    <tbody>
+      <tr><td>Query builds the wrong request</td><td>Contract test on the built query</td><td>E2E that happens to traverse it (slow, and green if data masks it)</td></tr>
+      <tr><td>Matcher mis-scores input</td><td>Corpus unit test</td><td>Live call (non-deterministic, unrepeatable)</td></tr>
+      <tr><td>Conversational behavior</td><td>Repeated live calls</td><td>Unit test of the prompt string (proves nothing about behavior)</td></tr>
+      <tr><td>Route/schema contract</td><td>Integration test per route</td><td>Manual curl you'll forget next month</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="data-flow">Section 5 — How It Connects</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+  <div class="diagram">change lands in git
+   │
+   ├─ backend code ──► Render auto-deploy ──► smoke script ──► read logs
+   │                        ▲ env vars set FIRST (RENDER_ENV_VARS.md)
+   │
+   ├─ agent config ──► script --dry-run ──► human reads diff ──► push
+   │                        └──► vapi_inspect.py read-back verify
+   │
+   └─ schema ──► numbered migration (M27) ──► BEFORE the code that needs it
+
+incident? ──► layer isolation ──► flight recorder ──► falsify hypotheses
+                   │                                        │
+                   └── fix + regression test AT THAT LAYER ◄┘
+                              └── docs updated same session</div>
+
+  <h2 id="running">Section 6 — Running &amp; Testing</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+  <pre><code><span class="cm"># the full local test ladder, fastest first</span>
+cd backend
+python -m pytest tests/unit -v
+python -m pytest tests/integration -v          <span class="cm"># needs .env / test DB access</span>
+python -m pytest ../tests/test_city_matching.py -v
+
+<span class="cm"># e2e (from e2e/): browsers install once, then run</span>
+cd ../e2e
+npm install
+npx playwright install
+npx playwright test
+
+<span class="cm"># deployed-surface smoke (PowerShell)</span>
+./backend/scripts/smoke_test_leasing.ps1</code></pre>
+  <table>
+    <thead><tr><th>Failure</th><th>First suspect</th><th>Check</th></tr></thead>
+    <tbody>
+      <tr><td>ImportError in tests</td><td>Stale venv, not code</td><td><code>pip install -r requirements.txt</code>, retry</td></tr>
+      <tr><td>Integration tests 401</td><td>Env/keys missing in test context</td><td><code>backend/.env</code> present; conftest fixtures</td></tr>
+      <tr><td>Playwright can't sign in</td><td>Auth setup project</td><td><code>e2e/auth.setup.ts</code> + its storage state</td></tr>
+      <tr><td>Deploy script diff looks huge</td><td>Live config drifted (manual dashboard edits)</td><td>Read-back with <code>vapi_inspect.py</code>; reconcile before pushing</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="checkpoint">Section 7 — Checkpoint ✓</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7"><label for="chk-s7">Mark complete</label></div>
+  <div class="card-success">
+    <h3>One green ladder, one read diff</h3>
+    <p>Run the unit tests and the city-matching corpus (both should pass in under a minute), then run <code>update_lease_agents.py --dry-run</code> and read the diff it prints without applying it.</p>
+    <p><strong>Success:</strong> green tests, and you can explain each line of the dry-run diff — either "no drift" or you can name which session/change produced each difference. Being able to <em>read a config diff against live</em> is the checkpoint; pushing is just pressing enter.</p>
+  </div>
+
+  <h2 id="exercises">Section 8 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s8"><label for="chk-s8">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Write a query-contract test</summary>
+    <p><strong>Problem:</strong> Pick any route that fetches rows and then filters/reads a field in Python. Write a test asserting the <code>.select(...)</code> projection contains every column the Python code consumes.</p>
+    <details><summary>Solution sketch</summary><p>Import the module, locate the select string (constant or built), and assert membership: <code>assert "quebec_size" in LISTING_SELECT</code>. If the projection is inline, extract it to a module-level constant first — that refactor is half the exercise's value: contracts you can test are contracts you can see. Model it on <code>backend/tests/integration/test_listings_for_agent_v2.py</code>.</p></details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Rollback drill</summary>
+    <p><strong>Problem:</strong> You're about to change the lease agents' temperature and two prompt sections. Write the rollback snapshot <em>first</em>, Session-10 style: what do you record, where does it live, and what makes the restore idempotent?</p>
+    <details><summary>Solution</summary><p>Record: per-assistant current values of every field you'll touch (fetched from the live API, not from your repo — the repo is intent, the API is truth), timestamped, in <code>docs/reference/</code> with a dated, searchable name (e.g. <code>lease_agent_latency_config_2026-07-04.md</code> — note the existing 2026-06-23 one as your template). Restore script: PATCH exactly those fields to exactly those values — PATCHing absolute values is naturally idempotent (running twice sets the same state twice), unlike "undo my diff" logic. Test the restore path once <em>before</em> making the risky change: an unrehearsed rollback is a hypothesis, not a safety net.</p></details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Triage a mixed observation list</summary>
+    <p><strong>Problem:</strong> A production smoke test after a deploy surfaces: (a) a listing priced at $14,100/mo; (b) "4Â½" rendering in your terminal; (c) a size-filtered search returning zero rows; (d) one French call where the agent greeted in English. For each: defect, artifact, or needs-more-evidence? Name the single cheapest next action for each.</p>
+    <details><summary>Solution</summary>
+      <ul>
+        <li><strong>(a) Needs evidence → likely artifact:</strong> check the DB row. If the DB says $1,410 and only the transcript says $14,100, it's an STT artifact (Session 16's exact case). Cheapest action: one SELECT.</li>
+        <li><strong>(b) Artifact:</strong> Windows console cp1252 rendering of UTF-8. Cheapest action: print raw bytes; if they're <code>C2 BD</code> (½), the data is fine. Do NOT "fix" the data — that's how false mojibake becomes real corruption.</li>
+        <li><strong>(c) Defect until proven otherwise:</strong> the phantom-vacancy signature. Cheapest action: curl the endpoint with and without the filter; if filtered ≠ subset of unfiltered, open the projection.</li>
+        <li><strong>(d) Needs evidence — non-determinism rule:</strong> one call proves nothing (Session 15). Cheapest action: read that call's flight-recorder object (was routing's language decision wrong — a defect in the router — or did the right assistant generate the wrong greeting — a prompt/firstMessage defect?), then place it before re-calling.</li>
+      </ul>
+      <p><strong>What's being tested:</strong> triage discipline — the instinct to buy maximum information with minimum action, and to never fix an artifact.</p>
+    </details>
+  </details>
+
+  <h2 id="glossary">Section 9 — Glossary</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s9"><label for="chk-s9">Mark complete</label></div>
+  <table>
+    <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td>Dry run</td><td>Build and diff a deploy without applying it — the human checkpoint before fan-out</td></tr>
+      <tr><td>Read-back verification</td><td>Fetching live state after a push to confirm it matches intent</td></tr>
+      <tr><td>Rollback snapshot</td><td>Pre-change record of live values + an idempotent restore path, written before the risk</td></tr>
+      <tr><td>Query-contract test</td><td>Test asserting on the query the code builds (projection, filters), not on data outcomes</td></tr>
+      <tr><td>Environment parity</td><td>Dev/CI/prod running the same pinned dependencies — the stale-venv lesson</td></tr>
+      <tr><td>Layer isolation</td><td>Reproducing a bug at the lowest directly-reachable layer to halve the search space</td></tr>
+      <tr><td>Flight recorder</td><td>The provider's per-call object: attached tools, messages, model actions — ground truth for call forensics</td></tr>
+      <tr><td>Artifact (vs. defect)</td><td>An observation caused by measurement/rendering (STT garble, console encoding), not by the system — classified, not fixed</td></tr>
+      <tr><td>False mojibake</td><td>Correct UTF-8 bytes misrendered by a cp1252 console — verify bytes before blaming data</td></tr>
+      <tr><td>Smoke test</td><td>Cheap scripted check that the deployed surface is up and sane, run after every deploy</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="resources">Section 10 — Resources</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s10"><label for="chk-s10">Mark complete</label></div>
+  <div class="resource-grid">
+    <div class="resource-card"><h4>Render</h4>
+      <a href="https://render.com/docs/web-services" target="_blank" rel="noopener">Web services</a>
+      <a href="https://render.com/docs/configure-environment-variables" target="_blank" rel="noopener">Environment variables</a>
+      <p>Deploy triggers, health checks, and the env-var dashboard this backend lives on.</p></div>
+    <div class="resource-card"><h4>pytest</h4>
+      <a href="https://docs.pytest.org/en/stable/" target="_blank" rel="noopener">pytest docs</a>
+      <a href="https://docs.pytest.org/en/stable/how-to/fixtures.html" target="_blank" rel="noopener">Fixtures</a>
+      <p>The machinery under backend/tests — conftest, fixtures, parametrize (ideal for corpus tests).</p></div>
+    <div class="resource-card"><h4>Playwright</h4>
+      <a href="https://playwright.dev/docs/intro" target="_blank" rel="noopener">Playwright docs</a>
+      <a href="https://playwright.dev/docs/auth" target="_blank" rel="noopener">Authentication setup</a>
+      <p>The auth-state pattern e2e/auth.setup.ts uses so tests don't log in repeatedly.</p></div>
+    <div class="resource-card"><h4>Config discipline</h4>
+      <a href="https://12factor.net/config" target="_blank" rel="noopener">12-Factor: Config</a>
+      <p>Why config is env vars and the codebase has exactly one settings object (Module 01).</p></div>
+    <div class="resource-card"><h4>Unicode debugging</h4>
+      <a href="https://docs.python.org/3/howto/unicode.html" target="_blank" rel="noopener">Python Unicode HOWTO</a>
+      <p>Enough encoding literacy to settle any mojibake question at the byte level in one command.</p></div>
+    <div class="resource-card"><h4>Incident thinking</h4>
+      <a href="https://sre.google/sre-book/effective-troubleshooting/" target="_blank" rel="noopener">Google SRE — Effective Troubleshooting</a>
+      <p>The formal version of Section 2's forensic checklist: triage, examine, diagnose, test/treat.</p></div>
+  </div>
+
+  <h2 id="whats-next">Section 11 — What's Next</h2>
+  <p>You've reached the end of the module course. From here: the <a href="sessions.html">session lessons</a> are the ongoing series — each new build session adds one, in full detail. The <a href="tenant_mvp_cheat_sheet.html">cheat sheet</a> condenses every rule and pattern from all 30 modules into one page for daily use.</p>
+
+  <div class="nav-buttons">
+    <a href="module_28_leasing_voice_agent_v2.html" class="nav-btn">← Module 28: Leasing Voice Agent v2</a>
+    <a href="index.html" class="nav-btn">Course Index →</a>
+  </div>
+</div></div>
+
+<script>
+  const saved = localStorage.getItem('theme');
+  if (saved) { document.documentElement.setAttribute('data-theme', saved); }
+  const toggle = document.getElementById('themeToggle');
+  toggle.textContent = (document.documentElement.getAttribute('data-theme') === 'dark') ? '🌙' : '☀️';
+  toggle.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '🌙' : '☀️';
+  });
+  const tocDiv = document.getElementById('toc');
+  document.querySelectorAll('h2[id]').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent.replace(/^Section \d+ — /, '');
+    tocDiv.appendChild(a);
+  });
+  const obs = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+      const act = document.querySelector('.sidebar a[href="#' + e.target.id + '"]');
+      if (act) act.classList.add('active');
+    }
+  }), { rootMargin: '-15% 0px -75% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => obs.observe(h));
+  const boxes = document.querySelectorAll('.section-check input');
+  const KEY = 'mod29-checks';
+  const state = JSON.parse(localStorage.getItem(KEY) || '{}');
+  boxes.forEach((b, i) => {
+    if (state[i]) b.checked = true;
+    b.addEventListener('change', () => {
+      boxes.forEach((c, j) => state[j] = c.checked);
+      localStorage.setItem(KEY, JSON.stringify(state));
+      upd();
+    });
+  });
+  function upd() {
+    const n = [...boxes].filter(b => b.checked).length;
+    document.getElementById('progressFill').style.width = (n / boxes.length * 100) + '%';
+  }
+  upd();
+</script>
+</body>
+</html>

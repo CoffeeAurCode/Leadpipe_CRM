@@ -689,7 +689,59 @@ State variables that drive all of this:
     </ul>
   </div>
 
-  <div class="nav-buttons">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Section 9 — Why This Design</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfa" aria-label="Mark section complete"><label for="chk-bfa">Mark complete</label></div>
+
+<h3>Decision: Cascading fetches (group → buildings → units) vs. one nested payload</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Fetch each level on selection (chosen)</td><td>Initial load is light; a manager with 40 buildings only pays for the one they open; each fetch maps to one obvious endpoint</td><td>Click-depth latency (three clicks = three round-trips); more loading states to manage</td></tr>
+<tr><td>One nested mega-response</td><td>Single request; instant drill-down after load</td><td>Payload grows with portfolio size; any change anywhere invalidates the whole tree; PostgREST triple-nesting gets fragile</td></tr>
+</tbody>
+</table>
+<h3>Decision: Direct-to-Storage upload from the browser</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Browser → Supabase Storage, save URL via API (chosen)</td><td>Image bytes never transit the FastAPI server — no upload size/timeout config, no server bandwidth cost; Storage RLS policies still gate writes</td><td>Two-step commit (upload, then save URL) can orphan files if step 2 fails; bucket policies become part of your security surface</td></tr>
+<tr><td>Upload through the backend</td><td>One transaction-ish flow; server-side validation of file contents</td><td>Server becomes a file proxy; large uploads tie up workers</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> modal state (which modal is open, editing what) lives in the PAGE component, not in the modals. Modals receive props and callbacks — they're dumb. This keeps “what is the user doing right now” answerable from one component's state, which is exactly what you need when debugging a stuck dialog.</div>
+<h2 id="bf-checkpoint">Section 10 — Checkpoint ✓</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfb" aria-label="Mark section complete"><label for="chk-bfb">Mark complete</label></div>
+<div class="bf-card">
+<p>Run the full hierarchy through the UI:</p>
+<ol>
+<li>Create a property group → a building inside it → a unit inside that. <strong>Expected:</strong> each appears immediately in its panel without a manual refresh.</li>
+<li>Upload a building image. <strong>Expected:</strong> the image renders, AND the file exists in the Supabase Storage bucket (check the dashboard), AND the building row holds its public URL.</li>
+<li>Watch the Network tab while drilling down. <strong>Expected:</strong> one fetch per level as you click — not one giant fetch up front (that's the cascading design working).</li>
+<li>Delete the test group. <strong>Expected:</strong> children vanish with it (Module 05's cascade, seen from the UI side).</li>
+</ol></div>
+<h2 id="bf-resources">Section 11 — Resources</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfc" aria-label="Mark section complete"><label for="chk-bfc">Mark complete</label></div>
+<div class="bf-res"><div><h4>Supabase Storage</h4><a href="https://supabase.com/docs/reference/javascript/storage-from-upload" target="_blank" rel="noopener">storage-js upload</a><a href="https://supabase.com/docs/guides/storage/security/access-control" target="_blank" rel="noopener">Storage access control</a><p>Upload API plus the bucket RLS policies that decide who can write.</p></div><div><h4>React state colocation</h4><a href="https://react.dev/learn/sharing-state-between-components" target="_blank" rel="noopener">Where to put state</a><p>Lifting state up — the principle behind page-owned modal state.</p></div><div><h4>Framer Motion</h4><a href="https://motion.dev/docs/react-animate-presence" target="_blank" rel="noopener">AnimatePresence</a><p>Exit animations for modals/panels — why unmounting needs AnimatePresence wrapping.</p></div><div><h4>Waterfall vs. parallel fetching</h4><a href="https://react.dev/reference/react/useEffect#fetching-data-with-effects" target="_blank" rel="noopener">React docs — fetching data</a><p>The official caveats on effect-driven fetching — race conditions and cleanup, which this page's cascading fetches must respect.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-buttons">
     <a href="module_20_dashboard_charts.html" class="nav-btn">← Previous: Dashboard &amp; Charts</a>
     <a href="module_22_tenant_management.html" class="nav-btn">Next: Tenant Management →</a>
   </div>

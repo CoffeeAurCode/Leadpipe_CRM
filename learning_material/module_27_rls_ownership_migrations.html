@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 27 — Ownership, RLS Evolution &amp; Migrations</title>
+<style>
+  :root, :root[data-theme="dark"] {
+    --bg:#0f1117; --surface:#1a1d27; --border:#2a2d3a; --text:#e2e8f0; --muted:#94a3b8;
+    --primary:#6366f1; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --code-bg:#141720;
+    --kw:#c678dd; --str:#98c379; --fn:#61afef; --cm:#5c6370; --num:#d19a66; --typ:#e5c07b;
+  }
+  :root[data-theme="light"] {
+    --bg:#ffffff; --surface:#f8fafc; --border:#e2e8f0; --text:#1e293b; --muted:#64748b;
+    --primary:#4f46e5; --code-bg:#f1f5f9;
+    --kw:#a626a4; --str:#50a14f; --fn:#4078f2; --cm:#a0a1a7; --num:#986801; --typ:#c18401;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.65; }
+  .sidebar { position:fixed; top:0; left:0; width:250px; height:100vh; overflow-y:auto; background:var(--surface); border-right:1px solid var(--border); padding:1.2rem; font-size:.85rem; }
+  .sidebar h3 { font-size:.75rem; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:.8rem; }
+  .sidebar a { display:block; color:var(--muted); text-decoration:none; padding:.28rem .5rem; border-radius:6px; margin-bottom:2px; }
+  .sidebar a:hover { color:var(--text); background:rgba(128,128,128,.1); }
+  .sidebar a.active { color:var(--primary); background:rgba(99,102,241,.12); font-weight:600; }
+  .main-content { margin-left:250px; }
+  .container { max-width:880px; margin:0 auto; padding:2.5rem 2rem 6rem; }
+  @media (max-width:900px){ .sidebar{display:none} .main-content{margin-left:0} }
+  h1 { font-size:1.9rem; font-weight:800; line-height:1.25; margin-bottom:.6rem; }
+  h2 { font-size:1.35rem; font-weight:700; color:var(--primary); margin:2.6rem 0 .9rem; padding-top:.5rem; border-top:1px solid var(--border); }
+  h3 { font-size:1.05rem; font-weight:700; margin:1.6rem 0 .6rem; }
+  h4 { font-size:.95rem; font-weight:700; margin:1.1rem 0 .4rem; }
+  p, li { color:var(--text); font-size:.95rem; margin-bottom:.7rem; }
+  ul, ol { padding-left:1.5rem; margin-bottom:.8rem; }
+  code { background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:.08rem .35rem; font-family:Consolas,monospace; font-size:.85em; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem; overflow-x:auto; margin:.8rem 0 1rem; position:relative; }
+  pre code { background:none; border:none; padding:0; font-size:.85rem; line-height:1.6; display:block; }
+  .kw{color:var(--kw)} .str{color:var(--str)} .fn{color:var(--fn)} .cm{color:var(--cm)} .num{color:var(--num)} .typ{color:var(--typ)}
+  table { width:100%; border-collapse:collapse; margin:.9rem 0 1.1rem; font-size:.88rem; }
+  th, td { border:1px solid var(--border); padding:.5rem .65rem; text-align:left; vertical-align:top; }
+  th { background:var(--surface); }
+  .meta-row { display:flex; gap:1.4rem; flex-wrap:wrap; color:var(--muted); font-size:.85rem; margin:.6rem 0 1.2rem; }
+  .progress-bar { height:6px; background:var(--surface); border-radius:99px; overflow:hidden; margin-bottom:1.6rem; }
+  .progress-fill { height:100%; background:var(--primary); width:0%; transition:width .3s; }
+  .nav-buttons { display:flex; justify-content:space-between; gap:1rem; margin:1.6rem 0; }
+  .nav-btn { color:var(--primary); text-decoration:none; font-size:.88rem; font-weight:600; padding:.55rem .9rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+  .nav-btn:hover { border-color:var(--primary); }
+  .callout { border-left:4px solid var(--primary); background:rgba(99,102,241,.08); border-radius:0 10px 10px 0; padding:.8rem 1.1rem; margin:1rem 0; font-size:.92rem; }
+  .callout-warn { border-color:var(--amber); background:rgba(245,158,11,.08); }
+  .callout-bug { border-color:var(--red); background:rgba(239,68,68,.07); }
+  .callout-key { border-color:var(--green); background:rgba(16,185,129,.08); }
+  .card-success { border:1px solid var(--border); border-left:4px solid var(--green); border-radius:10px; padding:1rem 1.3rem; margin:1rem 0; background:var(--surface); }
+  details { border:1px solid var(--border); border-radius:10px; padding:.8rem 1.1rem; margin:.8rem 0; background:var(--surface); }
+  details summary { cursor:pointer; font-weight:600; font-size:.93rem; }
+  details[open] summary { margin-bottom:.7rem; }
+  .badge { display:inline-block; padding:.12rem .55rem; border-radius:99px; font-size:.72rem; font-weight:700; margin-right:.4rem; }
+  .badge-easy{background:rgba(16,185,129,.15);color:#34d399} .badge-medium{background:rgba(245,158,11,.15);color:#fbbf24} .badge-hard{background:rgba(239,68,68,.15);color:#f87171}
+  .section-check { display:flex; align-items:center; gap:.45rem; font-size:.8rem; color:var(--muted); margin:-.3rem 0 .9rem; }
+  .diagram { background:var(--code-bg); border:1px solid var(--border); border-radius:10px; padding:1.1rem 1.3rem; margin:.9rem 0; font-family:Consolas,monospace; font-size:.82rem; line-height:1.75; white-space:pre; overflow-x:auto; }
+  .resource-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:.85rem; margin:.9rem 0; }
+  .resource-card { border:1px solid var(--border); border-radius:10px; padding:.85rem 1.05rem; background:var(--surface); }
+  .resource-card h4 { margin:0 0 .4rem; }
+  .resource-card a { display:block; color:var(--primary); text-decoration:none; font-size:.85rem; margin:.15rem 0; }
+  .resource-card p { font-size:.8rem; color:var(--muted); margin:.4rem 0 0; }
+  .theme-toggle { position:fixed; top:1rem; right:1rem; z-index:50; background:var(--surface); border:1px solid var(--border); border-radius:99px; width:2.4rem; height:2.4rem; cursor:pointer; font-size:1.05rem; }
+  .breadcrumbs { font-size:.82rem; color:var(--muted); margin-bottom:1.1rem; }
+  .breadcrumbs a { color:var(--primary); text-decoration:none; }
+  @media print { .sidebar,.theme-toggle,.nav-buttons{display:none} .main-content{margin:0} body{background:#fff;color:#000} }
+</style>
+</head>
+<body>
+<nav class="sidebar" aria-label="Table of contents"><h3>Module 27</h3><div id="toc"></div></nav>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌙</button>
+
+<div class="main-content"><div class="container">
+  <div class="breadcrumbs"><a href="index.html">Home</a> › <strong>Module 27 — Ownership, RLS Evolution &amp; Migrations</strong></div>
+
+  <h1>Module 27 — Ownership, RLS Evolution &amp; Schema Migrations</h1>
+  <div class="meta-row">
+    <span>⏱ Estimated time: 70 minutes</span>
+    <span>📁 Files: <code>backend/migrations/</code>, <code>scripts/*.sql</code>, RLS policies, leasing/voice routes</span>
+    <span>🔰 Prerequisites: Modules 02, 03, 05–08</span>
+    <span>📼 Distilled from build sessions 7, 11 &amp; 18</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <div class="nav-buttons">
+    <a href="module_26_settings_onboarding.html" class="nav-btn">← Module 26: Settings &amp; Onboarding</a>
+    <a href="module_28_leasing_voice_agent_v2.html" class="nav-btn">Module 28: Leasing Voice Agent v2 →</a>
+  </div>
+
+  <h2 id="what-you-build">Section 1 — What You Are Building</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s1"><label for="chk-s1">Mark complete</label></div>
+
+  <p>Modules 02–08 taught the ownership model as it was <em>designed</em>: every flat belongs to a building, every building to a property group, every group to a manager, and RLS policies walk that chain to decide who sees what. This module teaches what happened when reality diverged from that design — and the discipline that grew out of fixing it: <strong>evolving RLS policies safely, anchoring ownership on the most stable entity, and shipping schema changes as ordered, tolerant migrations.</strong></p>
+
+  <div class="diagram">The ownership chain (as designed)          What broke it
+────────────────────────────────          ─────────────────────────────
+manager_profiles (auth.uid())              "standalone units" — flats
+   └─ properties_list (manager_id)         created outside a full
+        └─ buildings (property_id)         group→building chain. The
+             └─ flats (building_id)        RLS policy walked a chain
+                  └─ tenants, complaints   that didn't exist for them,
+                                           so INSERTs were rejected.</div>
+
+  <p>Three real production incidents drive this module:</p>
+  <ul>
+    <li><strong>Session 7:</strong> creating a unit failed with an RLS rejection because the policy assumed a chain some rows don't have. Fixed with an <em>additive</em> policy plus a backfill migration that recovered orphaned rows.</li>
+    <li><strong>Session 11:</strong> caller identity was being resolved through the <em>tenant</em>, which moves, churns, and can be missing. Refactored to <strong>flat-anchored ownership</strong> — resolve through the entity that never moves.</li>
+    <li><strong>Session 18:</strong> migration <code>032_tenant_preferred_language.sql</code> added a column that live code would read <em>before</em> the migration ran everywhere — which forced the discipline of <strong>migration-tolerant queries</strong> and a four-system deploy order.</li>
+  </ul>
+
+  <h2 id="concepts">Section 2 — Concept Deep-Dives</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s2"><label for="chk-s2">Mark complete</label></div>
+
+  <details open>
+    <summary>The ownership chain, and why RLS policies encode assumptions</summary>
+    <p>An RLS policy is a WHERE clause that runs on every query — and every WHERE clause encodes an assumption about the data's shape. The original flats policy said, in effect:</p>
+    <pre><code><span class="cm">-- "You may touch a flat if you own the building's property group"</span>
+<span class="kw">USING</span> (
+  building_id <span class="kw">IN</span> (
+    <span class="kw">SELECT</span> b.id <span class="kw">FROM</span> buildings b
+    <span class="kw">JOIN</span> properties_list p <span class="kw">ON</span> b.property_id = p.uuid
+    <span class="kw">WHERE</span> p.manager_id = auth.uid()
+  )
+)</code></pre>
+    <p>The hidden assumption: <em>every flat's building has a property, and that property has this manager</em>. A flat whose chain is incomplete — a standalone unit — makes the subquery return nothing, and the policy silently denies access. <strong>RLS failures never say "your chain is broken"; they say "row violates row-level security policy," which looks identical to an auth bug.</strong> That misdirection is why Session 7's diagnosis walked the chain link by link before touching any code.</p>
+  </details>
+
+  <details open>
+    <summary>Additive RLS policies — fix without hiding</summary>
+    <p>PostgreSQL combines multiple permissive policies on the same table with <strong>OR</strong>. That means you can repair a coverage gap by <em>adding</em> a second policy for the uncovered shape, without touching — or risking — the policy that already protects the covered shape:</p>
+    <pre><code><span class="cm">-- Existing policy stays untouched (full-chain flats keep working)</span>
+<span class="cm">-- New policy covers the standalone shape:</span>
+<span class="kw">CREATE POLICY</span> flats_standalone_owner <span class="kw">ON</span> flats
+  <span class="kw">FOR ALL USING</span> (manager_id = auth.uid());</code></pre>
+    <p>The alternative — editing the original policy into one bigger OR expression — changes the security surface for <em>every</em> row to fix <em>some</em> rows. Additive policies keep each ownership shape auditable on its own line. The cost: you must remember both exist when reasoning about access (name them descriptively).</p>
+  </details>
+
+  <details open>
+    <summary>Flat-anchored ownership — resolve through the most stable entity</summary>
+    <p>When a voice call comes in, the system must answer: <em>which manager does this caller belong to?</em> The first implementation resolved through the tenant record (phone → tenant → flat → … → manager). Session 11 exposed the weakness: tenants churn, get reassigned, have missing or duplicated phones. Every one of those states broke identity resolution mid-call.</p>
+    <p>The refactor anchors on the <strong>flat</strong>: phone → flat (via the tenant link) → building → manager, with the flat as the join point everything else hangs off. Flats are the most stable entity in the domain — they don't move buildings, don't churn, and exist before and after any given tenancy.</p>
+    <div class="callout-key callout"><strong>🔑 Key concept:</strong> when several entities could anchor a lookup, choose the one with the longest lifetime and the fewest state transitions. Tenants are <em>residents of</em> the stable world, not the stable world itself. The same reasoning picks the phone <em>number</em> (not the caller) as identity anchor in Module 12, and the flat (not the complaint) as the complaint's ownership root.</div>
+  </details>
+
+  <details open>
+    <summary>Numbered migrations — the schema's git history</summary>
+    <p><code>backend/migrations/</code> holds numbered SQL files (<code>031_lease_french_assistant_id.sql</code>, <code>032_tenant_preferred_language.sql</code>, …). The number is a promise about <em>order</em>: 032 assumes 031 has run. Each file is:</p>
+    <ul>
+      <li><strong>Small</strong> — one logical change (a column, a policy, an index), so a failure is diagnosable.</li>
+      <li><strong>Forward-only</strong> — there is no automated down-migration here; recovery is a new numbered migration that undoes the change explicitly.</li>
+      <li><strong>Idempotent where cheap</strong> — <code>ADD COLUMN IF NOT EXISTS</code>, <code>CREATE POLICY</code> guarded by a drop-if-exists, so re-running by accident is harmless.</li>
+    </ul>
+    <p>Migrations are applied by pasting into the Supabase SQL Editor (no Alembic — Module 02 explains why the SQLAlchemy toolchain is out). The discipline substitutes for the tooling: <strong>numbered files in git ARE the migration history.</strong></p>
+  </details>
+
+  <details open>
+    <summary>Migration-tolerant queries — code that survives being deployed "too early"</summary>
+    <p>Session 18 shipped a feature spanning a DB column, backend code, VAPI assistants, and a provisioning script. Four systems cannot update in the same instant, so for some window the new code runs against the old schema. Code that does <code>row["preferred_language"]</code> crashes in that window; code that does <code>row.get("preferred_language")</code> — and treats <code>None</code> as "no preference recorded" — sails through:</p>
+    <pre><code><span class="cm"># migration-tolerant read: works before AND after 032 runs</span>
+lang = (tenant_row.get(<span class="str">"preferred_language"</span>) <span class="kw">or</span> <span class="str">"en"</span>)</code></pre>
+    <p>The same tolerance applies to SELECTs: asking for <code>select("*")</code> survives a new column appearing; asking for an explicit column list that includes a not-yet-existing column fails. Tolerance is a <em>temporary</em> posture — once the migration is confirmed everywhere, the defensive default documents itself as the real default.</p>
+  </details>
+
+  <details open>
+    <summary>Deploy ordering — four systems, one safe sequence</summary>
+    <p>When a change spans DB + backend + external agent config + a switch-flip, there is exactly one order that never serves a broken state:</p>
+    <div class="diagram">1. DB migration        (adds the column — old code ignores it)
+2. Backend deploy      (tolerant code — works with or without data)
+3. Agent provisioning  (new assistants/config that WRITE the column)
+4. Flip the switch     (routing starts READING the column)</div>
+    <p>Each step is safe against the world as the previous step left it. Reverse any two adjacent steps and there's a window where something reads a column that doesn't exist, or routes on data nothing writes yet. <strong>Write the order down before deploying anything multi-system</strong> — Session 18 did, and Step 9 of its build log is literally that list.</p>
+  </details>
+
+  <details open>
+    <summary>Write-once semantics — first answer wins</summary>
+    <p>The tenant's <code>preferred_language</code> is recorded the first time they answer a call in a language, and never overwritten by later calls. Why not update it every call? Because later signals are noisier (a tenant's bilingual roommate picks up once and flips the record), and because a flip-flopping preference makes routing non-deterministic and support tickets undiagnosable. Write-once with an explicit manual override path (settings UI) beats continuous inference for slow-changing facts.</p>
+  </details>
+
+  <h2 id="walkthrough">Section 3 — Case Study Walkthrough: the Session-7 RLS Incident</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s3"><label for="chk-s3">Mark complete</label></div>
+
+  <p>This is the senior-dev debugging sequence, step by step, exactly as it ran. The specific bug matters less than the <em>order of operations</em> — notice how much reading happens before any writing.</p>
+
+  <h3>Phase 1 — Diagnose (steps 1–5: read, don't guess)</h3>
+  <ol>
+    <li><strong>Read the symptom precisely.</strong> The error was an RLS rejection on INSERT — not a 401, not a validation error. That single distinction eliminates the auth layer and Pydantic immediately.</li>
+    <li><strong>Find the code that prints the error.</strong> Grep for the error text; identify which route and which service function produced it.</li>
+    <li><strong>Read both suspects end-to-end</strong> — the route (what client, what data) and the service (what table, what columns).</li>
+    <li><strong>Read the actual RLS policy</strong> in the migration SQL, not from memory. The policy's subquery walked group→building→flat.</li>
+    <li><strong>Confirm the trigger:</strong> the failing rows were standalone units whose chain the subquery couldn't complete. Reproduce on one row to prove it.</li>
+  </ol>
+
+  <h3>Phase 2 — Fix twice (steps 6–7: immediate, then durable)</h3>
+  <div class="callout"><strong>💡 The two-fix pattern:</strong> ship <strong>Option A</strong> (smallest change that unblocks users — here, routing the operation through a path the policy allows) the same hour; then design <strong>Option B</strong> (the durable schema fix) <em>with the user</em>, because durable fixes change the data model and that's a product decision, not just an engineering one.</div>
+
+  <h3>Phase 3 — Migrate and recover (steps 8–11)</h3>
+  <ol>
+    <li><strong>Write the migration:</strong> add the direct-ownership column, create the additive policy, backfill.</li>
+    <li><strong>Populate</strong> the new column for existing rows from the chain where it exists.</li>
+    <li><strong>Verify code compiles</strong> against the new shape (a <code>python -c "import app.main"</code> smoke check catches renamed-column typos before deploy).</li>
+    <li><strong>Run the migration, then recover the orphans</strong> — the rows the old policy had made invisible come back, and the incident's data loss turns out to be data <em>hiding</em>.</li>
+  </ol>
+
+  <h3>Migration 032 — the anatomy of a small, safe migration</h3>
+  <pre><code><span class="cm">-- backend/migrations/032_tenant_preferred_language.sql (shape)</span>
+<span class="kw">ALTER TABLE</span> tenants
+  <span class="kw">ADD COLUMN IF NOT EXISTS</span> preferred_language <span class="typ">text</span>
+  <span class="kw">CHECK</span> (preferred_language <span class="kw">IN</span> (<span class="str">'en'</span>, <span class="str">'fr'</span>));</code></pre>
+  <p>Everything this module preaches in five lines: idempotent (<code>IF NOT EXISTS</code>), constrained at the DB (the CHECK means no third value can ever sneak in from any code path), nullable (NULL = "not yet known" is a real state, distinct from either language — the write-once logic depends on it), and numbered after everything it assumes.</p>
+
+  <div class="callout-bug callout"><strong>🐛 Bug story (Session 18): three flats named "102".</strong> Tenant phone-verification matched on <code>flat_number</code> alone — and three different buildings each had a flat "102". Verification matched the wrong tenant in another manager's building. The fix: scope every flat lookup by the ownership anchor (building/manager) — <em>never</em> treat a human-readable label as a unique key. UUIDs are unique; flat numbers are decoration. If you take one rule from this module's bugs, take that one.</div>
+
+  <h2 id="design">Section 4 — Why This Design</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s4"><label for="chk-s4">Mark complete</label></div>
+
+  <h3>Decision: Additive policy vs. rewriting the existing policy</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>Add a second policy for the new shape (chosen)</td><td>Existing protection untouched — zero regression risk for covered rows; each shape auditable independently; trivially revertible (drop one policy)</td><td>Two policies to hold in your head; OR-combination semantics must be understood</td></tr>
+      <tr><td>Rewrite the original policy with a bigger OR</td><td>One policy to read</td><td>Every row's access re-derived through new SQL; a mistake breaks the rows that used to work — the worst failure class</td></tr>
+      <tr><td>Bypass with service-role in the route</td><td>Instant unblock</td><td>Permanently exempts the route from RLS — the "temporary" bypass that outlives everyone's memory of why</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Decision: Where to anchor ownership resolution</h3>
+  <table>
+    <thead><tr><th>Anchor</th><th>Stability</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Tenant record</td><td>Churns, reassigns, phone changes, can be absent (vacant flat)</td><td>Original design — failed in production</td></tr>
+      <tr><td>Flat (chosen)</td><td>Never moves; exists across tenancies; one hop to building→manager</td><td>Session 11 refactor — the join point for identity, complaints, and leasing</td></tr>
+      <tr><td>Phone number</td><td>Stable per person, but shared households and number changes break it</td><td>Good <em>lookup key</em>, bad <em>ownership root</em></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Decision: Manual SQL migrations vs. a migration framework</h3>
+  <table>
+    <thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+    <tbody>
+      <tr><td>Numbered SQL files run in Supabase SQL Editor (chosen)</td><td>Zero toolchain; the SQL you review is the SQL that runs; policies/columns/backfills live together per change</td><td>Nothing enforces that a migration ran — discipline and the README checklist substitute; no automatic rollback</td></tr>
+      <tr><td>Alembic</td><td>Tracked state, autogeneration, down-migrations</td><td>Requires the SQLAlchemy models this project deliberately abandoned (Module 02); autogeneration can't see RLS policies anyway</td></tr>
+      <tr><td>Supabase CLI migrations</td><td>Tracked, integrated</td><td>Viable future upgrade — adopt when more than one person applies migrations</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="data-flow">Section 5 — How It Connects</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s5"><label for="chk-s5">Mark complete</label></div>
+
+  <div class="diagram">Voice call arrives (Module 28)
+   │  phone number
+   ▼
+flat-anchored resolution ──► flats (stable anchor)
+   │                            │ building_id / manager link
+   ▼                            ▼
+tenant identity            RLS policies (additive set)
+   │                            │
+   ▼                            ▼
+preferred_language         every user-facing query
+(written once,             in Modules 05-08, 16
+ read by call routing)     silently filtered by them</div>
+
+  <p><strong>Upstream:</strong> Modules 02–03 (clients &amp; RLS basics), Modules 05–08 (the tables these policies protect). <strong>Downstream:</strong> Module 28's call routing reads <code>preferred_language</code>; every agent tool that looks up "whose flat is this" rides the flat-anchored resolution built here.</p>
+
+  <h2 id="running">Section 6 — Running &amp; Testing</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s6"><label for="chk-s6">Mark complete</label></div>
+
+  <p>Inspect the live policy set for any table straight from SQL (Supabase SQL Editor):</p>
+  <pre><code><span class="kw">SELECT</span> polname, cmd, qual
+<span class="kw">FROM</span> pg_policies
+<span class="kw">WHERE</span> tablename = <span class="str">'flats'</span>;</code></pre>
+  <p><strong>Expected:</strong> every policy protecting flats, one row each — the additive set made visible. Then test tolerance the way Session 18 had to:</p>
+  <pre><code><span class="cm"># simulate "deployed before the migration": does the code survive a missing column?</span>
+python -c <span class="str">"
+row = {'name': 'Test Tenant'}          # no preferred_language key
+lang = row.get('preferred_language') or 'en'
+print('tolerant read gives:', lang)
+"</span></code></pre>
+  <table>
+    <thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td><code>new row violates row-level security policy</code></td><td>No policy covers this row's ownership shape for this operation</td><td>List the policies (query above); find which shape is uncovered; add an additive policy — don't reach for service-role</td></tr>
+      <tr><td><code>column "x" does not exist</code></td><td>Code deployed ahead of its migration</td><td>Run the numbered migration; make the read tolerant so the window is survivable next time</td></tr>
+      <tr><td>Rows "disappeared" after a policy change</td><td>New policy narrower than intended — rows are hidden, not deleted</td><td>Query as service-role to confirm the rows exist, then fix the policy</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="checkpoint">Section 7 — Checkpoint ✓</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s7"><label for="chk-s7">Mark complete</label></div>
+
+  <div class="card-success">
+    <h3>Prove you can read an RLS denial correctly</h3>
+    <p>In the Supabase SQL Editor, run the <code>pg_policies</code> query above for <code>flats</code> and <code>tenants</code>. For each policy, write one sentence: <em>which ownership shape does it cover?</em> Then answer from the policy text alone: <strong>could a standalone unit (no property chain) be inserted by its manager?</strong></p>
+    <p><strong>Success:</strong> you can name the exact policy that permits it (or identify that none does). That skill — reading policies as coverage maps — is the entire Session-7 diagnosis compressed into five minutes.</p>
+  </div>
+
+  <h2 id="exercises">Section 8 — Exercises</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s8"><label for="chk-s8">Mark complete</label></div>
+
+  <details>
+    <summary><span class="badge badge-easy">Easy</span> Write migration 033</summary>
+    <p><strong>Problem:</strong> Product wants a per-tenant <code>emergency_contact_phone</code>. Write <code>033_tenant_emergency_contact.sql</code> following every convention from Section 2's migration anatomy.</p>
+    <details><summary>Hints</summary><p>Idempotent ADD COLUMN; nullable (unknown is a real state); think about whether a CHECK constraint is possible for phone format (hint: E.164 regex via <code>CHECK (col ~ '^\+[0-9]+$')</code> — decide if you want it).</p></details>
+    <details><summary>Solution</summary>
+      <pre><code><span class="cm">-- 033_tenant_emergency_contact.sql</span>
+<span class="kw">ALTER TABLE</span> tenants
+  <span class="kw">ADD COLUMN IF NOT EXISTS</span> emergency_contact_phone <span class="typ">text</span>
+  <span class="kw">CHECK</span> (emergency_contact_phone <span class="kw">IS NULL OR</span> emergency_contact_phone ~ <span class="str">'^\+[0-9]{7,15}$'</span>);</code></pre>
+      <p><strong>Success:</strong> runs twice without error; rejects <code>'9876543210'</code> (no +) but accepts NULL and <code>'+919876543210'</code>. The <code>IS NULL OR</code> matters — without it the CHECK rejects the unknown state too.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-medium">Medium</span> Diagnose a policy-coverage gap on paper</summary>
+    <p><strong>Problem:</strong> A manager reports that complaints created by the voice agent are invisible in their dashboard, but complaints created in the UI show fine. Voice complaints are inserted with the service client. Using only what this module taught, list the three most likely causes in the order you'd check them.</p>
+    <details><summary>Solution</summary>
+      <ol>
+        <li><strong>The insert didn't set the ownership column</strong> (service client bypasses RLS on write, so nothing forced <code>manager_id</code>/flat linkage to be present — the row exists but no read policy matches it). Check the actual rows as service-role first.</li>
+        <li><strong>The read policy's chain doesn't cover the shape voice inserts create</strong> (e.g. complaint anchored to a flat_number string but no flat row — the Session-7 class of bug).</li>
+        <li><strong>The dashboard query filters on a field voice inserts leave NULL</strong> — not RLS at all, which is why you confirm with a service-role read before blaming policies.</li>
+      </ol>
+      <p><strong>The lesson being tested:</strong> "invisible rows" splits into <em>row doesn't exist</em> / <em>row exists but no policy matches</em> / <em>row matches but app filters it</em> — and a service-role SELECT distinguishes all three in one query.</p>
+    </details>
+  </details>
+
+  <details>
+    <summary><span class="badge badge-hard">Hard</span> Design a deploy plan for building-scoped flat numbers</summary>
+    <p><strong>Problem:</strong> To kill the "three flats named 102" class forever, you decide flat lookups must always be building-scoped, and the DB should enforce <code>UNIQUE (building_id, flat_number)</code>. Existing data contains cross-building duplicates (fine) and possibly same-building duplicates (must be resolved). Write the numbered-migration + deploy plan, in order, using the four-system sequence.</p>
+    <details><summary>Solution</summary>
+      <ol>
+        <li><strong>Audit first (no migration):</strong> <code>SELECT building_id, flat_number, COUNT(*) FROM flats GROUP BY 1,2 HAVING COUNT(*) &gt; 1;</code> — you cannot add a unique constraint over dirty data.</li>
+        <li><strong>Migration 03X-a:</strong> data fix only — rename/merge same-building duplicates (a human decision per row; this migration is generated from the audit, reviewed by the user — Option-B territory).</li>
+        <li><strong>Backend deploy:</strong> make every flat lookup take building/manager scope (tolerant: works with or without the constraint existing).</li>
+        <li><strong>Migration 03X-b:</strong> <code>ALTER TABLE flats ADD CONSTRAINT flats_building_flat_number_key UNIQUE (building_id, flat_number);</code> — safe now because code no longer creates duplicates and data is clean.</li>
+        <li><strong>Verify:</strong> re-run the audit query (zero rows) and attempt a duplicate insert expecting error code 23505 mapped to a friendly 409 (Module 06).</li>
+      </ol>
+      <p><strong>Key insight being tested:</strong> constraint-adding migrations are three deploys, not one — clean the data, stop producing dirt, then lock the door. Locking first bricks production.</p>
+    </details>
+  </details>
+
+  <h2 id="glossary">Section 9 — Glossary</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s9"><label for="chk-s9">Mark complete</label></div>
+  <table>
+    <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td>Additive policy</td><td>A new permissive RLS policy created alongside existing ones (combined with OR) to cover a previously-uncovered ownership shape</td></tr>
+      <tr><td>Standalone unit</td><td>A flat whose ownership chain skips the full group→building hierarchy — the shape the original policies didn't anticipate</td></tr>
+      <tr><td>Flat-anchored ownership</td><td>Resolving identity/ownership through the flat (the most stable entity) rather than the tenant</td></tr>
+      <tr><td>Migration-tolerant query</td><td>Code written to work both before and after a schema migration runs (<code>.get()</code> with defaults, <code>select("*")</code>)</td></tr>
+      <tr><td>Write-once semantics</td><td>A field recorded on first observation and never auto-overwritten (e.g. <code>preferred_language</code>)</td></tr>
+      <tr><td>Backfill</td><td>A one-off UPDATE populating a new column for rows that predate it</td></tr>
+      <tr><td>Orphan recovery</td><td>Restoring access to rows an over-narrow policy had hidden (they were never gone)</td></tr>
+      <tr><td>Option A / Option B</td><td>The two-fix pattern: immediate unblock now, durable schema fix designed with the user</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="resources">Section 10 — Resources</h2>
+  <div class="section-check"><input type="checkbox" id="chk-s10"><label for="chk-s10">Mark complete</label></div>
+  <div class="resource-grid">
+    <div class="resource-card"><h4>RLS policies in depth</h4>
+      <a href="https://www.postgresql.org/docs/current/sql-createpolicy.html" target="_blank" rel="noopener">CREATE POLICY reference</a>
+      <a href="https://supabase.com/docs/guides/database/postgres/row-level-security" target="_blank" rel="noopener">Supabase RLS guide</a>
+      <p>The permissive-vs-restrictive and OR-combination semantics that make additive policies work.</p></div>
+    <div class="resource-card"><h4>pg_policies introspection</h4>
+      <a href="https://www.postgresql.org/docs/current/view-pg-policies.html" target="_blank" rel="noopener">pg_policies view</a>
+      <p>The query that turns "mystery denial" into "readable coverage map".</p></div>
+    <div class="resource-card"><h4>Safe schema changes</h4>
+      <a href="https://www.postgresql.org/docs/current/sql-altertable.html" target="_blank" rel="noopener">ALTER TABLE reference</a>
+      <a href="https://gist.github.com/jcoleman/1e6ad1bf8de454c166da94b67537758b" target="_blank" rel="noopener">Postgres zero-downtime patterns</a>
+      <p>Which ALTERs lock what — the difference between an instant column-add and a table rewrite.</p></div>
+    <div class="resource-card"><h4>Expand-contract migrations</h4>
+      <a href="https://martinfowler.com/bliki/ParallelChange.html" target="_blank" rel="noopener">Fowler — Parallel Change</a>
+      <p>The formal name for "tolerant code first, constraint last" from the Hard exercise.</p></div>
+    <div class="resource-card"><h4>Supabase migrations tooling</h4>
+      <a href="https://supabase.com/docs/guides/deployment/database-migrations" target="_blank" rel="noopener">Supabase CLI migrations</a>
+      <p>The upgrade path when manual numbered files stop scaling past one applier.</p></div>
+  </div>
+
+  <h2 id="whats-next">Section 11 — What's Next</h2>
+  <p>Module 28 builds on this foundation: the <code>preferred_language</code> column written here becomes the routing key for dynamic bilingual call routing, and flat-anchored ownership becomes the identity backbone of every voice-agent tool call.</p>
+
+  <div class="nav-buttons">
+    <a href="module_26_settings_onboarding.html" class="nav-btn">← Module 26: Settings &amp; Onboarding</a>
+    <a href="module_28_leasing_voice_agent_v2.html" class="nav-btn">Module 28: Leasing Voice Agent v2 →</a>
+  </div>
+</div></div>
+
+<script>
+  const saved = localStorage.getItem('theme');
+  if (saved) { document.documentElement.setAttribute('data-theme', saved); }
+  const toggle = document.getElementById('themeToggle');
+  toggle.textContent = (document.documentElement.getAttribute('data-theme') === 'dark') ? '🌙' : '☀️';
+  toggle.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    toggle.textContent = next === 'dark' ? '🌙' : '☀️';
+  });
+  const tocDiv = document.getElementById('toc');
+  document.querySelectorAll('h2[id]').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id; a.textContent = h.textContent.replace(/^Section \d+ — /, '');
+    tocDiv.appendChild(a);
+  });
+  const obs = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+      const act = document.querySelector('.sidebar a[href="#' + e.target.id + '"]');
+      if (act) act.classList.add('active');
+    }
+  }), { rootMargin: '-15% 0px -75% 0px' });
+  document.querySelectorAll('h2[id]').forEach(h => obs.observe(h));
+  const boxes = document.querySelectorAll('.section-check input');
+  const KEY = 'mod27-checks';
+  const state = JSON.parse(localStorage.getItem(KEY) || '{}');
+  boxes.forEach((b, i) => {
+    if (state[i]) b.checked = true;
+    b.addEventListener('change', () => {
+      boxes.forEach((c, j) => state[j] = c.checked);
+      localStorage.setItem(KEY, JSON.stringify(state));
+      upd();
+    });
+  });
+  function upd() {
+    const n = [...boxes].filter(b => b.checked).length;
+    document.getElementById('progressFill').style.width = (n / boxes.length * 100) + '%';
+  }
+  upd();
+</script>
+</body>
+</html>

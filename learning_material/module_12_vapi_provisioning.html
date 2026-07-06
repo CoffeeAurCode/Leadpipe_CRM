@@ -585,7 +585,57 @@ rows = svc_db.table(<span class="str">"manager_vapi_config"</span>).<span class=
     <strong>Session 3 Complete!</strong> You've covered all four modules: Groq extraction (09), OpenAI chatbot with tool calling (10), VAPI webhook handling (11), and VAPI agent provisioning (12). The next session covers integrations: Twilio SMS/email notifications (13), feature flags (14), bulk CSV import with AI column mapping (15), and the leasing module (16).
   </div>
 
-  <div class="nav-buttons">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Why This Design</h2>
+
+
+<h3>Decision: One VAPI assistant per manager vs. one shared assistant</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Per-manager assistant + dedicated number (chosen)</td><td>The inbound phone number IS the tenant's identity anchor — no “which landlord?” disambiguation; per-manager prompt customization (building names, policies) baked in</td><td>N assistants to keep in sync when the base prompt changes; a config migration script becomes mandatory tooling</td></tr>
+<tr><td>One shared assistant, route by metadata</td><td>Single config to update</td><td>Caller must be disambiguated at call time; per-manager customization means giant conditional prompts</td></tr>
+</tbody>
+</table>
+<h3>Decision: Phone number pool vs. on-demand purchase</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Pre-provisioned pool, assign on signup (chosen)</td><td>Signup is instant — no synchronous dependency on Twilio's purchase API (which can be slow or fail); costs are predictable</td><td>Idle numbers cost money monthly; pool exhaustion needs monitoring</td></tr>
+<tr><td>Buy a number during signup</td><td>No idle inventory</td><td>Couples your signup success rate to a third-party purchase API — the worst place to fail</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> provisioning is a background workflow with retries, not a request handler. Anything involving third-party resource creation (numbers, assistants) should be async, idempotent (guard against double-provisioning races), and observable via a status field the UI can poll.</div>
+<h2 id="bf-checkpoint">Checkpoint ✓</h2>
+
+<div class="bf-card">
+<p>With a JWT (Module 05) for an account that has completed provisioning:</p>
+<pre><code>curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/flats/users/me/vapi-config</code></pre>
+<p><strong>Expected:</strong> JSON with the manager's assistant/phone state (assistant id, phone number, status). For a fresh account, trigger it:</p>
+<pre><code>curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8000/flats/users/me/provision-voice</code></pre>
+<p>then poll the config endpoint until the status lands in a terminal state. <strong>Cross-check in the VAPI dashboard</strong> that exactly ONE assistant exists for this manager — fire the provision call twice in a row and confirm the race guard prevents a duplicate.</p></div>
+<h2 id="bf-resources">Resources</h2>
+
+<div class="bf-res"><div><h4>VAPI API reference</h4><a href="https://docs.vapi.ai/api-reference/assistants/create" target="_blank" rel="noopener">Assistants API</a><a href="https://docs.vapi.ai/api-reference/phone-numbers/create" target="_blank" rel="noopener">Phone numbers API</a><p>The two objects provisioning creates and links.</p></div><div><h4>Twilio phone numbers</h4><a href="https://www.twilio.com/docs/phone-numbers" target="_blank" rel="noopener">Buying numbers via API</a><p>How the pool gets stocked; regulatory/bundle requirements per country live here too.</p></div><div><h4>BackgroundTasks pitfalls</h4><a href="https://www.starlette.io/background/" target="_blank" rel="noopener">Starlette background tasks</a><p>Tasks die with the worker — why long provisioning chains need status persisted in the DB, not in memory.</p></div><div><h4>Distributed locking-lite</h4><a href="https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS" target="_blank" rel="noopener">Postgres advisory locks</a><p>The heavier tool behind race-condition guards, for when a status-column check isn't enough.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-buttons">
     <a href="module_11_vapi_webhook.html" class="nav-btn">← Module 11: VAPI Webhook</a>
     <a href="module_13_notifications.html" class="nav-btn">Module 13: Notifications →</a>
   </div>

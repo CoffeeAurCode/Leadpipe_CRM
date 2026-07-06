@@ -15,6 +15,7 @@ from app.config import settings
 from app.dependencies.authenticated_db import get_authenticated_db
 from app.dependencies.subscription import require_active_subscription
 from app.core.db_errors import clean_db_error
+from app.core.phone import normalize_phone_e164
 
 router = APIRouter(prefix="/import", tags=["Import"])
 
@@ -111,9 +112,16 @@ def _maybe_create_tenant_and_rent(db, row: dict, flat: dict, skipped: list, erro
     phone = row.get("tenant_phone", "").strip()
     if not (name and phone):
         return  # vacant — nothing to do
+    normalized_phone = normalize_phone_e164(phone)
+    if not normalized_phone:
+        errors.append(
+            f"Row {i}: unit created but tenant_phone '{phone}' is not a valid phone number "
+            f"(include country code, e.g. +15145550130) — tenant not created"
+        )
+        return
     flat_uuid = flat["uuid"]
     try:
-        t = db.table("tenants").insert({"name": name, "phone": phone, "flat_uuid": flat_uuid}).execute()
+        t = db.table("tenants").insert({"name": name, "phone": normalized_phone, "flat_uuid": flat_uuid}).execute()
         if not t.data:
             errors.append(f"Row {i}: unit created but tenant could not be added")
             return
@@ -516,6 +524,15 @@ async def import_tenants(
             if not name or not phone or not flat_number:
                 errors.append(f"Row {i}: missing required value (name, phone or flat_number)")
                 continue
+
+            normalized_phone = normalize_phone_e164(phone)
+            if not normalized_phone:
+                errors.append(
+                    f"Row {i}: phone '{phone}' is not a valid phone number "
+                    f"(include country code, e.g. +15145550130)"
+                )
+                continue
+            phone = normalized_phone
 
             flat_resp = (
                 db.table("flats")

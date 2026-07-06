@@ -64,7 +64,7 @@
   <div class="meta">
     <span class="badge badge-session">Session 6</span>
     <span class="badge badge-part">Part F — Frontend Advanced</span>
-    <span>Module 24 of 26</span>
+    <span>Module 24 of 29</span>
   </div>
   <h1>Module 24 — Voice Stats & Leasing UI</h1>
   <p>VoiceStatsTab aggregates call log data into a custom bar chart and recent-calls list. LeasingTab combines listings CRUD, a lead pipeline table, leasing metrics, and the VAPI provisioning status banner with retry + auto-poll logic.</p>
@@ -376,7 +376,53 @@ pollRef.current = setTimeout(<span class="kw">async</span> () =&gt; { ... }, <sp
     </div>
   </details>
 
-  <div class="nav-links">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Why This Design</h2>
+
+
+<h3>Decision: 8-second polling vs. WebSockets/SSE for provisioning status</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>setInterval polling every 8s (chosen)</td><td>Provisioning takes ~1–3 minutes ONCE per account — a few dozen polls total; works through every proxy/CDN; ~10 lines with cleanup</td><td>Up to 8s staleness; wasteful if left running forever (must stop on terminal status)</td></tr>
+<tr><td>WebSocket/SSE push</td><td>Instant updates; elegant</td><td>A persistent-connection layer (plus reconnect logic and infra support) for an event that fires once per customer lifetime — infrastructure disproportionate to the need</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> polling is underrated. The questions that matter: how often does the state change, how many clients watch it, and what staleness is acceptable? Rare change + one watcher + seconds-tolerable = poll. Push earns its complexity at high frequency or high fan-out. Whichever you choose: clear the interval on unmount AND on terminal status — the leaked-interval bug is the most common React polling mistake.</div>
+<h3>Decision: Client-side CSV export</h3>
+<p>The leads data is already in the browser; building a CSV string and triggering a Blob download costs zero backend work and works offline. Server-side export becomes right when data exceeds what the page loads (pagination) or when formatting needs to be canonical across consumers. Watch the classic client-side pitfalls: fields containing commas need quoting, and Excel wants a UTF-8 BOM for non-ASCII names.</p>
+<h2 id="bf-checkpoint">Checkpoint ✓</h2>
+
+<div class="bf-card">
+<p>Verify the polling lifecycle and the export:</p>
+<ol>
+<li>Open the voice tab with DevTools → Network. <strong>Expected:</strong> a status request every ~8 seconds while provisioning is pending.</li>
+<li>Navigate away mid-poll. <strong>Expected:</strong> the requests STOP (interval cleaned up on unmount — if they continue, that's the leak).</li>
+<li>Once provisioning reaches a terminal state, confirm polling stops rather than continuing forever.</li>
+<li>Export leads to CSV. <strong>Expected:</strong> the file opens in Excel with correct columns; a lead name containing a comma stays in one cell (quoting works).</li>
+</ol></div>
+<h2 id="bf-resources">Resources</h2>
+
+<div class="bf-res"><div><h4>Polling with hooks</h4><a href="https://react.dev/reference/react/useEffect#connecting-to-an-external-system" target="_blank" rel="noopener">useEffect cleanup</a><p>The setup/cleanup contract that prevents leaked intervals.</p></div><div><h4>Blob downloads</h4><a href="https://developer.mozilla.org/en-US/docs/Web/API/Blob" target="_blank" rel="noopener">MDN — Blob</a><a href="https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL_static" target="_blank" rel="noopener">MDN — createObjectURL</a><p>The download-a-generated-file pattern behind the CSV export.</p></div><div><h4>CSV format traps</h4><a href="https://www.rfc-editor.org/rfc/rfc4180" target="_blank" rel="noopener">RFC 4180</a><p>Quoting rules — the two pages that prevent “everything landed in one column” bug reports.</p></div><div><h4>Polling vs. push</h4><a href="https://ably.com/blog/websockets-vs-sse" target="_blank" rel="noopener">Long polling vs SSE vs WebSockets</a><p>A fair comparison for calibrating the decision above in future features.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-links">
     <a href="module_23_complaints_calendar.html" class="nav-btn">← Module 23: Complaints & Calendar</a>
     <a href="module_25_chatbot_outbound.html" class="nav-btn">Module 25: Chatbot & Outbound Calls →</a>
   </div>

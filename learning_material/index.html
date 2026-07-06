@@ -89,7 +89,7 @@
   <!-- Hero -->
   <div class="hero">
     <h1>Tenant Management MVP<br>Learning Material</h1>
-    <p class="hero-sub">27 self-contained modules covering every file in the codebase — from environment setup to advanced frontend patterns.</p>
+    <p class="hero-sub">30 self-contained modules covering every file in the codebase — from environment setup to production operations. Continued by the per-session lesson series in <a href="sessions.html" style="color:var(--primary)">sessions.html</a>.</p>
     <div class="hero-badges">
       <span class="hbadge hb-be">FastAPI + Supabase</span>
       <span class="hbadge hb-fe">React 18 + Vite + Tailwind</span>
@@ -100,8 +100,8 @@
 
   <!-- Stats -->
   <div class="stats-bar">
-    <div class="stat"><div class="stat-num">27</div><div class="stat-label">Modules</div></div>
-    <div class="stat"><div class="stat-num">6</div><div class="stat-label">Build Sessions</div></div>
+    <div class="stat"><div class="stat-num">30</div><div class="stat-label">Modules</div></div>
+    <div class="stat"><div class="stat-num">18+</div><div class="stat-label">Build Sessions</div></div>
     <div class="stat"><div class="stat-num">18</div><div class="stat-label">Backend Routes</div></div>
     <div class="stat"><div class="stat-num">67+</div><div class="stat-label">Frontend Components</div></div>
     <div class="stat"><div class="stat-num">7</div><div class="stat-label">External Services</div></div>
@@ -166,16 +166,24 @@
       <li><strong>Follow along in VS Code</strong> — each module quotes the actual source files. Use Ctrl+Click on file names to navigate.</li>
       <li><strong>Do the exercises</strong> — solutions are in collapsible sections. Try solving first, then reveal.</li>
       <li><strong>Read the bug sections</strong> — the bugs documented in each module were real issues encountered during development. They're the most valuable part.</li>
-      <li>Use <code>WORKSHEET.md</code> as a quick-reference cheat sheet during development without opening these full HTML files.</li>
+      <li>Use the <a href="tenant_mvp_cheat_sheet.html" style="color:var(--primary)">cheat sheet</a> as a quick reference during development without opening these full HTML files.</li>
+      <li><strong>After Module 29</strong>, continue with the <a href="sessions.html" style="color:var(--primary)">session lessons</a> — one deep-dive per build session (7–18+), with full diffs and bug journals.</li>
     </ol>
   </div>
 
-  <!-- Worksheet link -->
-  <a href="WORKSHEET.md" class="ws-link" style="color:inherit">
+  <!-- Cheat sheet link -->
+  <a href="tenant_mvp_cheat_sheet.html" class="ws-link" style="color:inherit">
     <div class="ws-icon">📋</div>
     <div>
-      <div class="ws-title">WORKSHEET.md</div>
-      <div class="ws-sub">Quick-reference cheat sheet — all key rules, patterns, and decisions in one page</div>
+      <div class="ws-title">Tenant MVP Cheat Sheet</div>
+      <div class="ws-sub">Quick-reference — all key rules, patterns, and decisions in one page (markdown source: docs/reference/WORKSHEET.md)</div>
+    </div>
+  </a>
+  <a href="sessions.html" class="ws-link" style="color:inherit">
+    <div class="ws-icon">📼</div>
+    <div>
+      <div class="ws-title">Session Lessons (7–18+)</div>
+      <div class="ws-sub">The ongoing series — one full lesson per build session: diffs, bug journals, decision memos</div>
     </div>
   </a>
 
@@ -354,7 +362,7 @@
   <!-- PART F -->
   <div class="part-header">
     <span class="part-pill part-f">Part F</span>
-    <span class="part-title">Frontend Advanced — Session 6 (Modules 22–26) ← You are here</span>
+    <span class="part-title">Frontend Advanced — Session 6 (Modules 22–26)</span>
   </div>
   <div class="module-grid">
     <a href="module_22_tenant_management.html" class="mod-card" style="border-color: var(--primary);">
@@ -386,6 +394,32 @@
       <div class="mod-title">Settings, Notifications & Onboarding</div>
       <div class="mod-desc">Drill-down settings, pendingChanges diff, SMS templates, dual-persistence onboarding.</div>
       <div class="mod-tags"><span class="tag">SettingsPage.jsx</span><span class="tag">SmsWorkflow.jsx</span><span class="tag">OnboardingContext.jsx</span></div>
+    </a>
+  </div>
+
+  <!-- PART G -->
+  <div class="part-header">
+    <span class="part-pill part-a">Part G</span>
+    <span class="part-title">Production Era — Sessions 7–18 distilled (Modules 27–29) ← New</span>
+  </div>
+  <div class="module-grid">
+    <a href="module_27_rls_ownership_migrations.html" class="mod-card" style="border-color: var(--green);">
+      <div class="mod-num">MODULE 27</div>
+      <div class="mod-title">Ownership, RLS Evolution &amp; Migrations</div>
+      <div class="mod-desc">Additive RLS policies, standalone units, flat-anchored ownership, numbered migrations, migration-tolerant code, four-system deploy order.</div>
+      <div class="mod-tags"><span class="tag">backend/migrations/</span><span class="tag">pg_policies</span></div>
+    </a>
+    <a href="module_28_leasing_voice_agent_v2.html" class="mod-card" style="border-color: var(--green);">
+      <div class="mod-num">MODULE 28</div>
+      <div class="mod-title">Leasing Voice Agent v2</div>
+      <div class="mod-desc">STT garble corpus, hybrid fuzzy+phonetic matching, confidence bands, latency budget, French register lock, handoff, dynamic language routing.</div>
+      <div class="mod-tags"><span class="tag">city_matching.py</span><span class="tag">vapi_agent_config.py</span></div>
+    </a>
+    <a href="module_29_deploy_testing_operations.html" class="mod-card" style="border-color: var(--green);">
+      <div class="mod-num">MODULE 29</div>
+      <div class="mod-title">Production Operations</div>
+      <div class="mod-desc">Dry-run deploys, rollback snapshots, Render env vars, the test pyramid, query-contract tests, forensic debugging, smoke testing.</div>
+      <div class="mod-tags"><span class="tag">backend/scripts/</span><span class="tag">e2e/</span><span class="tag">pytest</span></div>
     </a>
   </div>
 

@@ -63,7 +63,7 @@
   <div class="meta">
     <span class="badge badge-session">Session 6</span>
     <span class="badge badge-part">Part F — Frontend Advanced</span>
-    <span>Module 22 of 26</span>
+    <span>Module 22 of 29</span>
   </div>
   <h1>Module 22 — Tenant Management</h1>
   <p>Full tenant CRUD with lease badge display, bidirectional flat assignment, and slide-in profile panel. This module covers how the frontend consumes <em>computed fields</em> returned by the API — fields the backend calculates from raw DB data so the frontend only has to display them.</p>
@@ -448,7 +448,58 @@ UPDATE tenants SET flat_uuid = :flat_uuid WHERE uuid = :tenant_uuid;</code></pre
   → merge joined fields from old tenant
   → onUpdate(merged)                       <span class="cm">// update parent list + selectedTenant</span></code></pre>
 
-  <div class="nav-links">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Why This Design</h2>
+
+
+<h3>Decision: Consume backend-computed fields instead of computing in React</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Display <code>lease_status</code> etc. as delivered (chosen)</td><td>One implementation (Module 07) serves UI, chatbot, and voice agent; the table sorts/filters via API params so DB and UI always agree</td><td>Frontend can't derive variants the API doesn't ship — new displays need a backend change</td></tr>
+<tr><td>Compute from raw dates in React</td><td>Frontend-only iteration</td><td>Timezone drift between browser and backend produces off-by-one-day badges — the exact bug class the computed-field design eliminates</td></tr>
+</tbody>
+</table>
+<h3>Decision: Merge-after-PATCH vs. refetch-after-save</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Merge joined fields back into the PATCH response (chosen)</td><td>Instant UI update, one network call; the panel and table stay in sync via the parent's callbacks</td><td>The merge list (<code>flat_number</code>, <code>rent_amount</code>, …) must be maintained by hand — forget one and it blanks after save</td></tr>
+<tr><td>Refetch the tenant (or list) after save</td><td>Always complete and fresh</td><td>Second round-trip per save; the list flashes; at this app's scale that's the only real cost</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> merge-after-PATCH is a micro-optimization with a maintenance tax. It's the right call here because the joined-field list is short and stable. The moment that list grows past a handful, flip to refetch — correctness beats one saved round-trip.</div>
+<h2 id="bf-checkpoint">Checkpoint ✓</h2>
+
+<div class="bf-card">
+<p>Exercise the two risky paths this page owns:</p>
+<ol>
+<li><strong>The merge:</strong> open a tenant with an assigned flat, edit any field, save. <strong>Expected:</strong> the table row still shows the flat number and rent after saving (if either goes “—”, the merge list is missing a field).</li>
+<li><strong>Bidirectional assignment:</strong> assign an unassigned tenant to a vacant flat from this page, then check the Properties page — the flat shows occupied. Unassign and confirm both sides clear (Module 06's contract, verified from the UI).</li>
+<li><strong>Server-side sorting:</strong> click a column header and watch the Network tab. <strong>Expected:</strong> a new request with <code>sort_by</code>/<code>sort_order</code> params — the array is never sorted client-side.</li>
+</ol></div>
+<h2 id="bf-resources">Resources</h2>
+
+<div class="bf-res"><div><h4>date-fns</h4><a href="https://date-fns.org/docs/parseISO" target="_blank" rel="noopener">parseISO</a><a href="https://date-fns.org/docs/format" target="_blank" rel="noopener">format</a><p>The only two date functions this page needs — and why the backend's T-separator format exists.</p></div><div><h4>Framer Motion panels</h4><a href="https://motion.dev/docs/react-animate-presence" target="_blank" rel="noopener">AnimatePresence</a><p>The slide-in panel's exit animation machinery.</p></div><div><h4>Optimistic UI</h4><a href="https://swr.vercel.app/docs/mutation#optimistic-updates" target="_blank" rel="noopener">Patterns for optimistic updates</a><p>The general family the merge-after-PATCH pattern belongs to — and what libraries automate when you outgrow hand-rolling.</p></div><div><h4>useCallback</h4><a href="https://react.dev/reference/react/useCallback" target="_blank" rel="noopener">React — useCallback</a><p>Why load() is wrapped: stable identity so the effect fires on filter changes only.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-links">
     <a href="module_21_properties_buildings.html" class="nav-btn">← Module 21: Properties & Buildings</a>
     <a href="module_23_complaints_calendar.html" class="nav-btn">Module 23: Complaints & Calendar →</a>
   </div>

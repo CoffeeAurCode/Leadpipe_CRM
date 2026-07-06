@@ -538,7 +538,53 @@ Components (consumers):
     </ul>
   </div>
 
-  <div class="nav-buttons">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Section 8 — Why This Design</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfa" aria-label="Mark section complete"><label for="chk-bfa">Mark complete</label></div>
+
+<h3>Decision: One hand-rolled <code>authFetch</code> wrapper vs. axios vs. per-component fetch</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>Central apiService.js over native fetch (chosen)</td><td>ONE place injects the Bearer token, handles 401/403, parses errors, and names every endpoint — grep <code>apiService.js</code> and you have the app's entire API surface; zero dependencies</td><td>Features axios gives free (interceptors, upload progress, cancellation) are manual additions</td></tr>
+<tr><td>axios + interceptors</td><td>Batteries included</td><td>A dependency for what ~40 lines of wrapper achieve; interceptor magic is harder to trace than an explicit wrapper</td></tr>
+<tr><td>fetch scattered in components</td><td>No abstraction to learn</td><td>Token handling copy-pasted N times; one changed header means N edits; this is why it's a hard rule, not a preference</td></tr>
+</tbody>
+</table>
+<div class="bf-insight"><strong>Senior takeaway:</strong> the service layer is a <em>chokepoint by design</em>. Auth, error shaping, base URLs, and 401-redirect policy all live at one seam. When you add request IDs or retry logic later, it's one file. The hard rule “no inline fetch in components” is what keeps the chokepoint real.</div>
+<h3>Decision: Global 401/403 handling</h3>
+<p>An expired token can surface from any of ~60 call sites. Handling it centrally (sign out + redirect once, in the wrapper) beats sixty try/catch blocks each deciding differently. The subtlety: 401 means “who are you?” (token invalid → sign out), 403 means “you can't do that” (subscription lapsed → paywall, not logout). Conflating them logs paying users out.</p>
+<h2 id="bf-checkpoint">Section 9 — Checkpoint ✓</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfb" aria-label="Mark section complete"><label for="chk-bfb">Mark complete</label></div>
+<div class="bf-card">
+<p>Verify the chokepoint actually chokes:</p>
+<ol>
+<li><strong>Header injection:</strong> DevTools → Network, click around the app. <strong>Expected:</strong> every request to <code>:8000</code> carries <code>Authorization: Bearer eyJ…</code> — no exceptions.</li>
+<li><strong>No leaks:</strong> <code>grep -rn "fetch(" frontend/src/components/</code> — expected: zero direct fetch calls (all go through the service).</li>
+<li><strong>401 path:</strong> in DevTools → Application, corrupt the <code>access_token</code> inside the sb- localStorage entry, then trigger any API call. <strong>Expected:</strong> a clean bounce to the auth page — not a white screen or a silent dead UI.</li>
+</ol></div>
+<h2 id="bf-resources">Section 10 — Resources</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfc" aria-label="Mark section complete"><label for="chk-bfc">Mark complete</label></div>
+<div class="bf-res"><div><h4>Fetch API</h4><a href="https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch" target="_blank" rel="noopener">MDN — Using Fetch</a><p>Response.ok semantics, why fetch doesn't reject on 4xx/5xx, and body-consumption rules.</p></div><div><h4>FormData</h4><a href="https://developer.mozilla.org/en-US/docs/Web/API/FormData" target="_blank" rel="noopener">MDN — FormData</a><p>For the upload paths — and why you must NOT set Content-Type manually with FormData (the boundary breaks).</p></div><div><h4>Token storage trade-offs</h4><a href="https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP — JWT cheat sheet</a><p>localStorage vs. cookies for tokens — know the XSS trade-off you're accepting.</p></div><div><h4>HTTP status semantics</h4><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401" target="_blank" rel="noopener">MDN — 401 vs 403</a><p>The authentication/authorization distinction the global handler must respect.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-buttons">
     <a href="module_18_auth_context.html" class="nav-btn">← Previous: Auth Context</a>
     <a href="module_20_dashboard_charts.html" class="nav-btn">Next: Dashboard &amp; Charts →</a>
   </div>

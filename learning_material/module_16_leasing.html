@@ -563,7 +563,54 @@ output.<span class="fn">seek</span>(<span class="num">0</span>)   <span class="c
     </ul>
   </div>
 
-  <div class="nav-buttons">
+  
+<!-- backfill:start -->
+<style>
+.bf-block table{width:100%;border-collapse:collapse;margin:0.8rem 0;font-size:0.88rem}
+.bf-block th,.bf-block td{border:1px solid rgba(128,128,128,.35);padding:.45rem .6rem;text-align:left;vertical-align:top}
+.bf-block th{background:rgba(128,128,128,.12)}
+.bf-block .bf-card{border:1px solid rgba(128,128,128,.35);border-left:4px solid #10b981;border-radius:8px;padding:.9rem 1.1rem;margin:.8rem 0}
+.bf-block .bf-res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.8rem;margin:.8rem 0}
+.bf-block .bf-res>div{border:1px solid rgba(128,128,128,.35);border-radius:8px;padding:.8rem 1rem}
+.bf-block .bf-res h4{margin:0 0 .35rem;font-size:.92rem}
+.bf-block .bf-res a{display:block;font-size:.85rem;margin:.15rem 0;color:#6366f1}
+.bf-block .bf-res p{font-size:.8rem;opacity:.78;margin:.35rem 0 0}
+.bf-block pre{overflow-x:auto;background:rgba(128,128,128,.1);border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:.8rem 1rem;font-size:.85rem;line-height:1.55}
+.bf-block .bf-insight{border-left:4px solid #6366f1;background:rgba(99,102,241,.08);border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.8rem 0;font-size:.9rem}
+</style>
+<div class="bf-block">
+<h2 id="bf-design">Section 7 — Why This Design</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfa" aria-label="Mark section complete"><label for="chk-bfa">Mark complete</label></div>
+
+<h3>Decision: Dual-audience routes (manager UI + voice agent) in one router</h3>
+<table>
+<thead><tr><th>Approach</th><th>Pros</th><th>Cons</th></tr></thead>
+<tbody>
+<tr><td>One <code>/leasing</code> router, agent-facing endpoints alongside UI endpoints (chosen)</td><td>Shared schemas and services; the listing logic exists once; agent endpoints (<code>/listings-for-agent</code>, <code>/find-units</code>, <code>/search-listings</code>) are thin projections</td><td>Two very different error contracts in one file — UI endpoints raise HTTP errors, agent endpoints must always return 200 with speakable payloads</td></tr>
+<tr><td>Separate agent API service</td><td>Clean separation of contracts</td><td>Duplicated business logic; for an MVP, drift between the two would outpace the cleanliness win</td></tr>
+</tbody>
+</table>
+<h3>Decision: Defensive parsing of VAPI tool parameters (<code>_parse_int</code> and friends)</h3>
+<p>VAPI sends tool parameters extracted from speech — which means <code>""</code>, <code>"two"</code>, <code>"2 bedrooms"</code>, or missing keys are all normal inputs. Pydantic's strict 422 on <code>""</code>-for-int would kill the call. Helpers that coerce empty strings to <code>None</code> and salvage digits keep the conversation alive. <strong>Rule:</strong> every agent-facing parameter is untrusted twice — once as user input, once as LLM output.</p>
+<div class="bf-insight"><strong>Senior takeaway:</strong> the lead pipeline (<code>lease_leads</code> status transitions) is a state machine even if no library enforces it. Write the allowed transitions down; every status field that gets a third value eventually needs this. Retrieval for the agent is <em>threshold-aware</em> — wide search first, filters applied only when results exceed what's speakable on a call (you can't read 40 listings aloud).</div>
+<h2 id="bf-checkpoint">Section 8 — Checkpoint ✓</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfb" aria-label="Mark section complete"><label for="chk-bfb">Mark complete</label></div>
+<div class="bf-card">
+<p>Test both audiences. UI side (JWT required):</p>
+<pre><code>curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/leasing/listings
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/leasing/leads
+# expected: 200 with arrays</code></pre>
+<p>Agent side — simulate messy VAPI params on the search endpoint:</p>
+<pre><code>curl -i "http://localhost:8000/leasing/search-listings?bedrooms=&amp;max_rent="
+# expected: HTTP 200 — empty-string params must NOT produce a 422</code></pre>
+<p><strong>Expected:</strong> results come back as if the empty filters were omitted. Then repeat with real filters and confirm they narrow the results. If you get a 422 on the empty-string call, a parameter bypassed the defensive parsing helpers.</p></div>
+<h2 id="bf-resources">Section 9 — Resources</h2>
+<div class="section-check"><input type="checkbox" id="chk-bfc" aria-label="Mark section complete"><label for="chk-bfc">Mark complete</label></div>
+<div class="bf-res"><div><h4>VAPI tool calling</h4><a href="https://docs.vapi.ai/tools/custom-tools" target="_blank" rel="noopener">Custom tools</a><p>How tool parameters arrive from speech — the origin of the empty-string problem.</p></div><div><h4>FastAPI query params</h4><a href="https://fastapi.tiangolo.com/tutorial/query-params-str-validations/" target="_blank" rel="noopener">Query parameters &amp; validation</a><p>What Pydantic does by default so you understand exactly what the _parse helpers override.</p></div><div><h4>State machines</h4><a href="https://statecharts.dev/" target="_blank" rel="noopener">Statecharts introduction</a><p>The mental model for the lead pipeline's status transitions.</p></div><div><h4>Fuzzy matching</h4><a href="https://rapidfuzz.github.io/RapidFuzz/" target="_blank" rel="noopener">RapidFuzz docs</a><p>The library family behind city/name matching when speech transcription is imperfect.</p></div></div>
+</div>
+<!-- backfill:end -->
+
+<div class="nav-buttons">
     <a href="module_15_bulk_import.html" class="nav-btn">← Previous: Bulk Import</a>
     <a href="module_17_frontend_setup.html" class="nav-btn">Next: Frontend Setup →</a>
   </div>

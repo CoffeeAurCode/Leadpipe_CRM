@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Session 16 — The Phantom Vacancy: Filtering on a Column We Never Fetched</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================== THEME TOKENS ============================== */
+  :root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-code: #0f0f23;
+    --text: #e0e0e0;
+    --muted: #9aa3b2;
+    --border: #2a2d44;
+    --accent: #6c63ff;
+    --accent-hover: #5a52d5;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bug: #f472b6;
+    --info: #61afef;
+    --code-keyword: #c678dd;
+    --code-string: #98c379;
+    --code-comment: #5c6370;
+    --code-function: #61afef;
+    --code-number: #d19a66;
+    --code-operator: #56b6c2;
+    --code-text: #dfe6f0;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --radius: 14px;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f8fc;
+    --bg-card: #ffffff;
+    --bg-code: #1e1e2e;
+    --text: #1f2433;
+    --muted: #5b6472;
+    --border: #e2e8f0;
+    --accent: #5a52d5;
+    --accent-hover: #463db8;
+    --success: #15803d;
+    --warning: #b45309;
+    --danger: #dc2626;
+    --bug: #be185d;
+    --info: #1d4ed8;
+    --shadow: 0 8px 30px rgba(60,70,120,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.7; transition: background .25s, color .25s;
+  }
+
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--bug));
+    z-index: 100; transition: width .1s linear;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 60;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 1rem;
+    padding: .7rem 1.2rem;
+  }
+  .topbar .brand { font-weight: 800; font-size: .95rem; letter-spacing: .02em; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar .spacer { flex: 1; }
+  .topbar button.tool {
+    background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .4rem .7rem; cursor: pointer; font-size: .85rem;
+    display: inline-flex; align-items: center; gap: .4rem; transition: .15s;
+  }
+  .topbar button.tool:hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 290px minmax(0,1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.4rem 6rem; }
+  aside.toc { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 90px); overflow-y: auto; padding-right: .5rem; }
+  aside.toc h4 { text-transform: uppercase; font-size: .68rem; letter-spacing: .12em; color: var(--muted); margin: 1.1rem 0 .5rem; }
+  aside.toc a { display: block; color: var(--muted); text-decoration: none; font-size: .84rem; padding: .28rem .6rem; border-radius: 7px; border-left: 2px solid transparent; transition: .12s; }
+  aside.toc a:hover { color: var(--text); background: var(--bg-card); }
+  aside.toc a.active { color: var(--accent); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  main { min-width: 0; }
+
+  .hero {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 1.6rem; box-shadow: var(--shadow);
+  }
+  .hero .eyebrow { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .hero h1 { font-size: 2.1rem; line-height: 1.15; margin: .5rem 0 .8rem; font-weight: 800; }
+  .hero .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .35rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); display: inline-flex; gap: .4rem; align-items: center; }
+  .chip.diff { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+  .chip.time { color: var(--info); }
+  .chip.pre { color: var(--muted); }
+
+  section { scroll-margin-top: 90px; margin: 2.6rem 0; }
+  h2.sec { font-size: 1.55rem; font-weight: 800; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: .6rem; }
+  h3 { font-size: 1.18rem; font-weight: 700; margin: 1.8rem 0 .7rem; color: var(--text); }
+  h4.sub { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--accent); }
+  p { margin: .7rem 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  ul, ol { margin: .7rem 0 .7rem 1.3rem; }
+  li { margin: .35rem 0; }
+  strong { color: var(--text); font-weight: 700; }
+  a.inline { color: var(--info); text-decoration: none; border-bottom: 1px dashed currentColor; }
+  a.inline:hover { color: var(--accent); }
+  .lead { font-size: 1.05rem; }
+  code.ic { font-family: 'JetBrains Mono', monospace; background: var(--bg-code); color: #a5b4fc; padding: .1rem .4rem; border-radius: 5px; font-size: .85em; border: 1px solid var(--border); }
+
+  .callout { border-radius: 12px; padding: 1rem 1.2rem; margin: 1.1rem 0; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-card); }
+  .callout .c-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+  .callout p:first-of-type { margin-top: .2rem; }
+  .c-tip     { border-left-color: var(--success); }
+  .c-tip .c-title { color: var(--success); }
+  .c-warn    { border-left-color: var(--warning); }
+  .c-warn .c-title { color: var(--warning); }
+  .c-key     { border-left-color: var(--accent); }
+  .c-key .c-title { color: var(--accent); }
+  .c-bug     { border-left-color: var(--bug); }
+  .c-bug .c-title { color: var(--bug); }
+  .c-ex      { border-left-color: var(--info); }
+  .c-ex .c-title { color: var(--info); }
+  .c-deep    { border-left-color: #a855f7; }
+  .c-deep .c-title { color: #c084fc; }
+
+  .code-block { margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+  .code-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; background: color-mix(in srgb, #000 25%, var(--bg-code)); border-bottom: 1px solid var(--border); }
+  .code-head .lang { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .code-head .fname { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: var(--info); }
+  .code-head .spacer { flex: 1; }
+  .code-head .copy { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .25rem .6rem; font-size: .72rem; cursor: pointer; transition: .15s; }
+  .code-head .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .code-block pre { margin: 0; overflow-x: auto; padding: .8rem 0; }
+  .code-block code { font-family: 'JetBrains Mono', monospace; font-size: .82rem; line-height: 1.65; color: var(--code-text); }
+  .ln-line { display: flex; }
+  .ln-line:hover { background: rgba(255,255,255,.03); }
+  .ln-num { user-select: none; width: 3rem; flex-shrink: 0; text-align: right; padding-right: 1rem; color: #4b5266; font-size: .76rem; }
+  .ln-code { white-space: pre; padding-right: 1rem; }
+  .tok-kw  { color: var(--code-keyword); }
+  .tok-str { color: var(--code-string); }
+  .tok-com { color: var(--code-comment); font-style: italic; }
+  .tok-num { color: var(--code-number); }
+
+  .term { background: #07070f; border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #cdd6f4; margin: 1rem 0; overflow-x: auto; line-height: 1.7; white-space: pre-wrap; }
+  .term .pmt { color: var(--success); }
+  .term .err { color: var(--danger); }
+  .term .ok  { color: var(--success); }
+  .term .dim { color: var(--muted); }
+  .term .spk { color: var(--info); font-weight: 700; }
+  .term .cal { color: var(--warning); font-weight: 700; }
+  .term .garble { color: var(--bug); }
+
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .65rem .8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-card); font-weight: 700; color: var(--text); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: 'JetBrains Mono', monospace; font-size: .82em; color: #a5b4fc; }
+
+  details { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .9rem; margin: 1rem 0; }
+  details summary { cursor: pointer; font-weight: 600; padding: .4rem 0; color: var(--accent); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--accent); }
+  details[open] summary::before { content: "▾ "; }
+
+  .check li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .check li::before { content: "✅"; position: absolute; left: 0; }
+  .xlist li { list-style: none; position: relative; padding-left: 1.7rem; }
+  .xlist li::before { content: "❌"; position: absolute; left: 0; }
+
+  .diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin: 1.2rem 0; font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.9; overflow-x: auto; color: var(--code-text); white-space: pre; }
+  .diagram .lbl { color: var(--accent); }
+  .diagram .bad { color: var(--danger); }
+  .diagram .good { color: var(--success); }
+  .diagram .warn { color: var(--warning); }
+
+  .badge { font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 5px; letter-spacing: .03em; }
+  .b-conf { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); }
+  .b-ok { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
+  .b-mid { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning); }
+
+  footer.fnav { max-width: 1280px; margin: 2rem auto 0; padding: 1.5rem 1.4rem 3rem; border-top: 1px solid var(--border); }
+  .fnav .nav-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .fnav a { flex: 1; min-width: 200px; text-decoration: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem; color: var(--text); transition: .15s; }
+  .fnav a:hover { border-color: var(--accent); }
+  .fnav a.disabled { opacity: .45; pointer-events: none; }
+  .fnav .dir { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .fnav .ttl { font-weight: 700; font-size: .9rem; margin-top: .2rem; }
+  .fnav .center { text-align: center; }
+  .fnav .right { text-align: right; }
+  .fnav .copyright { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 1.4rem; }
+
+  .toc-toggle { display: none; }
+  @media (max-width: 940px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 80%; max-width: 320px; background: var(--bg); border-right: 1px solid var(--border); padding: 1rem; transform: translateX(-105%); transition: transform .25s; z-index: 55; max-height: none; }
+    aside.toc.open { transform: translateX(0); }
+    .toc-toggle { display: inline-flex; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+
+  @media print {
+    header.topbar, aside.toc, #progress-bar, .code-head .copy, .toc-toggle { display: none !important; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; color: #000; }
+    .code-block, .callout, .hero, table { box-shadow: none; }
+    a { color: #000; text-decoration: underline; }
+    details { border: none; }
+    details summary { display: none; }
+    details > *:not(summary) { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<!-- ============================== TOP BAR ============================== -->
+<header class="topbar">
+  <button class="tool toc-toggle" id="tocToggle" aria-label="Toggle contents">☰</button>
+  <div class="brand">CRM <span>Learning Series</span> · Session 16</div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeToggle" aria-label="Toggle theme">🌙 <span id="themeLabel">Dark</span></button>
+</header>
+
+<div class="layout">
+  <!-- ============================== SIDEBAR TOC ============================== -->
+  <aside class="toc" id="toc">
+    <h4>On this page</h4>
+    <a href="#overview">A · Session Overview</a>
+    <a href="#recap">C · Recap Bridge</a>
+    <a href="#concepts">D · Concepts Introduced</a>
+    <a href="#c-projection" style="padding-left:1.4rem">— SELECT projection</a>
+    <a href="#c-silent" style="padding-left:1.4rem">— Silent failures &amp; .get()</a>
+    <a href="#c-twotools" style="padding-left:1.4rem">— The two-tool consistency problem</a>
+    <a href="#c-postfetch" style="padding-left:1.4rem">— DB filters vs Python filters</a>
+    <a href="#c-contract" style="padding-left:1.4rem">— Testing the query contract</a>
+    <a href="#c-venv" style="padding-left:1.4rem">— Dependency drift in a venv</a>
+    <a href="#c-smoke" style="padding-left:1.4rem">— Production smoke testing</a>
+    <a href="#buildlog">E · Step-by-Step Build Log</a>
+    <a href="#bugs">F · 🐛 Bug Journal</a>
+    <a href="#bug1" style="padding-left:1.4rem">— Bug 1: the phantom vacancy</a>
+    <a href="#bug2" style="padding-left:1.4rem">— Bug 2: the prompt that lied</a>
+    <a href="#bug3" style="padding-left:1.4rem">— Bug 3: the stale virtualenv</a>
+    <a href="#bug4" style="padding-left:1.4rem">— Bug 4: the $14,100 apartment (false alarm)</a>
+    <a href="#bug5" style="padding-left:1.4rem">— Bug 5: "4Â½" strikes again (false alarm)</a>
+    <a href="#decisions">G · Design Decisions</a>
+    <a href="#verify">H · Verification Checklist</a>
+    <a href="#exercises">I · Exercises</a>
+    <a href="#troubleshooting">J · Troubleshooting</a>
+    <a href="#next">K · What's Next</a>
+    <a href="#glossary">L · Glossary</a>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <main>
+    <!-- ===== HERO / HEADER BAR (A) ===== -->
+    <div class="hero">
+      <div class="eyebrow">Build Session 16 · Backend Debugging · Supabase Queries · Regression Testing · Live Verification</div>
+      <h1>The Phantom Vacancy — Filtering on a Column We Never Fetched</h1>
+      <p class="lead muted">A native-French tester called the live lease agent, asked for <em>"un 4 et demi"</em> (a Québec-style two-bedroom) in Saint-Lazare — a unit that <strong>absolutely exists</strong> in the database — and the agent said there was nothing available. When the tester pushed back ("I can see it in your system"), the agent instantly caved: <em>"Vous avez raison…"</em> and recited the exact unit, floor, date, and rent. Same call, same agent, two opposite answers thirty seconds apart. This session is the hunt for how a search tool can return <strong>zero results for inventory that exists</strong>, why the agent then contradicted itself, and how one missing word in a database query — a column name absent from a <code class="ic">SELECT</code> — silently deleted every listing from every size-filtered search. We fix it with one word, armor it with three regression tests, and verify it against the live production server.</p>
+      <div class="meta">
+        <span class="chip diff">🟡 Intermediate</span>
+        <span class="chip time">⏱️ ~60 min read</span>
+        <span class="chip pre">📋 Requires: Sessions 11–12 (the lease agent's tools); helpful: Session 15 (transcript forensics, the fake mojibake)</span>
+      </div>
+    </div>
+
+    <!-- ===== SESSION OVERVIEW (B) ===== -->
+    <section id="overview">
+      <h2 class="sec">📦 Session Overview</h2>
+      <p>This was a <strong>diagnose → fix → test → verify-in-production</strong> session, start to finish. The user arrived with a transcript file (<code class="ic">Transcript3.md</code>) and one instruction:</p>
+
+      <div class="term"><span class="spk">You:</span> my french partner did another test to the lease agent... this is the
+     transcript... <span class="cal">diagnose the issue in this and give to me straight</span></div>
+
+      <p>By the end of the session we had:</p>
+      <ul>
+        <li><strong>A confirmed root cause</strong> — the <code class="ic">/leasing/search-listings</code> endpoint filtered listings by <code class="ic">quebec_size</code> (the Québec apartment size, like "4½") but its database query <strong>never fetched that column</strong>, so the filter compared every listing against <code class="ic">None</code> and dropped all of them. Any search that included a size returned zero results, always, for every listing, for every caller.</li>
+        <li><strong>An explanation for the "flip-flop"</strong> — the agent's earlier <code class="ic">find_units</code> tool call <em>had</em> returned the real unit, so when the caller pushed back, the LLM (Large Language Model — the AI producing the agent's words) abandoned the broken search result and quoted the good data it still had in memory. Two tools disagreed; the agent got caught between them.</li>
+        <li><strong>A one-word fix, times three</strong> — <code class="ic">quebec_size</code> added to two SELECT strings and to the response formatter, so the search works <em>and</em> the agent can now confirm the size back to callers.</li>
+        <li><strong>Three regression tests</strong> — including one that asserts on the <em>query string itself</em>, a technique that catches this class of bug even under mocked databases.</li>
+        <li><strong>Live production verification</strong> — after the user committed and deployed, we hit the real Render endpoint and watched the previously-invisible Saint-Lazare 4½ come back in the results.</li>
+        <li><strong>Two false alarms resolved</strong> — the transcript's absurd "$14,100/month" rent (a speech-transcription artifact; the real rent is $1,400) and a scary-looking <code class="ic">4Â½</code> in terminal output (the Windows console rendering artifact we first met in Session 15).</li>
+      </ul>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Learning objectives</div>
+        <p>By the end of this lesson you will be able to:</p>
+        <ul>
+          <li>Explain <strong>projection</strong> — why a database query only returns the columns you name — and why forgetting one is a <em>silent</em> failure, not a crash.</li>
+          <li>Recognize the bug class "<strong>filter on a field you didn't fetch</strong>" and the Python idiom (<code class="ic">dict.get()</code>) that makes it invisible.</li>
+          <li>Diagnose an AI agent that <strong>contradicts itself</strong> by tracing which tool result each statement came from.</li>
+          <li>Write a regression test that asserts on the <strong>query contract</strong> (the SELECT string), not just the output — the only kind of test that catches this bug under a mocked database.</li>
+          <li>Read <code class="ic">pytest</code> exit codes and untangle a <strong>stale virtualenv</strong> whose dependencies drifted behind the codebase.</li>
+          <li>Run a <strong>production smoke test</strong> against a live API and separate real data bugs from transcription and rendering artifacts.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== RECAP BRIDGE (C) ===== -->
+    <section id="recap">
+      <h2 class="sec">🌉 Recap Bridge — where we left off</h2>
+      <p>Our product is a <strong>CRM</strong> (Customer Relationship Management — the web app a property manager uses to track buildings, units, tenants, and leads) with an AI <strong>voice agent</strong> named Max that answers a leasing phone line. Max lives on <strong>Vapi</strong> (a hosted voice-AI platform) and does its real work by calling <strong>tools</strong> — HTTP endpoints on our FastAPI backend that look things up in a <strong>Supabase</strong> database (Supabase — a hosted PostgreSQL database with an HTTP API and a Python SDK).</p>
+
+      <p>Two of those tools matter for this session. <strong><code class="ic">find_units</code></strong> (built in Sessions 11–12) is the "what did the caller just name?" tool — give it a spoken city or building and it returns matching units with full details. <strong><code class="ic">search_listings</code></strong> is the "filtered inventory search" tool — the agent calls it with structured criteria the caller has confirmed: bedrooms, budget, city, and, for Québec callers, <code class="ic">quebec_size</code>. Québec sizing is its own convention: apartments are named "3½" or "4½" (rooms plus a half for the bathroom), and Session 12's work made the backend match spoken variants like "4 1/2" or "4.5" against the stored "4½" tolerantly.</p>
+
+      <p>Sessions 14–15 added a French handoff: French callers get transferred to a dedicated French assistant ("Lease Agent FR") with a French transcriber, and Session 15 fixed the dead air at that handoff seam. The French pipeline was working. This session's test call — made by the user's native-French partner <em>before</em> the latest commit — flowed through that pipeline perfectly: language gate, handoff, French conversation. The failure was deeper down the stack, in a single database query that had been quietly broken since the <code class="ic">quebec_size</code> filter was added.</p>
+
+      <div class="callout c-tip">
+        <div class="c-title">💡 Tip — this file stands alone</div>
+        <p>You don't need the earlier sessions open. Carry in two facts: (1) the agent has <em>two</em> lookup tools, <code class="ic">find_units</code> (fuzzy, by name/place) and <code class="ic">search_listings</code> (filtered, by criteria); (2) "4½" is a Québec apartment size stored as a text column called <code class="ic">quebec_size</code>. Everything else is re-explained here.</p>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPTS (D) ===== -->
+    <section id="concepts">
+      <h2 class="sec">🧠 Concepts Introduced This Session</h2>
+      <p class="muted">Seven ideas that stack into the story. C1 is the mechanism of the bug (you only get the columns you ask for). C2 is why nothing crashed (Python's forgiving <code class="ic">.get()</code>). C3 is why the <em>agent</em> behaved so strangely (two tools, two answers). C4 explains the architecture that made the bug possible (filtering in Python instead of the database). C5 is the test technique that finally catches it. C6 and C7 are the practical skills from the second half: fixing a drifted virtualenv and verifying a fix on the live server.</p>
+
+      <!-- ---- Concept 1 ---- -->
+      <h3 id="c-projection">1 · Projection — you only get the columns you ask for</h3>
+      <p><strong>Plain-English explanation.</strong> When code reads from a database, it almost never says "give me everything about these rows." It names the columns it wants — this is called the <strong>projection</strong> (the "what to return" half of a query, as opposed to the "which rows" half). Our backend talks to Supabase through a <em>select string</em>: a comma-separated list of column names passed to <code class="ic">.select(...)</code>. The database returns exactly those columns and <strong>nothing else</strong>. If a row has forty columns and your select string names twelve, the dictionary you get back in Python has twelve keys. The other twenty-eight don't exist in that dictionary — not as empty values, not as <code class="ic">None</code> — they are simply <em>absent</em>.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Naming columns is good practice — it keeps payloads small (the voice agent's tool responses must be fast) and makes each endpoint's data needs explicit. But it creates a standing hazard: every time someone adds code that <em>reads</em> a field from a fetched row, they must also check that the select string <em>fetches</em> it. Those two places can be 30 lines apart. In our case they were: the filter at line 530 of <code class="ic">leasing.py</code> read <code class="ic">quebec_size</code>; the select string at line 498 didn't include it. Nobody connected the two — until a caller in Saint-Lazare did.</p>
+
+      <p><strong>How it works (analogy).</strong> Ordering room service with a checklist. The kitchen sends up <em>exactly</em> what you ticked — if you didn't tick "cutlery," you get a steak and no knife. The bug was code that ordered a steak without a knife, and then a second piece of code downstream that tried to cut with the knife, found nothing in its hand, and — crucially — <em>didn't complain</em>. It just quietly gave up on dinner.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>projection</strong> — the set of columns a query returns; in SQL (Structured Query Language) it's the part right after the word <code class="ic">SELECT</code>.</li>
+        <li><strong>PostgREST</strong> — the layer Supabase uses to expose PostgreSQL over HTTP; the select string is its syntax (it even supports joins, like <code class="ic">flats!inner(bedrooms, ...)</code>, which pulls related columns from the joined <code class="ic">flats</code> table).</li>
+        <li><strong>select string</strong> — the comma-separated column list our code passes to <code class="ic">.select(...)</code>; the projection, written as one Python string.</li>
+      </ul>
+
+      <p>Here is the exact query the search endpoint ran — with the missing word highlighted by its absence. Compare it with <code class="ic">find_units</code>' query just 270 lines earlier <em>in the same file</em>, which gets it right:</p>
+
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — the two select strings (before the fix)"><pre><code># search_listings (line ~495) -- the BROKEN one.
+q = (
+    db.table("lease_listings")           # start a query on the listings table
+    .select(
+        # The projection: every column this endpoint will ever see.
+        "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
+        "square_footage, included_utilities, parking, laundry, "
+        # ^^^ quebec_size is NOT in this list. The rows that come back
+        #     will not have a "quebec_size" key AT ALL.
+        "street_address, city, state, country, "
+        "flats!inner(bedrooms, bathrooms, floor_number)"  # joined columns from flats
+    )
+    .eq("is_active", True)               # which-rows half: only active listings
+)
+
+# find_units (line ~221) -- the CORRECT one, same file, same table.
+q = (
+    db.table("lease_listings")
+    .select(
+        "uuid, flat_number, title, monthly_rent, available_from, quebec_size, "
+        # ^^^ here it IS fetched -- which is why find_units could tell the
+        #     caller about the 4-and-a-half while search_listings could not.
+        "street_address, city, state, country, "
+        "flats!inner(bedrooms, bathrooms, floor_number, buildings(name, properties_list(name)))"
+    )
+    .eq("is_active", True)
+)</code></pre></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — a projection is a contract, and it has two parties</div>
+        <p>Every field your post-fetch code reads is a promise the select string must keep. When the two are written at different times (the select string existed first; the <code class="ic">quebec_size</code> filter was added later), the promise silently breaks. Treat "I added a <code class="ic">r.get("column")</code>" and "I added that column to <code class="ic">.select()</code>" as one indivisible edit — and, as C5 shows, write a test that fails if anyone ever splits them again.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://supabase.com/docs/reference/python/select">Supabase Python — select()</a> ·
+        <a class="inline" href="https://postgrest.org/en/stable/references/api/resource_embedding.html">PostgREST — resource embedding (the ! inner join syntax)</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Projection_(relational_algebra)">Deep dive: projection in relational algebra</a>
+      </p>
+
+      <!-- ---- Concept 2 ---- -->
+      <h3 id="c-silent">2 · Silent failures — why <code class="ic">.get()</code> never told us</h3>
+      <p><strong>Plain-English explanation.</strong> Python dictionaries give you two ways to read a key. <code class="ic">row["quebec_size"]</code> <em>crashes</em> with a <code class="ic">KeyError</code> if the key is missing. <code class="ic">row.get("quebec_size")</code> quietly returns <code class="ic">None</code> instead. The filter used <code class="ic">.get()</code>, then wrapped it in <code class="ic">or ""</code> ("if it's None, treat it as empty text"), then normalized the empty text… which produced an empty string that could never equal <code class="ic">"4½"</code>. Every row failed the comparison. The function returned a perfectly well-formed, perfectly wrong answer: <code class="ic">{"count": 0, "listings": []}</code>. No exception, no log line, no HTTP error. "Completed successfully," said the call transcript — and technically, it had.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Our voice-tool endpoints are <em>deliberately</em> forgiving — a hard project rule says VAPI endpoints always return HTTP 200, because a crash mid-call is worse for the caller than an empty result. That's the right trade-off for the caller experience, but it means the usual alarm bells (stack traces, 500 errors, monitoring alerts) are muted by design. In a system built to never crash, <strong>a wrong-but-valid answer is the dominant failure mode</strong>, and you have to hunt it with tests and transcripts instead of waiting for an exception to find you.</p>
+
+      <p><strong>How it works (analogy).</strong> A smoke detector with the battery removed so it stops beeping at burnt toast. Quieter kitchen — but now an actual fire is silent too. <code class="ic">.get()</code> + <code class="ic">or ""</code> + "always return 200" removed every beep between the missing column and the caller being told a real apartment doesn't exist.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>KeyError</strong> — Python's exception for reading a dictionary key that doesn't exist; loud, immediate, and in this one case would have been <em>helpful</em>.</li>
+        <li><strong>falsy coalescing</strong> — the <code class="ic">x or default</code> idiom: if <code class="ic">x</code> is "empty-ish" (<code class="ic">None</code>, <code class="ic">""</code>, <code class="ic">0</code>), use <code class="ic">default</code>. Convenient, and a great way to launder a missing value into a plausible one.</li>
+        <li><strong>silent failure</strong> — a defect that produces valid-looking output instead of an error; the hardest class of bug to detect in production.</li>
+      </ul>
+
+      <p>Here is the exact laundering chain, line by line:</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — the filter that ate everything (before)"><pre><code>if quebec_size_filter:                     # caller asked for a size, e.g. "4 1/2"
+    qs_norm = _normalize_quebec_size(quebec_size_filter)
+    # qs_norm is now "4½" -- the caller's side of the comparison is perfect.
+
+    rows = [r for r in rows
+            if _normalize_quebec_size(r.get("quebec_size") or "") == qs_norm]
+    #                                 ^^^^^^^^^^^^^^^^^^^^^
+    # r.get("quebec_size")  ->  None   (the column was never SELECTed, see C1)
+    # None or ""            ->  ""     (falsy coalescing hides the None)
+    # _normalize_...("")    ->  ""     (normalizing nothing gives nothing)
+    # "" == "4½"            ->  False  (for EVERY row, ALWAYS)
+    # rows is now []  --  the phantom vacancy is born, silently.</code></pre></div>
+
+      <div class="callout c-warn">
+        <div class="c-title">⚠️ Warning — every <code class="ic">.get(...) or default</code> is a decision about failure</div>
+        <p>Sometimes you truly want "missing = empty" (optional columns, genuinely absent data). But when the field is <em>required for the logic to make sense</em> — you cannot meaningfully size-filter a row that has no size — a missing key is a programming error and deserves to be loud. Ask, each time you type <code class="ic">.get()</code>: "if this key is missing, is that <em>normal</em>, or is it a bug I'd want to know about?"</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.python.org/3/library/stdtypes.html#dict.get">Python docs — dict.get()</a> ·
+        <a class="inline" href="https://blog.codinghorror.com/whats-worse-than-crashing/">Coding Horror — What's worse than crashing? (silent data corruption)</a>
+      </p>
+
+      <!-- ---- Concept 3 ---- -->
+      <h3 id="c-twotools">3 · The two-tool consistency problem — why the agent flip-flopped</h3>
+      <p><strong>Plain-English explanation.</strong> The strangest part of the transcript wasn't the wrong answer — it was the <em>reversal</em>. The agent said "nothing available in 4½ at Saint-Lazare," the caller objected, and the agent immediately produced the exact unit: building, floor, availability date, rent. Where did that come from? From <em>earlier in the same call</em>. When the caller first mentioned Saint-Lazare, the agent ran <code class="ic">find_units</code> — the tool whose query <em>does</em> fetch <code class="ic">quebec_size</code> (C1) — and it returned the real unit. That result stayed in the conversation context. So the agent held two contradictory "facts": tool A said the unit exists; tool B (broken) said nothing matches. It reported B's answer first. Under social pressure ("I can see it in your system"), it fell back to A's.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Two lessons. First, <strong>an agent is only as consistent as its tools agree with each other</strong> — when two endpoints answer overlapping questions from the same table, a bug in one produces not just a wrong answer but a <em>visible self-contradiction</em>, which is far more trust-destroying to a caller than a plain mistake. Second, the flip-flop is diagnostic gold: the moment you see an agent contradict itself, ask "which tool produced each statement?" — the disagreement points a straight line at the broken one. Here, "no results" came seconds after <code class="ic">Search Listings — Completed successfully</code>, and the correct details matched <code class="ic">find_units</code>' output field-for-field. That's what let us walk into the code already knowing <em>which function</em> to read.</p>
+
+      <p><strong>How it works (analogy).</strong> A hotel receptionist with two computer screens. Screen one (reservations) shows room 404 exists. Screen two (the search kiosk, which is broken) shows no rooms match your criteria. The receptionist reads screen two and says "we have nothing." You insist. Flustered, they glance at screen one and say "oh — you're right, room 404, fourth floor." The receptionist isn't dishonest or stupid; their two screens disagree, and they have no way to know which one to trust.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>conversation context</strong> — everything the LLM can see when composing its next line: the system prompt, the dialogue so far, and <em>every previous tool result</em> in the call.</li>
+        <li><strong>sycophancy</strong> — an LLM's tendency to agree with a user who pushes back, even against its own prior statement. Usually a flaw; here it accidentally surfaced the truth, because the pushed-to answer came from the working tool.</li>
+        <li><strong>ground truth</strong> — the actual state of the database, against which both tool answers can be checked.</li>
+      </ul>
+
+      <div class="diagram"><span class="lbl">one call, two tools, two answers</span>
+
+  caller: "I'm in Saint-Lazare…"
+     └─&gt; <span class="good">find_units("Saint-Lazare")</span> ──&gt; SELECT … quebec_size … ✓
+             returns: { flat 76, "4½", floor 4, 2026-06-22, $1400 }   <span class="good">← truth, now in context</span>
+
+  caller: "…a 4 et demi"
+     └─&gt; <span class="bad">search_listings(quebec_size="4½", city="Saint-Lazare")</span>
+             SELECT … <span class="bad">(no quebec_size!)</span> … ──&gt; filter drops ALL rows
+             returns: { count: 0 }                                    <span class="bad">← phantom vacancy</span>
+
+  agent (trusting the latest tool):  "je n'ai rien de disponible…"    <span class="bad">← wrong</span>
+  caller: "I can see it in your system!"
+  agent (falling back to context):   "Vous avez raison… 4½, 4e étage" <span class="warn">← right, for the wrong reason</span></div>
+
+      <div class="callout c-key">
+        <div class="c-title">🔑 Key Concept — "the agent is hallucinating" is a hypothesis, not a diagnosis</div>
+        <p>It would have been easy to blame the model: <em>it made up a listing when pressured</em>. But every "hallucinated" detail matched the database exactly — building, floor, date. An LLM inventing an apartment doesn't guess the correct availability date. When an agent's "made-up" answer is <em>verifiably true</em>, it almost certainly came from real data somewhere in its context, and the actually-false statement is the one to investigate. Check the tools before you blame the brain.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.vapi.ai/tools">Vapi — custom tools</a> ·
+        <a class="inline" href="https://www.anthropic.com/research/towards-understanding-sycophancy-in-language-models">Anthropic — understanding sycophancy in LLMs</a>
+      </p>
+
+      <!-- ---- Concept 4 ---- -->
+      <h3 id="c-postfetch">4 · DB-level filters vs Python post-fetch filters</h3>
+      <p><strong>Plain-English explanation.</strong> There are two places to narrow down "which rows": in the <strong>database query itself</strong> (fast, runs where the data lives — our <code class="ic">.lte("monthly_rent", budget)</code> budget cap and <code class="ic">.ilike("state", ...)</code> state match) or <strong>in Python after fetching</strong> (pull a batch of candidate rows, then loop over them with ordinary code). <code class="ic">search_listings</code> uses both: numeric filters go to the database; the fuzzy ones — city (accent-tolerant matching), <code class="ic">quebec_size</code> (spelling-variant normalization), parking, laundry — run in Python on up to 20 fetched rows.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> The Python side exists for a real reason: the database can't easily express "'4 1/2', '4.5' and '4½' are the same size" or "'Saint-Lazore' (as the transcriber heard it) means Saint-Lazare." Our <code class="ic">_normalize_quebec_size()</code> helper collapses <code class="ic">½</code>, <code class="ic">1/2</code>, and <code class="ic">.5</code> spellings on <em>both</em> sides of the comparison — logic that lives naturally in Python. But note the trap this architecture sets: <strong>a Python filter can only see columns the fetch brought back</strong>. A DB-level filter on a misspelled or missing column fails loudly (PostgREST returns an error). A Python filter on a missing key fails the C2 way — silently. The flexibility of post-fetch filtering is paid for in fragility, which is exactly why the C5 test exists.</p>
+
+      <p><strong>How it works (analogy).</strong> The database filter is asking the warehouse to only ship red shirts. The Python filter is having the shipment opened in your office and hand-sorting for "red-ish, including burgundy and brick" — smarter matching, but only possible on shirts that made it into the box. If the warehouse never packed the color tags (didn't SELECT the column), your sorter calls <em>everything</em> not-red and the "red-ish" pile is empty forever.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>post-fetch filtering</strong> — narrowing rows in application code after the database returned them.</li>
+        <li><strong>normalization</strong> — converting variant spellings to one canonical form before comparing (here: "4 1/2" → "4½").</li>
+        <li><strong>ilike</strong> — PostgreSQL's case-insensitive pattern match, used for the state filter.</li>
+      </ul>
+
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — _normalize_quebec_size (unchanged, and innocent)"><pre><code>def _normalize_quebec_size(s: str) -&gt; str:
+    # Canonicalize a Québec size so variant spellings compare equal.
+    if not s:                                   # None-safe: empty in, empty out
+        return ""
+    s = s.strip().lower().replace("Â", "")      # defensive strip of stray mojibake byte
+    s = s.replace("1/2", "½").replace(".5", "½") # "4 1/2" and "4.5" both become "4 ½"
+    return s.replace(" ", "")                   # drop spaces -&gt; "4½", the stored form</code></pre></div>
+
+      <p class="muted">Worth noting: this function was <em>never the problem</em>. The tolerant matching worked perfectly in tests once it had real data to chew on. The lesson of Session 12 (build tolerant matchers) survived; it was starved of input by the layer above it.</p>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://supabase.com/docs/reference/python/using-filters">Supabase Python — filters</a> ·
+        <a class="inline" href="https://www.postgresql.org/docs/current/functions-matching.html">PostgreSQL — pattern matching (LIKE/ILIKE)</a>
+      </p>
+
+      <!-- ---- Concept 5 ---- -->
+      <h3 id="c-contract">5 · Testing the query contract — asserting on the SELECT string itself</h3>
+      <p><strong>Plain-English explanation.</strong> Our backend test suite doesn't talk to a real database. It uses <strong>mocks</strong> — stand-in objects (Python's <code class="ic">unittest.mock.MagicMock</code>) that accept any method call and return canned data we configure. When a test says "the listings table contains this row," the mock hands that row back <em>regardless of what the select string said</em>, because a mock doesn't implement projection — it's a prop, not a database. That means the ordinary style of test ("call the endpoint, check the output") <strong>could not have caught this bug</strong>: give the mock a row that includes <code class="ic">quebec_size</code> and the filter works in the test even though production never fetches that column. The fix is to also assert on the <em>call the code made</em>: MagicMock records every call and its arguments, so the test can grab the exact select string the endpoint passed to <code class="ic">.select(...)</code> and assert <code class="ic">"quebec_size" in select_arg</code>. That's a <strong>contract test</strong> — it pins the promise between the filter and the projection (C1) so no future edit can quietly split them.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> This is the honest answer to "why did the bug ship?" — the existing tests for this endpoint checked status codes and response <em>shape</em>, and none mentioned <code class="ic">quebec_size</code> at all. Under mocks, even a perfect behavioral test would have lied to us. The three tests we added cover all three layers: the tolerant matching behavior (variant spelling "4 1/2" finds stored "4½"), the exclusion behavior (a "3½" doesn't match a "4½" search), and — the load-bearing one — the query contract itself.</p>
+
+      <p><strong>How it works (analogy).</strong> A mannequin fitting. Testing clothes on a mannequin (mock) checks the stitching and the shape, but a mannequin never complains that the jacket has no pockets — it doesn't use pockets. If pockets matter, you must inspect the jacket itself ("does it <em>have</em> pockets?") rather than only watching the mannequin wear it. Asserting on the select string is checking the jacket.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>mock</strong> — a configurable stand-in object used in tests; records calls made to it and returns canned responses.</li>
+        <li><strong>MagicMock</strong> — Python's auto-permissive mock: any attribute or method you touch springs into existence.</li>
+        <li><strong>call_args</strong> — a MagicMock's memory of the most recent call's arguments; <code class="ic">.call_args.args[0]</code> is the first positional argument (our select string).</li>
+        <li><strong>contract test</strong> — a test asserting on the <em>interaction</em> between two components (what was asked of the database) rather than only the end result.</li>
+        <li><strong>regression test</strong> — a test written after a bug is fixed, specifically shaped so that re-introducing the bug makes it fail.</li>
+      </ul>
+
+      <div class="code-block" data-lang="python" data-file="backend/tests/integration/test_listings_for_agent_v2.py — the three new tests"><pre><code>def test_quebec_size_variant_spelling_matches(self, authed_client):
+    # Give the mock DB one listing whose stored size is the canonical "4½".
+    row = {**_LISTING_ROW, "quebec_size": "4½"}
+    tc, _ = authed_client(lease_listings=[row])
+    # The caller says it the messy way: "4 1/2". params= handles URL-encoding
+    # the space for us (a raw space in a URL string would be invalid).
+    resp = tc.get("/leasing/search-listings", params={"quebec_size": "4 1/2"})
+    body = resp.json()
+    assert body["count"] == 1                       # tolerant match found it
+    assert body["listings"][0]["quebec_size"] == "4½"  # and the size is echoed back
+
+def test_quebec_size_mismatch_filters_out(self, authed_client):
+    # A three-and-a-half must NOT satisfy a four-and-a-half search.
+    row = {**_LISTING_ROW, "quebec_size": "3½"}
+    tc, _ = authed_client(lease_listings=[row])
+    resp = tc.get("/leasing/search-listings", params={"quebec_size": "4½"})
+    assert resp.json()["count"] == 0                # correctly excluded
+
+def test_quebec_size_column_is_fetched(self, authed_client):
+    """Regression (Transcript3): the filter compares r['quebec_size'], so the
+    select MUST fetch that column -- otherwise every row silently drops and the
+    agent reports 'no listings' for sizes that exist."""
+    row = {**_LISTING_ROW, "quebec_size": "4½"}
+    tc, db = authed_client(lease_listings=[row])     # keep the mock -- we inspect it
+    tc.get("/leasing/search-listings", params={"quebec_size": "4½"})
+    # The mock recorded every call. Pull the first positional argument that the
+    # endpoint passed to .select(...) -- the projection string itself.
+    select_arg = db.table("lease_listings").select.call_args.args[0]
+    assert "quebec_size" in select_arg               # the contract, pinned forever</code></pre></div>
+
+      <div class="callout c-deep">
+        <div class="c-title">📖 Deep Dive — the limits of mocked tests, stated honestly</div>
+        <p>Mocks trade realism for speed and isolation. Everything a real PostgREST would <em>enforce</em> — projections, joins, type coercion, RLS (Row Level Security) — is absent, so a whole family of "query is wrong" bugs pass mocked tests. The industrial-strength fix is a second tier of tests against a real (local or disposable) database, where <code class="ic">.select("nonexistent_column")</code> actually errors. Until then, contract assertions like ours are the cheap, targeted patch: they don't verify the column <em>exists</em>, but they do verify the code <em>asks</em> for every column it uses — which is precisely the mistake that happened.</p>
+      </div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.python.org/3/library/unittest.mock.html">Python docs — unittest.mock</a> ·
+        <a class="inline" href="https://martinfowler.com/articles/mocksArentStubs.html">Martin Fowler — Mocks Aren't Stubs</a> ·
+        <a class="inline" href="https://fastapi.tiangolo.com/tutorial/testing/">FastAPI — testing with TestClient</a>
+      </p>
+
+      <!-- ---- Concept 6 ---- -->
+      <h3 id="c-venv">6 · Dependency drift — when your virtualenv falls behind the code</h3>
+      <p><strong>Plain-English explanation.</strong> A <strong>virtualenv</strong> (virtual environment — a private, per-project folder of installed Python packages, here <code class="ic">backend/.venv</code>) is a snapshot: it contains whatever was installed into it, whenever that was. The <em>codebase</em>, meanwhile, keeps moving — a recent commit added a bilingual complaint agent that imports <code class="ic">twilio</code>, and <code class="ic">requirements.txt</code> (the list of packages the project needs) grew with it. Nobody re-ran <code class="ic">pip install</code> into this machine's venv, so when we tried to run the test suite, importing the app crashed at <code class="ic">from twilio.rest import Client</code> with <code class="ic">ModuleNotFoundError</code>. The code was fine; the environment had <em>drifted</em> behind it.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> Two practical skills fell out. First, reading <strong>pytest exit codes</strong>: exit code <code class="ic">1</code> means "tests ran, some failed," but exit code <code class="ic">4</code> means "pytest couldn't even start" (usage/collection error) — our first run returned 4, which immediately says <em>don't debug the tests, debug the setup</em>. Second, the fix ritual: identify the project's real interpreter (<code class="ic">backend/.venv/Scripts/python.exe</code> — we found it by listing for <code class="ic">.venv</code> folders after two wrong guesses about its location), then <code class="ic">python -m pip install -r requirements.txt</code> to fast-forward the snapshot to match the code. Packages already present are skipped; only the drift is installed.</p>
+
+      <p><strong>How it works (analogy).</strong> A shared kitchen with a recipe binder. A teammate adds a new recipe that needs a spice you've never bought (twilio). Next time <em>you</em> cook from the binder, you're missing an ingredient — not because the recipe is wrong, but because your pantry hasn't caught up with the binder. <code class="ic">pip install -r requirements.txt</code> is the grocery run that syncs your pantry to the binder.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>virtualenv / venv</strong> — an isolated per-project set of installed Python packages, so projects don't fight over versions.</li>
+        <li><strong>requirements.txt</strong> — the project's declared package list; the source of truth the venv should mirror.</li>
+        <li><strong>ModuleNotFoundError</strong> — Python's "I can't import that package" error; in a venv-based project, usually means wrong interpreter <em>or</em> drifted venv.</li>
+        <li><strong>pytest exit codes</strong> — 0 = all passed, 1 = failures, 2 = interrupted, 3 = internal error, <strong>4 = usage/startup error</strong>, 5 = no tests found.</li>
+      </ul>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://docs.python.org/3/library/venv.html">Python docs — venv</a> ·
+        <a class="inline" href="https://docs.pytest.org/en/stable/reference/exit-codes.html">pytest — exit codes</a>
+      </p>
+
+      <!-- ---- Concept 7 ---- -->
+      <h3 id="c-smoke">7 · Production smoke testing — and telling artifacts from bugs</h3>
+      <p><strong>Plain-English explanation.</strong> After the user committed and deployed, we didn't declare victory from green local tests. We made one real HTTP request to the live Render server — the same request the voice agent's tool makes — and read the answer. This is a <strong>smoke test</strong>: not a full test suite, just "does the fixed path visibly work where users actually are?" It did: <code class="ic">quebec_size=4 1/2</code> now returned <code class="ic">count: 2</code>, and the first result was the very unit from the transcript — 2803 Rue Du Comtois, Saint-Lazare, 4½, 4th floor, available 2026-06-22, $1,400/month.</p>
+
+      <p><strong>Why we need it (for CRM specifically).</strong> That one response also settled two open worries from the transcript, and taught the discipline of <em>checking ground truth before diagnosing</em>. Worry one: the agent had quoted "14 100 par mois" — $14,100/month, absurd. The live data says the rent is <strong>1400</strong>; the agent almost certainly <em>said</em> "quatorze cents" (fourteen hundred, natural Québec French) and the speech-to-text transcriber wrote it down as "14 100." A transcription artifact, not a data or agent bug — no fix needed. Worry two: the JSON in our terminal showed <code class="ic">"quebec_size":"4Â½"</code> — the dreaded mojibake. But Session 15's Bug 4 taught us this exact pattern: the Windows console renders UTF-8's two-byte <code class="ic">½</code> as two cp1252 characters. Proof it's cosmetic: the size <em>filter matched</em> — server-side, the stored bytes normalize cleanly to <code class="ic">"4½"</code>, which they couldn't do if truly corrupted. The behavior of the system is better evidence than the glyphs in your terminal.</p>
+
+      <p><strong>How it works (analogy).</strong> After the electrician replaces a breaker, you don't re-read the wiring diagram — you flip the actual light switch in the actual room. And if the bulb's light looks odd through your tinted glasses (the console's rendering), you judge by whether the room is lit, not by the tint.</p>
+
+      <p><strong>Jargon decoder.</strong></p>
+      <ul>
+        <li><strong>smoke test</strong> — a minimal end-to-end check that the deployed system performs the fixed behavior; named after powering on hardware and checking for smoke.</li>
+        <li><strong>Render</strong> — the cloud platform hosting our FastAPI backend; deploys automatically from the GitHub branch.</li>
+        <li><strong>Invoke-RestMethod</strong> — PowerShell's built-in HTTP client (its <code class="ic">curl</code>); fetches a URL and parses JSON into objects.</li>
+        <li><strong>transcription artifact</strong> — an error introduced by the speech-to-text layer writing down spoken words, as opposed to an error in the data or the agent's reasoning.</li>
+      </ul>
+
+      <div class="term"><span class="pmt">PS&gt;</span> Invoke-RestMethod -Uri "https://tenant-management-mvp.onrender.com/leasing/search-listings?quebec_size=4%201/2"
+
+<span class="ok">count    : 2</span>
+listings : { flat 76 · 2803 Rue Du Comtois, <span class="ok">Saint-Lazare</span>, QC · <span class="garble">4Â½</span> <span class="dim">&lt;- console artifact, bytes are fine</span>
+             floor 4 · available 2026-06-22 · monthly_rent <span class="ok">1400.0</span> <span class="dim">&lt;- so "14 100" was the transcript, not the data</span>
+             … }
+<span class="dim">before the fix, this exact request returned count: 0</span></div>
+
+      <p><strong>📖 Resources.</strong>
+        <a class="inline" href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-restmethod">Microsoft — Invoke-RestMethod</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Smoke_testing_(software)">Smoke testing (Wikipedia)</a> ·
+        <a class="inline" href="https://en.wikipedia.org/wiki/Mojibake">Deep dive: mojibake — how encodings garble text</a>
+      </p>
+    </section>
+
+    <!-- ===== BUILD LOG (E) ===== -->
+    <section id="buildlog">
+      <h2 class="sec">🔨 Step-by-Step Build Log</h2>
+      <p class="muted">The session in exact order: forensics → diagnosis → three-line fix → tests → environment detour → docs → deploy → live verification.</p>
+
+      <h3>Step 1 — Read the transcript like a detective</h3>
+      <p><strong>Why now:</strong> the transcript is the only evidence of what the live system did; every hypothesis must start from it. <strong>If skipped:</strong> we'd be guessing at symptoms and could easily "fix" the wrong layer (the prompt, the model, the STT) instead of the backend.</p>
+      <p>The key beats of <code class="ic">Transcript3.md</code>, annotated:</p>
+      <div class="term"><span class="dim">10:03:48</span>  Handoff To 8900a5c4-…  <span class="ok">Completed successfully</span>        <span class="dim">← Session 14/15's French pipeline: working</span>
+<span class="dim">10:03:58</span>  <span class="cal">Find Units</span>  <span class="ok">Completed successfully</span>                <span class="dim">← returns the Saint-Lazare unit (with quebec_size)</span>
+<span class="dim">10:04:12</span>  <span class="spk">User:</span> "Sur un 4 minutes,"                        <span class="garble">← STT garble of "un 4 et demi"</span>
+<span class="dim">10:04:26</span>  <span class="spk">FR:</span>  "Je n'ai pas bien compris, pourriez-vous répéter…"  <span class="dim">← agent recovers correctly</span>
+<span class="dim">10:04:36</span>  <span class="spk">User:</span> "Non non, un 4, 1 4 et demi."                <span class="dim">← size confirmed: 4½</span>
+<span class="dim">10:04:42</span>  <span class="cal">Search Listings</span>  <span class="ok">Completed successfully</span>          <span class="err">← "successfully" returns count: 0</span>
+<span class="dim">10:04:58</span>  <span class="spk">FR:</span>  "…je n'ai rien de disponible en 4 et demi à Saint-Lazare."  <span class="err">← the phantom vacancy</span>
+<span class="dim">10:05:12</span>  <span class="spk">User:</span> "Je le vois moi dans votre système…"          <span class="dim">← the caller knows better</span>
+<span class="dim">10:05:30</span>  <span class="spk">FR:</span>  "Vous avez raison… un 4 et demi… 4e étage… depuis le 22 juin 2026 à <span class="garble">14 100</span> par mois."
+                                                            <span class="dim">← every detail matches find_units' earlier result</span></div>
+      <p><strong>Expected reading:</strong> three suspects ranked — (1) <code class="ic">search_listings</code> returned empty despite "success"; (2) the agent's reversal quotes <code class="ic">find_units</code> data, so the data exists; (3) the "14 100" rent needs a ground-truth check later. Note also what's <em>not</em> broken: the STT struggle over "4 et demi" was handled properly by the agent with a clarifying question — understanding was never the issue, despite how it looked from the outside.</p>
+
+      <h3>Step 2 — Find and read the suspect code</h3>
+      <p><strong>Why now:</strong> the transcript points at one function; read it before touching anything. <strong>If skipped:</strong> any edit is a guess.</p>
+      <div class="term"><span class="pmt">tool&gt;</span> Grep pattern: "search_listings|find_units"  →  backend/app/routes/leasing.py
+<span class="dim">  186:  …shared with the find_units match gate…
+  215:  async def find_units(          ← its .select() includes quebec_size
+  458:  async def search_listings(     ← its .select() does NOT
+  528:  if quebec_size_filter: …r.get("quebec_size")…   ← reads what was never fetched</span></div>
+      <p><strong>Expected output:</strong> the smoking gun in one diff-like glance — same file, two select strings, one fetches <code class="ic">quebec_size</code> (line 224) and one doesn't (line 498), and the one that doesn't is the one whose filter needs it (line 530). Cross-checking <code class="ic">vapi_agent_config.py</code> confirmed the agent's tool really sends the parameter (<code class="ic">"&amp;quebec_size={{quebec_size}}"</code> at line 1652), so the broken path is exercised on every Québec-style size request.</p>
+
+      <h3>Step 3 — The fix: one word, three places</h3>
+      <p><strong>Why now:</strong> root cause confirmed; the change is minimal and surgical. <strong>If skipped:</strong> every French-market caller keeps being turned away from real inventory.</p>
+      <div class="code-block" data-lang="python" data-file="backend/app/routes/leasing.py — the fix (after)"><pre><code># 1) search_listings' select string -- THE fix. One added word.
+.select(
+    "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
+    "square_footage, included_utilities, parking, laundry, quebec_size, "
+    #                                                      ^^^^^^^^^^^ now fetched,
+    # so the post-fetch filter finally has something real to compare against.
+    "street_address, city, state, country, "
+    "flats!inner(bedrooms, bathrooms, floor_number)"
+)
+
+# 2) listings_for_agent's select string -- same addition. This endpoint shares
+#    _format_listings (below), so its rows need the key too or the formatter
+#    would emit "" for every small-portfolio listing.
+
+# 3) _format_listings -- emit the size in every tool response.
+result.append({
+    ...
+    "bedrooms": flat.get("bedrooms"),
+    "bathrooms": flat.get("bathrooms"),
+    "quebec_size": r.get("quebec_size") or "",   # NEW: agent can now say "un 4½"
+    "monthly_rent": float(r["monthly_rent"]),    # back to the caller with confidence
+    ...
+})</code></pre></div>
+      <p><strong>Why all three:</strong> fix #1 repairs the filter. Fix #3 repairs a second, quieter inconsistency — the French agent's system prompt already <em>told the model</em> that search results include <code class="ic">quebec_size</code> (Bug 2 below), but the formatter never emitted it. Fix #2 keeps the sibling endpoint's rows consistent with the now-richer formatter.</p>
+
+      <h3>Step 4 — Write the regression tests</h3>
+      <p><strong>Why now:</strong> before running anything — the tests document the bug while it's fresh, and the contract test (C5) is the only durable guarantee. <strong>If skipped:</strong> the next person to "clean up" the select string can reintroduce the phantom vacancy with zero failing tests.</p>
+      <p>The three tests from C5 went into the existing suite for this endpoint, <code class="ic">backend/tests/integration/test_listings_for_agent_v2.py</code> (a project rule: extend the existing topic file, don't create a near-duplicate). Full code in C5 above.</p>
+
+      <h3>Step 5 — Run the tests (and hit the environment wall)</h3>
+      <p><strong>Why now:</strong> obviously. <strong>If skipped:</strong> shipping untested — the exact sin that caused this session.</p>
+      <div class="term"><span class="pmt">PS&gt;</span> python -m pytest tests/integration/test_listings_for_agent_v2.py -q
+<span class="err">ModuleNotFoundError: No module named 'fastapi'</span>          <span class="dim">← exit code 4: wrong interpreter (base python)</span>
+
+<span class="pmt">PS&gt;</span> &amp; backend\.venv\Scripts\python.exe -m pytest tests/integration/test_listings_for_agent_v2.py -q
+<span class="err">ModuleNotFoundError: No module named 'twilio'</span>           <span class="dim">← right interpreter, drifted venv (Bug 3)</span>
+
+<span class="pmt">PS&gt;</span> &amp; backend\.venv\Scripts\python.exe -m pip install -r requirements.txt -q
+<span class="pmt">PS&gt;</span> &amp; backend\.venv\Scripts\python.exe -m pytest tests/integration/test_listings_for_agent_v2.py -q
+<span class="ok">33 passed</span> in 0.46s                                       <span class="dim">← 30 existing + our 3 new</span></div>
+      <p><strong>Expected output:</strong> <code class="ic">33 passed</code>. The two errors on the way are Bug 3's story — see the Bug Journal.</p>
+
+      <h3>Step 6 — Update the living documentation</h3>
+      <p><strong>Why now:</strong> a project rule (from <code class="ic">CLAUDE.md</code>) requires <code class="ic">CODEBASE_CONTEXT.md</code> to be updated in the same session as any route-behavior change, in place, in the section where it belongs. <strong>If skipped:</strong> the next session's agent/developer reads stale docs claiming the endpoint behaves in a way it no longer does.</p>
+      <p>The <code class="ic">/leasing/search-listings</code> entry gained a "Bug fixed 2026-07-03 (Transcript3)" note recording the phantom-vacancy mechanism, the three-part fix, and where the regression tests live.</p>
+
+      <h3>Step 7 — Deploy and smoke-test production</h3>
+      <p><strong>Why now:</strong> last, because it needs the commit pushed (the user committed and deployed to Render between our sessions' turns). <strong>If skipped:</strong> "works on my machine" — the caller's phone talks to Render, not to our laptop.</p>
+      <div class="term"><span class="pmt">PS&gt;</span> Invoke-RestMethod -Uri "https://tenant-management-mvp.onrender.com/leasing/search-listings?quebec_size=4%201/2"
+<span class="ok">count: 2</span>  ·  first result = flat 76, 2803 Rue Du Comtois, <span class="ok">Saint-Lazare</span>, 4½, floor 4, 2026-06-22, <span class="ok">$1,400/mo</span></div>
+      <p><strong>Expected output:</strong> the transcript's exact unit, findable by size at last. Note <code class="ic">4%201/2</code> in the URL — <code class="ic">%20</code> is the URL encoding of a space, since raw spaces aren't legal in URLs.</p>
+    </section>
+
+    <!-- ===== BUG JOURNAL (F) ===== -->
+    <section id="bugs">
+      <h2 class="sec">🐛 Bug Journal</h2>
+      <p class="muted">One headline bug, one accomplice, one environment detour, and two false alarms that dissolve under ground truth. The false alarms are included deliberately — knowing what <em>isn't</em> a bug is half of debugging.</p>
+
+      <!-- Bug 1 -->
+      <h3 id="bug1">Bug 1 — The phantom vacancy: size-filtered searches always return zero</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>A live French test call. The caller asks for a 4½ in Saint-Lazare — a listing that exists and that the <em>same agent</em> described minutes later. The tool log shows <code class="ic">Search Listings — Completed successfully</code>, and the agent says:</p>
+        <div class="term"><span class="spk">Lease Agent FR:</span> "…pour le moment, <span class="err">je n'ai rien de disponible en 4 et demi à Saint-Lazare</span>. Est-ce que ce serait correct si je prenais vos informations…"</div>
+        <p>No error anywhere. No crash. Just a confident, wrong "we have nothing," heading straight into lead-capture — the flow for callers we genuinely can't help.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <ol>
+          <li><strong>Read the transcript first</strong> and separated the layers. The STT (speech-to-text) garbles ("Sur un 4 minutes") were handled correctly by the agent with clarifying questions — so language understanding was <em>not</em> the failure. The wrong statement came immediately after a "successful" <code class="ic">search_listings</code> call. Hypothesis: the tool returned empty.</li>
+          <li><strong>Used the flip-flop as a compass</strong> (C3). The agent's corrected answer contained field-perfect details — floor 4, available 2026-06-22 — that must have come from the earlier <code class="ic">find_units</code> result. So the data exists and one tool can see it. The broken one is <code class="ic">search_listings</code> specifically.</li>
+          <li><strong>Grepped for both tool names</strong> → <code class="ic">backend/app/routes/leasing.py</code>, and read <code class="ic">search_listings</code> top to bottom. The filter block at lines 528–530 reads <code class="ic">r.get("quebec_size")</code>.</li>
+          <li><strong>Scrolled up 30 lines</strong> to the select string. Counted the columns. <code class="ic">quebec_size</code> is not there. Scrolled up further to <code class="ic">find_units</code> — <em>its</em> select string has it. Diagnosis complete without running a single command: the filter compares every row's <code class="ic">None</code> against "4½".</li>
+          <li><strong>Confirmed the path is hit in production</strong>: the Vapi tool definition in <code class="ic">vapi_agent_config.py</code> line 1652 templates <code class="ic">&amp;quebec_size={{quebec_size}}</code> into the request — so every caller who states a Québec size triggers the dead filter.</li>
+        </ol>
+        <p><em>Red herring dodged:</em> the obvious first guess — "the agent had trouble understanding 4 and a half" (the user's partner's read) — was checkable and false: the transcript shows the agent asked for clarification and got explicit confirmation <em>before</em> the search fired. The size reached the backend correctly; the backend threw it away.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>A <strong>fetch/filter contract violation</strong> (C1 + C2). The <code class="ic">quebec_size</code> filter was added to the endpoint (Session 12's Québec-sizing work) without adding the column to that endpoint's select string — while the sibling endpoint <code class="ic">find_units</code>, edited in the same era, <em>did</em> get the column. The underlying concept: a Supabase/PostgREST query returns <em>only</em> the named columns, and <code class="ic">dict.get()</code> converts the resulting missing key into <code class="ic">None</code> without complaint, which <code class="ic">or ""</code> then converts into a comparable-but-never-equal empty string. Three permissive layers, each reasonable alone, composed into total silent data loss. And the test suite couldn't catch it because mocked databases don't enforce projections (C5).</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔧 The Fix</div>
+        <div class="code-block" data-lang="diff" data-file="backend/app/routes/leasing.py — search_listings select string"><pre><code>  .select(
+      "uuid, flat_number, title, monthly_rent, available_from, custom_rules, "
+-     "square_footage, included_utilities, parking, laundry, "
++     "square_footage, included_utilities, parking, laundry, quebec_size, "
+      "street_address, city, state, country, "
+      "flats!inner(bedrooms, bathrooms, floor_number)"
+  )</code></pre></div>
+        <p>One word. With the column fetched, <code class="ic">r.get("quebec_size")</code> returns the stored "4½", both sides normalize identically, and the tolerant matcher from Session 12 finally does the job it was built for. Verified three ways: the new unit tests (33 passed), and the live smoke test flipping from <code class="ic">count: 0</code> to <code class="ic">count: 2</code>.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p><strong>"Completed successfully" measures plumbing, not truth.</strong> An endpoint that returns a valid shape has succeeded in HTTP terms while failing in business terms. When a system is designed never to error (our always-200 rule for voice tools), you must actively hunt wrong-but-valid answers: compare tools against each other (the flip-flop was the tell), test the query contract, and smoke-test with a request whose correct answer you already know. And whenever you write a post-fetch filter, immediately audit the select string — the pair is one edit, never two.</p>
+      </div>
+
+      <!-- Bug 2 -->
+      <h3 id="bug2">Bug 2 — The prompt that lied: promised a field the API never sent</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>No visible crash — this one was found by reading, during the Bug 1 investigation. The French agent's system prompt tells the model what each search result contains:</p>
+        <div class="term"><span class="dim">vapi_agent_config.py:1781</span>  "…state, bedrooms, bathrooms, <span class="err">quebec_size</span>, monthly_rent, floor_number, available_from, title, parking, laundry."</div>
+        <p>…but <code class="ic">_format_listings</code>, which builds those results, emitted no <code class="ic">quebec_size</code> key at all.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>While confirming Bug 1's blast radius, we grepped <code class="ic">quebec_size</code> across <code class="ic">vapi_agent_config.py</code> and cross-referenced each mention against the backend: the tool <em>sends</em> the parameter (line 1652 — real), the tool schema declares it (line 1798 — real), and the prompt <em>describes it in responses</em> (line 1781 — false, until now). Then we read <code class="ic">_format_listings</code> (lines 37–65 of <code class="ic">leasing.py</code>) and confirmed the key was absent from the output dictionary.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>A <strong>prompt/API contract drift</strong> — the same disease as Bug 1, one layer up. The prompt (written when Québec sizing was designed) documents the <em>intended</em> response shape; the formatter implements the <em>actual</em> one; nothing ties them together. For an LLM this is worse than useless: a model told "results include quebec_size" that never sees one may fall back on inference — deducing "4½" from <code class="ic">bedrooms: 2</code> — which is usually right and occasionally, confidently, wrong.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔧 The Fix</div>
+        <div class="code-block" data-lang="diff" data-file="backend/app/routes/leasing.py — _format_listings"><pre><code>      "bedrooms": flat.get("bedrooms"),
+      "bathrooms": flat.get("bathrooms"),
++     "quebec_size": r.get("quebec_size") or "",   # make the prompt's promise true
+      "monthly_rent": float(r["monthly_rent"]),</code></pre></div>
+        <p>Plus <code class="ic">quebec_size</code> added to <code class="ic">listings_for_agent</code>'s select string, since that endpoint feeds the same formatter. The first new unit test locks this in by asserting the field appears in responses.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p><strong>A system prompt is API documentation that a very literal reader trusts completely.</strong> Every field a prompt claims a tool returns must actually be returned — audit prompt-against-formatter whenever either changes. When you fix a data bug, check what the prompt <em>says</em> about that data; drift clusters.</p>
+      </div>
+
+      <!-- Bug 3 -->
+      <h3 id="bug3">Bug 3 — The stale virtualenv: <code class="ic">ModuleNotFoundError</code> before a single test ran</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <div class="term"><span class="pmt">PS&gt;</span> python -m pytest tests/integration/test_listings_for_agent_v2.py -q
+<span class="err">ImportError while loading conftest…
+E   ModuleNotFoundError: No module named 'fastapi'</span>        <span class="dim">exit code 4</span>
+
+<span class="pmt">PS&gt;</span> &amp; backend\.venv\Scripts\python.exe -m pytest …
+<span class="err">app\integrations\twilio_client.py:6: in &lt;module&gt;
+    from twilio.rest import Client
+E   ModuleNotFoundError: No module named 'twilio'</span></div>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <ol>
+          <li><strong>Exit code 4</strong>, not 1 — pytest never collected a test. So this is setup, not our new code failing.</li>
+          <li>First error: <code class="ic">fastapi</code> missing → we're on the machine's <em>base</em> Python, not the project venv. Hunted for the venv — two wrong guesses (repo-root <code class="ic">.venv</code>, <code class="ic">backend/venv</code>), then a directory listing found <code class="ic">backend/.venv</code>.</li>
+          <li>Second error, with the right interpreter: <code class="ic">twilio</code> missing — but <code class="ic">fastapi</code>, <code class="ic">pytest</code>, and <code class="ic">supabase</code> present (<code class="ic">pip list</code> confirmed). A venv that has the <em>old</em> deps but not the <em>new</em> ones = drift, not misconfiguration.</li>
+          <li>Cross-checked the import chain in the traceback: <code class="ic">app.main → routes/complaints.py → services/notifications.py → twilio_client.py</code>. The twilio import arrived with the recent bilingual-complaint-agent commit — newer than the venv's last install.</li>
+        </ol>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p><strong>Dependency drift</strong> (C6): the codebase gained a dependency (a commit added Twilio-based complaint notifications), <code class="ic">requirements.txt</code> was updated, but this machine's venv snapshot was never re-synced. Nothing was "broken" — the venv was simply a photograph of an older project. The give-away pattern: <em>old core packages present, only the newest ones missing</em>.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔧 The Fix</div>
+        <div class="term"><span class="pmt">PS&gt;</span> &amp; backend\.venv\Scripts\python.exe -m pip install -r requirements.txt -q
+<span class="dim"># pip skips what's already satisfied and installs only the drift (twilio, etc.)</span>
+<span class="pmt">PS&gt;</span> &amp; backend\.venv\Scripts\python.exe -m pytest tests/integration/test_listings_for_agent_v2.py -q
+<span class="ok">33 passed</span></div>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p><strong>After pulling teammates' commits, re-sync the venv before trusting any local result</strong> — <code class="ic">pip install -r requirements.txt</code> is idempotent (safe to run repeatedly) and takes seconds when nothing drifted. And memorize the pytest exit-code split: <strong>1 = your tests failed; 4 = your <em>setup</em> failed</strong> — they call for entirely different debugging.</p>
+      </div>
+
+      <!-- Bug 4 -->
+      <h3 id="bug4">Bug 4 — The $14,100 apartment (false alarm: a transcription artifact)</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <div class="term"><span class="spk">Lease Agent FR:</span> "…disponible depuis le 22 juin 2026 à <span class="err">14 100</span> par mois."</div>
+        <p>$14,100/month for a Québec 4½ is off by an order of magnitude. Is the database rent wrong? Did the agent mangle the number?</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔍 The Diagnosis</div>
+        <p>Deferred until we had ground truth, then read straight off the production smoke test: <code class="ic">monthly_rent: 1400.0</code>. The data is correct. So the "14 100" was created somewhere between the agent's text and the transcript. The likely chain: the agent said the rent the natural Québec-French way — <em>"quatorze cents"</em> (fourteen hundred) — and the transcription layer, converting spoken numbers to digits, rendered "quatorze" + "cents" as <code class="ic">14</code> + <code class="ic">100</code>. The same call shows this transcriber garbling numbers repeatedly ("Sur un 4 minutes", "1 4 et demi"), which raises the prior for a transcription slip over a data slip.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🧠 The Root Cause</div>
+        <p>Not a bug in our system. <strong>Spoken-number formatting is a lossy channel</strong>: French hundreds-based counting ("quatorze cents" = 1,400) maps badly onto a digit-by-digit transcription heuristic. The transcript is a <em>witness</em>, not a <em>recording</em> — it can be wrong about what was said.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔧 The Fix</div>
+        <p>None shipped — the database is right and the agent (most probably) spoke correctly. The watch-item stands: if a <em>caller</em> ever mishears a rent (not just the transcript), we'd add a prompt rule to speak prices digit-grouped ("mille quatre cents dollars") for unambiguous TTS.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🛡️ The Lesson</div>
+        <p><strong>Check ground truth before diagnosing.</strong> One production query separated "our data is wrong" (a serious bug) from "the transcript wrote the number oddly" (noise). Never file a bug against a value you haven't read from the source of record.</p>
+      </div>
+
+      <!-- Bug 5 -->
+      <h3 id="bug5">Bug 5 — "4Â½" strikes again (false alarm: Session 15's console artifact, on new data)</h3>
+      <div class="callout c-bug">
+        <div class="c-title">🚨 The Symptom</div>
+        <p>The production smoke-test JSON printed <code class="ic">"quebec_size":"4Â½"</code> — that stray <code class="ic">Â</code> that screams <strong>mojibake</strong> (encoding-mangled text).</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔍 The Diagnosis &amp; Root Cause</div>
+        <p>Session 15's Bug 4, re-run on new data: UTF-8 encodes <code class="ic">½</code> as two bytes (<code class="ic">0xC2 0xBD</code>), and the Windows PowerShell console renders them as two cp1252 characters (<code class="ic">Â</code> + <code class="ic">½</code>). This time we didn't even need to check raw bytes — the <em>behavior</em> proved the bytes clean: the size filter <strong>matched</strong> server-side, and <code class="ic">_normalize_quebec_size("4Â½")</code>-style corruption on the server would have needed its (dead, post-lowercase) <code class="ic">Â</code>-strip to save it. The stored value normalizes to <code class="ic">"4½"</code>, so the stored value <em>is</em> <code class="ic">"4½"</code>. Display artifact, full stop.</p>
+      </div>
+      <div class="callout c-bug">
+        <div class="c-title">🔧 The Fix &amp; 🛡️ The Lesson</div>
+        <p>No fix — nothing is broken. The lesson compounds Session 15's: once you've proven your console lies about UTF-8, <strong>write the proof down and reuse it</strong> (ours lives in the project memory). Ten seconds of "ah, that again" versus an hour of re-investigating the same ghost. Corroborate suspected corruption with behavior (did the comparison work?) before trusting glyphs on screen.</p>
+      </div>
+    </section>
+
+    <!-- ===== DESIGN DECISIONS (G) ===== -->
+    <section id="decisions">
+      <h2 class="sec">⚖️ Design Decisions</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Alternatives Considered</th><th>Why We Chose This</th><th>Trade-offs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Fix the select string</strong> (fetch <code>quebec_size</code>), keep the Python filter</td>
+            <td>Move the filter into the DB query (<code>.eq("quebec_size", ...)</code>); drop the filter and let the agent narrow verbally</td>
+            <td>The Python filter exists <em>because</em> matching must be tolerant ("4 1/2" / "4.5" / "4½") — a DB <code>eq</code> only matches the exact stored spelling. Restoring its input preserves Session 12's design with a one-word change.</td>
+            <td>The fragile fetch/filter split remains; mitigated by the contract test rather than removed.</td>
+          </tr>
+          <tr>
+            <td><strong>Also emit <code>quebec_size</code> in responses</strong> (fix the formatter + sibling endpoint)</td>
+            <td>Minimal fix: only repair the filter</td>
+            <td>The prompt already promised the field (Bug 2); making the promise true lets the agent confirm sizes to callers and removes a hallucination pressure point.</td>
+            <td>Slightly larger diff to review; response payload grows by one small field.</td>
+          </tr>
+          <tr>
+            <td><strong>Contract test asserting on the select string</strong></td>
+            <td>Behavioral tests only; a real-database integration tier; no new tests</td>
+            <td>Behavioral tests provably cannot catch this bug under mocks (the mock ignores projections). Asserting <code>call_args</code> pins the exact failure that shipped, at zero infrastructure cost.</td>
+            <td>Couples the test to the implementation detail of using <code>.select()</code> — a refactor to raw SQL would need the test updated. Acceptable for a regression pin.</td>
+          </tr>
+          <tr>
+            <td><strong>Extend the existing test file</strong> (<code>test_listings_for_agent_v2.py</code>)</td>
+            <td>New <code>test_quebec_size.py</code> file</td>
+            <td>Project convention: one file per topic, update in place — the endpoint's tests stay discoverable in one location.</td>
+            <td>The file grows; class-based grouping keeps it navigable.</td>
+          </tr>
+          <tr>
+            <td><strong>Sync the venv with <code>pip install -r requirements.txt</code></strong></td>
+            <td>Install just <code>twilio</code>; rebuild the venv from scratch</td>
+            <td>Installing one package fixes one symptom of drift; syncing to requirements fixes <em>all</em> drift at once and is idempotent.</td>
+            <td>Slower than one package (seconds vs. instant); a full rebuild would be even cleaner but wasn't warranted.</td>
+          </tr>
+          <tr>
+            <td><strong>Smoke-test production before closing</strong></td>
+            <td>Trust green local tests + successful deploy</td>
+            <td>Local tests run against mocks; only a live request proves the deployed DB really has the column and the path works where callers are. It also settled Bugs 4 and 5 for free.</td>
+            <td>One request against production (read-only, harmless here); needs the deploy done first.</td>
+          </tr>
+          <tr>
+            <td><strong>Diagnose-then-report before touching code</strong></td>
+            <td>Jump straight to a fix on the first suspicion</td>
+            <td>The user asked for a diagnosis ("give it to me straight"); confirming the full chain — tool wiring → select → filter → agent behavior — made the eventual fix one confident word instead of exploratory edits.</td>
+            <td>Slightly slower to the first edit; vastly higher confidence in it.</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- ===== VERIFICATION (H) ===== -->
+    <section id="verify">
+      <h2 class="sec">✅ Verification Checklist</h2>
+
+      <h4 class="sub">1 · Code — the projection matches the filter</h4>
+      <ul class="check">
+        <li>In <code class="ic">backend/app/routes/leasing.py</code>, the <code class="ic">search_listings</code> select string contains <code class="ic">quebec_size</code> (and so does <code class="ic">listings_for_agent</code>'s).</li>
+        <li><code class="ic">_format_listings</code> emits a <code class="ic">"quebec_size"</code> key.</li>
+      </ul>
+
+      <h4 class="sub">2 · Tests — all green with the venv's interpreter</h4>
+      <div class="code-block" data-lang="bash" data-file="terminal (run from backend/)"><pre><code>backend/.venv/Scripts/python.exe -m pytest tests/integration/test_listings_for_agent_v2.py -q</code></pre></div>
+      <ul class="check">
+        <li>Prints <code class="ic">33 passed</code> — 30 pre-existing + the 3 quebec_size tests.</li>
+        <li>Sanity: temporarily delete <code class="ic">quebec_size</code> from the select string and re-run — <code class="ic">test_quebec_size_column_is_fetched</code> AND <code class="ic">test_quebec_size_variant_spelling_matches</code> must both fail. (Then put it back!)</li>
+      </ul>
+
+      <h4 class="sub">3 · Live — production returns the phantom unit</h4>
+      <div class="code-block" data-lang="powershell" data-file="terminal"><pre><code>Invoke-RestMethod -Uri "https://tenant-management-mvp.onrender.com/leasing/search-listings?quebec_size=4%201/2"</code></pre></div>
+      <ul class="check">
+        <li><code class="ic">count</code> is ≥ 1 and the listings include a <code class="ic">quebec_size</code> field.</li>
+        <li>The Saint-Lazare unit (flat 76, $1,400/mo) is present when unfiltered by city.</li>
+      </ul>
+
+      <h4 class="sub">4 · The real test — a French call replay</h4>
+      <ul class="check">
+        <li>Caller: "un 4 et demi à Saint-Lazare" → the agent's <em>first</em> answer describes the unit (no "rien de disponible" detour, no flip-flop).</li>
+        <li>The agent can state the size ("un 4 et demi au 4e étage…") because the field is now in its tool response.</li>
+      </ul>
+      <p class="muted">❌ Something's wrong if… size searches still return 0 live but pass locally (deploy didn't take — check Render's deploy log for the commit), or the agent describes the unit without a size (formatter change missing), or tests fail with exit code 4 (re-read Bug 3 — it's your environment, not the code).</p>
+    </section>
+
+    <!-- ===== EXERCISES (I) ===== -->
+    <section id="exercises">
+      <h2 class="sec">🧪 Exercises</h2>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟢 Practice — audit the remaining endpoints for the same disease</div>
+        <p><code class="ic">leasing.py</code> has more read endpoints: <code class="ic">find_listing</code>, <code class="ic">search_available_listings</code> (<code class="ic">/leasing/search</code>), <code class="ic">listings_for_agent</code>. For each one, list every field its post-fetch code reads (<code class="ic">r.get(...)</code> / <code class="ic">r[...]</code>) and check each against that endpoint's select string. Write down any mismatch you find.</p>
+        <details><summary>Hint</summary>
+          <p>Work filter-first: search the function body for <code class="ic">.get("</code> and bracket reads, collect the field names, then compare against the <code class="ic">.select("...")</code> argument. Remember joined fields live inside <code class="ic">flats!inner(...)</code> — <code class="ic">flat.get("bedrooms")</code> is satisfied by <code class="ic">bedrooms</code> appearing <em>inside</em> the parentheses. Note that <code class="ic">/leasing/search</code>'s select string also lacks <code class="ic">quebec_size</code> — is that a bug? (Check whether anything downstream reads it. If nothing does, it's fine — the contract has two sides.)</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🟡 Stretch — make the silent failure loud</div>
+        <p>The bug survived because <code class="ic">.get() or ""</code> swallowed the missing key (C2). Change the quebec_size filter so a missing key is detected: if <em>every</em> fetched row lacks <code class="ic">quebec_size</code> while a size filter is active, log a warning like <code class="ic">[WARN] search_listings: quebec_size filter active but column absent from rows — check the select string</code> — without ever crashing the endpoint (the always-200 rule still applies).</p>
+        <details><summary>Hint</summary>
+          <p>Before the list-comprehension filter, compute <code class="ic">have_key = any("quebec_size" in r for r in rows)</code> — note <code class="ic">in</code> checks key <em>presence</em>, which distinguishes "column not fetched" (key absent) from "column fetched but NULL" (key present, value None). Print the warning when <code class="ic">rows and not have_key</code>, then filter as normal. Bonus: assert the warning fires in a test by deliberately passing rows without the key.</p>
+        </details>
+      </div>
+
+      <div class="callout c-ex">
+        <div class="c-title">🔴 Challenge — a generic projection-contract test</div>
+        <p>Our contract test pins one column on one endpoint. Generalize it: write a single parametrized test that, for each read endpoint in <code class="ic">leasing.py</code>, captures the select string via the mock and asserts it contains every field that endpoint's response formatter reads. New endpoint or new field → automatic coverage.</p>
+        <details><summary>Hint</summary>
+          <p>Build a table: <code class="ic">CASES = [("/leasing/search-listings", {"quebec_size": "4½"}, ["quebec_size", "monthly_rent", "city", ...]), (...)]</code> and use <code class="ic">@pytest.mark.parametrize("path,params,required", CASES)</code>. In the test body: call the endpoint, then <code class="ic">sel = db.table("lease_listings").select.call_args.args[0]</code> and <code class="ic">for f in required: assert f in sel</code>. For full automation (deriving <code class="ic">required</code> from the code instead of a hand-list) you'd parse <code class="ic">_format_listings</code> with the <code class="ic">ast</code> module — genuinely advanced, and the hand-list already gets you 90% of the safety.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING (J) ===== -->
+    <section id="troubleshooting">
+      <h2 class="sec">🧯 Troubleshooting / Common Errors</h2>
+
+      <details>
+        <summary>My filtered search always returns <code>count: 0</code> even for data I know exists</summary>
+        <p>This session's signature. Check, in order: (1) is every field the filter reads present in the select string? (2) print one fetched row — does the key exist at all? (3) is the filter comparing normalized-vs-raw (both sides must pass through the same normalizer)? (4) did a DB-level filter (<code class="ic">lte</code>/<code class="ic">ilike</code>) already empty the candidate set before Python filtering?</p>
+      </details>
+
+      <details>
+        <summary>pytest exits with code 4 and no test results</summary>
+        <p>Startup failure, not test failure — usually an import error in <code class="ic">conftest.py</code> or the app. Read the first traceback line: <code class="ic">No module named 'fastapi'</code> means wrong interpreter (use <code class="ic">backend/.venv/Scripts/python.exe</code>); a missing <em>newer</em> package (twilio) with core packages present means drifted venv — <code class="ic">pip install -r requirements.txt</code>.</p>
+      </details>
+
+      <details>
+        <summary><code>ModuleNotFoundError</code> for a package that IS in requirements.txt</summary>
+        <p>requirements.txt is a wish list; the venv is what's actually installed. Being listed ≠ being installed. Sync with <code class="ic">python -m pip install -r requirements.txt</code> using the venv's own interpreter (the <code class="ic">python -m pip</code> form guarantees pip installs into <em>that</em> Python, not another one on PATH).</p>
+      </details>
+
+      <details>
+        <summary>My mock-based test passes but production still fails</summary>
+        <p>Mocks don't enforce query correctness — they return your canned rows no matter what the code asked for (C5). If the bug is in <em>what the code asks the database</em>, assert on the recorded call (<code class="ic">mock.select.call_args</code>) or add a real-database test tier.</p>
+      </details>
+
+      <details>
+        <summary>Accented characters look like <code>Â½</code> or <code>é</code> in my terminal</summary>
+        <p>Almost certainly the Windows console rendering UTF-8 bytes as cp1252 (Bugs 4/5 here; Session 15 Bug 4). Verify with behavior (did a server-side comparison on that value succeed?) or raw bytes (<code class="ic">open(path, encoding="utf-8").read()</code>) before "fixing" data that isn't broken.</p>
+      </details>
+
+      <details>
+        <summary>The agent contradicts itself mid-call</summary>
+        <p>Map each statement to its source tool call in the transcript. Two overlapping tools disagreeing = one of them is broken; the details in the <em>corrected</em> answer usually identify the healthy tool. Then diff the two implementations — ours differed by exactly one word in a select string.</p>
+      </details>
+
+      <details>
+        <summary>Invoke-RestMethod fails or the URL seems mangled</summary>
+        <p>Spaces are illegal in URLs — encode them as <code class="ic">%20</code> (we sent <code class="ic">quebec_size=4%201/2</code>). For a first deploy check, also remember Render free-tier services cold-start: the first request after idling can take tens of seconds; raise <code class="ic">-TimeoutSec</code>.</p>
+      </details>
+    </section>
+
+    <!-- ===== WHAT'S NEXT (K) ===== -->
+    <section id="next">
+      <h2 class="sec">🧭 What's Next</h2>
+      <p>The fix is live and verified at the API level; the closing step is the <strong>human replay</strong> — the French partner re-running the exact Saint-Lazare / 4½ script to confirm the agent now answers right the first time, with no flip-flop. Beyond that, this session left three threads worth pulling. First, the transcript showed <code class="ic">search_listings</code> firing <em>before</em> the agent asked for the move-in date, so the <code class="ic">available_before</code> filter never applied — a prompt-flow ordering issue that didn't matter this call (the size filter zeroed everything first) but will once searches return real sets. Second, the 🟢 exercise's audit question is real: other endpoints deserve the same fetch/filter check, and the 🔴 exercise's generic contract test would make the whole class of bug un-shippable. Third, from the false alarms: if a caller (not just the transcript) ever mishears a spoken rent, a number-speaking prompt rule is the ready fix. The next session will most likely pick up whichever of these the next test call stresses first.</p>
+    </section>
+
+    <!-- ===== GLOSSARY (L) ===== -->
+    <section id="glossary">
+      <h2 class="sec">📖 Glossary</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+        <tbody>
+          <tr><td><strong>call_args</strong></td><td>A MagicMock's record of the arguments from the most recent call to it; lets tests inspect <em>how</em> code called a dependency.</td></tr>
+          <tr><td><strong>contract test</strong></td><td>A test asserting on the interaction between components (e.g. the exact query sent to the DB) rather than only the final output.</td></tr>
+          <tr><td><strong>conversation context</strong></td><td>Everything the LLM sees when composing a reply: system prompt, dialogue history, and all prior tool results in the call.</td></tr>
+          <tr><td><strong>dependency drift</strong></td><td>A virtualenv falling behind the codebase's declared requirements after new commits add packages.</td></tr>
+          <tr><td><strong>falsy coalescing</strong></td><td>The <code>x or default</code> idiom that substitutes a default for None/empty values — and can launder a missing key into a plausible one.</td></tr>
+          <tr><td><strong>ground truth</strong></td><td>The authoritative state of the data (the production database), against which transcripts and agent claims are checked.</td></tr>
+          <tr><td><strong>ilike</strong></td><td>PostgreSQL's case-insensitive LIKE pattern match.</td></tr>
+          <tr><td><strong>Invoke-RestMethod</strong></td><td>PowerShell's built-in HTTP client; fetches a URL and parses JSON into objects.</td></tr>
+          <tr><td><strong>KeyError</strong></td><td>Python's exception for reading a missing dictionary key with <code>d[k]</code>; avoided (for better and worse) by <code>d.get(k)</code>.</td></tr>
+          <tr><td><strong>MagicMock</strong></td><td>Python's auto-permissive test double: any method you call on it exists, returns what you configure, and is recorded.</td></tr>
+          <tr><td><strong>mojibake</strong></td><td>Garbled text from an encoding mismatch — or a console mis-rendering valid UTF-8 (our recurring <code>Â½</code>).</td></tr>
+          <tr><td><strong>normalization</strong></td><td>Converting variant forms to one canonical form before comparing ("4 1/2" / "4.5" → "4½").</td></tr>
+          <tr><td><strong>post-fetch filtering</strong></td><td>Narrowing rows in application code after the database returned them; flexible, but blind to columns that weren't fetched.</td></tr>
+          <tr><td><strong>PostgREST</strong></td><td>The HTTP layer Supabase uses to expose PostgreSQL; defines the select-string syntax including embedded joins.</td></tr>
+          <tr><td><strong>projection</strong></td><td>The set of columns a query returns — in our code, the comma-separated string passed to <code>.select()</code>.</td></tr>
+          <tr><td><strong>pytest exit codes</strong></td><td>0 = passed, 1 = test failures, 4 = usage/startup error (couldn't even collect tests), 5 = none found.</td></tr>
+          <tr><td><strong>quebec_size</strong></td><td>Québec apartment-size convention stored as text ("3½", "4½") — rooms plus a half for the bathroom.</td></tr>
+          <tr><td><strong>regression test</strong></td><td>A test written after a fix, shaped so re-introducing that exact bug makes it fail.</td></tr>
+          <tr><td><strong>select string</strong></td><td>The column list our code passes to Supabase's <code>.select(...)</code>; the projection as one Python string.</td></tr>
+          <tr><td><strong>silent failure</strong></td><td>A defect producing valid-looking output instead of an error; the dominant failure mode in never-crash systems.</td></tr>
+          <tr><td><strong>smoke test</strong></td><td>A minimal live check that a deployed change visibly works — one real request with a known-correct answer.</td></tr>
+          <tr><td><strong>sycophancy</strong></td><td>An LLM's tendency to agree with a pushing user, even against its own prior statement.</td></tr>
+          <tr><td><strong>transcription artifact</strong></td><td>An error introduced by the speech-to-text layer (e.g. "quatorze cents" → "14 100"), not by the data or agent.</td></tr>
+          <tr><td><strong>virtualenv (venv)</strong></td><td>An isolated per-project directory of installed Python packages (<code>backend/.venv</code>).</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================== FOOTER (M) ============================== -->
+<footer class="fnav">
+  <div class="nav-row">
+    <a href="session-15-handoff-dead-air-static-first-message.html">
+      <div class="dir">← Previous</div>
+      <div class="ttl">Session 15 — The Six-Second Silence</div>
+    </a>
+    <a href="sessions.html" class="center">
+      <div class="dir">Index</div>
+      <div class="ttl">All Sessions</div>
+    </a>
+    <a href="session-17-unbound-number-and-the-tool-call-that-never-came.html" class="right">
+      <div class="dir">Next →</div>
+      <div class="ttl">Session 17 — Dead Line, Dead Air</div>
+    </a>
+  </div>
+  <div class="copyright">Session 16 — CRM Learning Series · generated 2026-07-03</div>
+</footer>
+
+<script>
+/* ============================== THEME TOGGLE ============================== */
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const label = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('crm-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  function sync() {
+    const dark = root.getAttribute('data-theme') !== 'light';
+    btn.firstChild.textContent = dark ? '🌙 ' : '☀️ ';
+    label.textContent = dark ? 'Dark' : 'Light';
+  }
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    sync();
+  });
+})();
+
+/* ============================== MOBILE TOC TOGGLE ============================== */
+(function () {
+  const toc = document.getElementById('toc');
+  const t = document.getElementById('tocToggle');
+  t && t.addEventListener('click', () => toc.classList.toggle('open'));
+  toc.addEventListener('click', e => { if (e.target.tagName === 'A') toc.classList.remove('open'); });
+})();
+
+/* ============================== READING PROGRESS BAR ============================== */
+(function () {
+  const bar = document.getElementById('progress-bar');
+  function upd() {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', upd, { passive: true });
+  upd();
+})();
+
+/* ============================== SCROLLSPY (active TOC link) ============================== */
+(function () {
+  const links = Array.from(document.querySelectorAll('aside.toc a'));
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (id) map[id] = a; });
+  const targets = Object.keys(map).map(id => document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map[en.target.id];
+        a && a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  targets.forEach(t => obs.observe(t));
+})();
+
+/* ============================== SYNTAX HIGHLIGHT + LINE NUMBERS + COPY ============================== */
+(function () {
+  const KEYWORDS = new Set([
+    'def','return','if','else','elif','try','except','raise','import','from','await','async',
+    'class','None','True','False','for','while','in','self','const','let','function','lambda',
+    'and','or','not','is','assert','with','as','global','continue','break'
+  ]);
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function tokenize(src){
+    const out=[]; let i=0; const n=src.length;
+    while(i<n){
+      const ch=src[i];
+      if(ch==='#' || (ch==='-'&&src[i+1]==='-') || (ch==='/'&&src[i+1]==='/')){
+        let j=src.indexOf('\n',i); if(j<0)j=n; out.push(['com',src.slice(i,j)]); i=j; continue;
+      }
+      if(ch==='\'' || ch==='"'){
+        let j=i+1; while(j<n && src[j]!==ch){ if(src[j]==='\\')j++; j++; }
+        j=Math.min(j+1,n); out.push(['str',src.slice(i,j)]); i=j; continue;
+      }
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1; while(j<n && /[A-Za-z0-9_]/.test(src[j]))j++;
+        const w=src.slice(i,j); out.push([KEYWORDS.has(w)?'kw':'id',w]); i=j; continue;
+      }
+      if(/[0-9]/.test(ch)){
+        let j=i+1; while(j<n && /[0-9.]/.test(src[j]))j++;
+        out.push(['num',src.slice(i,j)]); i=j; continue;
+      }
+      out.push(['id',ch]); i++;
+    }
+    return out;
+  }
+  function render(src){
+    return tokenize(src).map(([t,v]) => (t==='id') ? esc(v) : '<span class="tok-'+t+'">'+esc(v)+'</span>').join('');
+  }
+
+  document.querySelectorAll('.code-block').forEach(block => {
+    const code = block.querySelector('code');
+    if (!code) return;
+    const raw = code.textContent.replace(/\n$/,'');
+    const lang = block.getAttribute('data-lang') || 'code';
+    const file = block.getAttribute('data-file') || '';
+
+    const head = document.createElement('div');
+    head.className = 'code-head';
+    head.innerHTML =
+      '<span class="lang">' + esc(lang) + '</span>' +
+      (file ? '<span class="fname">' + esc(file) + '</span>' : '') +
+      '<span class="spacer"></span>' +
+      '<button class="copy">Copy</button>';
+    block.insertBefore(head, block.firstChild);
+
+    const html = render(raw);
+    const lines = html.split('\n');
+    code.innerHTML = lines.map((ln,i) =>
+      '<span class="ln-line"><span class="ln-num">'+(i+1)+'</span><span class="ln-code">'+(ln||' ')+'</span></span>'
+    ).join('');
+
+    head.querySelector('.copy').addEventListener('click', function(){
+      navigator.clipboard.writeText(raw).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => { this.textContent = 'Copy'; }, 1400);
+      }).catch(() => { this.textContent = 'Press Ctrl+C'; });
+    });
+  });
+})();
+</script>
+</body>
+</html>
