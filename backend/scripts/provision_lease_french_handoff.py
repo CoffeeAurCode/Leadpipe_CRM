@@ -29,6 +29,7 @@ Optional: VAPI_SHARED_LEASE_FRENCH_ASSISTANT_ID (set after first run to update i
 For --all: SUPABASE_URL, SUPABASE_SERVICE_KEY.
 """
 import os
+import re
 import sys
 import argparse
 import httpx
@@ -81,17 +82,51 @@ def _headers() -> dict:
     }
 
 
+def _street_name(street_address) -> str:
+    """Strip a leading plain civic number ('123 Rue Saint-Denis' -> 'Rue Saint-Denis')
+    so the keyterm is the street NAME, not the house number. Deliberately conservative:
+    only a bare number + whitespace is removed, so Québec ordinal street names ('8e
+    Avenue', '1re Rue') and alphanumeric civics ('45A', '12-B') are preserved intact."""
+    v = (street_address or "").strip()
+    v = re.sub(r"^\d+\s+", "", v).strip()
+    return v
+
+
+def _fetch_place_keyterms(db, manager_id: str) -> list[str]:
+    """Distinct cities + street names from this manager's ACTIVE listings, for Deepgram
+    keyterm biasing on the French assistant. Deduped case-insensitively; order stable."""
+    rows = (
+        db.table("lease_listings")
+        .select("city, street_address")
+        .eq("manager_id", manager_id)
+        .eq("is_active", True)
+        .limit(1000)
+        .execute()
+        .data
+    ) or []
+    terms: list[str] = []
+    seen: set[str] = set()
+    for r in rows:
+        for value in ((r.get("city") or "").strip(), _street_name(r.get("street_address"))):
+            key = value.lower()
+            if value and key not in seen:
+                seen.add(key)
+                terms.append(value)
+    return terms
+
+
 def _create_french_assistant(cfg: dict, dry_run: bool) -> str:
     payload = _to_vapi_payload(cfg)
     tx = payload["transcriber"]
+    nkt = len(tx.get("keyterm", []))
     if dry_run:
-        print(f"    DRY RUN — POST /assistant  name={payload['name']}  transcriber={tx['model']}/{tx['language']}")
+        print(f"    DRY RUN — POST /assistant  name={payload['name']}  transcriber={tx['model']}/{tx['language']}  keyterms={nkt}")
         return "<dry-run-french-id>"
     resp = httpx.post(f"{VAPI_API_BASE}/assistant", headers=_headers(), json=payload, timeout=30)
     if resp.status_code not in (200, 201):
         raise SystemExit(f"    [FAIL] create French assistant HTTP {resp.status_code}: {resp.text[:300]}")
     new_id = resp.json()["id"]
-    print(f"    [OK] created French assistant  id={new_id}  transcriber={tx['model']}/{tx['language']}")
+    print(f"    [OK] created French assistant  id={new_id}  transcriber={tx['model']}/{tx['language']}  keyterms={nkt}")
     return new_id
 
 
@@ -99,8 +134,9 @@ def _patch_assistant(assistant_id: str, cfg: dict, dry_run: bool, label: str) ->
     payload = _to_vapi_payload(cfg)
     handoff = [t for t in cfg["model"]["tools"] if t.get("type") == "handoff"]
     target = handoff[0]["destinations"][0]["assistantId"] if handoff else None
+    nkt = len(payload.get("transcriber", {}).get("keyterm", []))
     if dry_run:
-        print(f"    DRY RUN — PATCH /assistant/{assistant_id} ({label})  handoff->{target}")
+        print(f"    DRY RUN — PATCH /assistant/{assistant_id} ({label})  handoff->{target}  keyterms={nkt}")
         return
     resp = httpx.patch(f"{VAPI_API_BASE}/assistant/{assistant_id}", headers=_headers(), json=payload, timeout=30)
     if resp.status_code != 200:
@@ -155,7 +191,12 @@ def provision_fleet(dry_run: bool) -> None:
         existing_fr = row.get("vapi_lease_french_assistant_id")
         print(f"\n  [{manager_id[:8]}]  entry={entry_id}  existing_french={existing_fr or '(none)'}")
 
-        fr_cfg = build_lease_config_french(BACKEND_URL, manager_id, manager_name=manager_name)
+        place_terms = _fetch_place_keyterms(db, manager_id)
+        print(f"    keyterms: {len(place_terms)} place names (cities+streets) from active listings")
+        if place_terms:
+            print(f"      {place_terms}")
+        fr_cfg = build_lease_config_french(BACKEND_URL, manager_id, manager_name=manager_name,
+                                           place_terms=place_terms)
         if existing_fr:
             _patch_assistant(existing_fr, fr_cfg, dry_run, "French assistant")
             fr_id = existing_fr
