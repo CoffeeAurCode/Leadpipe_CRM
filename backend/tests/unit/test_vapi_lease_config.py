@@ -12,6 +12,12 @@ from app.services.vapi_agent_config import (
     build_lease_config,
     build_lease_config_shared,
     build_complaint_config,
+    build_lease_config_french,
+    build_french_keyterms,
+    build_french_transcriber,
+    QUEBEC_FRENCH_KEYTERMS,
+    FRENCH_TRANSCRIBER_CONFIG,
+    _MAX_FRENCH_KEYTERMS,
 )
 
 BACKEND = "https://tenant-management-mvp.onrender.com"
@@ -190,6 +196,49 @@ class TestSubmitLeaseLeadTool:
 # ---------------------------------------------------------------------------
 # Complaint config regression — must not be affected by lease changes
 # ---------------------------------------------------------------------------
+
+class TestFrenchKeyterms:
+    def test_base_keyterms_always_present(self):
+        kt = build_french_keyterms(None)
+        for term in QUEBEC_FRENCH_KEYTERMS:
+            assert term in kt
+
+    def test_place_terms_appended(self):
+        kt = build_french_keyterms(["Saint-Lazare", "Rue Saint-Denis"])
+        assert "Saint-Lazare" in kt
+        assert "Rue Saint-Denis" in kt
+        assert all(t in kt for t in QUEBEC_FRENCH_KEYTERMS)
+
+    def test_dedup_is_case_insensitive(self):
+        kt = build_french_keyterms(["Montréal", "montréal", "MONTRÉAL"])
+        assert sum(1 for t in kt if t.lower() == "montréal") == 1
+
+    def test_dedup_against_base_terms(self):
+        # 'pantoute' is already a base term; passing it again must not duplicate.
+        kt = build_french_keyterms(["pantoute"])
+        assert kt.count("pantoute") == 1
+
+    def test_capped_to_budget(self):
+        kt = build_french_keyterms([f"Ville-{i}" for i in range(500)])
+        assert len(kt) <= _MAX_FRENCH_KEYTERMS
+
+    def test_blank_terms_dropped(self):
+        kt = build_french_keyterms(["", "   ", "Laval"])
+        assert "Laval" in kt
+        assert "" not in kt
+
+    def test_transcriber_does_not_mutate_shared_config(self):
+        before = list(FRENCH_TRANSCRIBER_CONFIG["keyterm"])
+        build_french_transcriber(["Gatineau"])
+        assert FRENCH_TRANSCRIBER_CONFIG["keyterm"] == before
+        assert "Gatineau" not in FRENCH_TRANSCRIBER_CONFIG["keyterm"]
+
+    def test_french_config_transcriber_carries_place_terms(self):
+        cfg = build_lease_config_french(BACKEND, MANAGER_ID, place_terms=["Trois-Rivières"])
+        assert cfg["transcriber"]["language"] == "fr"
+        assert "Trois-Rivières" in cfg["transcriber"]["keyterm"]
+        assert "pantoute" in cfg["transcriber"]["keyterm"]
+
 
 class TestComplaintConfigRegression:
     def test_complaint_server_messages_includes_tool_calls(self, complaint_cfg):

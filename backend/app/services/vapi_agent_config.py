@@ -307,17 +307,45 @@ COMPLAINT_TRANSCRIBER_CONFIG = {
     "confidenceThreshold": 0.6,
 }
 
+# Curated Québécois terms nova-3 "fr" (trained mostly on France French) tends to
+# garble. Keyterm prompting biases Deepgram toward these exact spellings. Kept small
+# and distinctive on purpose: keyterm budget is ~500 tokens (shared with per-manager
+# city keyterms) and an over-long list causes false insertions. Ultra-common
+# contractions (Y'a, T'es) are omitted — Deepgram already gets them — and pronunciation
+# features (diphthongization) are acoustic, not lexical, so keyterms can't help there.
+# Source: docs glossary of standard-French → Québécois vocabulary/anglicisms.
+QUEBEC_FRENCH_KEYTERMS = [
+    "pantoute",
+    "astheure",
+    "faque",
+    "tantôt",
+    "présentement",
+    "canceller",
+    "une job",
+    "un call",
+    "plate",
+    "souper",
+    "déjeuner",
+    "dîner",
+    "envoye",
+    "adonne",
+    "ça adonne-tu",
+    "c'est-tu possible",
+    "ça marche-tu",
+]
+
 # Dedicated French STT for the French-only lease assistant (handoff target).
 # nova-3 "fr" is a monolingual French model — double-digit WER reduction vs the shared
 # "multi" model on French audio, and supports per-manager keyterm prompting (R2).
-# keyterm is left empty here; the per-manager rollout seeds it from each manager's
-# real city/street corpus. The shared pilot agent has no manager scope, so no keyterms.
+# keyterm is seeded with the distinctive Québécois vocabulary above; the per-manager
+# rollout appends each manager's real city/street corpus on top.
 FRENCH_TRANSCRIBER_CONFIG = {
     "provider": "deepgram",
     "model": "nova-3",
     "language": "fr",
     "numerals": True,
     "confidenceThreshold": 0.4,
+    "keyterm": list(QUEBEC_FRENCH_KEYTERMS),
     "fallbackPlan": {
         "transcribers": [
             {
@@ -327,6 +355,32 @@ FRENCH_TRANSCRIBER_CONFIG = {
         ]
     },
 }
+
+# Deepgram keyterm budget is ~500 tokens. Place names are 1-4 tokens each; this cap
+# keeps a large portfolio's cities/streets from crowding out the base Québécois terms
+# or tripping false insertions. Real per-manager portfolios are far under this.
+_MAX_FRENCH_KEYTERMS = 200
+
+
+def build_french_keyterms(place_terms: list[str] | None = None) -> list[str]:
+    """Merge the base Québécois vocabulary with this manager's real place names
+    (cities + street names), deduped case-insensitively and capped to the keyterm
+    budget. Base terms are listed first so they always keep a slot."""
+    merged: list[str] = []
+    seen: set[str] = set()
+    for term in list(QUEBEC_FRENCH_KEYTERMS) + list(place_terms or []):
+        cleaned = (term or "").strip()
+        key = cleaned.lower()
+        if cleaned and key not in seen:
+            seen.add(key)
+            merged.append(cleaned)
+    return merged[:_MAX_FRENCH_KEYTERMS]
+
+
+def build_french_transcriber(place_terms: list[str] | None = None) -> dict:
+    """A copy of FRENCH_TRANSCRIBER_CONFIG whose keyterm list is the base Québécois
+    terms plus this manager's cities/streets. Never mutates the module-level config."""
+    return {**FRENCH_TRANSCRIBER_CONFIG, "keyterm": build_french_keyterms(place_terms)}
 
 
 # ---------------------------------------------------------------------------
@@ -1971,9 +2025,12 @@ def build_lease_config_shared(backend_url: str, french_assistant_id: str | None 
 
 
 def build_lease_config_french(backend_url: str, manager_id: str,
-                              manager_name: str = "our property management team") -> dict:
+                              manager_name: str = "our property management team",
+                              place_terms: list[str] | None = None) -> dict:
     """Per-manager FRENCH-ONLY lease assistant (handoff target). Dedicated nova-3 `fr` transcriber;
-    receives French calls mid-conversation from the entry assistant and continues in French."""
+    receives French calls mid-conversation from the entry assistant and continues in French.
+    place_terms (this manager's real cities + street names) are added to the transcriber's
+    keyterm list so Deepgram biases toward transcribing them correctly."""
     tools = _alias_apirequest_tool_names(_build_lease_tools(backend_url, manager_id=manager_id))
     context_block = _LEASE_CONTEXT_BLOCK.format(manager_id=manager_id, manager_name=manager_name)
     system_prompt = _LEASE_SYSTEM_PROMPT_BASE + context_block + _LEASE_FRENCH_CONTINUATION_NOTE
@@ -1982,7 +2039,7 @@ def build_lease_config_french(backend_url: str, manager_id: str,
         system_prompt=system_prompt,
         tools=tools,
         backend_url=backend_url,
-        transcriber=FRENCH_TRANSCRIBER_CONFIG,
+        transcriber=build_french_transcriber(place_terms),
     )
     cfg["first_message_mode"] = "assistant-speaks-first"
     cfg["first_message"] = _LEASE_FRENCH_FIRST_MESSAGE
