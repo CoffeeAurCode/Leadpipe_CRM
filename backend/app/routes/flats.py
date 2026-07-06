@@ -765,7 +765,8 @@ async def create_flat(
             tenant_payload = {
                 "name": tenant_name.strip(),
                 "phone": normalized_tenant_phone,
-                "flat_uuid": flat_uuid
+                "flat_uuid": flat_uuid,
+                "manager_id": user["sub"],
             }
 
             try:
@@ -896,6 +897,7 @@ async def update_flat_details(
                 "name": request.tenant_data.name,
                 "phone": request.tenant_data.phone,
                 "flat_uuid": flat_uuid,
+                "manager_id": user["sub"],
             }
             tenant_res = db.table("tenants").insert(tenant_payload).execute()
             if tenant_res.data:

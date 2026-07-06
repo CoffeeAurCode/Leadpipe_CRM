@@ -210,7 +210,7 @@ PropertyGroup (properties_list)
 | manager_notes | text | |
 | document_urls | text[] | Array of file URLs |
 | preferred_language | text | `en` / `fr` / NULL (migration 032). Complaint-agent language locked on the tenant's first **valid** `verify-phone` call (the tool URL carries `&language=`); never overwritten. Drives `/voice/inbound-router` + outbound complaint assistant selection. NULL → bilingual gate |
-| manager_id | UUID | RLS key |
+| manager_id | UUID | FK → `auth.users(id)`, direct owner (migration 033). POST /tenants sets it to `user["sub"]` — the route code shipped 2026-06-05 but the column only exists once migration 033 is run; without it every standalone Add-Tenant 500s (PGRST204). RLS policy is additive: `manager_id = auth.uid()` OR flat-chain ownership, which is what makes **unassigned** tenants (flat_uuid NULL) visible to their owner |
 
 #### `complaints`
 | Column | Type | Notes |
@@ -690,6 +690,8 @@ Common to all lease webhooks:
 - `_map_columns_with_ai(headers, sample_rows, import_type)` — async; calls `AsyncOpenAI` with headers + 3 sample rows + schema descriptions; sanitizes response to only allow valid target columns; falls back to `{header: None}` on any exception
 
 **Phone normalization:** both tenant-creation paths (`/import/tenants` rows and `/import/properties` rows carrying `tenant_name`/`tenant_phone`) normalize the phone to E.164 via `normalize_phone_e164` (`app/core/phone.py`) before INSERT; rows whose phone can't be normalized are reported in `errors` and skipped (the unit itself is still created on the properties path). Raw phones like `514-555-0130` previously reached the DB and broke `GET /tenants` serialization.
+
+**Tenant ownership:** every tenant INSERT (both import paths, `create_flat`, `update_flat_details` ADD_TENANT, POST /tenants) must set `manager_id = user["sub"]` (migration 033) — requires the column to exist in the DB before deploying code that sends it, else PGRST204.
 
 ---
 

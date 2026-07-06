@@ -105,7 +105,7 @@ def _flat_attrs_from_row(row: dict) -> dict:
     return payload
 
 
-def _maybe_create_tenant_and_rent(db, row: dict, flat: dict, skipped: list, errors: list, i: int) -> None:
+def _maybe_create_tenant_and_rent(db, row: dict, flat: dict, skipped: list, errors: list, i: int, manager_id: str) -> None:
     """If the row carries tenant_name + tenant_phone, create the tenant, mark the unit
     occupied, and (optionally) add an active rent record. Blank tenant cols => vacant unit."""
     name = row.get("tenant_name", "").strip()
@@ -121,7 +121,7 @@ def _maybe_create_tenant_and_rent(db, row: dict, flat: dict, skipped: list, erro
         return
     flat_uuid = flat["uuid"]
     try:
-        t = db.table("tenants").insert({"name": name, "phone": normalized_phone, "flat_uuid": flat_uuid}).execute()
+        t = db.table("tenants").insert({"name": name, "phone": normalized_phone, "flat_uuid": flat_uuid, "manager_id": manager_id}).execute()
         if not t.data:
             errors.append(f"Row {i}: unit created but tenant could not be added")
             return
@@ -386,7 +386,7 @@ async def import_properties(
                 }
                 created = db.table("flats").insert(flat_payload).execute()
                 created_flats += 1
-                _maybe_create_tenant_and_rent(db, row, created.data[0], skipped, errors, i)
+                _maybe_create_tenant_and_rent(db, row, created.data[0], skipped, errors, i, user["sub"])
                 continue
 
             # ── Building-attached unit: a building needs a parent property
@@ -454,7 +454,7 @@ async def import_properties(
             }
             created = db.table("flats").insert(flat_payload).execute()
             created_flats += 1
-            _maybe_create_tenant_and_rent(db, row, created.data[0], skipped, errors, i)
+            _maybe_create_tenant_and_rent(db, row, created.data[0], skipped, errors, i, user["sub"])
 
         except Exception as exc:
             errors.append(f"Row {i}: {clean_db_error(exc)}")
@@ -555,7 +555,7 @@ async def import_tenants(
             raw_status = row.get("rent_status", "").strip()
             rent_status = raw_status if raw_status in VALID_RENT_STATUSES else None
 
-            tenant_payload: dict = {"name": name, "phone": phone, "flat_uuid": flat_uuid}
+            tenant_payload: dict = {"name": name, "phone": phone, "flat_uuid": flat_uuid, "manager_id": user["sub"]}
             for field in ("email", "lease_start_date", "lease_end_date", "manager_notes"):
                 val = row.get(field, "")
                 if val:
